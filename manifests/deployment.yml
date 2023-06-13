@@ -1,0 +1,23 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: simkube
+  labels:
+    app: simkube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: simkube
+  template:
+    metadata:
+      labels:
+        app: simkube 
+    spec:
+      containers:
+        - name: simkube 
+          image: localhost:5000/simkube:latest
+          command: 
+            - /simkube
+      serviceAccountName: simkube
