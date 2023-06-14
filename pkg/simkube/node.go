@@ -2,7 +2,6 @@ package simkube
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	corev1 "k8s.io/api/core/v1"
@@ -13,13 +12,13 @@ const podNameEnv = "POD_NAME"
 
 func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	var skel corev1.Node
-	nodeBytes, err := ioutil.ReadFile(nodeSkeletonFile)
+	nodeBytes, err := os.ReadFile(nodeSkeletonFile)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not open %s: %w", nodeSkeletonFile, err)
 	}
 
 	if err = yaml.UnmarshalStrict(nodeBytes, &skel); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("could not parse %s: %w", nodeSkeletonFile, err)
 	}
 
 	return &skel, nil

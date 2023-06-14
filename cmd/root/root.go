@@ -17,10 +17,9 @@ const (
 	verbosityFlag    = "verbosity"
 	jsonLogsFlag     = "jsonlogs"
 	nodeSkeletonFlag = "node-skeleton"
-
-	osDefault = "linux"
 )
 
+//nolint:gochecknoglobals
 var logLevels = []log.Level{
 	log.ErrorLevel,
 	log.WarnLevel,

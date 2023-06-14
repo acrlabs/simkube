@@ -1,0 +1,63 @@
+run:
+  timeout: 5m
+
+output:
+  sort-results: true
+
+linters:
+  disable-all: true
+  enable:
+    - bodyclose
+    - containedctx
+    - contextcheck
+    - decorder
+    - durationcheck
+    - errcheck
+    - gci
+    - gochecknoglobals
+    - gochecknoinits
+    - goconst
+    - gocritic
+    - gofmt
+    - goimports
+    - gosec
+    - gosimple
+    - govet
+    - importas
+    - ireturn
+    - ineffassign
+    - lll
+    - nolintlint
+    - staticcheck
+    - unused
+    - usestdlibvars
+    - whitespace
+    - wrapcheck
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  gci:
+    sections:
+      - standard
+      - default
+      - prefix(simkube)
+      - blank
+      - dot
+
+  importas:
+    no-unaliased: true
+    alias:
+      - pkg: k8s.io/api/(\w+)/(v[\w\d]+)
+        alias: $1$2
+      - pkg: k8s.io/apimachinery/pkg/apis/meta/v1
+        alias: metav1
+
+  nolintlint:
+    allow-no-explanation:
+      - lll
+      - gochecknoglobals
+    require-explanation: true
+    require-specific: true

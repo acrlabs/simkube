@@ -38,6 +38,9 @@ func Run(nodeSkeletonFile string) {
 		n,
 		client.CoreV1().Nodes(),
 	)
+	if err != nil {
+		logger.WithError(err).Fatal("could not start node controller")
+	}
 
 	ctx := context.Background()
 	if err := nodeRunner.Run(ctx); err != nil {

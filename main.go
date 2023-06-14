@@ -1,7 +1,13 @@
 package main
 
-import "simkube/cmd/root"
+import (
+	"os"
+
+	"simkube/cmd/root"
+)
 
 func main() {
-	root.Cmd().Execute()
+	if err := root.Cmd().Execute(); err != nil {
+		os.Exit(1)
+	}
 }
