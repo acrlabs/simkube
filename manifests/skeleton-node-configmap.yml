@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: skeleton-node
+data:
+  node.yml: |
+    apiVersion: v1
+    kind: Node
+    status:
+      allocatable:
+        cpu: "1"
+        memory: "1Gi"
+      capacity:
+        cpu: "1"
+        memory: "1Gi"
+      nodeInfo:
+        architecture: amd64
+        kubeletVersion: v1.27.1
+        operatingSystem: linux

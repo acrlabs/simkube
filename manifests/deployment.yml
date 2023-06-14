@@ -20,4 +20,22 @@ spec:
           image: localhost:5000/simkube:latest
           command: 
             - /simkube
+          args:
+            - --node-skeleton
+            - /config/node.yml
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          volumeMounts:
+            - name: skeleton-node
+              mountPath: /config
       serviceAccountName: simkube
+      volumes:
+        - name: skeleton-node
+          configMap: 
+            name: skeleton-node
+            items: 
+              - key: node.yml
+                path: node.yml

@@ -5,20 +5,23 @@ import (
 
 	log "github.com/sirupsen/logrus"
 	"github.com/virtual-kubelet/virtual-kubelet/node"
-	corev1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
 
 type SimkubeProvider struct{}
 
-func Run() {
+func Run(nodeSkeletonFile string) {
 	logger := log.WithFields(log.Fields{
 		"provider": "simkube",
 		"nodeName": "foo", // TODO
 	})
 	logger.Info("Initializing simkube")
+
+	n, err := makeNode(nodeSkeletonFile)
+	if err != nil {
+		logger.WithError(err).Fatal("could not create node object")
+	}
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
@@ -32,11 +35,7 @@ func Run() {
 
 	nodeRunner, err := node.NewNodeController(
 		node.NaiveNodeProvider{},
-		&corev1.Node{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "vk-node-1",
-			},
-		},
+		n,
 		client.CoreV1().Nodes(),
 	)
 
