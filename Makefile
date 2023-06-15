@@ -3,13 +3,16 @@ DOCKER_REGISTRY=localhost:5000
 
 MANIFESTS:=$(wildcard manifests/*.yml)
 
-.PHONY: build test image deploy run
+.PHONY: build lint test image deploy run
 
 build:
 	CGO_ENABLED=0 go build -trimpath -o output/${PROJECT} main.go
 
-test:
-	go test
+lint:
+	golangci-lint run
+
+test: lint
+	go test ./...
 
 image:
 	docker build output -f images/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT}:latest

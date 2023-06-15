@@ -1,13 +1,18 @@
 package simkube
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/samber/lo"
+	"github.com/virtual-kubelet/virtual-kubelet/node"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
+
+	"simkube/pkg/util"
 )
 
 const (
@@ -31,9 +36,72 @@ const (
 	defaultTopologyRegion = "us-east-1"
 	defaultTopologyZone   = "us-east-1a"
 	defaultKubeVersion    = "v1.27.1"
-
-	podNameEnv = "POD_NAME"
 )
+
+type NodeLifecycleManagerI interface {
+	CreateNodeObject(string) (*corev1.Node, error)
+	RunNode(context.Context, *corev1.Node) error
+	DeleteNode(context.CancelFunc) error
+}
+
+type NodeLifecycleManager struct {
+	nodeName  string
+	k8sClient kubernetes.Interface
+}
+
+func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*corev1.Node, error) {
+	logger := util.GetLogger(self.nodeName)
+
+	node, err := parseSkeletonNode(nodeSkeletonFile)
+	if err != nil {
+		return nil, err
+	}
+
+	node.ObjectMeta.Name = self.nodeName
+	setNodeConditions(node)
+	applyStandardNodeLabels(node)
+
+	if kubeVersion, err := getKubeVersion(self.k8sClient); err != nil {
+		logger.WithError(err).Warn("could not determine Kubernetes version, using default")
+		node.Status.NodeInfo.KubeletVersion = defaultKubeVersion
+	} else {
+		node.Status.NodeInfo.KubeletVersion = kubeVersion
+	}
+
+	return node, nil
+}
+
+func (self *NodeLifecycleManager) RunNode(ctx context.Context, n *corev1.Node) error {
+	leaseClient := self.k8sClient.CoordinationV1().Leases(corev1.NamespaceNodeLease)
+	nodeCtrl, err := node.NewNodeController(
+		node.NaiveNodeProvider{},
+		n,
+		self.k8sClient.CoreV1().Nodes(),
+		node.WithNodeEnableLeaseV1(leaseClient, 0),
+	)
+	if err != nil {
+		return fmt.Errorf("could not create node controller: %w", err)
+	}
+
+	if err := nodeCtrl.Run(ctx); err != nil {
+		return fmt.Errorf("could not run node controller: %w", err)
+	}
+
+	return nil
+}
+
+func (self *NodeLifecycleManager) DeleteNode(stop context.CancelFunc) error {
+	stop()
+	if err := self.k8sClient.CoreV1().Nodes().Delete(
+		context.Background(),
+		self.nodeName,
+		metav1.DeleteOptions{},
+	); err != nil {
+		return fmt.Errorf("delete node failed: %w", err)
+	}
+
+	return nil
+}
 
 func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	var skel corev1.Node
@@ -49,7 +117,7 @@ func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	return &skel, nil
 }
 
-func applyStandardNodeLabelsAnnotations(node *corev1.Node) {
+func applyStandardNodeLabels(node *corev1.Node) {
 	defaultLabels := map[string]string{
 		nodeTypeLabel:           nodeType,
 		kubernetesArchLabel:     defaultArch,
@@ -105,26 +173,11 @@ func setNodeConditions(node *corev1.Node) {
 	}
 }
 
-func makeNode(nodeSkeletonFile, kubeVersion string) (*corev1.Node, error) {
-	node, err := parseSkeletonNode(nodeSkeletonFile)
+func getKubeVersion(k8sClient kubernetes.Interface) (string, error) {
+	kubeServerInfo, err := k8sClient.Discovery().ServerVersion()
 	if err != nil {
-		return nil, err
-	}
-
-	nodeName := os.Getenv(podNameEnv)
-	if nodeName == "" {
-		return nil, fmt.Errorf("could not determine pod name")
-	}
-
-	node.ObjectMeta.Name = nodeName
-	setNodeConditions(node)
-	applyStandardNodeLabelsAnnotations(node)
-
-	if kubeVersion == "" {
-		node.Status.NodeInfo.KubeletVersion = defaultKubeVersion
+		return "", fmt.Errorf("failed getting version: %w", err)
 	} else {
-		node.Status.NodeInfo.KubeletVersion = kubeVersion
+		return kubeServerInfo.String(), nil
 	}
-
-	return node, nil
 }

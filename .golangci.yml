@@ -61,3 +61,16 @@ linters-settings:
       - gochecknoglobals
     require-explanation: true
     require-specific: true
+
+  wrapcheck:
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+      - errors.Join(
+      - .Wrap(
+      - .Wrapf(
+      - .WithMessage(
+      - .WithMessagef(
+      - .WithStack(
+      - mock.Arguments).Error
