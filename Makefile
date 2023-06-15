@@ -14,6 +14,9 @@ lint:
 test: lint
 	go test ./...
 
+cover:
+	go-carpet | less -R
+
 image:
 	docker build output -f images/Dockerfile -t ${DOCKER_REGISTRY}/${PROJECT}:latest
 	docker push ${DOCKER_REGISTRY}/${PROJECT}:latest
