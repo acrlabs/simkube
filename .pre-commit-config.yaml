@@ -1,4 +1,10 @@
 repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: trailing-whitespace
   - repo: https://github.com/golangci/golangci-lint
     rev: v1.53.3
     hooks:
@@ -8,4 +14,4 @@ repos:
     hooks:
       - id: go-carpet
         args:
-          - "-mincov=5"
+          - "-mincov=20"

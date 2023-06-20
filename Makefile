@@ -11,7 +11,7 @@ build:
 lint:
 	golangci-lint run
 
-test: lint
+test:
 	go test ./...
 
 cover:
@@ -22,7 +22,7 @@ image:
 	docker push ${DOCKER_REGISTRY}/${PROJECT}:latest
 
 .applied: ${MANIFESTS}
-	@echo $? | xargs -d' ' -L1 kubectl apply -f 
+	@echo $? | xargs -d' ' -L1 kubectl apply -f
 	@touch $@
 
 run: .applied

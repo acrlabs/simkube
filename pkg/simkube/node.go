@@ -6,13 +6,13 @@ import (
 	"os"
 
 	"github.com/samber/lo"
+	log "github.com/sirupsen/logrus"
 	"github.com/virtual-kubelet/virtual-kubelet/node"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
-
-	"simkube/pkg/util"
 )
 
 const (
@@ -40,18 +40,17 @@ const (
 
 type NodeLifecycleManagerI interface {
 	CreateNodeObject(string) (*corev1.Node, error)
-	RunNode(context.Context, *corev1.Node) error
+	Run(context.Context, context.CancelCauseFunc, *corev1.Node)
 	DeleteNode(context.CancelFunc) error
 }
 
 type NodeLifecycleManager struct {
 	nodeName  string
 	k8sClient kubernetes.Interface
+	logger    *log.Entry
 }
 
 func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*corev1.Node, error) {
-	logger := util.GetLogger(self.nodeName)
-
 	node, err := parseSkeletonNode(nodeSkeletonFile)
 	if err != nil {
 		return nil, err
@@ -60,9 +59,10 @@ func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*co
 	node.ObjectMeta.Name = self.nodeName
 	setNodeConditions(node)
 	applyStandardNodeLabels(node)
+	computePodResources(node)
 
 	if kubeVersion, err := getKubeVersion(self.k8sClient); err != nil {
-		logger.WithError(err).Warn("could not determine Kubernetes version, using default")
+		self.logger.WithError(err).Warn("could not determine Kubernetes version, using default")
 		node.Status.NodeInfo.KubeletVersion = defaultKubeVersion
 	} else {
 		node.Status.NodeInfo.KubeletVersion = kubeVersion
@@ -71,7 +71,9 @@ func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*co
 	return node, nil
 }
 
-func (self *NodeLifecycleManager) RunNode(ctx context.Context, n *corev1.Node) error {
+func (self *NodeLifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc, n *corev1.Node) {
+	self.logger.Info("Starting node manager...")
+
 	leaseClient := self.k8sClient.CoordinationV1().Leases(corev1.NamespaceNodeLease)
 	nodeCtrl, err := node.NewNodeController(
 		node.NaiveNodeProvider{},
@@ -80,14 +82,16 @@ func (self *NodeLifecycleManager) RunNode(ctx context.Context, n *corev1.Node) e
 		node.WithNodeEnableLeaseV1(leaseClient, 0),
 	)
 	if err != nil {
-		return fmt.Errorf("could not create node controller: %w", err)
+		cancel(fmt.Errorf("could not create node controller: %w", err))
+		return
 	}
 
-	if err := nodeCtrl.Run(ctx); err != nil {
-		return fmt.Errorf("could not run node controller: %w", err)
-	}
-
-	return nil
+	go func() {
+		if err := nodeCtrl.Run(ctx); err != nil {
+			cancel(fmt.Errorf("could not run node controller: %w", err))
+		}
+	}()
+	self.logger.Info("Node manager running!")
 }
 
 func (self *NodeLifecycleManager) DeleteNode(stop context.CancelFunc) error {
@@ -129,10 +133,6 @@ func applyStandardNodeLabels(node *corev1.Node) {
 		nodeRoleAgentLabel:      "",
 		nodeRoleVirtualLabel:    "",
 	}
-	if node.ObjectMeta.Labels == nil {
-		node.ObjectMeta.Labels = make(map[string]string)
-	}
-
 	node.ObjectMeta.Labels = lo.Assign(defaultLabels, node.ObjectMeta.Labels)
 }
 
@@ -171,6 +171,18 @@ func setNodeConditions(node *corev1.Node) {
 			Message:            "kubelet has no disk pressure",
 		},
 	}
+}
+
+func computePodResources(node *corev1.Node) {
+	defaultCapacity := map[corev1.ResourceName]resource.Quantity{
+		corev1.ResourceCPU:              resource.MustParse("1"),
+		corev1.ResourceMemory:           resource.MustParse("1Gi"),
+		corev1.ResourceEphemeralStorage: resource.MustParse("1024Gi"),
+		corev1.ResourcePods:             resource.MustParse("110"),
+	}
+
+	node.Status.Capacity = lo.Assign(defaultCapacity, node.Status.Capacity)
+	node.Status.Allocatable = lo.Assign(node.Status.Capacity, node.Status.Allocatable)
 }
 
 func getKubeVersion(k8sClient kubernetes.Interface) (string, error) {

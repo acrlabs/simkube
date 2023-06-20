@@ -45,5 +45,11 @@ func start(cmd *cobra.Command, _ []string) {
 	}
 
 	util.SetupLogging(level, jsonLogs)
-	simkube.Run(nodeSkeletonFile)
+
+	runner, err := simkube.NewRunner()
+	if err != nil {
+		panic(err)
+	}
+
+	runner.Run(nodeSkeletonFile)
 }

@@ -13,12 +13,12 @@ spec:
   template:
     metadata:
       labels:
-        app: simkube 
+        app: simkube
     spec:
       containers:
-        - name: simkube 
+        - name: simkube
           image: localhost:5000/simkube:latest
-          command: 
+          command:
             - /simkube
           args:
             - --node-skeleton
@@ -31,11 +31,16 @@ spec:
           volumeMounts:
             - name: skeleton-node
               mountPath: /config
+          securityContext:
+            capabilities:
+              add: ["SYS_PTRACE"]
+      nodeSelector:
+        type: kind-worker
       serviceAccountName: simkube
       volumes:
         - name: skeleton-node
-          configMap: 
+          configMap:
             name: skeleton-node
-            items: 
+            items:
               - key: node.yml
                 path: node.yml
