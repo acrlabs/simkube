@@ -10,6 +10,7 @@ import (
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/client-go/kubernetes/fake"
 )
 
 type mockNodeLifecycleManager struct {
@@ -22,11 +23,9 @@ func (self *mockNodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) 
 	return retvals.Get(0).(*corev1.Node), retvals.Error(1)
 }
 
-func (self *mockNodeLifecycleManager) RunNode(ctx context.Context, n *corev1.Node) error {
-	retvals := self.Called(ctx, n)
+func (self *mockNodeLifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc, n *corev1.Node) {
+	self.Called(ctx, cancel, n)
 	self.wg.Done()
-	<-ctx.Done()
-	return retvals.Error(0)
 }
 
 func (self *mockNodeLifecycleManager) DeleteNode(stop context.CancelFunc) error {
@@ -34,26 +33,40 @@ func (self *mockNodeLifecycleManager) DeleteNode(stop context.CancelFunc) error 
 	return retvals.Error(0)
 }
 
+type mockPodLifecycleManager struct {
+	mock.Mock
+}
+
+func (self *mockPodLifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc) {
+	self.Called(ctx, cancel)
+}
+
 func TestRunInternalCleanShutdown(t *testing.T) {
 	// Ensure that the main goroutine waits for the node to get cleaned up on SIGTERM
 	skelFile := "skel.yml"
 	n := &corev1.Node{}
-	logger, _ := test.NewNullLogger()
 	testWg := sync.WaitGroup{}
 	testWg.Add(1)
 
 	nlm := &mockNodeLifecycleManager{}
 	nlm.On("CreateNodeObject", skelFile).Once().Return(n, nil)
-	nlm.On("RunNode", mock.Anything, n).Once().Return(nil)
+	nlm.On("Run", mock.Anything, mock.Anything, n).Once().Return(nil)
 	nlm.On("DeleteNode", mock.Anything).Once().Return(nil)
 	nlm.wg.Add(1)
 
+	plm := &mockPodLifecycleManager{}
+	plm.On("Run", mock.Anything, mock.Anything).Once().Return(nil)
+
+	l, _ := test.NewNullLogger()
+	logger := l.WithFields(log.Fields{"test": "true"})
+	runner := &Runner{"test-node", fake.NewSimpleClientset(), nlm, plm, logger}
+
 	go func() {
-		runInternal("skel.yml", nlm, logger.WithFields(log.Fields{"provider": "test"}))
+		runner.Run("skel.yml")
 		testWg.Done()
 	}()
 
-	// We wait for the RunNode goroutine to start before issuing the SIGTERM
+	// We wait for the Run goroutine to start before issuing the SIGTERM
 	nlm.wg.Wait()
 	if err := syscall.Kill(syscall.Getpid(), syscall.SIGTERM); err != nil {
 		panic(err)

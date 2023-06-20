@@ -15,11 +15,16 @@ var logLevels = []log.Level{
 	log.InfoLevel,
 }
 
-func GetLogger(nodeName string) *log.Entry {
-	return log.WithFields(log.Fields{
+func GetLogger(nodeName string, extraFields ...string) *log.Entry {
+	fields := log.Fields{
 		"provider": "simkube",
 		"nodeName": nodeName,
-	})
+	}
+
+	for i := 0; i < len(extraFields); i += 2 {
+		fields[extraFields[i]] = extraFields[i+1]
+	}
+	return log.WithFields(fields)
 }
 
 func SetupLogging(level int, jsonLogs bool) {

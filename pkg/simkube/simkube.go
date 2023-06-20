@@ -2,11 +2,15 @@ package simkube
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	log "github.com/sirupsen/logrus"
+	vklog "github.com/virtual-kubelet/virtual-kubelet/log"
+	vklogrus "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
@@ -15,52 +19,64 @@ import (
 
 const podNameEnv = "POD_NAME"
 
-func Run(nodeSkeletonFile string) {
+type Runner struct {
+	nodeName  string
+	k8sClient kubernetes.Interface
+	nlm       NodeLifecycleManagerI
+	plm       PodLifecycleManagerI
+	logger    *log.Entry
+}
+
+func NewRunner() (*Runner, error) {
 	nodeName := os.Getenv(podNameEnv)
 	if nodeName == "" {
-		log.Fatal("could not determine pod name")
+		return nil, errors.New("could not determine pod name")
 	}
-
-	logger := util.GetLogger(nodeName)
-	logger.Info("Initializing simkube")
 
 	config, err := rest.InClusterConfig()
 	if err != nil {
-		logger.WithError(err).Fatal("could not get client config")
+		return nil, fmt.Errorf("could not get client config: %w", err)
 	}
 
 	k8sClient, err := kubernetes.NewForConfig(config)
 	if err != nil {
-		logger.WithError(err).Fatal("could not initialize Kubernetes client")
+		return nil, fmt.Errorf("could not initialize Kubernetes client: %w", err)
 	}
 
-	nlm := &NodeLifecycleManager{
-		nodeName:  nodeName,
-		k8sClient: k8sClient,
-	}
+	logger := util.GetLogger(nodeName)
+	nlm := &NodeLifecycleManager{nodeName, k8sClient, logger}
+	plm := NewPodLifecycleManager(nodeName, k8sClient)
 
-	runInternal(nodeSkeletonFile, nlm, logger)
+	return &Runner{nodeName, k8sClient, nlm, plm, logger}, nil
 }
 
-func runInternal(nodeSkeletonFile string, nlm NodeLifecycleManagerI, logger *log.Entry) {
-	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM)
+func (self *Runner) Run(nodeSkeletonFile string) {
+	self.logger.Info("Initializing simkube controllers...")
+
+	ctx := vklog.WithLogger(context.Background(), vklogrus.FromLogrus(self.logger))
+	ctx, stop := signal.NotifyContext(ctx, syscall.SIGTERM)
+	ctx, cancel := context.WithCancelCause(ctx)
 	defer func() {
-		logger.Info("shutting down")
-		if err := nlm.DeleteNode(stop); err != nil {
-			logger.WithError(err).Fatal("could not delete node")
+		// If the context was canceled by k8s, the cause is just "context.Canceled",
+		// so don't report an error in this case
+		if ctx.Err() == context.Canceled && context.Cause(ctx) != context.Canceled {
+			self.logger.WithError(context.Cause(ctx)).Error("shutting down")
+		} else {
+			self.logger.Info("shutting down")
+		}
+		if err := self.nlm.DeleteNode(stop); err != nil {
+			self.logger.WithError(err).Error("could not delete node")
 		}
 	}()
 
-	n, err := nlm.CreateNodeObject(nodeSkeletonFile)
+	n, err := self.nlm.CreateNodeObject(nodeSkeletonFile)
 	if err != nil {
-		logger.WithError(err).Fatal("could not create node object")
+		self.logger.WithError(err).Error("could not create node object")
+		return
 	}
 
-	go func() {
-		if err = nlm.RunNode(ctx, n); err != nil {
-			logger.WithError(err).Fatal("could not run node")
-		}
-	}()
+	self.plm.Run(ctx, cancel)
+	self.nlm.Run(ctx, cancel, n)
 
 	<-ctx.Done()
 }
