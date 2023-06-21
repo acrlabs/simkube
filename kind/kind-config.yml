@@ -8,6 +8,13 @@ nodes:
   - role: control-plane
     labels:
       type: kind-control-plane
+    kubeadmConfigPatches:
+      - |
+        kind: InitConfiguration
+        nodeRegistration:
+          kubeletExtraArgs:
+            authentication-token-webhook: "true"
+            authorization-mode: Webhook
   - role: worker
     labels:
       type: kind-worker
