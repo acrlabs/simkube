@@ -37,7 +37,7 @@ type PodLifecycleManager struct {
 }
 
 func NewPodLifecycleManager(nodeName string, k8sClient kubernetes.Interface) *PodLifecycleManager {
-	podHandler := &podLifecycleHandler{}
+	podHandler := newPodHandler(nodeName)
 	return &PodLifecycleManager{
 		nodeName:   nodeName,
 		k8sClient:  k8sClient,
