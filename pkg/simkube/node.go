@@ -29,6 +29,9 @@ const (
 	nodeRoleAgentLabel   = "node-role.kubernetes.io/agent"
 	nodeRoleVirtualLabel = "node-role.kubernetes.io/virtual"
 
+	virtualNodeTaintKey   = "simkube.io/virtual-node"
+	virtualNodeTaintValue = "true"
+
 	nodeType              = "virtual"
 	defaultArch           = "amd64"
 	defaultOS             = "linux"
@@ -58,7 +61,7 @@ func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*co
 
 	node.ObjectMeta.Name = self.nodeName
 	setNodeConditions(node)
-	applyStandardNodeLabels(node)
+	applyStandardNodeLabelsAndTaints(node)
 	computePodResources(node)
 
 	if kubeVersion, err := getKubeVersion(self.k8sClient); err != nil {
@@ -121,7 +124,7 @@ func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	return &skel, nil
 }
 
-func applyStandardNodeLabels(node *corev1.Node) {
+func applyStandardNodeLabelsAndTaints(node *corev1.Node) {
 	defaultLabels := map[string]string{
 		nodeTypeLabel:           nodeType,
 		kubernetesArchLabel:     defaultArch,
@@ -134,6 +137,19 @@ func applyStandardNodeLabels(node *corev1.Node) {
 		nodeRoleVirtualLabel:    "",
 	}
 	node.ObjectMeta.Labels = lo.Assign(defaultLabels, node.ObjectMeta.Labels)
+
+	defaultTaints := []corev1.Taint{
+		{
+			Key:    virtualNodeTaintKey,
+			Value:  virtualNodeTaintValue,
+			Effect: corev1.TaintEffectNoExecute,
+		},
+	}
+	if node.Spec.Taints != nil {
+		node.Spec.Taints = append(node.Spec.Taints, defaultTaints...)
+	} else {
+		node.Spec.Taints = defaultTaints
+	}
 }
 
 func setNodeConditions(node *corev1.Node) {

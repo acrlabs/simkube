@@ -1,0 +1,10 @@
+spec:
+  template:
+    spec:
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          effect: NoSchedule
+        - key: node.kubernetes.io/not-ready
+          effect: NoExecute

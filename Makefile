@@ -3,6 +3,7 @@ DOCKER_REGISTRY=localhost:5000
 KIND_CLUSTER_NAME=test
 
 MANIFESTS:=$(wildcard manifests/*.yml)
+KIND_CONFIGS:=$(wildcard kind/*.yml)
 
 .PHONY: build lint test cover image run clean kind
 
@@ -36,16 +37,18 @@ clean:
 	@echo $? | xargs -d' ' -L1 kubectl apply -f
 	@touch $@
 
-.applied-kind: kind/kind-config.yml kind/local-registry-hosting.yml kind/certs.sh
+.applied-kind: kind/certs.sh ${KIND_CONFIGS}
 	kind delete cluster --name ${KIND_CLUSTER_NAME}
 	kind create cluster --name ${KIND_CLUSTER_NAME} --config=kind/kind-config.yml
 	kind/certs.sh
 	kubectl apply -f kind/local-registry-hosting.yml
+	kubectl patch -n kube-system ds kindnet --patch-file kind/kindnet-patch.yml
 	touch $@
 
-.applied-prometheus: kind/kube-prometheus/simkube.jsonnet
+.applied-prometheus: kind/kube-prometheus/simkube.jsonnet kind/kube-prometheus/node-exporter-patch.yml
 	cd kind/kube-prometheus && ./build.sh simkube.jsonnet
 	kubectl apply --server-side -f kind/kube-prometheus/manifests/setup
 	kubectl wait --for condition=Established --all CustomResourceDefinition --namespace=monitoring
 	kubectl apply -f kind/kube-prometheus/manifests
+	kubectl patch -n monitoring ds node-exporter --patch-file kind/kube-prometheus/node-exporter-patch.yml
 	touch $@
