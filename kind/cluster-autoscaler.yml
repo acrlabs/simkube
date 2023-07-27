@@ -1,0 +1,73 @@
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  namespace: kube-system
+  name: cluster-autoscaler
+---
+apiVersion: "rbac.authorization.k8s.io/v1"
+kind: ClusterRoleBinding
+metadata:
+  name: cluster-autoscaler
+subjects:
+- kind: ServiceAccount
+  name: cluster-autoscaler
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cluster-autoscaler-config
+  namespace: kube-system
+data:
+  cluster-autoscaler-config.yml: |
+    address: foo
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cluster-autoscaler
+  namespace: kube-system
+  labels:
+    app: cluster-autoscaler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cluster-autoscaler
+  template:
+    metadata:
+      labels:
+        app: cluster-autoscaler
+    spec:
+      containers:
+        - name: cluster-autoscaler
+          image: bitnami/cluster-autoscaler:1.27.2
+          command:
+            - /opt/bitnami/cluster-autoscaler/cluster-autoscaler
+          args:
+            - --cloud-provider=externalgrpc
+            - --cloud-config=/config/cluster-autoscaler-config.yml
+          volumeMounts:
+            - name: cluster-autoscaler-config
+              mountPath: /config
+          securityContext:
+            capabilities:
+              add: ["SYS_PTRACE"]
+      nodeSelector:
+        type: kind-control-plane
+      serviceAccountName: cluster-autoscaler
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+      volumes:
+        - name: cluster-autoscaler-config
+          configMap:
+            name: cluster-autoscaler-config
+            items:
+              - key: cluster-autoscaler-config.yml
+                path: cluster-autoscaler-config.yml

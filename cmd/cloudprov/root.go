@@ -1,30 +1,30 @@
-package root
+package main
 
 import (
+	"os"
+
 	"github.com/spf13/cobra"
 
-	"simkube/pkg/simkube"
+	"simkube/pkg/cloudprov"
 	"simkube/pkg/util"
 )
 
 const (
-	progname = "simkube"
+	progname = "sk-cloudprov"
 
-	verbosityFlag    = "verbosity"
-	jsonLogsFlag     = "jsonlogs"
-	nodeSkeletonFlag = "node-skeleton"
+	verbosityFlag = "verbosity"
+	jsonLogsFlag  = "jsonlogs"
 )
 
-func Cmd() *cobra.Command {
+func rootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   progname,
-		Short: "Run a simulated Kubernetes node",
+		Short: "gRPC cloud provider for simkube",
 		Run:   start,
 	}
 
 	root.PersistentFlags().IntP(verbosityFlag, "v", 2, "log level output (higher is more verbose")
 	root.PersistentFlags().Bool(jsonLogsFlag, false, "structured JSON logging output")
-	root.PersistentFlags().StringP(nodeSkeletonFlag, "n", "node.yml", "location of config file")
 	return root
 }
 
@@ -39,17 +39,12 @@ func start(cmd *cobra.Command, _ []string) {
 		panic(err)
 	}
 
-	nodeSkeletonFile, err := cmd.PersistentFlags().GetString(nodeSkeletonFlag)
-	if err != nil {
-		panic(err)
-	}
-
 	util.SetupLogging(level, jsonLogs)
+	cloudprov.Run()
+}
 
-	runner, err := simkube.NewRunner()
-	if err != nil {
-		panic(err)
+func main() {
+	if err := rootCmd().Execute(); err != nil {
+		os.Exit(1)
 	}
-
-	runner.Run(nodeSkeletonFile)
 }

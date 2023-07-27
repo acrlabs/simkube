@@ -12,7 +12,6 @@ import (
 	vklog "github.com/virtual-kubelet/virtual-kubelet/log"
 	vklogrus "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 
 	"simkube/pkg/util"
 )
@@ -33,12 +32,7 @@ func NewRunner() (*Runner, error) {
 		return nil, errors.New("could not determine pod name")
 	}
 
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, fmt.Errorf("could not get client config: %w", err)
-	}
-
-	k8sClient, err := kubernetes.NewForConfig(config)
+	k8sClient, err := util.NewKubernetesClient()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize Kubernetes client: %w", err)
 	}
