@@ -75,6 +75,7 @@ func (self *podLifecycleHandler) GetPod(ctx context.Context, namespace, name str
 	logger.Info("Getting pod")
 
 	if pod, ok := self.pods[podName]; !ok {
+		//nolint:wrapcheck // this is my error, doesn't need to be wrapped
 		return nil, ErrorPodNotFound
 	} else {
 		return pod.DeepCopy(), nil
@@ -87,6 +88,7 @@ func (self *podLifecycleHandler) GetPodStatus(ctx context.Context, namespace, na
 	logger.Infof("Getting pod status")
 
 	if pod, ok := self.pods[podName]; !ok {
+		//nolint:wrapcheck // this is my error, doesn't need to be wrapped
 		return nil, ErrorPodNotFound
 	} else {
 		return pod.Status.DeepCopy(), nil

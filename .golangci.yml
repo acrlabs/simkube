@@ -47,6 +47,10 @@ linters-settings:
       - blank
       - dot
 
+  gocritic:
+    disabled-checks:
+      - appendAssign
+
   importas:
     no-unaliased: true
     alias:

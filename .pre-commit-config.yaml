@@ -10,7 +10,7 @@ repos:
     hooks:
       - id: golangci-lint
   - repo: https://github.com/drmorr0/go-carpet
-    rev: 641fb88
+    rev: 8857cfe
     hooks:
       - id: go-carpet
         args:
