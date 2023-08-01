@@ -13,6 +13,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
+
+	"simkube/pkg/util"
 )
 
 const (
@@ -28,6 +30,9 @@ const (
 
 	nodeRoleAgentLabel   = "node-role.kubernetes.io/agent"
 	nodeRoleVirtualLabel = "node-role.kubernetes.io/virtual"
+
+	nodeGroupEnvKey = "POD_OWNER"
+	namespaceEnvKey = "POD_NAMESPACE"
 
 	virtualNodeTaintKey   = "simkube.io/virtual-node"
 	virtualNodeTaintValue = "true"
@@ -124,34 +129,6 @@ func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	return &skel, nil
 }
 
-func applyStandardNodeLabelsAndTaints(node *corev1.Node) {
-	defaultLabels := map[string]string{
-		nodeTypeLabel:           nodeType,
-		kubernetesArchLabel:     defaultArch,
-		kubernetesOSLabel:       defaultOS,
-		kubernetesHostnameLabel: node.ObjectMeta.Name,
-		nodeInstanceTypeLabel:   defaultInstanceType,
-		topologyRegionLabel:     defaultTopologyRegion,
-		topologyZoneLabel:       defaultTopologyZone,
-		nodeRoleAgentLabel:      "",
-		nodeRoleVirtualLabel:    "",
-	}
-	node.ObjectMeta.Labels = lo.Assign(defaultLabels, node.ObjectMeta.Labels)
-
-	defaultTaints := []corev1.Taint{
-		{
-			Key:    virtualNodeTaintKey,
-			Value:  virtualNodeTaintValue,
-			Effect: corev1.TaintEffectNoExecute,
-		},
-	}
-	if node.Spec.Taints != nil {
-		node.Spec.Taints = append(node.Spec.Taints, defaultTaints...)
-	} else {
-		node.Spec.Taints = defaultTaints
-	}
-}
-
 func setNodeConditions(node *corev1.Node) {
 	node.Status.Conditions = []corev1.NodeCondition{
 		{
@@ -186,6 +163,36 @@ func setNodeConditions(node *corev1.Node) {
 			Reason:             "KubeletHasNoDiskPressure",
 			Message:            "kubelet has no disk pressure",
 		},
+	}
+}
+
+func applyStandardNodeLabelsAndTaints(node *corev1.Node) {
+	defaultLabels := map[string]string{
+		nodeTypeLabel:                nodeType,
+		kubernetesArchLabel:          defaultArch,
+		kubernetesOSLabel:            defaultOS,
+		kubernetesHostnameLabel:      node.ObjectMeta.Name,
+		nodeInstanceTypeLabel:        defaultInstanceType,
+		topologyRegionLabel:          defaultTopologyRegion,
+		topologyZoneLabel:            defaultTopologyZone,
+		nodeRoleAgentLabel:           "",
+		nodeRoleVirtualLabel:         "",
+		util.NodeGroupNamespaceLabel: os.Getenv(namespaceEnvKey),
+		util.NodeGroupNameLabel:      os.Getenv(nodeGroupEnvKey),
+	}
+	node.ObjectMeta.Labels = lo.Assign(defaultLabels, node.ObjectMeta.Labels)
+
+	defaultTaints := []corev1.Taint{
+		{
+			Key:    virtualNodeTaintKey,
+			Value:  virtualNodeTaintValue,
+			Effect: corev1.TaintEffectNoExecute,
+		},
+	}
+	if node.Spec.Taints != nil {
+		node.Spec.Taints = append(node.Spec.Taints, defaultTaints...)
+	} else {
+		node.Spec.Taints = defaultTaints
 	}
 }
 

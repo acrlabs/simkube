@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "manifests"
+version = "0.1.0"
+description = ""
+authors = ["David Morrison <drmorr@appliedcomputing.io>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+cdk8s = "^2.24.0"
+fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.2.0" }
+
+[tool.poetry.group.dev.dependencies]
+mypy = "^1.4.1"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

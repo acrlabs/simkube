@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sk-cloudprov-service-account-c85b55a2
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sk-cloudprov-cluster-role-binding-c849ba31
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: sk-cloudprov-service-account-c85b55a2
+    namespace: default
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: sk-cloudprov-service-c811acb1
+  namespace: default
+spec:
+  ports:
+    - port: 8086
+      targetPort: 8086
+  selector:
+    app: sk-cloudprov
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sk-cloudprov-deployment-c8ed1adb
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sk-cloudprov
+  template:
+    metadata:
+      labels:
+        app: sk-cloudprov
+      namespace: default
+    spec:
+      containers:
+        - command:
+            - /sk-cloudprov
+          env:
+            - name: POD_OWNER
+              value: sk-cloudprov-deployment-c8ed1adb
+          image: localhost:5000/sk-cloudprov:latest
+          name: sk-cloudprov
+          ports:
+            - containerPort: 8086
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+      nodeSelector:
+        type: kind-worker
+      serviceAccountName: sk-cloudprov-service-account-c85b55a2

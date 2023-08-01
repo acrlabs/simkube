@@ -1,4 +1,4 @@
-PROJECTS=simkube cloudprov
+PROJECTS=simkube sk-cloudprov
 IMAGE_TARGETS=$(addprefix images/Dockerfile.,$(PROJECTS))
 PROJECT_RUNNERS=$(addprefix run-,$(PROJECTS))
 DOCKER_REGISTRY=localhost:5000
