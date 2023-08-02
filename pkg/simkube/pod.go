@@ -28,25 +28,41 @@ func (self *podLifecycleHandler) CreatePod(ctx context.Context, pod *corev1.Pod)
 
 	pod.Status.Phase = corev1.PodRunning
 
-	runningState := corev1.ContainerState{
-		Running: &corev1.ContainerStateRunning{StartedAt: metav1.Now()},
-	}
 	for _, c := range pod.Spec.InitContainers {
 		cStatus := corev1.ContainerStatus{
-			Name:  c.Name,
-			State: runningState,
+			Name: c.Name,
+			State: corev1.ContainerState{
+				Terminated: &corev1.ContainerStateTerminated{FinishedAt: metav1.Now()},
+			},
 			Ready: true,
 		}
 		pod.Status.InitContainerStatuses = append(pod.Status.InitContainerStatuses, cStatus)
 	}
 	for _, c := range pod.Spec.Containers {
 		cStatus := corev1.ContainerStatus{
-			Name:  c.Name,
-			State: runningState,
+			Name: c.Name,
+			State: corev1.ContainerState{
+				Running: &corev1.ContainerStateRunning{StartedAt: metav1.Now()},
+			},
 			Ready: true,
 		}
 		pod.Status.ContainerStatuses = append(pod.Status.InitContainerStatuses, cStatus)
 	}
+
+	pod.Status.Conditions = append(pod.Status.Conditions, []corev1.PodCondition{
+		{
+			Type:   corev1.PodInitialized,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   corev1.ContainersReady,
+			Status: corev1.ConditionTrue,
+		},
+		{
+			Type:   corev1.PodReady,
+			Status: corev1.ConditionTrue,
+		},
+	}...)
 
 	self.pods[podName] = pod
 	return nil
