@@ -3,12 +3,12 @@ package simkube
 import (
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/assert"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
+
+	testutil "simkube/test/util"
 )
 
 const (
@@ -30,9 +30,7 @@ var (
 )
 
 func TestCreateNodeObject(t *testing.T) {
-	l, _ := test.NewNullLogger()
-	logger := l.WithFields(log.Fields{"test": "true"})
-	nlm := &NodeLifecycleManager{expectedName, fake.NewSimpleClientset(), logger}
+	nlm := &NodeLifecycleManager{expectedName, fake.NewSimpleClientset(), testutil.GetFakeLogger()}
 	n, err := nlm.CreateNodeObject(testSkelFile)
 
 	assert.Nil(t, err)

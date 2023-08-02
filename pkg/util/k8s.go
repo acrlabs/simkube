@@ -2,6 +2,7 @@ package util
 
 import (
 	"fmt"
+	"strings"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
@@ -28,4 +29,17 @@ func NamespacedNameFromObjectMeta(objmeta metav1.ObjectMeta) string {
 
 func NamespacedName(namespace, name string) string {
 	return fmt.Sprintf("%s/%s", namespace, name)
+}
+
+func ProviderID(nodeName string) string {
+	return fmt.Sprintf("simkube://%s", nodeName)
+}
+
+func SplitNamespacedName(namespacedName string) (string, string) {
+	split := strings.SplitN(namespacedName, "/", 2)
+	if len(split) == 2 {
+		return split[0], split[1]
+	} else {
+		return split[0], ""
+	}
 }

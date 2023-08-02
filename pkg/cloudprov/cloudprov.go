@@ -2,9 +2,12 @@ package cloudprov
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 	"k8s.io/client-go/kubernetes"
@@ -14,14 +17,29 @@ import (
 
 const (
 	maxNodeGroupSize = 10
+	providerName     = "sk-cloudprov"
 )
+
+var errorUnknownNodeGroup = errors.New("unknown node group")
+
+// In _theory_, nothing is changing the node group size aside from
+// cluster autoscaler, so we can "reasonably" expect that these values
+// are correct and have not been modified externally
+type cachedNodeGroup struct {
+	data       *protos.NodeGroup
+	instances  []*protos.Instance
+	targetSize int32
+}
 
 type SimkubeCloudProvider struct {
 	protos.UnimplementedCloudProviderServer
 
 	k8sClient          kubernetes.Interface
+	scalingClient      scalerI
 	deploymentSelector string
-	logger             *log.Entry
+
+	nodeGroups map[string]*cachedNodeGroup
+	logger     *log.Entry
 }
 
 func NewCloudProvider(deploymentSelector string) (*SimkubeCloudProvider, error) {
@@ -32,58 +50,93 @@ func NewCloudProvider(deploymentSelector string) (*SimkubeCloudProvider, error) 
 
 	return &SimkubeCloudProvider{
 		k8sClient:          k8sClient,
+		scalingClient:      &scaler{k8sClient},
 		deploymentSelector: deploymentSelector,
-		logger:             log.WithFields(log.Fields{"provider": "sk-cloudprov"}),
+
+		logger: log.WithFields(log.Fields{"provider": providerName}),
 	}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroups(
-	ctx context.Context,
-	_ *protos.NodeGroupsRequest, // NodeGroupsRequest is empty
+	context.Context,
+	*protos.NodeGroupsRequest, // NodeGroupsRequest is empty
 ) (*protos.NodeGroupsResponse, error) {
-	self.logger.Info("NodeGroups called")
-	deployments, err := self.k8sClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{
-		LabelSelector: self.deploymentSelector,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("could not fetch node groups: %w", err)
-	}
+	self.logger.Debug("NodeGroups called")
 
-	nodeGroups := make([]*protos.NodeGroup, len(deployments.Items))
-	for i, d := range deployments.Items {
-		nodeGroups[i] = &protos.NodeGroup{
-			Id:      util.NamespacedNameFromObjectMeta(d.ObjectMeta),
-			MinSize: 0,
-			MaxSize: maxNodeGroupSize,
-		}
-	}
-
-	self.logger.Infof("found the following node groups: %v", nodeGroups)
-	return &protos.NodeGroupsResponse{NodeGroups: nodeGroups}, nil
+	ngs := lo.MapToSlice(
+		self.nodeGroups,
+		func(_ string, ng *cachedNodeGroup) *protos.NodeGroup { return ng.data },
+	)
+	return &protos.NodeGroupsResponse{NodeGroups: ngs}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupForNode(
 	ctx context.Context,
 	req *protos.NodeGroupForNodeRequest,
 ) (*protos.NodeGroupForNodeResponse, error) {
-	self.logger.Info("NodeGroupForNode called")
-	return nil, nil
+	self.logger.Debugf("NodeGroupForNode called with %s", req.Node.Name)
+
+	if nodeGroupName, ok := req.Node.Labels[util.NodeGroupNameLabel]; ok {
+		if nodeGroupNamespace, ok := req.Node.Labels[util.NodeGroupNamespaceLabel]; ok {
+			fullName := util.NamespacedName(nodeGroupNamespace, nodeGroupName)
+			if nodeGroup, ok := self.nodeGroups[fullName]; ok {
+				self.logger.Infof("found node group %s for node %s", nodeGroup.data.Id, req.Node.Name)
+				return &protos.NodeGroupForNodeResponse{NodeGroup: nodeGroup.data}, nil
+			}
+		}
+	}
+
+	self.logger.Warnf("No node group found for %s", req.Node.Name)
+	return &protos.NodeGroupForNodeResponse{NodeGroup: nil}, nil
+}
+
+func (self *SimkubeCloudProvider) NodeGroupNodes(
+	ctx context.Context,
+	req *protos.NodeGroupNodesRequest,
+) (*protos.NodeGroupNodesResponse, error) {
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Debugf("NodeGroupNodes called")
+
+	if ng, ok := self.nodeGroups[req.Id]; ok {
+		logger.Infof("nodes for node group: %v", ng.instances)
+		return &protos.NodeGroupNodesResponse{Instances: ng.instances}, nil
+	}
+
+	return nil, errorUnknownNodeGroup
 }
 
 func (self *SimkubeCloudProvider) NodeGroupTargetSize(
 	ctx context.Context,
 	req *protos.NodeGroupTargetSizeRequest,
 ) (*protos.NodeGroupTargetSizeResponse, error) {
-	self.logger.Info("NodeGroupTargetSize called")
-	return nil, nil
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Debug("NodeGroupTargetSize called")
+
+	if ng, ok := self.nodeGroups[req.Id]; ok {
+		logger.Infof("target size for node group: %d", ng.targetSize)
+		return &protos.NodeGroupTargetSizeResponse{TargetSize: ng.targetSize}, nil
+	}
+
+	return nil, errorUnknownNodeGroup
 }
 
 func (self *SimkubeCloudProvider) NodeGroupIncreaseSize(
 	ctx context.Context,
 	req *protos.NodeGroupIncreaseSizeRequest,
 ) (*protos.NodeGroupIncreaseSizeResponse, error) {
-	self.logger.Info("NodeGroupIncreaseSize called")
-	return nil, nil
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Infof("NodeGroupIncreaseSize called with delta: %d", req.Delta)
+
+	if ng, ok := self.nodeGroups[req.Id]; ok {
+		logger.Infof("increasing size: %d -> %d", ng.targetSize, ng.targetSize+req.Delta)
+		namespace, name := util.SplitNamespacedName(req.Id)
+		if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize+req.Delta); err != nil {
+			return nil, fmt.Errorf("could not scale node group: %w", err)
+		}
+		return &protos.NodeGroupIncreaseSizeResponse{}, nil
+	}
+
+	return nil, errorUnknownNodeGroup
 }
 
 func (self *SimkubeCloudProvider) NodeGroupDeleteNodes(
@@ -102,10 +155,89 @@ func (self *SimkubeCloudProvider) NodeGroupDecreaseTargetSize(
 	return nil, nil
 }
 
-func (self *SimkubeCloudProvider) NodeGroupNodes(
+func (self *SimkubeCloudProvider) Refresh(
 	ctx context.Context,
-	req *protos.NodeGroupNodesRequest,
-) (*protos.NodeGroupNodesResponse, error) {
-	self.logger.Info("NodeGroupNodes called")
-	return nil, nil
+	req *protos.RefreshRequest,
+) (*protos.RefreshResponse, error) {
+	self.logger.Info("Refresh called")
+
+	deployments, err := self.k8sClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{
+		LabelSelector: self.deploymentSelector,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not fetch node groups: %w", err)
+	}
+
+	self.nodeGroups = make(map[string]*cachedNodeGroup, len(deployments.Items))
+	for _, d := range deployments.Items {
+		name := util.NamespacedNameFromObjectMeta(d.ObjectMeta)
+
+		nodes, err := self.k8sClient.CoreV1().Nodes().List(
+			ctx,
+			metav1.ListOptions{LabelSelector: fmt.Sprintf(
+				"%s=%s,%s=%s",
+				util.NodeGroupNamespaceLabel,
+				d.ObjectMeta.Namespace,
+				util.NodeGroupNameLabel,
+				d.ObjectMeta.Name,
+			)},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("could not get nodes for node group: %w", err)
+		}
+
+		instances := make([]*protos.Instance, len(nodes.Items))
+		for i, n := range nodes.Items {
+			instances[i] = &protos.Instance{
+				Id:     n.Spec.ProviderID,
+				Status: nodeStatusToInstanceStatus(n.Status),
+			}
+		}
+
+		self.nodeGroups[name] = &cachedNodeGroup{
+			data: &protos.NodeGroup{
+				Id:      name,
+				MinSize: 0,
+				MaxSize: maxNodeGroupSize,
+			},
+			instances:  instances,
+			targetSize: *d.Spec.Replicas,
+		}
+	}
+
+	self.logger.Infof("found the following node groups: %v", self.nodeGroups)
+	return &protos.RefreshResponse{}, nil
+}
+
+func (self *SimkubeCloudProvider) GPULabel(context.Context, *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
+	self.logger.Debug("GPULabel called")
+
+	return &protos.GPULabelResponse{Label: "simkube.io/notimplemented"}, nil
+}
+
+func (self *SimkubeCloudProvider) NodeGroupGetOptions(
+	_ context.Context,
+	req *protos.NodeGroupAutoscalingOptionsRequest,
+) (*protos.NodeGroupAutoscalingOptionsResponse, error) {
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Debug("NodeGroupGetOptions called")
+
+	return &protos.NodeGroupAutoscalingOptionsResponse{NodeGroupAutoscalingOptions: req.Defaults}, nil
+}
+
+func nodeStatusToInstanceStatus(s corev1.NodeStatus) *protos.InstanceStatus {
+	var is protos.InstanceStatus_InstanceState
+	switch s.Phase {
+	case corev1.NodePending:
+		is = protos.InstanceStatus_instanceCreating
+	case corev1.NodeRunning:
+		is = protos.InstanceStatus_instanceRunning
+	case corev1.NodeTerminated:
+		is = protos.InstanceStatus_instanceDeleting
+	}
+
+	return &protos.InstanceStatus{
+		InstanceState: is,
+		ErrorInfo:     nil,
+	}
 }

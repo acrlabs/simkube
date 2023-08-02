@@ -64,10 +64,10 @@ func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*co
 		return nil, err
 	}
 
-	node.ObjectMeta.Name = self.nodeName
-	setNodeConditions(node)
+	setNodeNameAndID(self.nodeName, node)
+	setNodeStatus(node)
 	applyStandardNodeLabelsAndTaints(node)
-	computePodResources(node)
+	configureNodeResources(node)
 
 	if kubeVersion, err := getKubeVersion(self.k8sClient); err != nil {
 		self.logger.WithError(err).Warn("could not determine Kubernetes version, using default")
@@ -129,7 +129,12 @@ func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 	return &skel, nil
 }
 
-func setNodeConditions(node *corev1.Node) {
+func setNodeNameAndID(nodeName string, node *corev1.Node) {
+	node.ObjectMeta.Name = nodeName
+	node.Spec.ProviderID = util.ProviderID(nodeName)
+}
+
+func setNodeStatus(node *corev1.Node) {
 	node.Status.Conditions = []corev1.NodeCondition{
 		{
 			Type:               "Ready",
@@ -164,6 +169,7 @@ func setNodeConditions(node *corev1.Node) {
 			Message:            "kubelet has no disk pressure",
 		},
 	}
+	node.Status.Phase = corev1.NodeRunning
 }
 
 func applyStandardNodeLabelsAndTaints(node *corev1.Node) {
@@ -196,7 +202,7 @@ func applyStandardNodeLabelsAndTaints(node *corev1.Node) {
 	}
 }
 
-func computePodResources(node *corev1.Node) {
+func configureNodeResources(node *corev1.Node) {
 	defaultCapacity := map[corev1.ResourceName]resource.Quantity{
 		corev1.ResourceCPU:              resource.MustParse("1"),
 		corev1.ResourceMemory:           resource.MustParse("1Gi"),

@@ -6,11 +6,11 @@ import (
 	"syscall"
 	"testing"
 
-	log "github.com/sirupsen/logrus"
-	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/mock"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
+
+	testutil "simkube/test/util"
 )
 
 type mockNodeLifecycleManager struct {
@@ -57,9 +57,7 @@ func TestRunInternalCleanShutdown(t *testing.T) {
 	plm := &mockPodLifecycleManager{}
 	plm.On("Run", mock.Anything, mock.Anything).Once().Return(nil)
 
-	l, _ := test.NewNullLogger()
-	logger := l.WithFields(log.Fields{"test": "true"})
-	runner := &Runner{"test-node", fake.NewSimpleClientset(), nlm, plm, logger}
+	runner := &Runner{"test-node", fake.NewSimpleClientset(), nlm, plm, testutil.GetFakeLogger()}
 
 	go func() {
 		runner.Run("skel.yml")

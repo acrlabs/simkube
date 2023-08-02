@@ -14,7 +14,7 @@ const (
 
 func Run() {
 	srv := grpc.NewServer()
-	logger := log.WithFields(log.Fields{"provider": "sk-cloudprov"})
+	logger := log.WithFields(log.Fields{"provider": providerName})
 
 	//nolint:gosec // this is fine.jpg
 	lis, err := net.Listen("tcp", address)
