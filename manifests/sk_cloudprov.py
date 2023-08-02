@@ -54,6 +54,8 @@ class ClusterAutoscaler(Chart):
             args=[
                 "--cloud-provider", "externalgrpc",
                 "--cloud-config", volumes.get_path_to("cluster-autoscaler-config"),
+                "--scale-down-delay-after-add", "1m",
+                "--scale-down-unneeded-time", "1m",
                 "--v", "4",
             ],
         ).with_volumes(volumes).with_security_context(Capability.DEBUG)

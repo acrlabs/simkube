@@ -49,6 +49,10 @@ spec:
             - externalgrpc
             - --cloud-config
             - /config/cluster-autoscaler-config.yml
+            - --scale-down-delay-after-add
+            - 1m
+            - --scale-down-unneeded-time
+            - 1m
             - --v
             - "4"
           command:

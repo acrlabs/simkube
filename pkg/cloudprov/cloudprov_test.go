@@ -62,6 +62,19 @@ func fakeCloudProvider(scalingClient *mockScaler) *SimkubeCloudProvider {
 		panic(err)
 	}
 
+	if _, err := k8sClient.CoreV1().Pods(testNodeGroupNamespace).Create(
+		context.TODO(),
+		&corev1.Pod{
+			ObjectMeta: metav1.ObjectMeta{
+				Namespace: testNodeGroupNamespace,
+				Name:      testNodeName,
+			},
+		},
+		metav1.CreateOptions{},
+	); err != nil {
+		panic(err)
+	}
+
 	if _, err := k8sClient.CoreV1().Nodes().Create(
 		context.TODO(),
 		&corev1.Node{
@@ -114,6 +127,17 @@ func fakeCloudProvider(scalingClient *mockScaler) *SimkubeCloudProvider {
 	}
 }
 
+func makeExternalGrpcNode(namespace, name string) *protos.ExternalGrpcNode {
+	return &protos.ExternalGrpcNode{
+		ProviderID: testNodeProviderID,
+		Name:       testNodeName,
+		Labels: map[string]string{
+			util.NodeGroupNamespaceLabel: namespace,
+			util.NodeGroupNameLabel:      name,
+		},
+	}
+}
+
 func TestNodeGroups(t *testing.T) {
 	skprov := fakeCloudProvider(nil)
 
@@ -145,14 +169,7 @@ func TestNodeGroupForNode(t *testing.T) {
 
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
-			node := &protos.ExternalGrpcNode{
-				ProviderID: testNodeProviderID,
-				Name:       testNodeName,
-				Labels: map[string]string{
-					util.NodeGroupNamespaceLabel: tc.namespace,
-					util.NodeGroupNameLabel:      tc.name,
-				},
-			}
+			node := makeExternalGrpcNode(tc.namespace, tc.name)
 
 			resp, err := skprov.NodeGroupForNode(context.TODO(), &protos.NodeGroupForNodeRequest{Node: node})
 
@@ -203,12 +220,31 @@ func TestNodeGroupIncreaseSize(t *testing.T) {
 	scalingClient.On("ScaleTo", context.TODO(), testNodeGroupNamespace, testNodeGroupName, int32(43)).Return(nil).Once()
 	skprov := fakeCloudProvider(scalingClient)
 
-	_, err := skprov.NodeGroupIncreaseSize(
+	resp, err := skprov.NodeGroupIncreaseSize(
 		context.TODO(),
 		&protos.NodeGroupIncreaseSizeRequest{Id: testNodeGroupFullName, Delta: 42},
 	)
 
 	assert.Nil(t, err)
+	assert.Equal(t, &protos.NodeGroupIncreaseSizeResponse{}, resp)
+	scalingClient.AssertExpectations(t)
+}
+
+func TestNodeGroupDeleteNodes(t *testing.T) {
+	scalingClient := &mockScaler{}
+	scalingClient.On("ScaleTo", context.TODO(), testNodeGroupNamespace, testNodeGroupName, int32(0)).Return(nil).Once()
+	skprov := fakeCloudProvider(scalingClient)
+
+	resp, err := skprov.NodeGroupDeleteNodes(
+		context.TODO(),
+		&protos.NodeGroupDeleteNodesRequest{
+			Id:    testNodeGroupFullName,
+			Nodes: []*protos.ExternalGrpcNode{makeExternalGrpcNode(testNodeGroupNamespace, testNodeGroupName)},
+		},
+	)
+
+	assert.Nil(t, err)
+	assert.Equal(t, &protos.NodeGroupDeleteNodesResponse{}, resp)
 	scalingClient.AssertExpectations(t)
 }
 

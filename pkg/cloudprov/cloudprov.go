@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/samber/lo"
 	log "github.com/sirupsen/logrus"
+	"google.golang.org/protobuf/types/known/anypb"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
@@ -18,6 +20,7 @@ import (
 const (
 	maxNodeGroupSize = 10
 	providerName     = "sk-cloudprov"
+	podDeletionCost  = "-9999"
 )
 
 var errorUnknownNodeGroup = errors.New("unknown node group")
@@ -33,6 +36,8 @@ type cachedNodeGroup struct {
 
 type SimkubeCloudProvider struct {
 	protos.UnimplementedCloudProviderServer
+
+	mutex sync.Mutex
 
 	k8sClient          kubernetes.Interface
 	scalingClient      scalerI
@@ -61,6 +66,9 @@ func (self *SimkubeCloudProvider) NodeGroups(
 	context.Context,
 	*protos.NodeGroupsRequest, // NodeGroupsRequest is empty
 ) (*protos.NodeGroupsResponse, error) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	self.logger.Debug("NodeGroups called")
 
 	ngs := lo.MapToSlice(
@@ -74,6 +82,9 @@ func (self *SimkubeCloudProvider) NodeGroupForNode(
 	ctx context.Context,
 	req *protos.NodeGroupForNodeRequest,
 ) (*protos.NodeGroupForNodeResponse, error) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	self.logger.Debugf("NodeGroupForNode called with %s", req.Node.Name)
 
 	if nodeGroupName, ok := req.Node.Labels[util.NodeGroupNameLabel]; ok {
@@ -94,78 +105,161 @@ func (self *SimkubeCloudProvider) NodeGroupNodes(
 	ctx context.Context,
 	req *protos.NodeGroupNodesRequest,
 ) (*protos.NodeGroupNodesResponse, error) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
 	logger.Debugf("NodeGroupNodes called")
 
-	if ng, ok := self.nodeGroups[req.Id]; ok {
-		logger.Infof("nodes for node group: %v", ng.instances)
-		return &protos.NodeGroupNodesResponse{Instances: ng.instances}, nil
+	ng, ok := self.nodeGroups[req.Id]
+	if !ok {
+		logger.Error("could not find node group")
+		return nil, errorUnknownNodeGroup
 	}
 
-	return nil, errorUnknownNodeGroup
+	logger.Infof("nodes for node group: %v", ng.instances)
+	return &protos.NodeGroupNodesResponse{Instances: ng.instances}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupTargetSize(
 	ctx context.Context,
 	req *protos.NodeGroupTargetSizeRequest,
 ) (*protos.NodeGroupTargetSizeResponse, error) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
 	logger.Debug("NodeGroupTargetSize called")
 
-	if ng, ok := self.nodeGroups[req.Id]; ok {
-		logger.Infof("target size for node group: %d", ng.targetSize)
-		return &protos.NodeGroupTargetSizeResponse{TargetSize: ng.targetSize}, nil
+	ng, ok := self.nodeGroups[req.Id]
+	if !ok {
+		logger.Error("could not find node group")
+		return nil, errorUnknownNodeGroup
 	}
 
-	return nil, errorUnknownNodeGroup
+	logger.Infof("target size for node group: %d", ng.targetSize)
+	return &protos.NodeGroupTargetSizeResponse{TargetSize: ng.targetSize}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupIncreaseSize(
 	ctx context.Context,
 	req *protos.NodeGroupIncreaseSizeRequest,
 ) (*protos.NodeGroupIncreaseSizeResponse, error) {
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
 	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
 	logger.Infof("NodeGroupIncreaseSize called with delta: %d", req.Delta)
 
-	if ng, ok := self.nodeGroups[req.Id]; ok {
-		logger.Infof("increasing size: %d -> %d", ng.targetSize, ng.targetSize+req.Delta)
-		namespace, name := util.SplitNamespacedName(req.Id)
-		if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize+req.Delta); err != nil {
-			return nil, fmt.Errorf("could not scale node group: %w", err)
-		}
-		return &protos.NodeGroupIncreaseSizeResponse{}, nil
+	ng, ok := self.nodeGroups[req.Id]
+	if !ok {
+		logger.Error("could not find node group")
+		return nil, errorUnknownNodeGroup
 	}
 
-	return nil, errorUnknownNodeGroup
+	logger.Infof("increasing size: %d -> %d", ng.targetSize, ng.targetSize+req.Delta)
+	namespace, name := util.SplitNamespacedName(req.Id)
+	if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize+req.Delta); err != nil {
+		err = fmt.Errorf("could not scale node group: %w", err)
+		logger.Error(err)
+		return nil, err
+	}
+
+	logger.Infof("increased target size for node group to %d", ng.targetSize)
+	return &protos.NodeGroupIncreaseSizeResponse{}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupDeleteNodes(
 	ctx context.Context,
 	req *protos.NodeGroupDeleteNodesRequest,
 ) (*protos.NodeGroupDeleteNodesResponse, error) {
-	self.logger.Info("NodeGroupDeleteNodes called")
-	return nil, nil
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
+	nodeNames := lo.Map(req.Nodes, func(n *protos.ExternalGrpcNode, _ int) string { return n.Name })
+
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Infof("NodeGroupDeleteNodes called for nodes %v", nodeNames)
+
+	ng, ok := self.nodeGroups[req.Id]
+	if !ok {
+		logger.Error("could not find node group")
+		return nil, errorUnknownNodeGroup
+	}
+
+	delta := int32(len(req.Nodes))
+	namespace, name := util.SplitNamespacedName(req.Id)
+	for _, nodeName := range nodeNames {
+		podName := util.NamespacedName(namespace, nodeName)
+		pod, err := self.k8sClient.CoreV1().Pods(namespace).Get(ctx, nodeName, metav1.GetOptions{})
+		if err != nil {
+			err = fmt.Errorf("could not get pod %s: %w", podName, err)
+			logger.Error(err)
+			return nil, err
+		}
+		if pod.ObjectMeta.Annotations == nil {
+			pod.ObjectMeta.Annotations = map[string]string{}
+		}
+		pod.ObjectMeta.Annotations[corev1.PodDeletionCost] = podDeletionCost
+		if _, err := self.k8sClient.CoreV1().Pods(namespace).Update(ctx, pod, metav1.UpdateOptions{}); err != nil {
+			err = fmt.Errorf("could not update pod %s: %w", podName, err)
+			logger.Error(err)
+			return nil, err
+		}
+	}
+	if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize-delta); err != nil {
+		err = fmt.Errorf("could not scale node group: %w", err)
+		logger.Error(err)
+		return nil, err
+	}
+
+	logger.Infof("Successfully deleted nodes; new target size: %d", ng.targetSize)
+	return &protos.NodeGroupDeleteNodesResponse{}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupDecreaseTargetSize(
 	ctx context.Context,
 	req *protos.NodeGroupDecreaseTargetSizeRequest,
 ) (*protos.NodeGroupDecreaseTargetSizeResponse, error) {
-	self.logger.Info("NodeGroupDecreaseTargetSize called")
-	return nil, nil
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
+	logger := self.logger.WithFields(log.Fields{"nodeGroup": req.Id})
+	logger.Infof("NodeGroupDecreaseTargetSize called with delta: %d", req.Delta)
+
+	ng, ok := self.nodeGroups[req.Id]
+	if !ok {
+		logger.Error("could not find node group")
+		return nil, errorUnknownNodeGroup
+	}
+
+	namespace, name := util.SplitNamespacedName(req.Id)
+	if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize-req.Delta); err != nil {
+		err = fmt.Errorf("could not scale node group: %w", err)
+		logger.Error(err)
+		return nil, err
+	}
+
+	logger.Infof("Successfully reduced target size to %d", ng.targetSize)
+	return &protos.NodeGroupDecreaseTargetSizeResponse{}, nil
 }
 
 func (self *SimkubeCloudProvider) Refresh(
 	ctx context.Context,
 	req *protos.RefreshRequest,
 ) (*protos.RefreshResponse, error) {
-	self.logger.Info("Refresh called")
+	self.mutex.Lock()
+	defer self.mutex.Unlock()
+
+	self.logger.Info("Refreshing node group cache")
 
 	deployments, err := self.k8sClient.AppsV1().Deployments("").List(ctx, metav1.ListOptions{
 		LabelSelector: self.deploymentSelector,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("could not fetch node groups: %w", err)
+		err = fmt.Errorf("could not fetch node groups: %w", err)
+		self.logger.Error(err)
+		return nil, err
 	}
 
 	self.nodeGroups = make(map[string]*cachedNodeGroup, len(deployments.Items))
@@ -183,7 +277,9 @@ func (self *SimkubeCloudProvider) Refresh(
 			)},
 		)
 		if err != nil {
-			return nil, fmt.Errorf("could not get nodes for node group: %w", err)
+			err = fmt.Errorf("could not get nodes for node group: %w", err)
+			self.logger.Error(err)
+			return nil, err
 		}
 
 		instances := make([]*protos.Instance, len(nodes.Items))
@@ -209,10 +305,25 @@ func (self *SimkubeCloudProvider) Refresh(
 	return &protos.RefreshResponse{}, nil
 }
 
+func (self *SimkubeCloudProvider) Cleanup(context.Context, *protos.CleanupRequest) (*protos.CleanupResponse, error) {
+	self.logger.Info("Cleanup called")
+
+	return &protos.CleanupResponse{}, nil
+}
+
 func (self *SimkubeCloudProvider) GPULabel(context.Context, *protos.GPULabelRequest) (*protos.GPULabelResponse, error) {
 	self.logger.Debug("GPULabel called")
 
 	return &protos.GPULabelResponse{Label: "simkube.io/notimplemented"}, nil
+}
+
+func (self *SimkubeCloudProvider) GetAvailableGPUTypes(
+	context.Context,
+	*protos.GetAvailableGPUTypesRequest,
+) (*protos.GetAvailableGPUTypesResponse, error) {
+	self.logger.Debug("GetAvailableGPUTypes called")
+
+	return &protos.GetAvailableGPUTypesResponse{GpuTypes: map[string]*anypb.Any{}}, nil
 }
 
 func (self *SimkubeCloudProvider) NodeGroupGetOptions(
