@@ -1,64 +1,44 @@
-PROJECTS=simkube sk-cloudprov
+BUILD_DIR=$(shell pwd)/.build
+PROJECTS=sk-vnode sk-cloudprov
 IMAGE_TARGETS=$(addprefix images/Dockerfile.,$(PROJECTS))
-PROJECT_RUNNERS=$(addprefix run-,$(PROJECTS))
 DOCKER_REGISTRY=localhost:5000
-KIND_CLUSTER_NAME=test
+SHA=$(shell git rev-parse --short HEAD)
+UNCLEAN_TREE_SUFFIX=-$(shell test -z "$(git status --porcelain --untracked-files=no)" || \
+	GIT_INDEX_FILE=`mktemp` git add -u && git write-tree && git reset -q && rm $$GIT_INDEX_FILE)
 
-MANIFESTS:=$(wildcard manifests/*.yml)
-KIND_CONFIGS:=$(wildcard kind/*.yml)
+.PHONY: setup default test build image run $(PROJECTS) $(IMAGE_TARGETS) lint cover clean
 
-.PHONY: build image run $(PROJECTS) $(IMAGE_TARGETS) $(PROJECT_RUNNERS) lint test cover kind clean
+default: build image run
+
+test: lint cover
+
+setup:
+	pre-commit install
+	cd k8s && poetry install
 
 build: $(PROJECTS)
 
 image: $(IMAGE_TARGETS)
 
-run: $(PROJECT_RUNNERS)
+run:
+	export CDK8S_OUTDIR=$(BUILD_DIR)/manifests && export BUILD_DIR=$(BUILD_DIR) && cd k8s && poetry run ./main.py
+	kubectl apply -f $(BUILD_DIR)/manifests
 
 $(PROJECTS):
-	CGO_ENABLED=0 go build -trimpath -o output/$@ ./cmd/$@
+	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./cmd/$@
 
 lint:
 	golangci-lint run
 
-test:
-	go test ./...
-
 cover:
-	go-carpet | less -R
+	go-carpet -summary
 
 $(IMAGE_TARGETS):
-	docker build output -f $@ -t $(DOCKER_REGISTRY)/$(subst images/Dockerfile.,,$@):latest
-	docker push $(DOCKER_REGISTRY)/$(subst images/Dockerfile.,,$@):latest
-
-$(PROJECT_RUNNERS): .applied-simkube
-	kubectl rollout restart deployment $(subst run-,,$@)
-
-kind: .applied-kind # .applied-prometheus
+	PROJECT_NAME=$(subst images/Dockerfile.,,$@) && \
+		IMAGE_NAME=$(DOCKER_REGISTRY)/$$PROJECT_NAME:$(SHA)$(UNCLEAN_TREE_SUFFIX) && \
+		docker build $(BUILD_DIR) -f $@ -t $$IMAGE_NAME && \
+		docker push $$IMAGE_NAME && \
+		echo -n $$IMAGE_NAME > $(BUILD_DIR)/$${PROJECT_NAME}-image
 
 clean:
-	rm -rf output
-	rm -rf .applied-*
-	rm -rf kind/kube-prometheus/manifests
-	kind delete cluster --name $(KIND_CLUSTER_NAME)
-
-.applied-simkube: $(MANIFESTS)
-	@echo $? | xargs -d' ' -L1 kubectl apply -f
-	@touch $@
-
-.applied-kind: kind/certs.sh $(KIND_CONFIGS)
-	kind delete cluster --name $(KIND_CLUSTER_NAME)
-	kind create cluster --name $(KIND_CLUSTER_NAME) --config=kind/kind-config.yml
-	kind/certs.sh
-	kubectl apply -f kind/local-registry-hosting.yml
-	kubectl patch -n kube-system ds kindnet --patch-file kind/kindnet-patch.yml
-	kubectl apply -f kind/cluster-autoscaler.yml
-	touch $@
-
-.applied-prometheus: kind/kube-prometheus/simkube.jsonnet kind/kube-prometheus/node-exporter-patch.yml
-	cd kind/kube-prometheus && ./build.sh simkube.jsonnet
-	kubectl apply --server-side -f kind/kube-prometheus/manifests/setup
-	kubectl wait --for condition=Established --all CustomResourceDefinition --namespace=monitoring
-	kubectl apply -f kind/kube-prometheus/manifests
-	kubectl patch -n monitoring ds node-exporter --patch-file kind/kube-prometheus/node-exporter-patch.yml
-	touch $@
+	rm -rf $(BUILD_DIR)
