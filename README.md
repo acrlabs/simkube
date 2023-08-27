@@ -1,3 +1,5 @@
+![build status](https://github.com/acrlabs/simkube/actions/workflows/verify.yml/badge.svg)
+
 # simkube
 
 A collection of tools for simulating Kubernetes scheduling and autoscaling behaviour
