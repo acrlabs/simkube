@@ -16,6 +16,16 @@ repos:
       - id: go-carpet
         args:
           - "-mincov=0"
+  - repo: https://github.com/doublify/pre-commit-rust
+    rev: v1.0
+    hooks:
+      - id: cargo-check
+      - id: clippy
+  - repo: https://github.com/futuretech6/pre-commit-rust-nightly
+    rev: v1.1
+    hooks:
+      - id: fmt
+        args: ['--', '--unstable-features']
   - repo: https://github.com/asottile/reorder-python-imports
     rev: v3.10.0
     hooks:

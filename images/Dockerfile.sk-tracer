@@ -1,0 +1,3 @@
+FROM debian:buster-slim
+
+COPY sk-tracer /sk-tracer
