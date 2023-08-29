@@ -5,7 +5,7 @@ ARTIFACTS=$(GO_ARTIFACTS) $(RUST_ARTIFACTS)
 include build/base.mk
 
 setup::
-	cargo vendor
+	cargo vendor .vendor
 
 $(GO_ARTIFACTS):
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./$(subst sk-,,$(@))/cmd/

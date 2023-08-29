@@ -1,4 +1,4 @@
-name: verify code (lint, test)
+name: code verification
 on: [push]
 jobs:
   verify:
@@ -7,11 +7,17 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
+      - run: cargo vendor .vendor
       - name: Install Golang
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
+      # We use the golangci-lint action here instead of just calling make because
+      # the provided action does much more aggressive caching
       - uses: golangci/golangci-lint-action@v3
         with:
           version: v1.53
-      - run: go test -v ./...
+      - run: make build
+      # We don't call verify here because of a) the linting thing above, and b)
+      # because we can't install the go-carpet fork that I'm running
+      - run: make test
