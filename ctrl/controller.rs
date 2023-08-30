@@ -7,6 +7,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::PostParams;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
+use reqwest::Url;
 use simkube::error::{
     SimKubeError,
     SimKubeResult,
@@ -16,12 +17,15 @@ use simkube::util::{
     namespaced_name,
 };
 use simkube::{
+    trace,
     Simulation,
     SimulationRoot,
     SimulationRootSpec,
 };
 use tokio::time::Duration;
 use tracing::*;
+
+use crate::trace::*;
 
 pub struct SimulationContext {
     pub k8s_client: kube::Client,
@@ -41,6 +45,12 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
 }
 
 fn create_driver_job(simulation: &Simulation) -> SimKubeResult<batchv1::Job> {
+    let trace_path = Url::parse(&simulation.spec.trace)?;
+    let (trace_vm, trace_volume, mount_path) = match trace::storage_type(&trace_path)? {
+        trace::Scheme::AmazonS3 => todo!(),
+        trace::Scheme::Local => get_local_trace_volume(&trace_path),
+    };
+
     let mut job = batchv1::Job {
         metadata: metav1::ObjectMeta {
             namespace: Some(simulation.spec.driver_namespace.clone()),
@@ -54,23 +64,13 @@ fn create_driver_job(simulation: &Simulation) -> SimKubeResult<batchv1::Job> {
                     containers: vec![corev1::Container {
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
+                        args: Some(vec!["--trace-path".into(), mount_path]),
                         image: Some(simulation.spec.driver_image.clone()),
-                        volume_mounts: Some(vec![corev1::VolumeMount {
-                            name: "testing".into(),
-                            mount_path: "/data".into(),
-                            ..corev1::VolumeMount::default()
-                        }]),
+                        volume_mounts: Some(vec![trace_vm]),
                         ..corev1::Container::default()
                     }],
                     restart_policy: Some("Never".into()),
-                    volumes: Some(vec![corev1::Volume {
-                        name: "testing".into(),
-                        host_path: Some(corev1::HostPathVolumeSource {
-                            path: simulation.spec.trace.clone(),
-                            type_: Some("File".into()),
-                        }),
-                        ..corev1::Volume::default()
-                    }]),
+                    volumes: Some(vec![trace_volume]),
                     ..corev1::PodSpec::default()
                 }),
                 ..corev1::PodTemplateSpec::default()

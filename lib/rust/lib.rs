@@ -2,6 +2,7 @@
 
 mod constants;
 pub mod error;
+pub mod trace;
 pub mod util;
 pub mod watchertracer;
 

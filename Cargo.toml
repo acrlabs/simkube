@@ -36,6 +36,7 @@ thiserror = "1.0.46"
 tokio = { version = "1.28.2", features = ["macros", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
+url = "2.4.1"
 
 [dependencies.kube]
 version = "0.85.0"

@@ -141,10 +141,6 @@ impl Tracer {
         self.trace.push_back(evt);
     }
 
-    fn iter(&self) -> TraceIterator {
-        return TraceIterator { trace: &self.trace, idx: 0 };
-    }
-
     fn replay_trace(&self, maybe_end: Option<i64>) -> HashMap<String, corev1::Pod> {
         let mut new_tracked_pods = HashMap::new();
         for (evt, _) in self.iter() {
@@ -168,9 +164,15 @@ impl Tracer {
     }
 }
 
-struct TraceIterator<'a> {
+pub struct TraceIterator<'a> {
     trace: &'a VecDeque<TraceEvent>,
     idx: usize,
+}
+
+impl<'a> Tracer {
+    pub fn iter(&'a self) -> TraceIterator<'a> {
+        return TraceIterator { trace: &self.trace, idx: 0 };
+    }
 }
 
 impl<'a> Iterator for TraceIterator<'a> {

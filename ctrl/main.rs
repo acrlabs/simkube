@@ -1,5 +1,6 @@
 #![allow(clippy::needless_return)]
 mod controller;
+mod trace;
 
 use std::sync::Arc;
 

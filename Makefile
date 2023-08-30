@@ -1,6 +1,6 @@
 GO_ARTIFACTS=sk-cloudprov sk-vnode
 RUST_ARTIFACTS=sk-ctrl sk-driver sk-tracer
-ARTIFACTS=$(GO_ARTIFACTS) $(RUST_ARTIFACTS)
+ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS)
 
 include build/base.mk
 
@@ -16,7 +16,7 @@ $(RUST_ARTIFACTS):
 	docker run -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
 %-docker:
-	cargo build --target-dir=$(BUILD_DIR) --bin=$*
+	cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
 lint:
