@@ -16,6 +16,7 @@ use serde::{
 };
 use tracing::*;
 
+use crate::prelude::*;
 use crate::util::*;
 
 #[derive(Debug)]
@@ -46,7 +47,7 @@ impl Tracer {
         }));
     }
 
-    pub fn import(data: Vec<u8>) -> Result<Tracer, anyhow::Error> {
+    pub fn import(data: Vec<u8>) -> SimKubeResult<Tracer> {
         let trace = rmp_serde::from_slice(&data)?;
 
         let mut tracer = Tracer { trace, tracked_pods: HashMap::new(), version: 0 };
@@ -55,7 +56,7 @@ impl Tracer {
         return Ok(tracer);
     }
 
-    pub fn export(&self, start: i64, end: i64) -> Result<Vec<u8>, anyhow::Error> {
+    pub fn export(&self, start: i64, end: i64) -> SimKubeResult<Vec<u8>> {
         let mut events = vec![TraceEvent {
             ts: start,
             created_pods: self.replay_trace(Some(start)).values().cloned().collect(),

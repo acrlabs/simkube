@@ -10,10 +10,7 @@ use futures::{
 };
 use kube::runtime::controller::Controller;
 use kube::runtime::watcher;
-use simkube::{
-    Simulation,
-    SimulationRoot,
-};
+use simkube::prelude::*;
 use tracing::*;
 
 use crate::controller::{

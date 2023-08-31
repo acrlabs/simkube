@@ -1,16 +1,13 @@
 use reqwest::Url;
 
-use crate::error::{
-    SimKubeError,
-    SimKubeResult,
-};
+use crate::prelude::*;
 
 pub enum Scheme {
     AmazonS3,
     Local,
 }
 
-pub fn fetch_from_s3(_path: String) -> Result<(), anyhow::Error> {
+pub fn fetch_from_s3(_path: String) -> SimKubeResult<()> {
     todo!();
 }
 

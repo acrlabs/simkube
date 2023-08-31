@@ -1,7 +1,7 @@
 #![allow(clippy::needless_return)]
 
 mod constants;
-pub mod error;
+mod error;
 pub mod trace;
 pub mod util;
 pub mod watchertracer;
@@ -26,3 +26,16 @@ pub struct SimulationSpec {
 #[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
 #[kube(group = "simkube.io", version = "v1alpha1", kind = "SimulationRoot")]
 pub struct SimulationRootSpec {}
+
+pub mod prelude {
+    pub use super::{
+        Simulation,
+        SimulationRoot,
+        SimulationRootSpec,
+        SimulationSpec,
+    };
+    pub use crate::error::{
+        SimKubeError,
+        SimKubeResult,
+    };
+}

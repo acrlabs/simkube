@@ -8,19 +8,11 @@ use kube::api::PostParams;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
-use simkube::error::{
-    SimKubeError,
-    SimKubeResult,
-};
+use simkube::prelude::*;
+use simkube::trace;
 use simkube::util::{
     add_common_fields,
     namespaced_name,
-};
-use simkube::{
-    trace,
-    Simulation,
-    SimulationRoot,
-    SimulationRootSpec,
 };
 use tokio::time::Duration;
 use tracing::*;
@@ -44,7 +36,7 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
     return Ok(root);
 }
 
-fn create_driver_job(simulation: &Simulation) -> SimKubeResult<batchv1::Job> {
+fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeResult<batchv1::Job> {
     let trace_path = Url::parse(&simulation.spec.trace)?;
     let (trace_vm, trace_volume, mount_path) = match trace::storage_type(&trace_path)? {
         trace::Scheme::AmazonS3 => todo!(),
@@ -64,13 +56,23 @@ fn create_driver_job(simulation: &Simulation) -> SimKubeResult<batchv1::Job> {
                     containers: vec![corev1::Container {
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
-                        args: Some(vec!["--trace-path".into(), mount_path]),
+                        args: Some(vec![
+                            "--trace-path".into(),
+                            mount_path,
+                            "--sim-namespace-prefix".into(),
+                            "virtual".into(),
+                            "--sim-root".into(),
+                            sim_root_name.into(),
+                            "--sim-name".into(),
+                            simulation.name_any(),
+                        ]),
                         image: Some(simulation.spec.driver_image.clone()),
                         volume_mounts: Some(vec![trace_vm]),
                         ..corev1::Container::default()
                     }],
                     restart_policy: Some("Never".into()),
                     volumes: Some(vec![trace_volume]),
+                    service_account: Some("sk-ctrl-service-account-c8688aad".into()),
                     ..corev1::PodSpec::default()
                 }),
                 ..corev1::PodTemplateSpec::default()
@@ -96,13 +98,13 @@ pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>)
             let root = create_simulation_root(simulation.deref())?;
             roots_api.create(&PostParams::default(), &root).await?;
         },
-        Some(_) => {
+        Some(root) => {
             // TODO need to create the namespace
 
             // TODO should check if there are any other simulations running and block/wait until
             // they're done before proceeding
             info!("creating driver Job for {}", simulation.name_any());
-            let job = create_driver_job(simulation.deref())?;
+            let job = create_driver_job(simulation.deref(), &root.name_any())?;
             jobs_api.create(&PostParams::default(), &job).await?;
         },
     }

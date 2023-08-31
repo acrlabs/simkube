@@ -4,27 +4,24 @@ pub type SimKubeResult<T, E = SimKubeError> = std::result::Result<T, E>;
 
 #[derive(Error, Debug)]
 pub enum SimKubeError {
-    #[error("field-not-found")]
+    #[error("error decoding trace data")]
+    DeserializationError(#[from] rmp_serde::decode::Error),
+
+    #[error("field not present in Kubernetes object")]
     FieldNotFound,
 
-    #[error("kube-api-error")]
-    KubeApiError(String),
+    #[error("could not read file")]
+    FileIOError(#[from] std::io::Error),
 
-    #[error("parse-error")]
-    ParseError(String),
+    #[error("error communicating with the apiserver")]
+    KubeApiError(#[from] kube::Error),
 
-    #[error("unrecognized-trace-scheme")]
+    #[error("parse error")]
+    ParseError(#[from] url::ParseError),
+
+    #[error("error serializing trace data")]
+    SerializationError(#[from] rmp_serde::encode::Error),
+
+    #[error("unrecognized trace scheme: {0}")]
     UnrecognizedTraceScheme(String),
-}
-
-impl From<kube::Error> for SimKubeError {
-    fn from(err: kube::Error) -> Self {
-        SimKubeError::KubeApiError(err.to_string())
-    }
-}
-
-impl From<url::ParseError> for SimKubeError {
-    fn from(err: url::ParseError) -> Self {
-        SimKubeError::KubeApiError(err.to_string())
-    }
 }
