@@ -37,5 +37,6 @@ async fn main() -> Result<(), ()> {
         _ = ctrl => info!("controller exited")
     );
 
+    info!("shutting down...");
     return Ok(());
 }

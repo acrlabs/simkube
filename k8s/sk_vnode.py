@@ -44,8 +44,7 @@ class SKVnode(Chart):
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
-            command="/sk-vnode",
-            args=["--node-skeleton", volumes.get_path_to("node-skeleton")],
+            args=["/sk-vnode", "--node-skeleton", volumes.get_path_to("node-skeleton")],
         ).with_env(env).with_volumes(volumes).with_security_context(Capability.DEBUG)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})

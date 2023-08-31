@@ -19,8 +19,7 @@ class SKTracer(Chart):
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
-            command="/sk-tracer",
-            args=["--server-port", f"{SERVER_PORT}"],
+            args=["/sk-tracer", "--server-port", f"{SERVER_PORT}"],
         ).with_ports(SERVER_PORT)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})

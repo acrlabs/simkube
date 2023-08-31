@@ -25,7 +25,7 @@ class SKCloudProv(Chart):
         container = fire.ContainerBuilder(
             name=CLOUDPROV_ID,
             image=image,
-            command="/sk-cloudprov",
+            args=["/sk-cloudprov"],
         ).with_ports(GRPC_PORT).with_security_context(Capability.DEBUG)
 
         self._depl = (fire.DeploymentBuilder(namespace=namespace, selector={APP_KEY: CLOUDPROV_ID})
@@ -57,8 +57,8 @@ class ClusterAutoscaler(Chart):
         container = fire.ContainerBuilder(
             name=AUTOSCALER_ID,
             image="localhost:5000/cluster-autoscaler:latest",
-            command="/cluster-autoscaler",
             args=[
+                "/cluster-autoscaler",
                 "--cloud-provider", "externalgrpc",
                 "--cloud-config", volumes.get_path_to("cluster-autoscaler-config"),
                 "--scale-down-delay-after-add", "1m",

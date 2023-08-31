@@ -1,3 +1,9 @@
 FROM debian:buster-slim
 
+RUN apt-get update && apt-get install -y \
+    dumb-init \
+    rust-gdb
+
 COPY sk-ctrl /sk-ctrl
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]

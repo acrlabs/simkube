@@ -3,6 +3,7 @@ import os
 import fireconfig as fire
 from cdk8s import Chart
 from constructs import Construct
+from fireconfig.types import Capability
 
 ID = "sk-ctrl"
 
@@ -18,8 +19,8 @@ class SKController(Chart):
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
-            command="/sk-ctrl",
-        )
+            args=["/sk-ctrl"],
+        ).with_security_context(Capability.DEBUG)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
             .with_label(app_key, ID)
