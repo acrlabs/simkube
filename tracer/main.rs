@@ -33,10 +33,7 @@ async fn main() -> Result<(), ()> {
     let client = Client::try_default().await.expect("failed to create kube client");
     let (mut watcher, tracer) = new_watcher_tracer(client.clone());
 
-    let config = rocket::Config {
-        port: args.server_port,
-        ..rocket::Config::default()
-    };
+    let config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&config).mount("/", rocket::routes![export]).manage(tracer.clone());
 
     tokio::select!(

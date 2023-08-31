@@ -9,7 +9,6 @@ use futures::{
     StreamExt,
 };
 use kube::runtime::controller::Controller;
-use kube::runtime::watcher;
 use simkube::prelude::*;
 use tracing::*;
 
@@ -28,8 +27,8 @@ async fn main() -> Result<(), ()> {
     let sim_api = kube::Api::<Simulation>::all(k8s_client.clone());
     let sim_root_api = kube::Api::<SimulationRoot>::all(k8s_client.clone());
 
-    let ctrl = Controller::new(sim_api, watcher::Config::default())
-        .owns(sim_root_api, watcher::Config::default())
+    let ctrl = Controller::new(sim_api, Default::default())
+        .owns(sim_root_api, Default::default())
         .run(reconcile, error_policy, Arc::new(SimulationContext { k8s_client }))
         .for_each(|_| future::ready(()));
 

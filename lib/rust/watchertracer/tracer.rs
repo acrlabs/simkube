@@ -112,7 +112,7 @@ impl Tracer {
                 metadata: metav1::ObjectMeta {
                     namespace: Some(ns),
                     name: Some(name),
-                    ..metav1::ObjectMeta::default()
+                    ..Default::default()
                 },
                 spec: None,
                 status: None,

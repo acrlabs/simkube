@@ -20,7 +20,7 @@ where
         kind: K::kind(&()).into(),
         name: owner.name_any(),
         uid: owner.uid().ok_or(SimKubeError::FieldNotFound)?,
-        ..metav1::OwnerReference::default()
+        ..Default::default()
     });
 
     return Ok(());

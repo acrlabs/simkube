@@ -27,9 +27,9 @@ fn test_pod(#[default(TESTING_NAMESPACE)] namespace: &str, #[default("pod")] nam
         metadata: metav1::ObjectMeta {
             namespace: Some(namespace.into()),
             name: Some(name.into()),
-            ..metav1::ObjectMeta::default()
+            ..Default::default()
         },
-        ..corev1::Pod::default()
+        ..Default::default()
     }
 }
 

@@ -40,9 +40,9 @@ fn test_pod(idx: i64) -> corev1::Pod {
         metadata: metav1::ObjectMeta {
             namespace: Some(TESTING_NAMESPACE.into()),
             name: Some(format!("pod{}", idx).into()),
-            ..metav1::ObjectMeta::default()
+            ..Default::default()
         },
-        ..corev1::Pod::default()
+        ..Default::default()
     };
 }
 

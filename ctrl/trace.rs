@@ -14,12 +14,12 @@ pub(super) fn get_local_trace_volume(path: &Url) -> (corev1::VolumeMount, corev1
         corev1::VolumeMount {
             name: TRACE_VOLUME_NAME.into(),
             mount_path: mount_path.clone(),
-            ..corev1::VolumeMount::default()
+            ..Default::default()
         },
         corev1::Volume {
             name: TRACE_VOLUME_NAME.into(),
             host_path: Some(corev1::HostPathVolumeSource { path: fp, type_: Some("File".into()) }),
-            ..corev1::Volume::default()
+            ..Default::default()
         },
         mount_path,
     );

@@ -10,10 +10,6 @@ use std::time::Duration;
 use clap::Parser;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::api::{
-    DeleteParams,
-    PostParams,
-};
 use kube::ResourceExt;
 use simkube::prelude::*;
 use simkube::util::add_common_fields;
@@ -42,11 +38,8 @@ fn make_virtual_namespace(
     sim_root: &SimulationRoot,
 ) -> SimKubeResult<corev1::Namespace> {
     let mut ns = corev1::Namespace {
-        metadata: metav1::ObjectMeta {
-            name: Some(ns_name.into()),
-            ..metav1::ObjectMeta::default()
-        },
-        ..corev1::Namespace::default()
+        metadata: metav1::ObjectMeta { name: Some(ns_name.into()), ..Default::default() },
+        ..Default::default()
     };
     add_common_fields(sim_name, sim_root, &mut ns)?;
 
@@ -81,7 +74,7 @@ async fn main() -> SimKubeResult<()> {
             let virtual_ns_name = format!("{}-{}", args.sim_namespace_prefix, pod.namespace().unwrap());
             if !pod_apis.contains_key(&virtual_ns_name) {
                 let ns = make_virtual_namespace(&args.sim_name, &virtual_ns_name, &root)?;
-                ns_api.create(&PostParams::default(), &ns).await?;
+                ns_api.create(&Default::default(), &ns).await?;
                 pod_apis.insert(virtual_ns_name.clone(), kube::Api::namespaced(k8s_client.clone(), &virtual_ns_name));
             }
 
@@ -100,7 +93,7 @@ async fn main() -> SimKubeResult<()> {
 
             info!("creating pod {:?}", replay_pod);
             let pod_api = pod_apis.get(&virtual_ns_name).unwrap();
-            pod_api.create(&PostParams::default(), &replay_pod).await?;
+            pod_api.create(&Default::default(), &replay_pod).await?;
         }
 
         for pod in evt.deleted_pods {
@@ -108,7 +101,7 @@ async fn main() -> SimKubeResult<()> {
             let virtual_ns_name = format!("{}-{}", args.sim_namespace_prefix, pod.namespace().unwrap());
             match pod_apis.get(&virtual_ns_name) {
                 Some(pod_api) => {
-                    pod_api.delete(&pod.name_any(), &DeleteParams::default()).await?;
+                    pod_api.delete(&pod.name_any(), &Default::default()).await?;
                 },
                 None => warn!("could not find namespace"),
             }
@@ -122,7 +115,7 @@ async fn main() -> SimKubeResult<()> {
     }
 
     info!("trace over, cleaning up");
-    roots_api.delete(&root.name_any(), &DeleteParams::default()).await?;
+    roots_api.delete(&root.name_any(), &Default::default()).await?;
     info!("simulation complete!");
 
     Ok(())

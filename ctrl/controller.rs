@@ -4,7 +4,6 @@ use std::sync::Arc;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::api::PostParams;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
@@ -27,7 +26,7 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
     let mut root = SimulationRoot {
         metadata: metav1::ObjectMeta {
             name: Some(simulation.name_any()),
-            ..metav1::ObjectMeta::default()
+            ..Default::default()
         },
         spec: SimulationRootSpec {},
     };
@@ -47,7 +46,7 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeRes
         metadata: metav1::ObjectMeta {
             namespace: Some(simulation.spec.driver_namespace.clone()),
             name: Some(format!("{}-driver", simulation.name_any())),
-            ..metav1::ObjectMeta::default()
+            ..Default::default()
         },
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(1),
@@ -68,18 +67,18 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeRes
                         ]),
                         image: Some(simulation.spec.driver_image.clone()),
                         volume_mounts: Some(vec![trace_vm]),
-                        ..corev1::Container::default()
+                        ..Default::default()
                     }],
                     restart_policy: Some("Never".into()),
                     volumes: Some(vec![trace_volume]),
                     service_account: Some("sk-ctrl-service-account-c8688aad".into()),
-                    ..corev1::PodSpec::default()
+                    ..Default::default()
                 }),
-                ..corev1::PodTemplateSpec::default()
+                ..Default::default()
             },
-            ..batchv1::JobSpec::default()
+            ..Default::default()
         }),
-        ..batchv1::Job::default()
+        ..Default::default()
     };
     add_common_fields(&simulation.name_any(), simulation, &mut job)?;
 
@@ -96,7 +95,7 @@ pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>)
         None => {
             info!("creating SimulationRoot for {}", simulation.name_any());
             let root = create_simulation_root(simulation.deref())?;
-            roots_api.create(&PostParams::default(), &root).await?;
+            roots_api.create(&Default::default(), &root).await?;
         },
         Some(root) => {
             // TODO need to create the namespace
@@ -105,7 +104,7 @@ pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>)
             // they're done before proceeding
             info!("creating driver Job for {}", simulation.name_any());
             let job = create_driver_job(simulation.deref(), &root.name_any())?;
-            jobs_api.create(&PostParams::default(), &job).await?;
+            jobs_api.create(&Default::default(), &job).await?;
         },
     }
 
