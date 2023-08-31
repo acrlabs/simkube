@@ -14,6 +14,7 @@ const (
 
 	verbosityFlag = "verbosity"
 	jsonLogsFlag  = "jsonlogs"
+	appLabelFlag  = "applabel"
 )
 
 func rootCmd() *cobra.Command {
@@ -25,6 +26,7 @@ func rootCmd() *cobra.Command {
 
 	root.PersistentFlags().IntP(verbosityFlag, "v", 2, "log level output (higher is more verbose")
 	root.PersistentFlags().Bool(jsonLogsFlag, false, "structured JSON logging output")
+	root.PersistentFlags().StringP(appLabelFlag, "A", "sk-vnode", "app label selector for virtual nodes")
 	return root
 }
 
@@ -40,7 +42,11 @@ func start(cmd *cobra.Command, _ []string) {
 	}
 
 	util.SetupLogging(level, jsonLogs)
-	cloudprov.Run()
+	appLabel, err := cmd.PersistentFlags().GetString(appLabelFlag)
+	if err != nil {
+		panic(err)
+	}
+	cloudprov.Run(appLabel)
 }
 
 func main() {

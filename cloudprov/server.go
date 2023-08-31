@@ -1,6 +1,7 @@
 package cloudprov
 
 import (
+	"fmt"
 	"net"
 
 	log "github.com/sirupsen/logrus"
@@ -12,7 +13,7 @@ const (
 	address = ":8086"
 )
 
-func Run() {
+func Run(appLabel string) {
 	srv := grpc.NewServer()
 	logger := log.WithFields(log.Fields{"provider": providerName})
 
@@ -22,7 +23,7 @@ func Run() {
 		logger.Fatalf("failed to listen: %s", err)
 	}
 
-	cp, err := NewCloudProvider("app=simkube")
+	cp, err := NewCloudProvider(fmt.Sprintf("app=%s", appLabel))
 	if err != nil {
 		logger.Fatalf("could not create cloud provider: %s", err)
 	}
