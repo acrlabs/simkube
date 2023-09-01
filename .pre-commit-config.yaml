@@ -10,12 +10,6 @@ repos:
     rev: v1.53.3
     hooks:
       - id: golangci-lint
-  - repo: https://github.com/drmorr0/go-carpet
-    rev: 8857cfe
-    hooks:
-      - id: go-carpet
-        args:
-          - "-mincov=0"
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:

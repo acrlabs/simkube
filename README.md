@@ -21,18 +21,16 @@ This package provides the following components:
 ## Developing
 
 When you first clone the repository, run `make setup`; this will initialize [pre-commit](https://pre-commit.com) and the
-Poetry virtualenv for generating the Kubernetes manifests.  You will also need to install
-[go-carpet](https://github.com/msoap/go-carpet) 1.11.0 or higher:
-
-```
-go install https://github.com/drmorr0/go-carpet@latest
-```
+Poetry virtualenv for generating the Kubernetes manifests, and vendor in all of the Rust dependencies for faster build
+times.
 
 To deploy all the subcomponents, run `make`.  This will also create a test deployment which is scheduled on the
-virtual nodes.  If you scale the test deployment up or down, Cluster Autoscaler and `sk-cloudprov` will react to scale the
-`sk-vnode` deployment object.
+virtual nodes.  If you scale the test deployment up or down, Cluster Autoscaler and `sk-cloudprov` will react to scale
+the `sk-vnode` deployment object.
 
-If you want to run linting checks and tests manually, you can run `make test`.
+If you want to run linting checks and tests manually, you can run `make verify`.  Since this repo includes both Go and
+Rust code, the linting results, test results, and code coverage will be split for the two languages, which is slightly
+annoying.
 
 Kubernetes manifests are generated via [🔥Config](https://github.com/acrlabs/fireconfig), which is based on top of
 [cdk8s](https://cdk8s.io).  You don't _have_ to use the generated manifests but they are generally recommended.

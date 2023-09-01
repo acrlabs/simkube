@@ -4,23 +4,40 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Install Golang
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
-      - run: cargo vendor .vendor
-      # We use the golangci-lint action here instead of just calling make because
-      # the provided action does much more aggressive caching
-      - uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.53
-      - run: make build
-      # We don't call verify here because of a) the linting thing above, and b)
-      # because we can't install the go-carpet fork that I'm running
-      - run: make test
       - uses: Swatinem/rust-cache@v2
         with:
-          cache-directories: .vendor
+          cache-directories: |
+            .vendor
+            .build
+      - name: Add llvm-tools
+        run: rustup component add llvm-tools-preview
+      - name: Install grcov
+        run: cargo install grcov
+      - name: Vendor cargo deps
+        run: cargo vendor .vendor
+      # We use the golangci-lint action here instead of just calling make because
+      # the provided action does much more aggressive caching
+      - name: Lint Go code
+        uses: golangci/golangci-lint-action@v3
+        with:
+          version: v1.53
+      - name: Lint Rust code
+        run: cargo clippy
+      - name: Build
+        run: make build
+      # We don't call verify here because of the linting thing above
+      - name: Test
+        run: make test
+      - name: Check coverage
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          directory: .build/coverage
