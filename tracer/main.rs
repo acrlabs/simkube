@@ -7,6 +7,7 @@ use std::sync::{
 
 use clap::Parser;
 use kube::Client;
+use rocket::data::ByteUnit;
 use simkube::watchertracer::{
     new_watcher_tracer,
     Tracer,
@@ -19,9 +20,20 @@ struct Options {
     server_port: u16,
 }
 
-#[rocket::get("/export?<start>&<end>")]
-async fn export(start: i64, end: i64, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
-    tracer.lock().unwrap().export(start, end).map_err(|e| format!("{:?}", e))
+#[rocket::post("/export", data = "<data>")]
+async fn export(data: rocket::Data<'_>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
+    // We don't use rocket::Json because we want to provide default values
+    // which that wrapper doesn't seem to support
+    let body = match data.open(ByteUnit::kB).into_string().await {
+        Ok(b) => b,
+        Err(e) => return Err(format!("{:?}", e)),
+    };
+    let cfg = match serde_json::from_str(&body) {
+        Ok(c) => c,
+        Err(e) => return Err(format!("{:?}", e)),
+    };
+    info!("exporting with config: {:?}", cfg);
+    tracer.lock().unwrap().export(&cfg).map_err(|e| format!("{:?}", e))
 }
 
 #[tokio::main]

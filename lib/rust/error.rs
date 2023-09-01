@@ -16,6 +16,9 @@ pub enum SimKubeError {
     #[error("error communicating with the apiserver")]
     KubeApiError(#[from] kube::Error),
 
+    #[error("label selector was malformed")]
+    MalformedLabelSelector,
+
     #[error("parse error")]
     ParseError(#[from] url::ParseError),
 

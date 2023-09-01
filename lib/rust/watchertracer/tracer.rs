@@ -18,6 +18,8 @@ use tracing::*;
 
 use crate::prelude::*;
 use crate::util::*;
+use crate::watchertracer::trace_filter::filter_event;
+use crate::watchertracer::ExportFilter;
 
 #[derive(Debug)]
 enum TraceAction {
@@ -25,7 +27,7 @@ enum TraceAction {
     PodDeleted,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TraceEvent {
     pub ts: i64,
     pub created_pods: Vec<corev1::Pod>,
@@ -56,13 +58,13 @@ impl Tracer {
         return Ok(tracer);
     }
 
-    pub fn export(&self, start: i64, end: i64) -> SimKubeResult<Vec<u8>> {
+    pub fn export(&self, f: &ExportFilter) -> SimKubeResult<Vec<u8>> {
         let mut events = vec![TraceEvent {
-            ts: start,
-            created_pods: self.replay_trace(Some(start)).values().cloned().collect(),
+            ts: f.start_time,
+            created_pods: self.replay_trace(Some(f.start_time)).values().cloned().collect(),
             deleted_pods: Vec::new(),
         }];
-        events.extend(self.trace.iter().filter(|evt| evt.ts >= start && evt.ts < end).cloned());
+        events.extend(self.trace.iter().filter_map(|evt| filter_event(evt, f)));
         let data = rmp_serde::to_vec_named(&events)?;
 
         return Ok(data);

@@ -1,3 +1,4 @@
+mod trace_filter;
 mod tracer;
 mod watcher;
 
@@ -6,6 +7,7 @@ use std::sync::{
     Mutex,
 };
 
+pub use crate::watchertracer::trace_filter::ExportFilter;
 pub use crate::watchertracer::tracer::{
     TraceEvent,
     Tracer,

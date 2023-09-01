@@ -1,4 +1,3 @@
-use std::collections::VecDeque;
 use std::sync::{
     Arc,
     Mutex,
@@ -11,8 +10,8 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::watcher::Event;
 use simkube::util::Clockable;
 use simkube::watchertracer::{
+    ExportFilter,
     PodStream,
-    TraceEvent,
     Tracer,
     Watcher,
 };
@@ -81,13 +80,18 @@ async fn test_export() {
     let mut w = Watcher::new_from_parts(test_stream(clock.clone()), t.clone(), clock);
     w.start().await;
 
-    let end: i64 = 30;
-    let start: i64 = 15;
+    let filter = ExportFilter {
+        start_time: 15,
+        end_time: 30,
+        excluded_namespaces: vec![],
+        excluded_labels: vec![],
+        exclude_daemonsets: true,
+    };
     let tracer = t.lock().unwrap();
-    match tracer.export(start, end) {
+    match tracer.export(&filter) {
         Ok(data) => {
             let new_tracer = Tracer::import(data).unwrap();
-            assert_eq!(tracer.pods_at(end), new_tracer.pods());
+            assert_eq!(tracer.pods_at(filter.end_time), new_tracer.pods());
         },
         Err(e) => panic!("failed with {}", e),
     };
