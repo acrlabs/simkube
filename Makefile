@@ -30,10 +30,10 @@ test:
 	mkdir -p $(BUILD_DIR)/coverage
 	go test -coverprofile=$(GO_COVER_FILE) ./...
 	CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/cargo-test-%p-%m.profraw' cargo test --target-dir=$(BUILD_DIR)/test
-	grcov . --binary-path $(BUILD_DIR)/test/debug/deps -s . -t lcov,markdown --branch --ignore '../*' --ignore '/*' --ignore '.vendor/*' --ignore 'tests/*' -o $(BUILD_DIR)/coverage
 
 cover:
 	go tool cover -func=$(GO_COVER_FILE)
+	grcov . --binary-path $(BUILD_DIR)/test/debug/deps -s . -t lcov,markdown --branch --ignore '../*' --ignore '/*' --ignore '.vendor/*' --ignore 'tests/*' -o $(BUILD_DIR)/coverage
 	cat $(COVERAGE_DIR)/markdown.md
 
 clean::

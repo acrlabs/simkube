@@ -35,7 +35,7 @@ jobs:
         run: make build
       # We don't call verify here because of the linting thing above
       - name: Test
-        run: make test
+        run: make test cover
       - name: Check coverage
         uses: codecov/codecov-action@v3
         with:

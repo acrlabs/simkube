@@ -12,10 +12,10 @@ use crate::prelude::*;
 
 // The meanings of these operators is explained here:
 // https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#set-based-requirement
-const OPERATOR_IN: &str = "In";
-const OPERATOR_NOT_IN: &str = "NotIn";
-const OPERATOR_EXISTS: &str = "Exists";
-const OPERATOR_DOES_NOT_EXIST: &str = "DoesNotExist";
+pub(super) const OPERATOR_IN: &str = "In";
+pub(super) const OPERATOR_NOT_IN: &str = "NotIn";
+pub(super) const OPERATOR_EXISTS: &str = "Exists";
+pub(super) const OPERATOR_DOES_NOT_EXIST: &str = "DoesNotExist";
 
 pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> SimKubeResult<()>
 where
@@ -33,7 +33,7 @@ where
     Ok(())
 }
 
-fn label_expr_match(
+pub(super) fn label_expr_match(
     pod_labels: &BTreeMap<String, String>,
     expr: &metav1::LabelSelectorRequirement,
 ) -> SimKubeResult<bool> {
