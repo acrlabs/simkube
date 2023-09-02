@@ -15,14 +15,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-directories: |
-            .vendor
             .build
       - name: Add llvm-tools
         run: rustup component add llvm-tools-preview
       - name: Install grcov
         run: cargo install grcov
-      - name: Vendor cargo deps
-        run: cargo vendor .vendor
       # We use the golangci-lint action here instead of just calling make because
       # the provided action does much more aggressive caching
       - name: Lint Go code
@@ -36,6 +33,8 @@ jobs:
       # We don't call verify here because of the linting thing above
       - name: Test
         run: make test cover
+        env:
+          RUST_COVER_TYPE: lcov
       - name: Check coverage
         uses: codecov/codecov-action@v3
         with:

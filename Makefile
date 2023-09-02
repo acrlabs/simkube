@@ -5,10 +5,11 @@ ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS)
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 GO_COVER_FILE=$(COVERAGE_DIR)/go-coverage.txt
 
-include build/base.mk
+RUST_COVER_TYPE ?= markdown
+RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
+CARGO_HOME_ENV=CARGO_HOME=$(BUILD_DIR)/cargo
 
-setup::
-	cargo vendor .vendor
+include build/base.mk
 
 $(GO_ARTIFACTS):
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./$(subst sk-,,$(@))/cmd/
@@ -19,22 +20,24 @@ $(RUST_ARTIFACTS):
 	docker run -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
 %-docker:
-	cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
+	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
 lint:
-	cargo clippy
+	$(CARGO_HOME_ENV) cargo clippy
 	golangci-lint run
 
 test:
 	mkdir -p $(BUILD_DIR)/coverage
 	go test -coverprofile=$(GO_COVER_FILE) ./...
-	CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/cargo-test-%p-%m.profraw' cargo test --target-dir=$(BUILD_DIR)/test
+	$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/cargo-test-%p-%m.profraw' \
+		cargo test --target-dir=$(BUILD_DIR)/test
 
 cover:
 	go tool cover -func=$(GO_COVER_FILE)
-	grcov . --binary-path $(BUILD_DIR)/test/debug/deps -s . -t lcov,markdown --branch --ignore '../*' --ignore '/*' --ignore '.vendor/*' --ignore 'tests/*' -o $(BUILD_DIR)/coverage
-	cat $(COVERAGE_DIR)/markdown.md
-
-clean::
-	rm -rf .vendor
+	grcov . --binary-path $(BUILD_DIR)/test/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
+		--ignore '../*' \
+		--ignore '/*' \
+		--ignore 'tests/*' \
+		--ignore '*_test.rs'
+	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
