@@ -1,9 +1,51 @@
+use std::mem::discriminant;
+
 use thiserror::Error;
 
 pub type SimKubeResult<T, E = SimKubeError> = std::result::Result<T, E>;
 
-#[derive(Error, Debug)]
-pub enum SimKubeError {
+macro_rules! sk_error_helper {
+    ( {$($body:tt)*} #[$err:meta] $item:ident, $($tail:tt)*) => {
+        sk_error_helper!{
+            {
+                $($body)*
+                #[$err]
+                $item,
+            }
+            $($tail)*
+        }
+    };
+
+    ( {$($body:tt)*} #[$err:meta] $item:ident($(#[$from:meta])? $derive:ty), $($tail:tt)*) => {
+        sk_error_helper!{
+            {
+                $($body)*
+                #[$err]
+                $item($(#[$from])? $derive),
+            }
+            $($tail)*
+        }
+    };
+
+    ( {$($body:tt)*} ) => {
+        #[derive(Error, Debug)]
+        pub enum SimKubeError {
+            $($body)*
+        }
+
+        impl PartialEq for SimKubeError {
+            fn eq(&self, other: &SimKubeError) -> bool {
+                return discriminant(self) == discriminant(other)
+            }
+        }
+    };
+}
+
+macro_rules! sk_error {
+    ( $($items:tt)* ) => {sk_error_helper!{{} $($items)*}};
+}
+
+sk_error! {
     #[error("error decoding trace data")]
     DeserializationError(#[from] rmp_serde::decode::Error),
 

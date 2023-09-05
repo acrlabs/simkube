@@ -37,23 +37,31 @@ pub(super) fn label_expr_match(
     pod_labels: &BTreeMap<String, String>,
     expr: &metav1::LabelSelectorRequirement,
 ) -> SimKubeResult<bool> {
+    // LabelSelectorRequirement is considered invalid if the Operator is "In" or NotIn"
+    // and there are no values; conversely for "Exists" and "DoesNotExist".
     return match expr.operator.as_str() {
         OPERATOR_IN => match pod_labels.get(&expr.key) {
             Some(v) => match &expr.values {
-                Some(values) => Ok(values.contains(v)),
-                None => Err(SimKubeError::MalformedLabelSelector),
+                Some(values) if !values.is_empty() => Ok(values.contains(v)),
+                _ => Err(SimKubeError::MalformedLabelSelector),
             },
             None => Ok(false),
         },
         OPERATOR_NOT_IN => match pod_labels.get(&expr.key) {
             Some(v) => match &expr.values {
-                Some(values) => Ok(!values.contains(v)),
-                None => Err(SimKubeError::MalformedLabelSelector),
+                Some(values) if !values.is_empty() => Ok(!values.contains(v)),
+                _ => Err(SimKubeError::MalformedLabelSelector),
             },
             None => Ok(true),
         },
-        OPERATOR_EXISTS => Ok(pod_labels.contains_key(&expr.key)),
-        OPERATOR_DOES_NOT_EXIST => Ok(!pod_labels.contains_key(&expr.key)),
+        OPERATOR_EXISTS => match &expr.values {
+            Some(values) if !values.is_empty() => Err(SimKubeError::MalformedLabelSelector),
+            _ => Ok(pod_labels.contains_key(&expr.key)),
+        },
+        OPERATOR_DOES_NOT_EXIST => match &expr.values {
+            Some(values) if !values.is_empty() => Err(SimKubeError::MalformedLabelSelector),
+            _ => Ok(!pod_labels.contains_key(&expr.key)),
+        },
         _ => return Err(SimKubeError::MalformedLabelSelector),
     };
 }
