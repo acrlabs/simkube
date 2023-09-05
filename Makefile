@@ -39,5 +39,6 @@ cover:
 		--ignore '../*' \
 		--ignore '/*' \
 		--ignore 'tests/*' \
-		--ignore '*_test.rs'
+		--ignore '*_test.rs' \
+		--ignore '.build/cargo/*'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
