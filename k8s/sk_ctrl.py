@@ -16,10 +16,15 @@ class SKController(Chart):
 
         with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
             image = f.read()
+        with open(os.getenv('BUILD_DIR') + '/sk-driver-image') as f:
+            driver_image = f.read()
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
-            args=["/sk-ctrl"],
+            args=[
+                "/sk-ctrl",
+                "--driver-image", driver_image
+            ],
         ).with_security_context(Capability.DEBUG)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})

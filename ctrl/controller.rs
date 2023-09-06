@@ -18,8 +18,9 @@ use tracing::*;
 
 use crate::trace::*;
 
-pub struct SimulationContext {
-    pub k8s_client: kube::Client,
+pub(super) struct SimulationContext {
+    pub(super) k8s_client: kube::Client,
+    pub(super) driver_image: String,
 }
 
 fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRoot> {
@@ -35,7 +36,7 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
     return Ok(root);
 }
 
-fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeResult<batchv1::Job> {
+fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> SimKubeResult<batchv1::Job> {
     let trace_path = Url::parse(&simulation.spec.trace)?;
     let (trace_vm, trace_volume, mount_path) = match trace::storage_type(&trace_path)? {
         trace::Scheme::AmazonS3 => todo!(),
@@ -65,7 +66,7 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeRes
                             "--sim-name".into(),
                             simulation.name_any(),
                         ]),
-                        image: Some(simulation.spec.driver_image.clone()),
+                        image: Some(driver_image.into()),
                         volume_mounts: Some(vec![trace_vm]),
                         ..Default::default()
                     }],
@@ -85,7 +86,7 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str) -> SimKubeRes
     return Ok(job);
 }
 
-pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>) -> SimKubeResult<Action> {
+pub(crate) async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>) -> SimKubeResult<Action> {
     let k8s_client = &ctx.k8s_client;
     info!("got simulation object: {:?}", simulation);
 
@@ -103,7 +104,7 @@ pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>)
             // TODO should check if there are any other simulations running and block/wait until
             // they're done before proceeding
             info!("creating driver Job for {}", simulation.name_any());
-            let job = create_driver_job(simulation.deref(), &root.name_any())?;
+            let job = create_driver_job(simulation.deref(), &root.name_any(), &ctx.driver_image)?;
             jobs_api.create(&Default::default(), &job).await?;
         },
     }
@@ -111,7 +112,7 @@ pub async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>)
     return Ok(Action::await_change());
 }
 
-pub fn error_policy(simulation: Arc<Simulation>, error: &SimKubeError, _: Arc<SimulationContext>) -> Action {
+pub(crate) fn error_policy(simulation: Arc<Simulation>, error: &SimKubeError, _: Arc<SimulationContext>) -> Action {
     warn!("reconcile failed on simulation {}: {:?}", namespaced_name(simulation.deref()), error);
     return Action::requeue(Duration::from_secs(5 * 60));
 }
