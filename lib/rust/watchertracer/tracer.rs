@@ -77,6 +77,13 @@ impl Tracer {
         return tracked_pods.keys().cloned().collect();
     }
 
+    pub fn start_ts(&self) -> Option<i64> {
+        match self.iter().next() {
+            Some((_, Some(ts))) => Some(ts),
+            _ => None,
+        }
+    }
+
     pub(super) fn create_pod(&mut self, pod: &corev1::Pod, ts: i64) {
         let ns_name = namespaced_name(pod);
         if !self.tracked_pods.contains_key(&ns_name) {

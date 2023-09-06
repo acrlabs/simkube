@@ -33,6 +33,7 @@ pub mod prelude {
         SimulationRootSpec,
         SimulationSpec,
     };
+    pub use crate::constants::*;
     pub use crate::error::{
         SimKubeError,
         SimKubeResult,
