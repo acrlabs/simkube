@@ -18,7 +18,6 @@ use serde::{
 #[kube(group = "simkube.io", version = "v1alpha1", kind = "Simulation")]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationSpec {
-    pub driver_image: String,
     pub driver_namespace: String,
     pub trace: String,
 }

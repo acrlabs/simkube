@@ -30,7 +30,7 @@ lint:
 test:
 	mkdir -p $(BUILD_DIR)/coverage
 	go test -coverprofile=$(GO_COVER_FILE) ./...
-	$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/cargo-test-%p-%m.profraw' \
+	$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/coverage/cargo-test-%p-%m.profraw' \
 		cargo test --target-dir=$(BUILD_DIR)/test -- --nocapture
 
 cover:
@@ -41,5 +41,10 @@ cover:
 		--ignore 'tests/*' \
 		--ignore '*_test.rs' \
 		--ignore '.build/cargo/*' \
+		--ignore 'hack/*' \
 		--excl-line '#\[derive'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
+
+.PHONY: crd
+crd:
+	cargo run --bin gencrd > $(BUILD_DIR)/manifests/0000-crd.yml

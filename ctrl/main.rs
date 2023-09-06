@@ -4,6 +4,7 @@ mod trace;
 
 use std::sync::Arc;
 
+use clap::Parser;
 use futures::{
     future,
     StreamExt,
@@ -18,8 +19,16 @@ use crate::controller::{
     SimulationContext,
 };
 
+#[derive(Parser, Debug)]
+struct Options {
+    #[arg(long)]
+    driver_image: String,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), ()> {
+    let args = Options::parse();
+
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Simulation controller starting");
 
@@ -29,7 +38,7 @@ async fn main() -> Result<(), ()> {
 
     let ctrl = Controller::new(sim_api, Default::default())
         .owns(sim_root_api, Default::default())
-        .run(reconcile, error_policy, Arc::new(SimulationContext { k8s_client }))
+        .run(reconcile, error_policy, Arc::new(SimulationContext { k8s_client, driver_image: args.driver_image }))
         .for_each(|_| future::ready(()));
 
     tokio::select!(
