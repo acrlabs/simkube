@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::sync::{
     Arc,
     Mutex,
@@ -8,10 +9,11 @@ use futures::stream::StreamExt;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::watcher::Event;
+use kube::ResourceExt;
 use simkube::util::Clockable;
 use simkube::watchertracer::{
-    ExportFilter,
     PodStream,
+    TraceFilter,
     Tracer,
     Watcher,
 };
@@ -23,8 +25,9 @@ struct MockUtcClock {
 }
 
 impl MockUtcClock {
-    fn advance(&mut self, duration: i64) {
+    fn advance(&mut self, duration: i64) -> i64 {
         self.now += duration;
+        self.now
     }
 }
 
@@ -45,28 +48,90 @@ fn test_pod(idx: i64) -> corev1::Pod {
     };
 }
 
+fn test_daemonset_pod(idx: i64) -> corev1::Pod {
+    let mut ds_pod = test_pod(idx + 100);
+    ds_pod.metadata.owner_references =
+        Some(vec![metav1::OwnerReference { kind: "DaemonSet".into(), ..Default::default() }]);
+    ds_pod
+}
+
 // Set up a test stream to ensure that imports and exports work correctly.
-// The test stream looks like this:
 //
-//   - at time 0, ten pods are created (initial conditions)
-//   - at time 5/10/15/..., one of the original ten pods is deleted
+// We use stream::unfold to build a stream from a set of events; the unfold takes a "state" tuple
+// as input, which has the "current timestamp" and "id of next regular pod to delete" as input.
 //
-// If you start your export at (say) time 13, you can check whether the correct
-// pods exist in the export's setup/initial conditions (i.e., pod1 and pod2 should
-// be deleted in this scenario, but pod3..9 should be present).
+// This is a little subtle because the event that we're returning at state (ts_i, id) does not
+// actually _happen_ until time ts_{i+1}.
 fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> PodStream {
-    return stream::unfold(0, move |idx| {
+    return stream::unfold((-1, 0), move |state| {
         let clock = clock.clone();
         async move {
-            if idx < 10 {
-                let pod = test_pod(idx);
-                return Some((Ok(Event::Applied(pod)), idx + 1));
-            } else if idx < 20 {
-                clock.lock().unwrap().advance(5);
-                let pod = test_pod(idx - 10);
-                return Some((Ok(Event::Deleted(pod)), idx + 1));
-            } else {
-                None
+            let mut c = clock.lock().unwrap();
+            match state {
+                // Initial conditions: we create 10 regular pods and 5 daemonset pods
+                (-1, id) => {
+                    let mut pods: Vec<_> = (0..10).map(|i| test_pod(i)).collect();
+                    let ds_pods: Vec<_> = (0..5).map(|i| test_daemonset_pod(i)).collect();
+                    pods.extend(ds_pods);
+                    return Some((Ok(Event::Restarted(pods)), (0, id)));
+                },
+
+                // We recreate one of the pods at time zero just to make sure there's
+                // no weird duplicate behaviours
+                (0, id) => {
+                    let pod = test_pod(id);
+                    let new_ts = c.advance(5);
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                },
+
+                // From times 10..20, we delete one of the regular pods
+                (5..=19, id) => {
+                    let pod = test_pod(id);
+                    let new_ts = c.advance(5);
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                },
+
+                // In times 20..25, we test the various filter options:
+                //  - two DS pods are created
+                //  - a kube-system pod is created
+                //  - a label-selector pod is created
+                //
+                // In the test below, all of these events should be filtered out
+                (20, id) => {
+                    let pod = test_daemonset_pod(7);
+                    let new_ts = c.advance(1);
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                },
+                (21, id) => {
+                    let pod = test_daemonset_pod(8);
+                    let new_ts = c.advance(1);
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                },
+                (22, id) => {
+                    let mut pod = test_pod(30);
+                    pod.metadata.namespace = Some("kube-system".into());
+                    let new_ts = c.advance(1);
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                },
+                (23, id) => {
+                    let pod = test_daemonset_pod(1);
+                    let new_ts = c.advance(1);
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id)));
+                },
+                (24, id) => {
+                    let mut pod = test_pod(31);
+                    pod.labels_mut().insert("foo".into(), "bar".into());
+                    let new_ts = c.advance(1);
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                },
+
+                // Lastly we delete the remaining "regular" pods
+                (25..=55, id) => {
+                    let pod = test_pod(id);
+                    let new_ts = c.advance(5);
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                },
+                _ => None,
             }
         }
     })
@@ -75,23 +140,33 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> PodStream {
 
 #[tokio::test]
 async fn test_export() {
+    // First build up the stream of test data and run the watcher (this advances time to the "end")
     let t = Tracer::new();
     let clock = Arc::new(Mutex::new(MockUtcClock { now: 0 }));
     let mut w = Watcher::new_from_parts(test_stream(clock.clone()), t.clone(), clock);
     w.start().await;
 
-    let filter = ExportFilter {
-        start_time: 15,
-        end_time: 30,
-        excluded_namespaces: vec![],
-        excluded_labels: vec![],
+    // Next export the data with the chosen filters
+    let filter = TraceFilter {
+        excluded_namespaces: vec!["kube-system".into()],
+        excluded_labels: vec![metav1::LabelSelector {
+            match_labels: Some(BTreeMap::from([("foo".into(), "bar".into())])),
+            ..Default::default()
+        }],
         exclude_daemonsets: true,
     };
+
     let tracer = t.lock().unwrap();
-    match tracer.export(&filter) {
+    let (start_ts, end_ts) = (15, 46);
+    match tracer.export(start_ts, end_ts, &filter) {
         Ok(data) => {
+            // Confirm that the results match what we expect
             let new_tracer = Tracer::import(data).unwrap();
-            assert_eq!(tracer.pods_at(filter.end_time), new_tracer.pods());
+            let expected_pods = tracer.pods_at(end_ts, &filter);
+            let actual_pods = new_tracer.pods();
+            println!("Expected pods: {:?}", expected_pods);
+            println!("Actual pods: {:?}", actual_pods);
+            assert_eq!(expected_pods, actual_pods);
         },
         Err(e) => panic!("failed with {}", e),
     };

@@ -31,7 +31,7 @@ test:
 	mkdir -p $(BUILD_DIR)/coverage
 	go test -coverprofile=$(GO_COVER_FILE) ./...
 	$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/cargo-test-%p-%m.profraw' \
-		cargo test --target-dir=$(BUILD_DIR)/test
+		cargo test --target-dir=$(BUILD_DIR)/test -- --nocapture
 
 cover:
 	go tool cover -func=$(GO_COVER_FILE)
@@ -40,5 +40,6 @@ cover:
 		--ignore '/*' \
 		--ignore 'tests/*' \
 		--ignore '*_test.rs' \
-		--ignore '.build/cargo/*'
+		--ignore '.build/cargo/*' \
+		--excl-line '#\[derive'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
