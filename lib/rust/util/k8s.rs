@@ -89,6 +89,10 @@ pub fn label_for(key: &str, val: &str) -> String {
     format!("{}={}", key, val)
 }
 
+pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
+    format!("{}-{}", prefix, obj.namespace().unwrap())
+}
+
 pub fn namespaced_name(obj: &impl Resource) -> String {
     return match obj.namespace() {
         Some(ns) => format!("{}/{}", ns, obj.name_any()),

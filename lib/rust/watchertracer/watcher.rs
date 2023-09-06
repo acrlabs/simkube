@@ -37,7 +37,9 @@ fn strip_pod(pod: &mut corev1::Pod) {
     pod.metadata.managed_fields = None;
     pod.metadata.creation_timestamp = None;
     pod.metadata.deletion_timestamp = None;
+    pod.metadata.owner_references = None;
     if let Some(ref mut pspec) = pod.spec {
+        pspec.node_name = None;
         pspec.service_account = None;
         pspec.service_account_name = None;
     }

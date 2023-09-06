@@ -12,7 +12,10 @@ use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::ResourceExt;
 use simkube::prelude::*;
-use simkube::util::add_common_fields;
+use simkube::util::{
+    add_common_fields,
+    prefixed_ns,
+};
 use simkube::watchertracer::Tracer;
 use tokio::time::sleep;
 use tracing::*;
@@ -32,18 +35,41 @@ struct Options {
     trace_path: String,
 }
 
-fn make_virtual_namespace(
-    sim_name: &str,
-    ns_name: &str,
-    sim_root: &SimulationRoot,
-) -> SimKubeResult<corev1::Namespace> {
+fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> SimKubeResult<corev1::Namespace> {
     let mut ns = corev1::Namespace {
-        metadata: metav1::ObjectMeta { name: Some(ns_name.into()), ..Default::default() },
+        metadata: metav1::ObjectMeta {
+            name: Some(ns_name.into()),
+            labels: Some(BTreeMap::from([(VIRTUAL_LABEL_KEY.into(), "true".into())])),
+            ..Default::default()
+        },
         ..Default::default()
     };
     add_common_fields(sim_name, sim_root, &mut ns)?;
 
     return Ok(ns);
+}
+
+fn build_virtual_pod(
+    pod: &corev1::Pod,
+    vns_name: &str,
+    sim_name: &str,
+    root: &SimulationRoot,
+) -> SimKubeResult<corev1::Pod> {
+    let mut vpod = pod.clone();
+    let selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
+    vpod.metadata.namespace = Some(vns_name.into());
+    vpod.metadata.labels.get_or_insert(BTreeMap::new()).insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+    let spec = vpod.spec.as_mut().unwrap();
+    spec.node_selector = Some(selector);
+    spec.tolerations.get_or_insert(vec![]).push(corev1::Toleration {
+        key: Some("simkube.io/virtual-node".into()),
+        value: Some("true".into()),
+        ..Default::default()
+    });
+    vpod.status = None;
+
+    add_common_fields(sim_name, root, &mut vpod)?;
+    Ok(vpod)
 }
 
 #[tokio::main]
@@ -58,60 +84,42 @@ async fn main() -> SimKubeResult<()> {
     let k8s_client = kube::Client::try_default().await?;
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(k8s_client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(k8s_client.clone());
+    let mut pod_apis: HashMap<String, kube::Api<corev1::Pod>> = HashMap::new();
 
     let root = roots_api.get(&args.sim_root).await?;
 
-    let mut sim_ts = match tracer.iter().next() {
-        Some((_, Some(ts))) => ts,
-        _ => panic!("no trace data"),
-    };
-
-    let mut pod_apis: HashMap<String, kube::Api<corev1::Pod>> = HashMap::new();
-
-    let mut trace_iter = tracer.iter();
-    while let Some((evt, Some(next_ts))) = trace_iter.next() {
+    let mut sim_ts = tracer.start_ts().expect("no trace data");
+    for (evt, next_ts) in tracer.iter() {
         for pod in evt.created_pods {
-            let virtual_ns_name = format!("{}-{}", args.sim_namespace_prefix, pod.namespace().unwrap());
-            if !pod_apis.contains_key(&virtual_ns_name) {
-                let ns = make_virtual_namespace(&args.sim_name, &virtual_ns_name, &root)?;
-                ns_api.create(&Default::default(), &ns).await?;
-                pod_apis.insert(virtual_ns_name.clone(), kube::Api::namespaced(k8s_client.clone(), &virtual_ns_name));
+            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &pod);
+            if !pod_apis.contains_key(&vns_name) {
+                let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
+                ns_api.create(&Default::default(), &vns).await?;
+                pod_apis.insert(vns_name.clone(), kube::Api::namespaced(k8s_client.clone(), &vns_name));
             }
 
-            let mut replay_pod = pod.clone();
-            let selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
-            replay_pod.metadata.namespace = Some(virtual_ns_name.clone());
-            replay_pod.metadata.resource_version = None;
-            replay_pod.metadata.managed_fields = None;
-            let spec = replay_pod.spec.as_mut().unwrap();
-            spec.node_selector = Some(selector);
-            spec.service_account = None;
-            spec.service_account_name = None;
-            replay_pod.status = None;
+            let vpod = build_virtual_pod(&pod, &vns_name, &args.sim_name, &root)?;
 
-            add_common_fields(&args.sim_name, &root, &mut replay_pod)?;
-
-            info!("creating pod {:?}", replay_pod);
-            let pod_api = pod_apis.get(&virtual_ns_name).unwrap();
-            pod_api.create(&Default::default(), &replay_pod).await?;
+            info!("creating pod {:?}", vpod);
+            let pod_api = pod_apis.get(&vns_name).unwrap();
+            pod_api.create(&Default::default(), &vpod).await?;
         }
 
         for pod in evt.deleted_pods {
             info!("deleting pod {}", pod.name_any());
-            let virtual_ns_name = format!("{}-{}", args.sim_namespace_prefix, pod.namespace().unwrap());
-            match pod_apis.get(&virtual_ns_name) {
-                Some(pod_api) => {
-                    pod_api.delete(&pod.name_any(), &Default::default()).await?;
-                },
+            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &pod);
+            match pod_apis.get(&vns_name) {
+                Some(pod_api) => _ = pod_api.delete(&pod.name_any(), &Default::default()).await?,
                 None => warn!("could not find namespace"),
             }
         }
 
-        let sleep_duration = max(0, next_ts - sim_ts);
-        sim_ts = next_ts;
-
-        info!("next event happens in {} seconds, sleeping", sleep_duration);
-        sleep(Duration::from_secs(sleep_duration as u64)).await;
+        if let Some(ts) = next_ts {
+            let sleep_duration = max(0, ts - sim_ts);
+            sim_ts = ts;
+            info!("next event happens in {} seconds, sleeping", sleep_duration);
+            sleep(Duration::from_secs(sleep_duration as u64)).await;
+        }
     }
 
     info!("trace over, cleaning up");
