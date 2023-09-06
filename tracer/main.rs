@@ -7,9 +7,11 @@ use std::sync::{
 
 use clap::Parser;
 use kube::Client;
-use rocket::data::ByteUnit;
+use rocket::serde::json::Json;
+use serde::Deserialize;
 use simkube::watchertracer::{
     new_watcher_tracer,
+    TraceFilter,
     Tracer,
 };
 use tracing::*;
@@ -20,20 +22,17 @@ struct Options {
     server_port: u16,
 }
 
-#[rocket::post("/export", data = "<data>")]
-async fn export(data: rocket::Data<'_>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
-    // We don't use rocket::Json because we want to provide default values
-    // which that wrapper doesn't seem to support
-    let body = match data.open(ByteUnit::kB).into_string().await {
-        Ok(b) => b,
-        Err(e) => return Err(format!("{:?}", e)),
-    };
-    let cfg = match serde_json::from_str(&body) {
-        Ok(c) => c,
-        Err(e) => return Err(format!("{:?}", e)),
-    };
-    info!("exporting with config: {:?}", cfg);
-    tracer.lock().unwrap().export(&cfg).map_err(|e| format!("{:?}", e))
+#[derive(Deserialize, Debug)]
+struct ExportRequest {
+    start_ts: i64,
+    end_ts: i64,
+    filter: TraceFilter,
+}
+
+#[rocket::post("/export", data = "<req>")]
+async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
+    debug!("export called with {:?}", req);
+    tracer.lock().unwrap().export(req.start_ts, req.end_ts, &req.filter).map_err(|e| format!("{:?}", e))
 }
 
 #[tokio::main]

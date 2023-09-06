@@ -7,7 +7,7 @@ use std::sync::{
     Mutex,
 };
 
-pub use crate::watchertracer::trace_filter::ExportFilter;
+pub use crate::watchertracer::trace_filter::TraceFilter;
 pub use crate::watchertracer::tracer::{
     TraceEvent,
     Tracer,

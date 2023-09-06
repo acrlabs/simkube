@@ -19,7 +19,7 @@ use tracing::*;
 use crate::prelude::*;
 use crate::util::*;
 use crate::watchertracer::trace_filter::filter_event;
-use crate::watchertracer::ExportFilter;
+use crate::watchertracer::TraceFilter;
 
 #[derive(Debug)]
 enum TraceAction {
@@ -53,20 +53,18 @@ impl Tracer {
         let trace = rmp_serde::from_slice(&data)?;
 
         let mut tracer = Tracer { trace, tracked_pods: HashMap::new(), version: 0 };
-        tracer.tracked_pods = tracer.replay_trace(None).keys().map(|pod_name| (pod_name.clone(), 0)).collect();
+        let (_, tracked_pods) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
+        tracer.tracked_pods = tracked_pods;
 
         return Ok(tracer);
     }
 
-    pub fn export(&self, f: &ExportFilter) -> SimKubeResult<Vec<u8>> {
-        let mut events = vec![TraceEvent {
-            ts: f.start_time,
-            created_pods: self.replay_trace(Some(f.start_time)).values().cloned().collect(),
-            deleted_pods: Vec::new(),
-        }];
-        events.extend(self.trace.iter().filter_map(|evt| filter_event(evt, f)));
+    pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> SimKubeResult<Vec<u8>> {
+        info!("Exporting pods with filters: {:?}", filter);
+        let (events, _) = self.collect_events(start_ts, end_ts, filter);
         let data = rmp_serde::to_vec_named(&events)?;
 
+        info!("Exported {} events.", events.len());
         return Ok(data);
     }
 
@@ -74,9 +72,9 @@ impl Tracer {
         return self.tracked_pods.keys().cloned().collect();
     }
 
-    pub fn pods_at(&self, ts: i64) -> HashSet<String> {
-        let tracked_pods_at = self.replay_trace(Some(ts));
-        return tracked_pods_at.keys().cloned().collect();
+    pub fn pods_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
+        let (_, tracked_pods) = self.collect_events(0, end_ts, filter);
+        return tracked_pods.keys().cloned().collect();
     }
 
     pub(super) fn create_pod(&mut self, pod: &corev1::Pod, ts: i64) {
@@ -144,26 +142,51 @@ impl Tracer {
         self.trace.push_back(evt);
     }
 
-    fn replay_trace(&self, maybe_end: Option<i64>) -> HashMap<String, corev1::Pod> {
-        let mut new_tracked_pods = HashMap::new();
+    fn collect_events(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        filter: &TraceFilter,
+    ) -> (Vec<TraceEvent>, HashMap<String, u64>) {
+        let mut events = vec![TraceEvent {
+            ts: start_ts,
+            created_pods: vec![],
+            deleted_pods: vec![],
+        }];
+        let mut flattened_pod_objects = HashMap::new();
+        let mut tracked_pods = HashMap::new();
         for (evt, _) in self.iter() {
-            // trace should be end-exclusive, so we use <= here: anything that is at the
-            // end_ts or greater gets discarded.
-            if maybe_end.is_some_and(|end_ts| end_ts <= evt.ts) {
+            // trace should be end-exclusive, so we use >= here: anything that is at the
+            // end_ts or greater gets discarded.  The event list is stored in
+            // monotonically-increasing order so we are safe to break here.
+            if evt.ts >= end_ts {
                 break;
             }
 
-            for pod in evt.created_pods.iter() {
-                let ns_name = namespaced_name(pod);
-                new_tracked_pods.insert(ns_name, pod.clone());
-            }
+            if let Some(new_evt) = filter_event(&evt, filter) {
+                for pod in new_evt.created_pods.iter() {
+                    let ns_name = namespaced_name(pod);
+                    if new_evt.ts < start_ts {
+                        flattened_pod_objects.insert(ns_name.clone(), pod.clone());
+                    }
+                    tracked_pods.insert(ns_name, self.version);
+                }
 
-            for pod in evt.deleted_pods.iter() {
-                let ns_name = namespaced_name(pod);
-                new_tracked_pods.remove(&ns_name);
+                for pod in evt.deleted_pods.iter() {
+                    let ns_name = namespaced_name(pod);
+                    if new_evt.ts < start_ts {
+                        flattened_pod_objects.remove(&ns_name);
+                    }
+                    tracked_pods.remove(&ns_name);
+                }
+                if new_evt.ts >= start_ts {
+                    events.push(new_evt.clone());
+                }
             }
         }
-        return new_tracked_pods;
+
+        events[0].created_pods = flattened_pod_objects.values().cloned().collect();
+        return (events, tracked_pods);
     }
 }
 
