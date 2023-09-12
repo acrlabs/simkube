@@ -8,12 +8,13 @@ use std::sync::{
     Mutex,
 };
 
-use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::DynamicObject;
 use serde::{
     Deserialize,
     Serialize,
 };
+use serde_json::value::Value;
 use tracing::*;
 
 use crate::prelude::*;
@@ -23,20 +24,20 @@ use crate::watchertracer::TraceFilter;
 
 #[derive(Debug)]
 enum TraceAction {
-    PodCreated,
-    PodDeleted,
+    ObjectCreated,
+    ObjectDeleted,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct TraceEvent {
     pub ts: i64,
-    pub created_pods: Vec<corev1::Pod>,
-    pub deleted_pods: Vec<corev1::Pod>,
+    pub created_objs: Vec<DynamicObject>,
+    pub deleted_objs: Vec<DynamicObject>,
 }
 
 pub struct Tracer {
     pub(super) trace: VecDeque<TraceEvent>,
-    pub(super) tracked_pods: HashMap<String, u64>,
+    pub(super) tracked_objs: HashMap<String, u64>,
     pub(super) version: u64,
 }
 
@@ -44,7 +45,7 @@ impl Tracer {
     pub fn new() -> Arc<Mutex<Tracer>> {
         return Arc::new(Mutex::new(Tracer {
             trace: VecDeque::new(),
-            tracked_pods: HashMap::new(),
+            tracked_objs: HashMap::new(),
             version: 0,
         }));
     }
@@ -52,15 +53,15 @@ impl Tracer {
     pub fn import(data: Vec<u8>) -> SimKubeResult<Tracer> {
         let trace = rmp_serde::from_slice(&data)?;
 
-        let mut tracer = Tracer { trace, tracked_pods: HashMap::new(), version: 0 };
-        let (_, tracked_pods) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
-        tracer.tracked_pods = tracked_pods;
+        let mut tracer = Tracer { trace, tracked_objs: HashMap::new(), version: 0 };
+        let (_, tracked_objs) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
+        tracer.tracked_objs = tracked_objs;
 
         return Ok(tracer);
     }
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> SimKubeResult<Vec<u8>> {
-        info!("Exporting pods with filters: {:?}", filter);
+        info!("Exporting objs with filters: {:?}", filter);
         let (events, _) = self.collect_events(start_ts, end_ts, filter);
         let data = rmp_serde::to_vec_named(&events)?;
 
@@ -68,13 +69,13 @@ impl Tracer {
         return Ok(data);
     }
 
-    pub fn pods(&self) -> HashSet<String> {
-        return self.tracked_pods.keys().cloned().collect();
+    pub fn objs(&self) -> HashSet<String> {
+        return self.tracked_objs.keys().cloned().collect();
     }
 
-    pub fn pods_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
-        let (_, tracked_pods) = self.collect_events(0, end_ts, filter);
-        return tracked_pods.keys().cloned().collect();
+    pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
+        let (_, tracked_objs) = self.collect_events(0, end_ts, filter);
+        return tracked_objs.keys().cloned().collect();
     }
 
     pub fn start_ts(&self) -> Option<i64> {
@@ -84,29 +85,29 @@ impl Tracer {
         }
     }
 
-    pub(super) fn create_pod(&mut self, pod: &corev1::Pod, ts: i64) {
-        let ns_name = namespaced_name(pod);
-        if !self.tracked_pods.contains_key(&ns_name) {
-            self.append_event(pod.clone(), ts, TraceAction::PodCreated);
+    pub(super) fn create_obj(&mut self, obj: &DynamicObject, ts: i64) {
+        let ns_name = namespaced_name(obj);
+        if !self.tracked_objs.contains_key(&ns_name) {
+            self.append_event(obj.clone(), ts, TraceAction::ObjectCreated);
         }
-        self.tracked_pods.insert(ns_name, self.version);
+        self.tracked_objs.insert(ns_name, self.version);
     }
 
-    pub(super) fn delete_pod(&mut self, pod: &corev1::Pod, ts: i64) {
-        let ns_name = namespaced_name(pod);
-        if self.tracked_pods.contains_key(&ns_name) {
-            self.append_event(pod.clone(), ts, TraceAction::PodDeleted);
+    pub(super) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
+        let ns_name = namespaced_name(obj);
+        if self.tracked_objs.contains_key(&ns_name) {
+            self.append_event(obj.clone(), ts, TraceAction::ObjectDeleted);
         }
-        self.tracked_pods.remove(&ns_name);
+        self.tracked_objs.remove(&ns_name);
     }
 
-    pub(super) fn update_all_pods(&mut self, pods: Vec<corev1::Pod>, ts: i64) {
-        for pod in pods.iter() {
-            self.create_pod(pod, ts);
+    pub(super) fn update_all_objs(&mut self, objs: Vec<DynamicObject>, ts: i64) {
+        for obj in objs.iter() {
+            self.create_obj(obj, ts);
         }
 
         let mut to_delete: Vec<String> = vec![];
-        for (ns_name, version) in self.tracked_pods.iter() {
+        for (ns_name, version) in self.tracked_objs.iter() {
             if *version == self.version {
                 continue;
             }
@@ -115,36 +116,36 @@ impl Tracer {
 
         for ns_name in to_delete.iter() {
             let (ns, name) = split_namespaced_name(ns_name);
-            let pod = corev1::Pod {
+            let obj = DynamicObject {
                 metadata: metav1::ObjectMeta {
                     namespace: Some(ns),
                     name: Some(name),
                     ..Default::default()
                 },
-                spec: None,
-                status: None,
+                types: None,
+                data: Value::Null,
             };
-            self.delete_pod(&pod, ts);
+            self.delete_obj(&obj, ts);
         }
 
         self.version += 1;
     }
 
-    fn append_event(&mut self, pod: corev1::Pod, ts: i64, action: TraceAction) {
-        info!("{} - {:?} @ {}", namespaced_name(&pod), action, ts);
+    fn append_event(&mut self, obj: DynamicObject, ts: i64, action: TraceAction) {
+        info!("{} - {:?} @ {}", namespaced_name(&obj), action, ts);
         if let Some(evt) = self.trace.back_mut() {
             if evt.ts == ts {
                 match action {
-                    TraceAction::PodCreated => evt.created_pods.push(pod),
-                    TraceAction::PodDeleted => evt.deleted_pods.push(pod),
+                    TraceAction::ObjectCreated => evt.created_objs.push(obj),
+                    TraceAction::ObjectDeleted => evt.deleted_objs.push(obj),
                 }
                 return;
             }
         }
 
         let evt = match action {
-            TraceAction::PodCreated => TraceEvent { ts, created_pods: vec![pod], deleted_pods: vec![] },
-            TraceAction::PodDeleted => TraceEvent { ts, created_pods: vec![], deleted_pods: vec![pod] },
+            TraceAction::ObjectCreated => TraceEvent { ts, created_objs: vec![obj], deleted_objs: vec![] },
+            TraceAction::ObjectDeleted => TraceEvent { ts, created_objs: vec![], deleted_objs: vec![obj] },
         };
         self.trace.push_back(evt);
     }
@@ -157,11 +158,11 @@ impl Tracer {
     ) -> (Vec<TraceEvent>, HashMap<String, u64>) {
         let mut events = vec![TraceEvent {
             ts: start_ts,
-            created_pods: vec![],
-            deleted_pods: vec![],
+            created_objs: vec![],
+            deleted_objs: vec![],
         }];
-        let mut flattened_pod_objects = HashMap::new();
-        let mut tracked_pods = HashMap::new();
+        let mut flattened_obj_objects = HashMap::new();
+        let mut tracked_objs = HashMap::new();
         for (evt, _) in self.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
             // end_ts or greater gets discarded.  The event list is stored in
@@ -171,20 +172,20 @@ impl Tracer {
             }
 
             if let Some(new_evt) = filter_event(&evt, filter) {
-                for pod in new_evt.created_pods.iter() {
-                    let ns_name = namespaced_name(pod);
+                for obj in new_evt.created_objs.iter() {
+                    let ns_name = namespaced_name(obj);
                     if new_evt.ts < start_ts {
-                        flattened_pod_objects.insert(ns_name.clone(), pod.clone());
+                        flattened_obj_objects.insert(ns_name.clone(), obj.clone());
                     }
-                    tracked_pods.insert(ns_name, self.version);
+                    tracked_objs.insert(ns_name, self.version);
                 }
 
-                for pod in evt.deleted_pods.iter() {
-                    let ns_name = namespaced_name(pod);
+                for obj in evt.deleted_objs.iter() {
+                    let ns_name = namespaced_name(obj);
                     if new_evt.ts < start_ts {
-                        flattened_pod_objects.remove(&ns_name);
+                        flattened_obj_objects.remove(&ns_name);
                     }
-                    tracked_pods.remove(&ns_name);
+                    tracked_objs.remove(&ns_name);
                 }
                 if new_evt.ts >= start_ts {
                     events.push(new_evt.clone());
@@ -192,8 +193,8 @@ impl Tracer {
             }
         }
 
-        events[0].created_pods = flattened_pod_objects.values().cloned().collect();
-        return (events, tracked_pods);
+        events[0].created_objs = flattened_obj_objects.values().cloned().collect();
+        return (events, tracked_objs);
     }
 }
 

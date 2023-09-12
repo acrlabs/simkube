@@ -8,19 +8,23 @@ use std::sync::{
 };
 
 use crate::config::TracerConfig;
+use crate::prelude::*;
 pub use crate::watchertracer::trace_filter::TraceFilter;
 pub use crate::watchertracer::tracer::{
     TraceEvent,
     Tracer,
 };
 pub use crate::watchertracer::watcher::{
-    PodStream,
+    KubeObjectStream,
     Watcher,
 };
 
-pub async fn new_watcher_tracer(config: &TracerConfig, client: kube::Client) -> (Watcher, Arc<Mutex<Tracer>>) {
+pub async fn new_watcher_tracer(
+    config: &TracerConfig,
+    client: kube::Client,
+) -> SimKubeResult<(Watcher, Arc<Mutex<Tracer>>)> {
     let tracer = Tracer::new();
-    return (Watcher::new(client, tracer.clone(), config).await, tracer);
+    return Ok((Watcher::new(client, tracer.clone(), config).await?, tracer));
 }
 
 #[cfg(test)]

@@ -8,11 +8,13 @@ use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
+use serde_json::Value;
 use simkube::util::Clockable;
 use simkube::watchertracer::{
-    PodStream,
+    KubeObjectStream,
     TraceFilter,
     Tracer,
     Watcher,
@@ -37,18 +39,19 @@ impl Clockable for MockUtcClock {
     }
 }
 
-fn test_pod(idx: i64) -> corev1::Pod {
-    return corev1::Pod {
+fn test_pod(idx: i64) -> DynamicObject {
+    return DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some(TESTING_NAMESPACE.into()),
             name: Some(format!("pod{}", idx).into()),
             ..Default::default()
         },
-        ..Default::default()
+        types: None,
+        data: Value::Null,
     };
 }
 
-fn test_daemonset_pod(idx: i64) -> corev1::Pod {
+fn test_daemonset_pod(idx: i64) -> DynamicObject {
     let mut ds_pod = test_pod(idx + 100);
     ds_pod.metadata.owner_references =
         Some(vec![metav1::OwnerReference { kind: "DaemonSet".into(), ..Default::default() }]);
@@ -62,7 +65,7 @@ fn test_daemonset_pod(idx: i64) -> corev1::Pod {
 //
 // This is a little subtle because the event that we're returning at state (ts_i, id) does not
 // actually _happen_ until time ts_{i+1}.
-fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> PodStream {
+fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream {
     return stream::unfold((-1, 0), move |state| {
         let clock = clock.clone();
         async move {
@@ -162,8 +165,8 @@ async fn test_export() {
         Ok(data) => {
             // Confirm that the results match what we expect
             let new_tracer = Tracer::import(data).unwrap();
-            let expected_pods = tracer.pods_at(end_ts, &filter);
-            let actual_pods = new_tracer.pods();
+            let expected_pods = tracer.objs_at(end_ts, &filter);
+            let actual_pods = new_tracer.objs();
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(expected_pods, actual_pods);

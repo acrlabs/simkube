@@ -1,8 +1,8 @@
-use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::DynamicObject;
 use serde::Deserialize;
 
-use crate::util::pod_matches_selector;
+use crate::util::obj_matches_selector;
 use crate::watchertracer::TraceEvent;
 
 #[derive(Deserialize, Debug, Clone)]
@@ -25,23 +25,23 @@ impl TraceFilter {
 pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
     let new_evt = TraceEvent {
         ts: evt.ts,
-        created_pods: evt.created_pods.iter().filter(|pod| !pod_matches_filter(pod, f)).cloned().collect(),
-        deleted_pods: evt.deleted_pods.iter().filter(|pod| !pod_matches_filter(pod, f)).cloned().collect(),
+        created_objs: evt.created_objs.iter().filter(|obj| !obj_matches_filter(obj, f)).cloned().collect(),
+        deleted_objs: evt.deleted_objs.iter().filter(|obj| !obj_matches_filter(obj, f)).cloned().collect(),
     };
 
-    if new_evt.created_pods.is_empty() && new_evt.deleted_pods.is_empty() {
+    if new_evt.created_objs.is_empty() && new_evt.deleted_objs.is_empty() {
         return None;
     }
 
     Some(new_evt)
 }
 
-fn pod_matches_filter(pod: &corev1::Pod, f: &TraceFilter) -> bool {
-    pod.metadata.namespace.as_ref().is_some_and(|ns| f.excluded_namespaces.contains(ns))
-        || pod
+fn obj_matches_filter(obj: &DynamicObject, f: &TraceFilter) -> bool {
+    obj.metadata.namespace.as_ref().is_some_and(|ns| f.excluded_namespaces.contains(ns))
+        || obj
             .metadata
             .owner_references
             .as_ref()
             .is_some_and(|owners| owners.iter().any(|owner| &owner.kind == "DaemonSet"))
-        || f.excluded_labels.iter().any(|sel| pod_matches_selector(pod, sel).unwrap())
+        || f.excluded_labels.iter().any(|sel| obj_matches_selector(obj, sel).unwrap())
 }

@@ -45,7 +45,7 @@ async fn run(args: &Options) -> SimKubeResult<()> {
     let config: TracerConfig = serde_yaml::from_reader(File::open(&args.config_file)?)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
-    let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await;
+    let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await?;
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(tracer.clone());

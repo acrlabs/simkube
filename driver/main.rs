@@ -10,6 +10,7 @@ use std::time::Duration;
 use clap::Parser;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::DynamicObject;
 use kube::ResourceExt;
 use simkube::prelude::*;
 use simkube::util::{
@@ -49,27 +50,27 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
     return Ok(ns);
 }
 
-fn build_virtual_pod(
-    pod: &corev1::Pod,
+fn build_virtual_obj(
+    obj: &DynamicObject,
     vns_name: &str,
-    sim_name: &str,
-    root: &SimulationRoot,
-) -> SimKubeResult<corev1::Pod> {
-    let mut vpod = pod.clone();
-    let selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
-    vpod.metadata.namespace = Some(vns_name.into());
-    vpod.metadata.labels.get_or_insert(BTreeMap::new()).insert(VIRTUAL_LABEL_KEY.into(), "true".into());
-    let spec = vpod.spec.as_mut().unwrap();
-    spec.node_selector = Some(selector);
-    spec.tolerations.get_or_insert(vec![]).push(corev1::Toleration {
-        key: Some("simkube.io/virtual-node".into()),
-        value: Some("true".into()),
-        ..Default::default()
-    });
-    vpod.status = None;
+    _sim_name: &str,
+    _root: &SimulationRoot,
+) -> SimKubeResult<DynamicObject> {
+    let mut vobj = obj.clone();
+    let _selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
+    vobj.metadata.namespace = Some(vns_name.into());
+    vobj.metadata.labels.get_or_insert(BTreeMap::new()).insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+    // let spec = vobj.spec.as_mut().unwrap();
+    // spec.node_selector = Some(selector);
+    // spec.tolerations.get_or_insert(vec![]).push(corev1::Toleration {
+    //     key: Some("simkube.io/virtual-node".into()),
+    //     value: Some("true".into()),
+    //     ..Default::default()
+    // });
+    // vobj.status = None;
 
-    add_common_fields(sim_name, root, &mut vpod)?;
-    Ok(vpod)
+    // add_common_fields(sim_name, root, &mut vobj)?;
+    Ok(vobj)
 }
 
 #[tokio::main]
@@ -90,26 +91,26 @@ async fn main() -> SimKubeResult<()> {
 
     let mut sim_ts = tracer.start_ts().expect("no trace data");
     for (evt, next_ts) in tracer.iter() {
-        for pod in evt.created_pods {
-            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &pod);
+        for obj in evt.created_objs {
+            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
             if !pod_apis.contains_key(&vns_name) {
                 let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
                 ns_api.create(&Default::default(), &vns).await?;
                 pod_apis.insert(vns_name.clone(), kube::Api::namespaced(k8s_client.clone(), &vns_name));
             }
 
-            let vpod = build_virtual_pod(&pod, &vns_name, &args.sim_name, &root)?;
+            let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root)?;
 
-            info!("creating pod {:?}", vpod);
-            let pod_api = pod_apis.get(&vns_name).unwrap();
-            pod_api.create(&Default::default(), &vpod).await?;
+            info!("creating object {:?}", vobj);
+            // let pod_api = pod_apis.get(&vns_name).unwrap();
+            // pod_api.create(&Default::default(), &vobj).await?;
         }
 
-        for pod in evt.deleted_pods {
-            info!("deleting pod {}", pod.name_any());
-            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &pod);
+        for obj in evt.deleted_objs {
+            info!("deleting pod {}", obj.name_any());
+            let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
             match pod_apis.get(&vns_name) {
-                Some(pod_api) => _ = pod_api.delete(&pod.name_any(), &Default::default()).await?,
+                Some(pod_api) => _ = pod_api.delete(&obj.name_any(), &Default::default()).await?,
                 None => warn!("could not find namespace"),
             }
         }
