@@ -55,14 +55,20 @@ sk_error! {
     #[error("could not read file ({0})")]
     FileIOError(#[from] std::io::Error),
 
+    #[error("could not patch object ({0})")]
+    JsonPatchError(#[from] json_patch::PatchError),
+
     #[error("error communicating with the apiserver ({0})")]
     KubeApiError(#[from] kube::Error),
+
+    #[error("watch error ({0})")]
+    KubeWatchError(#[from] kube::runtime::watcher::Error),
 
     #[error("label selector was malformed")]
     MalformedLabelSelector,
 
     #[error("parse error ({0})")]
-    ParseError(#[from] url::ParseError),
+    UrlParseError(#[from] url::ParseError),
 
     #[error("error serializing trace data ({0})")]
     TraceExportError(#[from] rmp_serde::encode::Error),

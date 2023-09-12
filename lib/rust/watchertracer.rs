@@ -1,5 +1,6 @@
 mod trace_filter;
 mod tracer;
+mod watch_event;
 mod watcher;
 
 use std::sync::{
