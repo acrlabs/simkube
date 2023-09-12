@@ -6,7 +6,6 @@ use std::sync::{
 
 use futures::stream;
 use futures::stream::StreamExt;
-use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
@@ -65,7 +64,7 @@ fn test_daemonset_pod(idx: i64) -> DynamicObject {
 //
 // This is a little subtle because the event that we're returning at state (ts_i, id) does not
 // actually _happen_ until time ts_{i+1}.
-fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream {
+fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
     return stream::unfold((-1, 0), move |state| {
         let clock = clock.clone();
         async move {

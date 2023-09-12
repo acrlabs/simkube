@@ -61,7 +61,7 @@ async fn run(args: &Options) -> SimKubeResult<()> {
 #[tokio::main]
 async fn main() {
     let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
     if let Err(e) = run(&args).await {
         error!("{e}");
         std::process::exit(1);
