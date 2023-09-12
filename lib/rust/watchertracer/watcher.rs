@@ -9,6 +9,7 @@ use futures::{
     StreamExt,
 };
 use k8s_openapi::api::core::v1 as corev1;
+use kube::discovery;
 use kube::runtime::watcher::{
     watcher,
     Error,
@@ -17,6 +18,7 @@ use kube::runtime::watcher::{
 use kube::runtime::WatchStreamExt;
 use tracing::*;
 
+use crate::config::TracerConfig;
 use crate::util::{
     Clockable,
     UtcClock,
@@ -46,7 +48,16 @@ fn strip_pod(pod: &mut corev1::Pod) {
 }
 
 impl Watcher {
-    pub fn new(client: kube::Client, t: Arc<Mutex<Tracer>>) -> Watcher {
+    pub async fn new(client: kube::Client, t: Arc<Mutex<Tracer>>, config: &TracerConfig) -> Watcher {
+        let apigroup = discovery::group(&client, &config.tracked_objects[0].api_version).await.unwrap();
+        let (ar, _) = apigroup.recommended_kind(&config.tracked_objects[0].kind).unwrap();
+        let api: kube::Api<kube::api::DynamicObject> = kube::Api::all_with(client.clone(), &ar);
+        let objs = api.list(&Default::default()).await.unwrap();
+
+        for obj in objs {
+            println!("{:?}", serde_json::to_string_pretty(&obj));
+        }
+
         let pods: kube::Api<corev1::Pod> = kube::Api::all(client);
         let pod_stream = watcher(pods, Default::default()).modify(strip_pod);
         return Watcher {
