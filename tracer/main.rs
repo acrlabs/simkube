@@ -1,5 +1,6 @@
 #![allow(clippy::needless_return)]
 
+use std::fs::File;
 use std::sync::{
     Arc,
     Mutex,
@@ -9,6 +10,7 @@ use clap::Parser;
 use kube::Client;
 use rocket::serde::json::Json;
 use serde::Deserialize;
+use simkube::prelude::*;
 use simkube::watchertracer::{
     new_watcher_tracer,
     TraceFilter,
@@ -18,8 +20,11 @@ use tracing::*;
 
 #[derive(Parser, Debug)]
 struct Options {
-    #[arg(short, long)]
+    #[arg(long)]
     server_port: u16,
+
+    #[arg(short, long)]
+    config_file: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -35,22 +40,30 @@ async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Trace
     tracer.lock().unwrap().export(req.start_ts, req.end_ts, &req.filter).map_err(|e| format!("{:?}", e))
 }
 
-#[tokio::main]
-async fn main() -> Result<(), ()> {
-    let args = Options::parse();
-
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+async fn run(args: &Options) -> SimKubeResult<()> {
+    info!("Reading tracer configuration from {}", &args.config_file);
+    let config: TracerConfig = serde_yaml::from_reader(File::open(&args.config_file)?)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
-    let (mut watcher, tracer) = new_watcher_tracer(client.clone());
+    let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await;
 
-    let config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&config).mount("/", rocket::routes![export]).manage(tracer.clone());
+    let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
+    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(tracer.clone());
 
     tokio::select!(
         _ = watcher.start() => warn!("watcher finished"),
         _ = server.launch() => warn!("server failed"),
     );
 
-    return Ok(());
+    Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    let args = Options::parse();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    if let Err(e) = run(&args).await {
+        error!("{e}");
+        std::process::exit(1);
+    }
 }

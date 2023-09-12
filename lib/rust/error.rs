@@ -46,26 +46,29 @@ macro_rules! sk_error {
 }
 
 sk_error! {
-    #[error("error decoding trace data")]
-    DeserializationError(#[from] rmp_serde::decode::Error),
+    #[error("config file could not be read ({0})")]
+    ConfigFileError(#[from] serde_yaml::Error),
 
     #[error("field not present in Kubernetes object")]
     FieldNotFound,
 
-    #[error("could not read file")]
+    #[error("could not read file ({0})")]
     FileIOError(#[from] std::io::Error),
 
-    #[error("error communicating with the apiserver")]
+    #[error("error communicating with the apiserver ({0})")]
     KubeApiError(#[from] kube::Error),
 
     #[error("label selector was malformed")]
     MalformedLabelSelector,
 
-    #[error("parse error")]
+    #[error("parse error ({0})")]
     ParseError(#[from] url::ParseError),
 
-    #[error("error serializing trace data")]
-    SerializationError(#[from] rmp_serde::encode::Error),
+    #[error("error serializing trace data ({0})")]
+    TraceExportError(#[from] rmp_serde::encode::Error),
+
+    #[error("error decoding trace data ({0})")]
+    TraceImportError(#[from] rmp_serde::decode::Error),
 
     #[error("unrecognized trace scheme: {0}")]
     UnrecognizedTraceScheme(String),

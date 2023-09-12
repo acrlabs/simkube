@@ -7,6 +7,7 @@ use std::sync::{
     Mutex,
 };
 
+use crate::config::TracerConfig;
 pub use crate::watchertracer::trace_filter::TraceFilter;
 pub use crate::watchertracer::tracer::{
     TraceEvent,
@@ -17,9 +18,9 @@ pub use crate::watchertracer::watcher::{
     Watcher,
 };
 
-pub fn new_watcher_tracer(client: kube::Client) -> (Watcher, Arc<Mutex<Tracer>>) {
+pub async fn new_watcher_tracer(config: &TracerConfig, client: kube::Client) -> (Watcher, Arc<Mutex<Tracer>>) {
     let tracer = Tracer::new();
-    return (Watcher::new(client, tracer.clone()), tracer);
+    return (Watcher::new(client, tracer.clone(), config).await, tracer);
 }
 
 #[cfg(test)]
