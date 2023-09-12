@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
     Resource,
@@ -66,10 +65,10 @@ pub(super) fn label_expr_match(
     };
 }
 
-pub fn pod_matches_selector(pod: &corev1::Pod, sel: &metav1::LabelSelector) -> SimKubeResult<bool> {
+pub fn obj_matches_selector(obj: &impl Resource, sel: &metav1::LabelSelector) -> SimKubeResult<bool> {
     if let Some(exprs) = &sel.match_expressions {
         for expr in exprs {
-            if !label_expr_match(pod.labels(), expr)? {
+            if !label_expr_match(obj.labels(), expr)? {
                 return Ok(false);
             }
         }
@@ -77,7 +76,7 @@ pub fn pod_matches_selector(pod: &corev1::Pod, sel: &metav1::LabelSelector) -> S
 
     if let Some(labels) = &sel.match_labels {
         for (k, v) in labels {
-            if pod.labels().get(k) != Some(v) {
+            if obj.labels().get(k) != Some(v) {
                 return Ok(false);
             }
         }

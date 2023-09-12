@@ -106,6 +106,6 @@ fn test_label_match(pod: corev1::Pod, #[case] label_key: String) {
         match_labels: Some(BTreeMap::from([(label_key.clone(), "bar".into())])),
         ..Default::default()
     };
-    let res = pod_matches_selector(&pod, &sel);
+    let res = obj_matches_selector(&pod, &sel);
     assert_eq!(&label_key == "foo", res.unwrap());
 }
