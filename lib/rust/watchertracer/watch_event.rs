@@ -1,18 +1,21 @@
+use std::error::Error;
+
 use kube::runtime::watcher::Event;
 
-use crate::prelude::*;
+pub(super) trait TryModify<K, E: Error> {
+    fn try_modify(self, f: impl FnMut(&mut K) -> Result<(), E>) -> Result<Event<K>, E>;
+}
 
-pub(super) fn try_modify<K>(
-    mut e: Event<K>,
-    mut f: impl FnMut(&mut K) -> SimKubeResult<()>,
-) -> SimKubeResult<Event<K>> {
-    match &mut e {
-        Event::Applied(obj) | Event::Deleted(obj) => (f)(obj)?,
-        Event::Restarted(objs) => {
-            for k in objs {
-                (f)(k)?
-            }
-        },
+impl<K, E: Error> TryModify<K, E> for Event<K> {
+    fn try_modify(mut self, mut f: impl FnMut(&mut K) -> Result<(), E>) -> Result<Event<K>, E> {
+        match &mut self {
+            Event::Applied(obj) | Event::Deleted(obj) => (f)(obj)?,
+            Event::Restarted(objs) => {
+                for k in objs {
+                    (f)(k)?
+                }
+            },
+        }
+        Ok(self)
     }
-    Ok(e)
 }

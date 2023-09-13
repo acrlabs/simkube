@@ -60,6 +60,8 @@ fn build_virtual_obj(
     let _selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
     vobj.metadata.namespace = Some(vns_name.into());
     vobj.metadata.labels.get_or_insert(BTreeMap::new()).insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+
+
     // let spec = vobj.spec.as_mut().unwrap();
     // spec.node_selector = Some(selector);
     // spec.tolerations.get_or_insert(vec![]).push(corev1::Toleration {

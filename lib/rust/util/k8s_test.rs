@@ -1,11 +1,54 @@
 use std::collections::BTreeMap;
 
+use chrono::Utc;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::DynamicObject;
 use rstest::*;
+use serde_json::json;
 
 use super::k8s::*;
 use crate::prelude::*;
+
+#[rstest]
+fn test_strip_obj() {
+    let mut obj = DynamicObject {
+        metadata: metav1::ObjectMeta {
+            name: Some("test".into()),
+            namespace: Some("test".into()),
+            uid: Some("abcd".into()),
+            resource_version: Some("1234".into()),
+            managed_fields: Some(vec![Default::default()]),
+            creation_timestamp: Some(metav1::Time(Utc::now())),
+            deletion_timestamp: Some(metav1::Time(Utc::now())),
+            owner_references: Some(vec![Default::default()]),
+            ..Default::default()
+        },
+        types: None,
+        data: json!({
+            "foo": {
+                "bars": [{
+                    "spec": {},
+                },
+                {
+                    "spec": {},
+                },
+                {
+                    "spec": {},
+                },
+                ],
+            },
+        }),
+    };
+
+    strip_obj(&mut obj, "foo");
+    assert_eq!(None, obj.metadata.uid);
+    assert_eq!(None, obj.metadata.resource_version);
+    assert_eq!(None, obj.metadata.managed_fields);
+    assert_eq!(None, obj.metadata.creation_timestamp);
+    assert_eq!(None, obj.metadata.deletion_timestamp);
+    assert_eq!(None, obj.metadata.owner_references);
+}
 
 #[fixture]
 fn pod_labels() -> BTreeMap<String, String> {
