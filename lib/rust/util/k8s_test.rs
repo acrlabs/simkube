@@ -8,7 +8,6 @@ use rstest::*;
 use serde_json::json;
 
 use super::k8s::*;
-use crate::prelude::*;
 
 #[rstest]
 fn test_strip_obj() {
@@ -86,7 +85,7 @@ fn test_label_expr_no_values(pod_labels: BTreeMap<String, String>, #[case] op: S
         values: Some(vec![]),
     };
     let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(Err(SimKubeError::MalformedLabelSelector), res);
+    assert!(res.is_err());
 }
 
 #[rstest]
@@ -117,7 +116,7 @@ fn test_label_expr_exists(pod_labels: BTreeMap<String, String>, #[case] op: Stri
 
 #[rstest]
 #[case::op_exists(OPERATOR_EXISTS.into())]
-#[case::op_exists(OPERATOR_DOES_NOT_EXIST.into())]
+#[case::op_not_exists(OPERATOR_DOES_NOT_EXIST.into())]
 fn test_label_expr_exists_values(pod_labels: BTreeMap<String, String>, #[case] op: String) {
     let label_expr = metav1::LabelSelectorRequirement {
         key: "foo".into(),
@@ -125,7 +124,7 @@ fn test_label_expr_exists_values(pod_labels: BTreeMap<String, String>, #[case] o
         values: Some(vec!["bar".into()]),
     };
     let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(Err(SimKubeError::MalformedLabelSelector), res);
+    assert!(res.is_err());
 }
 
 #[rstest]

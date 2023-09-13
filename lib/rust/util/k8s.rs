@@ -1,5 +1,9 @@
 use std::collections::BTreeMap;
 
+use anyhow::{
+    anyhow,
+    bail,
+};
 use json_patch::{
     patch,
     PatchErrorKind,
@@ -12,12 +16,12 @@ use kube::api::{
     Resource,
     ResourceExt,
 };
+use thiserror::Error;
 use tracing::*;
 
 use crate::constants::SIMULATION_LABEL_KEY;
-use crate::prelude::*;
 
-pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> SimKubeResult<()>
+pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> anyhow::Result<()>
 where
     K: Resource<DynamicType = ()>,
 {
@@ -26,7 +30,7 @@ where
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),
-        uid: owner.uid().ok_or(SimKubeError::FieldNotFound)?,
+        uid: owner.uid().ok_or(anyhow!(KubernetesError::field_not_found("uid")))?,
         ..Default::default()
     });
 
@@ -44,7 +48,7 @@ pub fn namespaced_name(obj: &impl Resource) -> String {
     }
 }
 
-pub fn obj_matches_selector(obj: &impl Resource, sel: &metav1::LabelSelector) -> SimKubeResult<bool> {
+pub fn obj_matches_selector(obj: &impl Resource, sel: &metav1::LabelSelector) -> anyhow::Result<bool> {
     if let Some(exprs) = &sel.match_expressions {
         for expr in exprs {
             if !label_expr_match(obj.labels(), expr)? {
@@ -67,7 +71,7 @@ pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
     format!("{}-{}", prefix, obj.namespace().unwrap())
 }
 
-pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) -> SimKubeResult<()> {
+pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) -> anyhow::Result<()> {
     obj.metadata.uid = None;
     obj.metadata.resource_version = None;
     obj.metadata.managed_fields = None;
@@ -82,7 +86,7 @@ pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) -> SimKubeResult<
                 PatchErrorKind::InvalidPointer => {
                     debug!("could not find path {} for object {}, skipping", e.path, namespaced_name(obj));
                 },
-                _ => return Err(SimKubeError::JsonPatchError(e)),
+                _ => bail!(e),
             }
         }
     }
@@ -107,32 +111,53 @@ pub(super) const OPERATOR_DOES_NOT_EXIST: &str = "DoesNotExist";
 pub(super) fn label_expr_match(
     obj_labels: &BTreeMap<String, String>,
     expr: &metav1::LabelSelectorRequirement,
-) -> SimKubeResult<bool> {
+) -> anyhow::Result<bool> {
     // LabelSelectorRequirement is considered invalid if the Operator is "In" or NotIn"
     // and there are no values; conversely for "Exists" and "DoesNotExist".
-    return match expr.operator.as_str() {
+    match expr.operator.as_str() {
         OPERATOR_IN => match obj_labels.get(&expr.key) {
             Some(v) => match &expr.values {
                 Some(values) if !values.is_empty() => Ok(values.contains(v)),
-                _ => Err(SimKubeError::MalformedLabelSelector),
+                _ => bail!(KubernetesError::malformed_label_selector(expr)),
             },
             None => Ok(false),
         },
         OPERATOR_NOT_IN => match obj_labels.get(&expr.key) {
             Some(v) => match &expr.values {
                 Some(values) if !values.is_empty() => Ok(!values.contains(v)),
-                _ => Err(SimKubeError::MalformedLabelSelector),
+                _ => bail!(KubernetesError::malformed_label_selector(expr)),
             },
             None => Ok(true),
         },
         OPERATOR_EXISTS => match &expr.values {
-            Some(values) if !values.is_empty() => Err(SimKubeError::MalformedLabelSelector),
+            Some(values) if !values.is_empty() => bail!(KubernetesError::malformed_label_selector(expr)),
             _ => Ok(obj_labels.contains_key(&expr.key)),
         },
         OPERATOR_DOES_NOT_EXIST => match &expr.values {
-            Some(values) if !values.is_empty() => Err(SimKubeError::MalformedLabelSelector),
+            Some(values) if !values.is_empty() => {
+                bail!(KubernetesError::malformed_label_selector(expr));
+            },
             _ => Ok(!obj_labels.contains_key(&expr.key)),
         },
-        _ => return Err(SimKubeError::MalformedLabelSelector),
-    };
+        _ => bail!("malformed label selector expression: {:?}", expr),
+    }
+}
+
+#[derive(Error, Debug)]
+pub(super) enum KubernetesError {
+    #[error("field not found in struct: {0}")]
+    FieldNotFound(String),
+
+    #[error("malformed label selector: {0:?}")]
+    MalformedLabelSelector(metav1::LabelSelectorRequirement),
+}
+
+impl KubernetesError {
+    fn field_not_found(f: &str) -> KubernetesError {
+        KubernetesError::FieldNotFound(f.into())
+    }
+
+    fn malformed_label_selector(expr: &metav1::LabelSelectorRequirement) -> KubernetesError {
+        KubernetesError::MalformedLabelSelector(expr.clone())
+    }
 }

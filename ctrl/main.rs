@@ -10,6 +10,7 @@ use futures::{
 };
 use kube::runtime::controller::Controller;
 use simkube::prelude::*;
+use thiserror::Error;
 use tracing::*;
 
 use crate::controller::{
@@ -22,6 +23,13 @@ use crate::controller::{
 struct Options {
     #[arg(long)]
     driver_image: String,
+}
+
+#[derive(Error, Debug)]
+#[error(transparent)]
+enum ReconcileError {
+    AnyhowError(#[from] anyhow::Error),
+    KubeApiError(#[from] kube::Error),
 }
 
 #[tokio::main]

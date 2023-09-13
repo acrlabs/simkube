@@ -35,7 +35,7 @@ struct Options {
     trace_path: String,
 }
 
-fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> SimKubeResult<corev1::Namespace> {
+fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> anyhow::Result<corev1::Namespace> {
     let mut ns = corev1::Namespace {
         metadata: metav1::ObjectMeta {
             name: Some(ns_name.into()),
@@ -54,7 +54,7 @@ fn build_virtual_obj(
     vns_name: &str,
     _sim_name: &str,
     _root: &SimulationRoot,
-) -> SimKubeResult<DynamicObject> {
+) -> anyhow::Result<DynamicObject> {
     let mut vobj = obj.clone();
     let _selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
     vobj.metadata.namespace = Some(vns_name.into());
@@ -78,7 +78,7 @@ fn build_virtual_obj(
 }
 
 #[tokio::main]
-async fn main() -> SimKubeResult<()> {
+async fn main() -> anyhow::Result<()> {
     let args = Options::parse();
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Simulation driver starting");

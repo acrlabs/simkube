@@ -42,7 +42,7 @@ async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Trace
         .map_err(|e| format!("{:?}", e))
 }
 
-async fn run(args: &Options) -> SimKubeResult<()> {
+async fn run(args: &Options) -> anyhow::Result<()> {
     info!("Reading tracer configuration from {}", &args.config_file);
     let config: TracerConfig = serde_yaml::from_reader(File::open(&args.config_file)?)?;
 
