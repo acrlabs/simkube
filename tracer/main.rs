@@ -9,11 +9,11 @@ use kube::Client;
 use rocket::serde::json::Json;
 use serde::Deserialize;
 use simkube::prelude::*;
-use simkube::watchertracer::{
-    new_watcher_tracer,
+use simkube::trace::{
     TraceFilter,
     Tracer,
 };
+use simkube::watchertracer::new_watcher_tracer;
 use tracing::*;
 
 #[derive(Parser, Debug)]

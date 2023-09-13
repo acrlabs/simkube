@@ -8,7 +8,7 @@ use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
 use simkube::prelude::*;
-use simkube::trace;
+use simkube::trace::storage;
 use simkube::util::{
     add_common_fields,
     namespaced_name,
@@ -38,9 +38,9 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
 
 fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> SimKubeResult<batchv1::Job> {
     let trace_path = Url::parse(&simulation.spec.trace)?;
-    let (trace_vm, trace_volume, mount_path) = match trace::storage_type(&trace_path)? {
-        trace::Scheme::AmazonS3 => todo!(),
-        trace::Scheme::Local => get_local_trace_volume(&trace_path),
+    let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_path)? {
+        storage::Scheme::AmazonS3 => todo!(),
+        storage::Scheme::Local => get_local_trace_volume(&trace_path),
     };
 
     let mut job = batchv1::Job {

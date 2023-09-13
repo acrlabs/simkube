@@ -12,11 +12,11 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::ResourceExt;
 use simkube::prelude::*;
+use simkube::trace::Tracer;
 use simkube::util::{
     add_common_fields,
     prefixed_ns,
 };
-use simkube::watchertracer::Tracer;
 use tokio::time::sleep;
 use tracing::*;
 

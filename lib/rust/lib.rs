@@ -3,6 +3,7 @@ mod constants;
 mod error;
 pub mod trace;
 pub mod util;
+pub mod watch;
 pub mod watchertracer;
 
 use kube::CustomResource;
