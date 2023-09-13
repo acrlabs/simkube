@@ -4,12 +4,6 @@ use anyhow::{
     anyhow,
     bail,
 };
-use json_patch::{
-    patch,
-    PatchErrorKind,
-    PatchOperation,
-    RemoveOperation,
-};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
     DynamicObject,
@@ -20,6 +14,7 @@ use thiserror::Error;
 use tracing::*;
 
 use crate::constants::SIMULATION_LABEL_KEY;
+use crate::json::patch_ext_remove;
 
 pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> anyhow::Result<()>
 where
@@ -71,7 +66,7 @@ pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
     format!("{}-{}", prefix, obj.namespace().unwrap())
 }
 
-pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) -> anyhow::Result<()> {
+pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) {
     obj.metadata.uid = None;
     obj.metadata.resource_version = None;
     obj.metadata.managed_fields = None;
@@ -79,19 +74,11 @@ pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) -> anyhow::Result
     obj.metadata.deletion_timestamp = None;
     obj.metadata.owner_references = None;
 
-    for suffix in &["nodeName", "serviceAccount", "serviceAccountName"] {
-        let p = PatchOperation::Remove(RemoveOperation { path: format!("{}/{}", pod_spec_path, suffix) });
-        if let Err(e) = patch(&mut obj.data, &[p]) {
-            match e.kind {
-                PatchErrorKind::InvalidPointer => {
-                    debug!("could not find path {} for object {}, skipping", e.path, namespaced_name(obj));
-                },
-                _ => bail!(e),
-            }
+    for key in &["nodeName", "serviceAccount", "serviceAccountName"] {
+        if let Err(e) = patch_ext_remove(pod_spec_path, key, &mut obj.data) {
+            debug!("could not patch object {}, skipping: {}", namespaced_name(obj), e);
         }
     }
-
-    Ok(())
 }
 
 pub fn split_namespaced_name(name: &str) -> (String, String) {

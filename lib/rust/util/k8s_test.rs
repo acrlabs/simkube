@@ -27,26 +27,48 @@ fn test_strip_obj() {
         data: json!({
             "foo": {
                 "bars": [{
-                    "spec": {},
+                    "spec": {
+                        "nodeName": "foo",
+                        "serviceAccountName": "bar",
+                        "nodeSelector": {"buz": "biz"},
+                    },
                 },
                 {
                     "spec": {},
                 },
                 {
-                    "spec": {},
+                    "spec": {
+                        "serviceAccount": "flumm",
+                    },
                 },
                 ],
             },
         }),
     };
 
-    strip_obj(&mut obj, "foo");
-    assert_eq!(None, obj.metadata.uid);
-    assert_eq!(None, obj.metadata.resource_version);
-    assert_eq!(None, obj.metadata.managed_fields);
-    assert_eq!(None, obj.metadata.creation_timestamp);
-    assert_eq!(None, obj.metadata.deletion_timestamp);
-    assert_eq!(None, obj.metadata.owner_references);
+    strip_obj(&mut obj, "/foo/bars/*/spec");
+    assert_eq!(obj.metadata.uid, None);
+    assert_eq!(obj.metadata.resource_version, None);
+    assert_eq!(obj.metadata.managed_fields, None);
+    assert_eq!(obj.metadata.creation_timestamp, None);
+    assert_eq!(obj.metadata.deletion_timestamp, None);
+    assert_eq!(obj.metadata.owner_references, None);
+    assert_eq!(
+        obj.data,
+        json!({
+            "foo": {
+                "bars": [
+                {
+                    "spec": {
+                        "nodeSelector": {"buz": "biz"},
+                    },
+                },
+                { "spec": {} },
+                { "spec": {} },
+                ],
+            },
+        })
+    );
 }
 
 #[fixture]
@@ -71,8 +93,8 @@ fn test_label_expr_match(pod_labels: BTreeMap<String, String>, #[case] op: Strin
         operator: op.clone(),
         values: Some(vec!["bar".into()]),
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(&op == OPERATOR_IN, res.unwrap());
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
+    assert_eq!(res, &op == OPERATOR_IN);
 }
 
 #[rstest]
@@ -84,8 +106,8 @@ fn test_label_expr_no_values(pod_labels: BTreeMap<String, String>, #[case] op: S
         operator: op.clone(),
         values: Some(vec![]),
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert!(res.is_err_and(|e| matches!(e.downcast(), Ok(KubernetesError::MalformedLabelSelector(_)))));
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap_err().downcast().unwrap();
+    assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
@@ -97,8 +119,8 @@ fn test_label_expr_no_match(pod_labels: BTreeMap<String, String>, #[case] op: St
         operator: op.clone(),
         values: Some(vec!["qux".into()]),
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(&op == OPERATOR_NOT_IN, res.unwrap());
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
+    assert_eq!(res, &op == OPERATOR_NOT_IN);
 }
 
 #[rstest]
@@ -110,8 +132,8 @@ fn test_label_expr_exists(pod_labels: BTreeMap<String, String>, #[case] op: Stri
         operator: op.clone(),
         values: None,
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(&op == OPERATOR_EXISTS, res.unwrap());
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
+    assert_eq!(res, &op == OPERATOR_EXISTS);
 }
 
 #[rstest]
@@ -123,8 +145,8 @@ fn test_label_expr_exists_values(pod_labels: BTreeMap<String, String>, #[case] o
         operator: op.clone(),
         values: Some(vec!["bar".into()]),
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert!(res.is_err_and(|e| matches!(e.downcast(), Ok(KubernetesError::MalformedLabelSelector(_)))));
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap_err().downcast().unwrap();
+    assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
@@ -136,8 +158,8 @@ fn test_label_expr_not_exists(pod_labels: BTreeMap<String, String>, #[case] op: 
         operator: op.clone(),
         values: None,
     };
-    let res = label_expr_match(&pod_labels, &label_expr);
-    assert_eq!(&op == OPERATOR_DOES_NOT_EXIST, res.unwrap());
+    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
+    assert_eq!(res, &op == OPERATOR_DOES_NOT_EXIST);
 }
 
 #[rstest]
@@ -148,6 +170,6 @@ fn test_label_match(pod: corev1::Pod, #[case] label_key: String) {
         match_labels: Some(BTreeMap::from([(label_key.clone(), "bar".into())])),
         ..Default::default()
     };
-    let res = obj_matches_selector(&pod, &sel);
-    assert_eq!(&label_key == "foo", res.unwrap());
+    let res = obj_matches_selector(&pod, &sel).unwrap();
+    assert_eq!(res, &label_key == "foo");
 }
