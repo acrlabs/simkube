@@ -1,5 +1,3 @@
-#![allow(clippy::needless_return)]
-
 mod config;
 mod constants;
 mod error;

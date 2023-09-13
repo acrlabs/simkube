@@ -10,7 +10,7 @@ pub(super) fn get_local_trace_volume(path: &Url) -> (corev1::VolumeMount, corev1
         _ => path.as_str().into(),
     };
     let mount_path = format!("/{}/{}", TRACE_PATH, fp);
-    return (
+    (
         corev1::VolumeMount {
             name: TRACE_VOLUME_NAME.into(),
             mount_path: mount_path.clone(),
@@ -22,5 +22,5 @@ pub(super) fn get_local_trace_volume(path: &Url) -> (corev1::VolumeMount, corev1
             ..Default::default()
         },
         mount_path,
-    );
+    )
 }

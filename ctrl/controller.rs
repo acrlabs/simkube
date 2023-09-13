@@ -33,7 +33,7 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
     };
     add_common_fields(&simulation.name_any(), simulation, &mut root)?;
 
-    return Ok(root);
+    Ok(root)
 }
 
 fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> SimKubeResult<batchv1::Job> {
@@ -83,7 +83,7 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image:
     };
     add_common_fields(&simulation.name_any(), simulation, &mut job)?;
 
-    return Ok(job);
+    Ok(job)
 }
 
 pub(crate) async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>) -> SimKubeResult<Action> {
@@ -109,10 +109,10 @@ pub(crate) async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationCo
         },
     }
 
-    return Ok(Action::await_change());
+    Ok(Action::await_change())
 }
 
 pub(crate) fn error_policy(simulation: Arc<Simulation>, error: &SimKubeError, _: Arc<SimulationContext>) -> Action {
     warn!("reconcile failed on simulation {}: {:?}", namespaced_name(simulation.deref()), error);
-    return Action::requeue(Duration::from_secs(5 * 60));
+    Action::requeue(Duration::from_secs(5 * 60))
 }

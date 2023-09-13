@@ -43,11 +43,11 @@ pub struct Tracer {
 
 impl Tracer {
     pub fn new() -> Arc<Mutex<Tracer>> {
-        return Arc::new(Mutex::new(Tracer {
+        Arc::new(Mutex::new(Tracer {
             trace: VecDeque::new(),
             tracked_objs: HashMap::new(),
             version: 0,
-        }));
+        }))
     }
 
     pub fn import(data: Vec<u8>) -> SimKubeResult<Tracer> {
@@ -57,7 +57,7 @@ impl Tracer {
         let (_, tracked_objs) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
         tracer.tracked_objs = tracked_objs;
 
-        return Ok(tracer);
+        Ok(tracer)
     }
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> SimKubeResult<Vec<u8>> {
@@ -66,7 +66,7 @@ impl Tracer {
         let data = rmp_serde::to_vec_named(&events)?;
 
         info!("Exported {} events.", events.len());
-        return Ok(data);
+        Ok(data)
     }
 
     pub fn objs(&self) -> HashSet<String> {
@@ -75,7 +75,7 @@ impl Tracer {
 
     pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
         let (_, tracked_objs) = self.collect_events(0, end_ts, filter);
-        return tracked_objs.keys().cloned().collect();
+        tracked_objs.keys().cloned().collect()
     }
 
     pub fn start_ts(&self) -> Option<i64> {
@@ -194,7 +194,7 @@ impl Tracer {
         }
 
         events[0].created_objs = flattened_obj_objects.values().cloned().collect();
-        return (events, tracked_objs);
+        (events, tracked_objs)
     }
 }
 
@@ -205,7 +205,7 @@ pub struct TraceIterator<'a> {
 
 impl<'a> Tracer {
     pub fn iter(&'a self) -> TraceIterator<'a> {
-        return TraceIterator { trace: &self.trace, idx: 0 };
+        TraceIterator { trace: &self.trace, idx: 0 }
     }
 }
 
@@ -220,6 +220,6 @@ impl<'a> Iterator for TraceIterator<'a> {
         };
 
         self.idx += 1;
-        return ret;
+        ret
     }
 }

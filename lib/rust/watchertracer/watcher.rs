@@ -69,7 +69,7 @@ impl<'a> Watcher<'a> {
     }
 
     pub fn new_from_parts(w: KubeObjectStream, t: Arc<Mutex<Tracer>>, clock: Arc<Mutex<dyn Clockable>>) -> Watcher {
-        return Watcher { w: select_all(vec![w]), t, clock };
+        Watcher { w: select_all(vec![w]), t, clock }
     }
 
     pub async fn start(&mut self) {

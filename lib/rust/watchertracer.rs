@@ -25,7 +25,7 @@ pub async fn new_watcher_tracer(
     client: kube::Client,
 ) -> SimKubeResult<(Watcher, Arc<Mutex<Tracer>>)> {
     let tracer = Tracer::new();
-    return Ok((Watcher::new(client, tracer.clone(), config).await?, tracer));
+    Ok((Watcher::new(client, tracer.clone(), config).await?, tracer))
 }
 
 #[cfg(test)]

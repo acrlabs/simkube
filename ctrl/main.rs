@@ -1,4 +1,3 @@
-#![allow(clippy::needless_return)]
 mod controller;
 mod trace;
 
@@ -46,5 +45,5 @@ async fn main() -> Result<(), ()> {
     );
 
     info!("shutting down...");
-    return Ok(());
+    Ok(())
 }

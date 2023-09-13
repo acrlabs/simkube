@@ -8,6 +8,6 @@ pub struct UtcClock {}
 
 impl Clockable for UtcClock {
     fn now(&self) -> i64 {
-        return Utc::now().timestamp();
+        Utc::now().timestamp()
     }
 }

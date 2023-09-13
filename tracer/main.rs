@@ -1,5 +1,3 @@
-#![allow(clippy::needless_return)]
-
 use std::fs::File;
 use std::sync::{
     Arc,

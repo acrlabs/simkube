@@ -38,10 +38,10 @@ pub fn label_for(key: &str, val: &str) -> String {
 }
 
 pub fn namespaced_name(obj: &impl Resource) -> String {
-    return match obj.namespace() {
+    match obj.namespace() {
         Some(ns) => format!("{}/{}", ns, obj.name_any()),
         None => obj.name_any().clone(),
-    };
+    }
 }
 
 pub fn obj_matches_selector(obj: &impl Resource, sel: &metav1::LabelSelector) -> SimKubeResult<bool> {

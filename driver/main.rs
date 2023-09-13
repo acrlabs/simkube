@@ -1,4 +1,3 @@
-#![allow(clippy::needless_return)]
 use std::cmp::max;
 use std::collections::{
     BTreeMap,
@@ -47,7 +46,7 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
     };
     add_common_fields(sim_name, sim_root, &mut ns)?;
 
-    return Ok(ns);
+    Ok(ns)
 }
 
 fn build_virtual_obj(
