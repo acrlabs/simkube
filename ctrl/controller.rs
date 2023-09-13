@@ -8,7 +8,7 @@ use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
 use simkube::prelude::*;
-use simkube::trace;
+use simkube::trace::storage;
 use simkube::util::{
     add_common_fields,
     namespaced_name,
@@ -16,14 +16,15 @@ use simkube::util::{
 use tokio::time::Duration;
 use tracing::*;
 
-use crate::trace::*;
+use super::trace::get_local_trace_volume;
+use super::ReconcileError;
 
 pub(super) struct SimulationContext {
     pub(super) k8s_client: kube::Client,
     pub(super) driver_image: String,
 }
 
-fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRoot> {
+fn create_simulation_root(simulation: &Simulation) -> anyhow::Result<SimulationRoot> {
     let mut root = SimulationRoot {
         metadata: metav1::ObjectMeta {
             name: Some(simulation.name_any()),
@@ -33,14 +34,14 @@ fn create_simulation_root(simulation: &Simulation) -> SimKubeResult<SimulationRo
     };
     add_common_fields(&simulation.name_any(), simulation, &mut root)?;
 
-    return Ok(root);
+    Ok(root)
 }
 
-fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> SimKubeResult<batchv1::Job> {
+fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> anyhow::Result<batchv1::Job> {
     let trace_path = Url::parse(&simulation.spec.trace)?;
-    let (trace_vm, trace_volume, mount_path) = match trace::storage_type(&trace_path)? {
-        trace::Scheme::AmazonS3 => todo!(),
-        trace::Scheme::Local => get_local_trace_volume(&trace_path),
+    let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_path)? {
+        storage::Scheme::AmazonS3 => todo!(),
+        storage::Scheme::Local => get_local_trace_volume(&trace_path),
     };
 
     let mut job = batchv1::Job {
@@ -83,10 +84,13 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image:
     };
     add_common_fields(&simulation.name_any(), simulation, &mut job)?;
 
-    return Ok(job);
+    Ok(job)
 }
 
-pub(crate) async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationContext>) -> SimKubeResult<Action> {
+pub(crate) async fn reconcile(
+    simulation: Arc<Simulation>,
+    ctx: Arc<SimulationContext>,
+) -> Result<Action, ReconcileError> {
     let k8s_client = &ctx.k8s_client;
     info!("got simulation object: {:?}", simulation);
 
@@ -109,10 +113,10 @@ pub(crate) async fn reconcile(simulation: Arc<Simulation>, ctx: Arc<SimulationCo
         },
     }
 
-    return Ok(Action::await_change());
+    Ok(Action::await_change())
 }
 
-pub(crate) fn error_policy(simulation: Arc<Simulation>, error: &SimKubeError, _: Arc<SimulationContext>) -> Action {
+pub(crate) fn error_policy(simulation: Arc<Simulation>, error: &ReconcileError, _: Arc<SimulationContext>) -> Action {
     warn!("reconcile failed on simulation {}: {:?}", namespaced_name(simulation.deref()), error);
-    return Action::requeue(Duration::from_secs(5 * 60));
+    Action::requeue(Duration::from_secs(5 * 60))
 }

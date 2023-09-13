@@ -11,11 +11,13 @@ use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use serde_json::Value;
-use simkube::util::Clockable;
-use simkube::watchertracer::{
-    KubeObjectStream,
+use simkube::trace::{
     TraceFilter,
     Tracer,
+};
+use simkube::util::Clockable;
+use simkube::watch::{
+    KubeObjectStream,
     Watcher,
 };
 

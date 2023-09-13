@@ -1,5 +1,3 @@
-#![allow(clippy::needless_return)]
-
 use std::fs::File;
 use std::sync::{
     Arc,
@@ -11,11 +9,11 @@ use kube::Client;
 use rocket::serde::json::Json;
 use serde::Deserialize;
 use simkube::prelude::*;
-use simkube::watchertracer::{
-    new_watcher_tracer,
+use simkube::trace::{
     TraceFilter,
     Tracer,
 };
+use simkube::watchertracer::new_watcher_tracer;
 use tracing::*;
 
 #[derive(Parser, Debug)]
@@ -37,10 +35,14 @@ struct ExportRequest {
 #[rocket::post("/export", data = "<req>")]
 async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
     debug!("export called with {:?}", req);
-    tracer.lock().unwrap().export(req.start_ts, req.end_ts, &req.filter).map_err(|e| format!("{:?}", e))
+    tracer
+        .lock()
+        .unwrap()
+        .export(req.start_ts, req.end_ts, &req.filter)
+        .map_err(|e| format!("{:?}", e))
 }
 
-async fn run(args: &Options) -> SimKubeResult<()> {
+async fn run(args: &Options) -> anyhow::Result<()> {
     info!("Reading tracer configuration from {}", &args.config_file);
     let config: TracerConfig = serde_yaml::from_reader(File::open(&args.config_file)?)?;
 
@@ -48,7 +50,9 @@ async fn run(args: &Options) -> SimKubeResult<()> {
     let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await?;
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(tracer.clone());
+    let server = rocket::custom(&rkt_config)
+        .mount("/", rocket::routes![export])
+        .manage(tracer.clone());
 
     tokio::select!(
         _ = watcher.start() => warn!("watcher finished"),

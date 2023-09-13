@@ -17,10 +17,11 @@ use serde::{
 use serde_json::value::Value;
 use tracing::*;
 
-use crate::prelude::*;
+use super::trace_filter::{
+    filter_event,
+    TraceFilter,
+};
 use crate::util::*;
-use crate::watchertracer::trace_filter::filter_event;
-use crate::watchertracer::TraceFilter;
 
 #[derive(Debug)]
 enum TraceAction {
@@ -43,30 +44,30 @@ pub struct Tracer {
 
 impl Tracer {
     pub fn new() -> Arc<Mutex<Tracer>> {
-        return Arc::new(Mutex::new(Tracer {
+        Arc::new(Mutex::new(Tracer {
             trace: VecDeque::new(),
             tracked_objs: HashMap::new(),
             version: 0,
-        }));
+        }))
     }
 
-    pub fn import(data: Vec<u8>) -> SimKubeResult<Tracer> {
+    pub fn import(data: Vec<u8>) -> anyhow::Result<Tracer> {
         let trace = rmp_serde::from_slice(&data)?;
 
         let mut tracer = Tracer { trace, tracked_objs: HashMap::new(), version: 0 };
         let (_, tracked_objs) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
         tracer.tracked_objs = tracked_objs;
 
-        return Ok(tracer);
+        Ok(tracer)
     }
 
-    pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> SimKubeResult<Vec<u8>> {
+    pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {:?}", filter);
         let (events, _) = self.collect_events(start_ts, end_ts, filter);
         let data = rmp_serde::to_vec_named(&events)?;
 
         info!("Exported {} events.", events.len());
-        return Ok(data);
+        Ok(data)
     }
 
     pub fn objs(&self) -> HashSet<String> {
@@ -75,7 +76,7 @@ impl Tracer {
 
     pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
         let (_, tracked_objs) = self.collect_events(0, end_ts, filter);
-        return tracked_objs.keys().cloned().collect();
+        tracked_objs.keys().cloned().collect()
     }
 
     pub fn start_ts(&self) -> Option<i64> {
@@ -85,7 +86,7 @@ impl Tracer {
         }
     }
 
-    pub(super) fn create_obj(&mut self, obj: &DynamicObject, ts: i64) {
+    pub(crate) fn create_obj(&mut self, obj: &DynamicObject, ts: i64) {
         let ns_name = namespaced_name(obj);
         if !self.tracked_objs.contains_key(&ns_name) {
             self.append_event(obj.clone(), ts, TraceAction::ObjectCreated);
@@ -93,7 +94,7 @@ impl Tracer {
         self.tracked_objs.insert(ns_name, self.version);
     }
 
-    pub(super) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
+    pub(crate) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
         let ns_name = namespaced_name(obj);
         if self.tracked_objs.contains_key(&ns_name) {
             self.append_event(obj.clone(), ts, TraceAction::ObjectDeleted);
@@ -101,7 +102,7 @@ impl Tracer {
         self.tracked_objs.remove(&ns_name);
     }
 
-    pub(super) fn update_all_objs(&mut self, objs: Vec<DynamicObject>, ts: i64) {
+    pub(crate) fn update_all_objs(&mut self, objs: Vec<DynamicObject>, ts: i64) {
         for obj in objs.iter() {
             self.create_obj(obj, ts);
         }
@@ -194,7 +195,7 @@ impl Tracer {
         }
 
         events[0].created_objs = flattened_obj_objects.values().cloned().collect();
-        return (events, tracked_objs);
+        (events, tracked_objs)
     }
 }
 
@@ -205,7 +206,7 @@ pub struct TraceIterator<'a> {
 
 impl<'a> Tracer {
     pub fn iter(&'a self) -> TraceIterator<'a> {
-        return TraceIterator { trace: &self.trace, idx: 0 };
+        TraceIterator { trace: &self.trace, idx: 0 }
     }
 }
 
@@ -220,6 +221,6 @@ impl<'a> Iterator for TraceIterator<'a> {
         };
 
         self.idx += 1;
-        return ret;
+        ret
     }
 }

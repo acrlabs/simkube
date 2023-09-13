@@ -1,4 +1,3 @@
-#![allow(clippy::needless_return)]
 use std::cmp::max;
 use std::collections::{
     BTreeMap,
@@ -13,11 +12,11 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::ResourceExt;
 use simkube::prelude::*;
+use simkube::trace::Tracer;
 use simkube::util::{
     add_common_fields,
     prefixed_ns,
 };
-use simkube::watchertracer::Tracer;
 use tokio::time::sleep;
 use tracing::*;
 
@@ -36,7 +35,7 @@ struct Options {
     trace_path: String,
 }
 
-fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> SimKubeResult<corev1::Namespace> {
+fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> anyhow::Result<corev1::Namespace> {
     let mut ns = corev1::Namespace {
         metadata: metav1::ObjectMeta {
             name: Some(ns_name.into()),
@@ -47,7 +46,7 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
     };
     add_common_fields(sim_name, sim_root, &mut ns)?;
 
-    return Ok(ns);
+    Ok(ns)
 }
 
 fn build_virtual_obj(
@@ -55,11 +54,14 @@ fn build_virtual_obj(
     vns_name: &str,
     _sim_name: &str,
     _root: &SimulationRoot,
-) -> SimKubeResult<DynamicObject> {
+) -> anyhow::Result<DynamicObject> {
     let mut vobj = obj.clone();
     let _selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
     vobj.metadata.namespace = Some(vns_name.into());
-    vobj.metadata.labels.get_or_insert(BTreeMap::new()).insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+    vobj.metadata
+        .labels
+        .get_or_insert(BTreeMap::new())
+        .insert(VIRTUAL_LABEL_KEY.into(), "true".into());
 
 
     // let spec = vobj.spec.as_mut().unwrap();
@@ -76,7 +78,7 @@ fn build_virtual_obj(
 }
 
 #[tokio::main]
-async fn main() -> SimKubeResult<()> {
+async fn main() -> anyhow::Result<()> {
     let args = Options::parse();
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("Simulation driver starting");

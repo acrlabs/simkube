@@ -1,7 +1,7 @@
 edition = "2021"
 array_width = 100
 blank_lines_upper_bound = 2
-chain_width = 100
+chain_width = 80
 comment_width = 100
 condense_wildcard_suffixes = true
 fn_call_width = 100

@@ -1,10 +1,8 @@
-#![allow(clippy::needless_return)]
-
 mod config;
 mod constants;
-mod error;
 pub mod trace;
 pub mod util;
+pub mod watch;
 pub mod watchertracer;
 
 use kube::CustomResource;
@@ -36,8 +34,4 @@ pub mod prelude {
     };
     pub use crate::config::*;
     pub use crate::constants::*;
-    pub use crate::error::{
-        SimKubeError,
-        SimKubeResult,
-    };
 }

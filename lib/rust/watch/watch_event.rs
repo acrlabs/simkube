@@ -1,13 +1,11 @@
-use std::error::Error;
-
 use kube::runtime::watcher::Event;
 
-pub(super) trait TryModify<K, E: Error> {
-    fn try_modify(self, f: impl FnMut(&mut K) -> Result<(), E>) -> Result<Event<K>, E>;
+pub(super) trait TryModify<K> {
+    fn try_modify(self, f: impl FnMut(&mut K) -> anyhow::Result<()>) -> anyhow::Result<Event<K>>;
 }
 
-impl<K, E: Error> TryModify<K, E> for Event<K> {
-    fn try_modify(mut self, mut f: impl FnMut(&mut K) -> Result<(), E>) -> Result<Event<K>, E> {
+impl<K> TryModify<K> for Event<K> {
+    fn try_modify(mut self, mut f: impl FnMut(&mut K) -> anyhow::Result<()>) -> anyhow::Result<Event<K>> {
         match &mut self {
             Event::Applied(obj) | Event::Deleted(obj) => (f)(obj)?,
             Event::Restarted(objs) => {
