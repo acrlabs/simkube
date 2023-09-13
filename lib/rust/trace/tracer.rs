@@ -14,7 +14,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use serde_json::value::Value;
+use serde_json::Value;
 use tracing::*;
 
 use super::trace_filter::{

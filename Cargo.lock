@@ -1939,7 +1939,6 @@ dependencies = [
  "chrono",
  "clap",
  "futures",
- "json-patch",
  "k8s-openapi",
  "kube",
  "reqwest",

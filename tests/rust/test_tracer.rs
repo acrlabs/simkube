@@ -170,7 +170,7 @@ async fn test_export() {
             let actual_pods = new_tracer.objs();
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
-            assert_eq!(expected_pods, actual_pods);
+            assert_eq!(actual_pods, expected_pods);
         },
         Err(e) => panic!("failed with {}", e),
     };

@@ -8,6 +8,7 @@ use futures::stream::select_all::{
     select_all,
     SelectAll,
 };
+use futures::stream::TryStreamExt;
 use futures::StreamExt;
 use kube::api::DynamicObject;
 use kube::discovery;
@@ -15,9 +16,9 @@ use kube::runtime::watcher::{
     watcher,
     Event,
 };
+use kube::runtime::WatchStreamExt;
 use tracing::*;
 
-use super::watch_event::TryModify;
 use super::KubeObjectStream;
 use crate::prelude::*;
 use crate::trace::Tracer;
@@ -39,10 +40,8 @@ async fn build_stream_for(obj_cfg: &TrackedObject, client: kube::Client) -> anyh
     let (ar, _) = apigroup.recommended_kind(&obj_cfg.kind).unwrap();
 
     Ok(watcher(kube::Api::all_with(client, &ar), Default::default())
-        .map(|str_res| match str_res {
-            Ok(evt) => evt.try_modify(|obj| strip_obj(obj, &obj_cfg.pod_spec_path)),
-            Err(e) => Err(e.into()),
-        })
+        .modify(|obj| strip_obj(obj, &obj_cfg.pod_spec_path))
+        .map_err(|e| e.into())
         .boxed())
 }
 
