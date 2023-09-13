@@ -25,8 +25,18 @@ impl TraceFilter {
 pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
     let new_evt = TraceEvent {
         ts: evt.ts,
-        created_objs: evt.created_objs.iter().filter(|obj| !obj_matches_filter(obj, f)).cloned().collect(),
-        deleted_objs: evt.deleted_objs.iter().filter(|obj| !obj_matches_filter(obj, f)).cloned().collect(),
+        created_objs: evt
+            .created_objs
+            .iter()
+            .filter(|obj| !obj_matches_filter(obj, f))
+            .cloned()
+            .collect(),
+        deleted_objs: evt
+            .deleted_objs
+            .iter()
+            .filter(|obj| !obj_matches_filter(obj, f))
+            .cloned()
+            .collect(),
     };
 
     if new_evt.created_objs.is_empty() && new_evt.deleted_objs.is_empty() {
@@ -37,7 +47,10 @@ pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
 }
 
 fn obj_matches_filter(obj: &DynamicObject, f: &TraceFilter) -> bool {
-    obj.metadata.namespace.as_ref().is_some_and(|ns| f.excluded_namespaces.contains(ns))
+    obj.metadata
+        .namespace
+        .as_ref()
+        .is_some_and(|ns| f.excluded_namespaces.contains(ns))
         || obj
             .metadata
             .owner_references

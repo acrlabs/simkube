@@ -53,8 +53,13 @@ async fn build_api_for(obj_cfg: &TrackedObject, client: kube::Client) -> SimKube
 
 impl<'a> Watcher<'a> {
     pub async fn new(client: kube::Client, t: Arc<Mutex<Tracer>>, config: &'a TracerConfig) -> SimKubeResult<Watcher> {
-        let apis =
-            try_join_all(config.tracked_objects.iter().map(|obj_cfg| build_api_for(obj_cfg, client.clone()))).await?;
+        let apis = try_join_all(
+            config
+                .tracked_objects
+                .iter()
+                .map(|obj_cfg| build_api_for(obj_cfg, client.clone())),
+        )
+        .await?;
 
         Ok(Watcher {
             w: select_all(apis),

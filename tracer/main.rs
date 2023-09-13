@@ -37,7 +37,11 @@ struct ExportRequest {
 #[rocket::post("/export", data = "<req>")]
 async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
     debug!("export called with {:?}", req);
-    tracer.lock().unwrap().export(req.start_ts, req.end_ts, &req.filter).map_err(|e| format!("{:?}", e))
+    tracer
+        .lock()
+        .unwrap()
+        .export(req.start_ts, req.end_ts, &req.filter)
+        .map_err(|e| format!("{:?}", e))
 }
 
 async fn run(args: &Options) -> SimKubeResult<()> {
@@ -48,7 +52,9 @@ async fn run(args: &Options) -> SimKubeResult<()> {
     let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await?;
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(tracer.clone());
+    let server = rocket::custom(&rkt_config)
+        .mount("/", rocket::routes![export])
+        .manage(tracer.clone());
 
     tokio::select!(
         _ = watcher.start() => warn!("watcher finished"),
