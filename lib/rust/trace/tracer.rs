@@ -21,6 +21,7 @@ use super::trace_filter::{
     filter_event,
     TraceFilter,
 };
+use crate::config::TracerConfig;
 use crate::util::*;
 
 #[derive(Debug)]
@@ -29,7 +30,7 @@ enum TraceAction {
     ObjectDeleted,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 pub struct TraceEvent {
     pub ts: i64,
     pub created_objs: Vec<DynamicObject>,
@@ -37,24 +38,31 @@ pub struct TraceEvent {
 }
 
 pub struct Tracer {
-    pub(super) trace: VecDeque<TraceEvent>,
+    pub(super) config: TracerConfig,
+    pub(super) events: VecDeque<TraceEvent>,
     pub(super) tracked_objs: HashMap<String, u64>,
     pub(super) version: u64,
 }
 
 impl Tracer {
-    pub fn new() -> Arc<Mutex<Tracer>> {
+    pub fn new(config: &TracerConfig) -> Arc<Mutex<Tracer>> {
         Arc::new(Mutex::new(Tracer {
-            trace: VecDeque::new(),
+            config: config.clone(),
+            events: VecDeque::new(),
             tracked_objs: HashMap::new(),
             version: 0,
         }))
     }
 
     pub fn import(data: Vec<u8>) -> anyhow::Result<Tracer> {
-        let trace = rmp_serde::from_slice(&data)?;
+        let (config, events): (TracerConfig, VecDeque<TraceEvent>) = rmp_serde::from_slice(&data)?;
 
-        let mut tracer = Tracer { trace, tracked_objs: HashMap::new(), version: 0 };
+        let mut tracer = Tracer {
+            config,
+            events,
+            tracked_objs: HashMap::new(),
+            version: 0,
+        };
         let (_, tracked_objs) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
         tracer.tracked_objs = tracked_objs;
 
@@ -64,7 +72,7 @@ impl Tracer {
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {:?}", filter);
         let (events, _) = self.collect_events(start_ts, end_ts, filter);
-        let data = rmp_serde::to_vec_named(&events)?;
+        let data = rmp_serde::to_vec_named(&(&self.config, &events))?;
 
         info!("Exported {} events.", events.len());
         Ok(data)
@@ -134,7 +142,7 @@ impl Tracer {
 
     fn append_event(&mut self, obj: DynamicObject, ts: i64, action: TraceAction) {
         info!("{} - {:?} @ {}", namespaced_name(&obj), action, ts);
-        if let Some(evt) = self.trace.back_mut() {
+        if let Some(evt) = self.events.back_mut() {
             if evt.ts == ts {
                 match action {
                     TraceAction::ObjectCreated => evt.created_objs.push(obj),
@@ -148,7 +156,7 @@ impl Tracer {
             TraceAction::ObjectCreated => TraceEvent { ts, created_objs: vec![obj], deleted_objs: vec![] },
             TraceAction::ObjectDeleted => TraceEvent { ts, created_objs: vec![], deleted_objs: vec![obj] },
         };
-        self.trace.push_back(evt);
+        self.events.push_back(evt);
     }
 
     fn collect_events(
@@ -200,13 +208,13 @@ impl Tracer {
 }
 
 pub struct TraceIterator<'a> {
-    trace: &'a VecDeque<TraceEvent>,
+    events: &'a VecDeque<TraceEvent>,
     idx: usize,
 }
 
 impl<'a> Tracer {
     pub fn iter(&'a self) -> TraceIterator<'a> {
-        TraceIterator { trace: &self.trace, idx: 0 }
+        TraceIterator { events: &self.events, idx: 0 }
     }
 }
 
@@ -215,8 +223,8 @@ impl<'a> Iterator for TraceIterator<'a> {
 
     fn next(&mut self) -> Option<Self::Item> {
         let ret = match self.idx {
-            i if i < self.trace.len() - 1 => Some((self.trace[i].clone(), Some(self.trace[i + 1].ts))),
-            i if i == self.trace.len() - 1 => Some((self.trace[i].clone(), None)),
+            i if i < self.events.len() - 1 => Some((self.events[i].clone(), Some(self.events[i + 1].ts))),
+            i if i == self.events.len() - 1 => Some((self.events[i].clone(), None)),
             _ => None,
         };
 

@@ -144,9 +144,13 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
 
 #[tokio::test]
 async fn test_export() {
-    // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let t = Tracer::new();
     let clock = Arc::new(Mutex::new(MockUtcClock { now: 0 }));
+
+    // Since we're just generating the results from the stream and not actually querying any
+    // Kubernetes internals or whatever, the TracerConfig is empty.
+    let t = Tracer::new(&Default::default());
+
+    // First build up the stream of test data and run the watcher (this advances time to the "end")
     let mut w = Watcher::new_from_parts(test_stream(clock.clone()), t.clone(), clock);
     w.start().await;
 

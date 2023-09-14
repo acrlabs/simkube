@@ -9,6 +9,7 @@ use rstest::*;
 use serde_json::Value;
 
 use super::*;
+use crate::config::TracerConfig;
 use crate::util::namespaced_name;
 
 const TESTING_NAMESPACE: &str = "test";
@@ -16,7 +17,8 @@ const TESTING_NAMESPACE: &str = "test";
 #[fixture]
 fn tracer() -> Tracer {
     return Tracer {
-        trace: VecDeque::new(),
+        config: TracerConfig { tracked_objects: vec![] },
+        events: VecDeque::new(),
         tracked_objs: HashMap::new(),
         version: 0,
     };
@@ -47,10 +49,10 @@ async fn test_create_obj(mut tracer: Tracer, test_obj: DynamicObject) {
 
     assert_eq!(tracer.tracked_objs.len(), 1);
     assert_eq!(tracer.tracked_objs[&ns_name], 0);
-    assert_eq!(tracer.trace.len(), 1);
-    assert_eq!(tracer.trace[0].created_objs.len(), 1);
-    assert_eq!(tracer.trace[0].deleted_objs.len(), 0);
-    assert_eq!(tracer.trace[0].ts, ts);
+    assert_eq!(tracer.events.len(), 1);
+    assert_eq!(tracer.events[0].created_objs.len(), 1);
+    assert_eq!(tracer.events[0].deleted_objs.len(), 0);
+    assert_eq!(tracer.events[0].ts, ts);
 }
 
 #[rstest]
@@ -69,12 +71,12 @@ async fn test_create_objs(mut tracer: Tracer) {
         let ns_name = namespaced_name(p);
         assert_eq!(tracer.tracked_objs[&ns_name], 0);
     }
-    assert_eq!(tracer.trace.len(), 2);
+    assert_eq!(tracer.events.len(), 2);
 
     for i in 0..objs.len() {
-        assert_eq!(tracer.trace[i].created_objs.len(), 1);
-        assert_eq!(tracer.trace[i].deleted_objs.len(), 0);
-        assert_eq!(tracer.trace[i].ts, ts[i]);
+        assert_eq!(tracer.events[i].created_objs.len(), 1);
+        assert_eq!(tracer.events[i].deleted_objs.len(), 0);
+        assert_eq!(tracer.events[i].ts, ts[i]);
     }
 }
 
@@ -91,10 +93,10 @@ async fn test_delete_obj(mut tracer: Tracer, test_obj: DynamicObject) {
     tracer.delete_obj(&test_obj, 2445);
 
     assert_eq!(tracer.tracked_objs.len(), 0);
-    assert_eq!(tracer.trace.len(), 1);
-    assert_eq!(tracer.trace[0].created_objs.len(), 0);
-    assert_eq!(tracer.trace[0].deleted_objs.len(), 1);
-    assert_eq!(tracer.trace[0].ts, ts);
+    assert_eq!(tracer.events.len(), 1);
+    assert_eq!(tracer.events[0].created_objs.len(), 0);
+    assert_eq!(tracer.events[0].deleted_objs.len(), 1);
+    assert_eq!(tracer.events[0].ts, ts);
 }
 
 #[rstest]
@@ -113,10 +115,10 @@ async fn test_recreate_tracked_objs_all_new(mut tracer: Tracer) {
         let ns_name = namespaced_name(p);
         assert_eq!(tracer.tracked_objs[&ns_name], 1);
     }
-    assert_eq!(tracer.trace.len(), 1);
-    assert_eq!(tracer.trace[0].created_objs.len(), 3);
-    assert_eq!(tracer.trace[0].deleted_objs.len(), 0);
-    assert_eq!(tracer.trace[0].ts, ts);
+    assert_eq!(tracer.events.len(), 1);
+    assert_eq!(tracer.events[0].created_objs.len(), 3);
+    assert_eq!(tracer.events[0].deleted_objs.len(), 0);
+    assert_eq!(tracer.events[0].ts, ts);
     assert_eq!(tracer.version, 2);
 }
 
@@ -138,13 +140,13 @@ async fn test_recreate_tracked_objs_with_created_obj(mut tracer: Tracer) {
         let ns_name = namespaced_name(p);
         assert_eq!(tracer.tracked_objs[&ns_name], 1);
     }
-    assert_eq!(tracer.trace.len(), 2);
-    assert_eq!(tracer.trace[0].created_objs.len(), 3);
-    assert_eq!(tracer.trace[0].deleted_objs.len(), 0);
-    assert_eq!(tracer.trace[0].ts, ts[0]);
-    assert_eq!(tracer.trace[1].created_objs.len(), 1);
-    assert_eq!(tracer.trace[1].deleted_objs.len(), 0);
-    assert_eq!(tracer.trace[1].ts, ts[1]);
+    assert_eq!(tracer.events.len(), 2);
+    assert_eq!(tracer.events[0].created_objs.len(), 3);
+    assert_eq!(tracer.events[0].deleted_objs.len(), 0);
+    assert_eq!(tracer.events[0].ts, ts[0]);
+    assert_eq!(tracer.events[1].created_objs.len(), 1);
+    assert_eq!(tracer.events[1].deleted_objs.len(), 0);
+    assert_eq!(tracer.events[1].ts, ts[1]);
     assert_eq!(tracer.version, 2);
 }
 
@@ -166,12 +168,12 @@ async fn test_recreate_tracked_objs_with_deleted_obj(mut tracer: Tracer) {
         let ns_name = namespaced_name(p);
         assert_eq!(tracer.tracked_objs[&ns_name], 1);
     }
-    assert_eq!(tracer.trace.len(), 2);
-    assert_eq!(tracer.trace[0].created_objs.len(), 3);
-    assert_eq!(tracer.trace[0].deleted_objs.len(), 0);
-    assert_eq!(tracer.trace[0].ts, ts[0]);
-    assert_eq!(tracer.trace[1].created_objs.len(), 0);
-    assert_eq!(tracer.trace[1].deleted_objs.len(), 1);
-    assert_eq!(tracer.trace[1].ts, ts[1]);
+    assert_eq!(tracer.events.len(), 2);
+    assert_eq!(tracer.events[0].created_objs.len(), 3);
+    assert_eq!(tracer.events[0].deleted_objs.len(), 0);
+    assert_eq!(tracer.events[0].ts, ts[0]);
+    assert_eq!(tracer.events[1].created_objs.len(), 0);
+    assert_eq!(tracer.events[1].deleted_objs.len(), 1);
+    assert_eq!(tracer.events[1].ts, ts[1]);
     assert_eq!(tracer.version, 2);
 }

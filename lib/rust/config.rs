@@ -3,7 +3,7 @@ use serde::{
     Serialize,
 };
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedObject {
     pub api_version: String,
@@ -12,7 +12,7 @@ pub struct TrackedObject {
     pub watched_fields: Vec<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TracerConfig {
     pub tracked_objects: Vec<TrackedObject>,

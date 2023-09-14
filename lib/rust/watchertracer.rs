@@ -11,6 +11,8 @@ pub async fn new_watcher_tracer(
     config: &TracerConfig,
     client: kube::Client,
 ) -> anyhow::Result<(Watcher, Arc<Mutex<Tracer>>)> {
-    let tracer = Tracer::new();
-    Ok((Watcher::new(client, tracer.clone(), config).await?, tracer))
+    let tracer = Tracer::new(config);
+    let watcher = Watcher::new(client, tracer.clone(), config).await?;
+
+    Ok((watcher, tracer))
 }
