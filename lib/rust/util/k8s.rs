@@ -1,20 +1,32 @@
 use std::collections::BTreeMap;
 
-use anyhow::{
-    anyhow,
-    bail,
-};
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
+    ApiResource,
     DynamicObject,
+    GroupVersionKind,
     Resource,
     ResourceExt,
 };
+use kube::discovery;
+use kube::discovery::ApiCapabilities;
 use thiserror::Error;
 use tracing::*;
 
 use crate::constants::SIMULATION_LABEL_KEY;
+use crate::errors::*;
 use crate::json::patch_ext_remove;
+
+err_impl! {KubernetesError,
+    #[error("field not found in struct: {0}")]
+    FieldNotFound(String),
+
+    #[error("gvk not found: {0:?}")]
+    GroupVersionKindNotFound(GroupVersionKind),
+
+    #[error("malformed label selector: {0:?}")]
+    MalformedLabelSelector(metav1::LabelSelectorRequirement),
+}
 
 pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> anyhow::Result<()>
 where
@@ -25,11 +37,24 @@ where
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),
-        uid: owner.uid().ok_or(anyhow!(KubernetesError::field_not_found("uid")))?,
+        uid: owner.uid().ok_or(KubernetesError::field_not_found("uid"))?,
         ..Default::default()
     });
 
     Ok(())
+}
+
+pub async fn get_api_resource(
+    gvk: &GroupVersionKind,
+    client: &kube::Client,
+) -> anyhow::Result<(ApiResource, ApiCapabilities)> {
+    let apigroup = discovery::group(client, &gvk.group).await?;
+    apigroup
+        .versioned_resources(&gvk.version)
+        .iter()
+        .find(|(res, _)| res.kind == gvk.kind)
+        .cloned()
+        .ok_or(KubernetesError::group_version_kind_not_found(gvk))
 }
 
 pub fn label_for(key: &str, val: &str) -> String {
@@ -127,24 +152,5 @@ pub(super) fn label_expr_match(
             _ => Ok(!obj_labels.contains_key(&expr.key)),
         },
         _ => bail!("malformed label selector expression: {:?}", expr),
-    }
-}
-
-#[derive(Error, Debug)]
-pub(super) enum KubernetesError {
-    #[error("field not found in struct: {0}")]
-    FieldNotFound(String),
-
-    #[error("malformed label selector: {0:?}")]
-    MalformedLabelSelector(metav1::LabelSelectorRequirement),
-}
-
-impl KubernetesError {
-    fn field_not_found(f: &str) -> KubernetesError {
-        KubernetesError::FieldNotFound(f.into())
-    }
-
-    fn malformed_label_selector(expr: &metav1::LabelSelectorRequirement) -> KubernetesError {
-        KubernetesError::MalformedLabelSelector(expr.clone())
     }
 }

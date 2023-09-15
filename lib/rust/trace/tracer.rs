@@ -69,6 +69,10 @@ impl Tracer {
         Ok(tracer)
     }
 
+    pub fn config(&self) -> &TracerConfig {
+        &self.config
+    }
+
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {:?}", filter);
         let (events, _) = self.collect_events(start_ts, end_ts, filter);

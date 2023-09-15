@@ -29,6 +29,7 @@ lint:
 
 test:
 	mkdir -p $(BUILD_DIR)/coverage
+	rm -f $(BUILD_DIR)/coverage/*.profraw
 	go test -coverprofile=$(GO_COVER_FILE) ./...
 	$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/coverage/cargo-test-%p-%m.profraw' \
 		cargo test --target-dir=$(BUILD_DIR)/test -- --nocapture

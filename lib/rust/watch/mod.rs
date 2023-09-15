@@ -1,4 +1,3 @@
-mod watch_event;
 mod watcher;
 
 use std::pin::Pin;
