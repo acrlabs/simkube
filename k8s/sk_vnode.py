@@ -19,6 +19,7 @@ status:
     cpu: "1"
     memory: "1Gi"
 """
+CONFIGMAP_NAME = "node-skeleton"
 
 
 class SKVnode(Chart):
@@ -33,7 +34,7 @@ class SKVnode(Chart):
             data={"node.yml": NODE_YML}
         )
 
-        volumes = fire.VolumesBuilder().with_config_map("node-skeleton", "/config", cm)
+        volumes = fire.VolumesBuilder().with_config_map(CONFIGMAP_NAME, "/config", cm)
         env = (fire.EnvBuilder()
             .with_field_ref("POD_NAME", DownwardAPIField.NAME)
             .with_field_ref("POD_NAMESPACE", DownwardAPIField.NAMESPACE)
@@ -44,7 +45,7 @@ class SKVnode(Chart):
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
-            args=["/sk-vnode", "--node-skeleton", volumes.get_path_to("node-skeleton")],
+            args=["/sk-vnode", "--node-skeleton", volumes.get_path_to(CONFIGMAP_NAME)],
         ).with_env(env).with_volumes(volumes).with_security_context(Capability.DEBUG)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
