@@ -17,6 +17,9 @@ use crate::constants::SIMULATION_LABEL_KEY;
 use crate::errors::*;
 use crate::json::patch_ext_remove;
 
+pub(super) const LAST_APPLIED_CONFIG_LABEL_KEY: &str = "kubectl.kubernetes.io/last-applied-configuration";
+pub(super) const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revision";
+
 err_impl! {KubernetesError,
     #[error("field not found in struct: {0}")]
     FieldNotFound(String),
@@ -92,12 +95,19 @@ pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
 }
 
 pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) {
-    obj.metadata.uid = None;
-    obj.metadata.resource_version = None;
-    obj.metadata.managed_fields = None;
     obj.metadata.creation_timestamp = None;
     obj.metadata.deletion_timestamp = None;
+    obj.metadata.deletion_grace_period_seconds = None;
+    obj.metadata.generation = None;
+    obj.metadata.managed_fields = None;
     obj.metadata.owner_references = None;
+    obj.metadata.resource_version = None;
+    obj.metadata.uid = None;
+
+    if let Some(a) = obj.metadata.annotations.as_mut() {
+        a.remove(LAST_APPLIED_CONFIG_LABEL_KEY);
+        a.remove(DEPL_REVISION_LABEL_KEY);
+    }
 
     for key in &["nodeName", "serviceAccount", "serviceAccountName"] {
         if let Err(e) = patch_ext_remove(pod_spec_path, key, &mut obj.data) {
@@ -120,7 +130,7 @@ pub(super) const OPERATOR_NOT_IN: &str = "NotIn";
 pub(super) const OPERATOR_EXISTS: &str = "Exists";
 pub(super) const OPERATOR_DOES_NOT_EXIST: &str = "DoesNotExist";
 
-pub(super) fn label_expr_match(
+fn label_expr_match(
     obj_labels: &BTreeMap<String, String>,
     expr: &metav1::LabelSelectorRequirement,
 ) -> anyhow::Result<bool> {

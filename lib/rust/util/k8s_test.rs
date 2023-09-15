@@ -15,12 +15,22 @@ fn test_strip_obj() {
         metadata: metav1::ObjectMeta {
             name: Some("test".into()),
             namespace: Some("test".into()),
-            uid: Some("abcd".into()),
-            resource_version: Some("1234".into()),
-            managed_fields: Some(vec![Default::default()]),
+
+            annotations: Some(BTreeMap::from([
+                ("some_random_annotation".into(), "blah".into()),
+                (LAST_APPLIED_CONFIG_LABEL_KEY.into(), "foo".into()),
+                (DEPL_REVISION_LABEL_KEY.into(), "42.5".into()),
+            ])),
+
             creation_timestamp: Some(metav1::Time(Utc::now())),
             deletion_timestamp: Some(metav1::Time(Utc::now())),
+            deletion_grace_period_seconds: Some(123),
+            generation: Some(456),
+            managed_fields: Some(vec![Default::default()]),
             owner_references: Some(vec![Default::default()]),
+            resource_version: Some("1234".into()),
+            uid: Some("abcd".into()),
+
             ..Default::default()
         },
         types: None,
@@ -47,12 +57,18 @@ fn test_strip_obj() {
     };
 
     strip_obj(&mut obj, "/foo/bars/*/spec");
-    assert_eq!(obj.metadata.uid, None);
-    assert_eq!(obj.metadata.resource_version, None);
-    assert_eq!(obj.metadata.managed_fields, None);
+
     assert_eq!(obj.metadata.creation_timestamp, None);
     assert_eq!(obj.metadata.deletion_timestamp, None);
+    assert_eq!(obj.metadata.deletion_grace_period_seconds, None);
+    assert_eq!(obj.metadata.generation, None);
+    assert_eq!(obj.metadata.managed_fields, None);
     assert_eq!(obj.metadata.owner_references, None);
+    assert_eq!(obj.metadata.resource_version, None);
+    assert_eq!(obj.metadata.uid, None);
+
+    assert_eq!(obj.metadata.annotations, Some(BTreeMap::from([("some_random_annotation".into(), "blah".into())])));
+
     assert_eq!(
         obj.data,
         json!({
@@ -72,94 +88,80 @@ fn test_strip_obj() {
 }
 
 #[fixture]
-fn pod_labels() -> BTreeMap<String, String> {
-    return BTreeMap::from([("foo".into(), "bar".to_string())]);
+fn pod() -> corev1::Pod {
+    let labels = Some(BTreeMap::from([("foo".into(), "bar".to_string())]));
+    corev1::Pod {
+        metadata: metav1::ObjectMeta { labels, ..Default::default() },
+        ..Default::default()
+    }
 }
 
-#[fixture]
-fn pod(pod_labels: BTreeMap<String, String>) -> corev1::Pod {
-    corev1::Pod {
-        metadata: metav1::ObjectMeta { labels: Some(pod_labels), ..Default::default() },
+fn make_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {
+    metav1::LabelSelector {
+        match_expressions: Some(vec![metav1::LabelSelectorRequirement {
+            key: key.into(),
+            operator: op.into(),
+            values: match value {
+                Some(s) => Some(vec![s.into()]),
+                _ => None,
+            },
+        }]),
         ..Default::default()
     }
 }
 
 #[rstest]
-#[case::op_in(OPERATOR_IN.into())]
-#[case::op_not_in(OPERATOR_NOT_IN.into())]
-fn test_label_expr_match(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "foo".into(),
-        operator: op.clone(),
-        values: Some(vec!["bar".into()]),
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
-    assert_eq!(res, &op == OPERATOR_IN);
+#[case::op_in(OPERATOR_IN)]
+#[case::op_not_in(OPERATOR_NOT_IN)]
+fn test_label_expr_match(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("foo", op, Some("bar"));
+    let res = obj_matches_selector(&pod, &sel).unwrap();
+    assert_eq!(res, op == OPERATOR_IN);
 }
 
 #[rstest]
-#[case::op_in(OPERATOR_IN.into())]
-#[case::op_not_in(OPERATOR_NOT_IN.into())]
-fn test_label_expr_no_values(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "foo".into(),
-        operator: op.clone(),
-        values: Some(vec![]),
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap_err().downcast().unwrap();
+#[case::op_in(OPERATOR_IN)]
+#[case::op_not_in(OPERATOR_NOT_IN)]
+fn test_label_expr_no_values(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("foo", op, None);
+    let res = obj_matches_selector(&pod, &sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
-#[case::op_in(OPERATOR_IN.into())]
-#[case::op_not_in(OPERATOR_NOT_IN.into())]
-fn test_label_expr_no_match(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "baz".into(),
-        operator: op.clone(),
-        values: Some(vec!["qux".into()]),
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
-    assert_eq!(res, &op == OPERATOR_NOT_IN);
+#[case::op_in(OPERATOR_IN)]
+#[case::op_not_in(OPERATOR_NOT_IN)]
+fn test_label_expr_no_match(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("baz", op, Some("qux"));
+    let res = obj_matches_selector(&pod, &sel).unwrap();
+    assert_eq!(res, op == OPERATOR_NOT_IN);
 }
 
 #[rstest]
-#[case::op_exists(OPERATOR_EXISTS.into())]
-#[case::op_exists(OPERATOR_DOES_NOT_EXIST.into())]
-fn test_label_expr_exists(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "foo".into(),
-        operator: op.clone(),
-        values: None,
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
-    assert_eq!(res, &op == OPERATOR_EXISTS);
+#[case::op_exists(OPERATOR_EXISTS)]
+#[case::op_exists(OPERATOR_DOES_NOT_EXIST)]
+fn test_label_expr_exists(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("foo", op, None);
+    let res = obj_matches_selector(&pod, &sel).unwrap();
+    assert_eq!(res, op == OPERATOR_EXISTS);
 }
 
 #[rstest]
-#[case::op_exists(OPERATOR_EXISTS.into())]
-#[case::op_not_exists(OPERATOR_DOES_NOT_EXIST.into())]
-fn test_label_expr_exists_values(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "foo".into(),
-        operator: op.clone(),
-        values: Some(vec!["bar".into()]),
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap_err().downcast().unwrap();
+#[case::op_exists(OPERATOR_EXISTS)]
+#[case::op_not_exists(OPERATOR_DOES_NOT_EXIST)]
+fn test_label_expr_exists_values(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("foo", op, Some("bar"));
+    let res = obj_matches_selector(&pod, &sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
-#[case::op_in(OPERATOR_EXISTS.into())]
-#[case::op_not_in(OPERATOR_DOES_NOT_EXIST.into())]
-fn test_label_expr_not_exists(pod_labels: BTreeMap<String, String>, #[case] op: String) {
-    let label_expr = metav1::LabelSelectorRequirement {
-        key: "baz".into(),
-        operator: op.clone(),
-        values: None,
-    };
-    let res = label_expr_match(&pod_labels, &label_expr).unwrap();
-    assert_eq!(res, &op == OPERATOR_DOES_NOT_EXIST);
+#[case::op_in(OPERATOR_EXISTS)]
+#[case::op_not_in(OPERATOR_DOES_NOT_EXIST)]
+fn test_label_expr_not_exists(pod: corev1::Pod, #[case] op: &str) {
+    let sel = make_label_sel("baz", op, None);
+    let res = obj_matches_selector(&pod, &sel).unwrap();
+    assert_eq!(res, op == OPERATOR_DOES_NOT_EXIST);
 }
 
 #[rstest]
