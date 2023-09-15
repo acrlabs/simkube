@@ -1,6 +1,7 @@
 mod config;
 mod constants;
-mod json;
+mod errors;
+pub mod json;
 pub mod trace;
 pub mod util;
 pub mod watch;

@@ -1,4 +1,5 @@
 use std::cmp::max;
+use std::collections::hash_map::Entry;
 use std::collections::{
     BTreeMap,
     HashMap,
@@ -6,15 +7,22 @@ use std::collections::{
 use std::fs;
 use std::time::Duration;
 
+use anyhow::bail;
 use clap::Parser;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::ResourceExt;
+use serde_json::json;
+use simkube::json::{
+    patch_ext_add,
+    patch_ext_remove,
+};
 use simkube::prelude::*;
 use simkube::trace::Tracer;
 use simkube::util::{
     add_common_fields,
+    get_api_resource,
     prefixed_ns,
 };
 use tokio::time::sleep;
@@ -52,69 +60,81 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
 fn build_virtual_obj(
     obj: &DynamicObject,
     vns_name: &str,
-    _sim_name: &str,
-    _root: &SimulationRoot,
+    sim_name: &str,
+    root: &SimulationRoot,
+    config: &TracerConfig,
 ) -> anyhow::Result<DynamicObject> {
     let mut vobj = obj.clone();
-    let _selector: BTreeMap<String, String> = BTreeMap::from([("type".into(), "virtual".into())]);
     vobj.metadata.namespace = Some(vns_name.into());
-    vobj.metadata
-        .labels
-        .get_or_insert(BTreeMap::new())
-        .insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+    vobj.labels_mut().insert(VIRTUAL_LABEL_KEY.into(), "true".into());
 
+    let gvk = match &obj.types {
+        Some(t) => GVKKey { gvk: t.try_into()? },
+        None => bail!("no type data present"),
+    };
+    let psp = &config.tracked_objects[&gvk].pod_spec_path;
 
-    // let spec = vobj.spec.as_mut().unwrap();
-    // spec.node_selector = Some(selector);
-    // spec.tolerations.get_or_insert(vec![]).push(corev1::Toleration {
-    //     key: Some("simkube.io/virtual-node".into()),
-    //     value: Some("true".into()),
-    //     ..Default::default()
-    // });
-    // vobj.status = None;
+    patch_ext_add(psp, "nodeSelector", &json!({"type": "virtual"}), &mut vobj.data, true)?;
+    patch_ext_add(psp, "tolerations", &json!([]), &mut vobj.data, false)?;
+    patch_ext_add(
+        &format!("{}/tolerations", psp),
+        "-",
+        &json!({"key": "simkube.io/virtual-node", "value": "true"}),
+        &mut vobj.data,
+        true,
+    )?;
+    patch_ext_remove(psp, "status", &mut vobj.data)?;
+    add_common_fields(sim_name, root, &mut vobj)?;
 
-    // add_common_fields(sim_name, root, &mut vobj)?;
     Ok(vobj)
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+async fn run(args: &Options) -> anyhow::Result<()> {
     info!("Simulation driver starting");
 
-    let trace_data = fs::read(args.trace_path)?;
+    let trace_data = fs::read(&args.trace_path)?;
     let tracer = Tracer::import(trace_data)?;
 
     let k8s_client = kube::Client::try_default().await?;
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(k8s_client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(k8s_client.clone());
-    let mut pod_apis: HashMap<String, kube::Api<corev1::Pod>> = HashMap::new();
+    let mut obj_apis: HashMap<(GVKKey, String), kube::Api<DynamicObject>> = HashMap::new();
 
     let root = roots_api.get(&args.sim_root).await?;
 
     let mut sim_ts = tracer.start_ts().expect("no trace data");
     for (evt, next_ts) in tracer.iter() {
         for obj in evt.created_objs {
+            let key = match &obj.types {
+                Some(t) => GVKKey { gvk: t.try_into()? },
+                None => bail!("no type data present"),
+            };
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            if !pod_apis.contains_key(&vns_name) {
-                let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
-                ns_api.create(&Default::default(), &vns).await?;
-                pod_apis.insert(vns_name.clone(), kube::Api::namespaced(k8s_client.clone(), &vns_name));
-            }
+            let obj_api = match obj_apis.entry((key.clone(), vns_name.clone())) {
+                Entry::Vacant(e) => {
+                    let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
+                    ns_api.create(&Default::default(), &vns).await?;
+                    let (ar, _) = get_api_resource(&key.gvk, &k8s_client).await?;
+                    e.insert(kube::Api::namespaced_with(k8s_client.clone(), &vns_name, &ar))
+                },
+                Entry::Occupied(e) => e.into_mut(),
+            };
 
-            let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root)?;
+            let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root, tracer.config())?;
 
             info!("creating object {:?}", vobj);
-            // let pod_api = pod_apis.get(&vns_name).unwrap();
-            // pod_api.create(&Default::default(), &vobj).await?;
+            obj_api.create(&Default::default(), &vobj).await?;
         }
 
         for obj in evt.deleted_objs {
             info!("deleting pod {}", obj.name_any());
+            let key = match &obj.types {
+                Some(t) => GVKKey { gvk: t.try_into()? },
+                None => bail!("no type data present"),
+            };
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            match pod_apis.get(&vns_name) {
-                Some(pod_api) => _ = pod_api.delete(&obj.name_any(), &Default::default()).await?,
+            match obj_apis.get(&(key, vns_name)) {
+                Some(obj_api) => _ = obj_api.delete(&obj.name_any(), &Default::default()).await?,
                 None => warn!("could not find namespace"),
             }
         }
@@ -132,4 +152,14 @@ async fn main() -> anyhow::Result<()> {
     info!("simulation complete!");
 
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    let args = Options::parse();
+    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
+    if let Err(e) = run(&args).await {
+        error!("{e}");
+        std::process::exit(1);
+    }
 }

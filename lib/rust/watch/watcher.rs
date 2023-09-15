@@ -10,8 +10,11 @@ use futures::stream::select_all::{
 };
 use futures::stream::TryStreamExt;
 use futures::StreamExt;
-use kube::api::DynamicObject;
-use kube::discovery;
+use kube::api::{
+    DynamicObject,
+    GroupVersionKind,
+};
+use kube::core::TypeMeta;
 use kube::runtime::watcher::{
     watcher,
     Event,
@@ -23,11 +26,11 @@ use super::KubeObjectStream;
 use crate::prelude::*;
 use crate::trace::Tracer;
 use crate::util::{
+    get_api_resource,
     strip_obj,
     Clockable,
     UtcClock,
 };
-
 
 pub struct Watcher<'a> {
     w: SelectAll<KubeObjectStream<'a>>,
@@ -35,12 +38,20 @@ pub struct Watcher<'a> {
     clock: Arc<Mutex<dyn Clockable>>,
 }
 
-async fn build_stream_for(obj_cfg: &TrackedObject, client: kube::Client) -> anyhow::Result<KubeObjectStream> {
-    let apigroup = discovery::group(&client, &obj_cfg.api_version).await?;
-    let (ar, _) = apigroup.recommended_kind(&obj_cfg.kind).unwrap();
-
+async fn build_stream_for<'a>(
+    gvk: &'a GroupVersionKind,
+    obj_cfg: &'a TrackedObject,
+    client: kube::Client,
+) -> anyhow::Result<KubeObjectStream<'a>> {
+    let (ar, _) = get_api_resource(gvk, &client).await?;
     Ok(watcher(kube::Api::all_with(client, &ar), Default::default())
-        .modify(|obj| strip_obj(obj, &obj_cfg.pod_spec_path))
+        .modify(|obj| {
+            strip_obj(obj, &obj_cfg.pod_spec_path);
+            obj.types = Some(TypeMeta {
+                api_version: gvk.api_version(),
+                kind: gvk.kind.clone(),
+            });
+        })
         .map_err(|e| e.into())
         .boxed())
 }
@@ -51,7 +62,7 @@ impl<'a> Watcher<'a> {
             config
                 .tracked_objects
                 .iter()
-                .map(|obj_cfg| build_stream_for(obj_cfg, client.clone())),
+                .map(|(key, obj_cfg)| build_stream_for(&key.gvk, obj_cfg, client.clone())),
         )
         .await?;
 

@@ -17,7 +17,7 @@ const TESTING_NAMESPACE: &str = "test";
 #[fixture]
 fn tracer() -> Tracer {
     return Tracer {
-        config: TracerConfig { tracked_objects: vec![] },
+        config: TracerConfig { tracked_objects: HashMap::new() },
         events: VecDeque::new(),
         tracked_objs: HashMap::new(),
         version: 0,

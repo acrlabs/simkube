@@ -1,5 +1,6 @@
-use anyhow::anyhow;
 use reqwest::Url;
+
+use crate::errors::*;
 
 pub enum Scheme {
     AmazonS3,
