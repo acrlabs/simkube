@@ -32,7 +32,7 @@ err_impl! {KubernetesError,
     MalformedLabelSelector(metav1::LabelSelectorRequirement),
 }
 
-pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> anyhow::Result<()>
+pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> EmptyResult
 where
     K: Resource<DynamicType = ()>,
 {

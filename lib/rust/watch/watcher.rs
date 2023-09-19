@@ -64,7 +64,7 @@ impl<'a> Watcher<'a> {
             config
                 .tracked_objects
                 .iter()
-                .map(|(key, obj_cfg)| build_stream_for(&key.gvk, obj_cfg, client.clone())),
+                .map(|(gvk, obj_cfg)| build_stream_for(gvk, obj_cfg, client.clone())),
         )
         .await?;
 
