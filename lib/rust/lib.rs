@@ -1,9 +1,10 @@
 mod config;
 mod constants;
 mod errors;
-pub mod json;
+pub mod jsonutils;
+pub mod k8s;
+pub mod time;
 pub mod trace;
-pub mod util;
 pub mod watch;
 pub mod watchertracer;
 

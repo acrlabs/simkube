@@ -23,14 +23,16 @@ use kube::runtime::WatchStreamExt;
 use tracing::*;
 
 use super::KubeObjectStream;
-use crate::prelude::*;
-use crate::trace::Tracer;
-use crate::util::{
+use crate::k8s::{
     get_api_resource,
     strip_obj,
+};
+use crate::prelude::*;
+use crate::time::{
     Clockable,
     UtcClock,
 };
+use crate::trace::Tracer;
 
 pub struct Watcher<'a> {
     w: SelectAll<KubeObjectStream<'a>>,
@@ -95,9 +97,9 @@ impl<'a> Watcher<'a> {
         let mut tracer = self.t.lock().unwrap();
 
         match evt {
-            Event::Applied(obj) => tracer.create_obj(&obj, ts),
+            Event::Applied(obj) => tracer.create_or_update_obj(&obj, ts),
             Event::Deleted(obj) => tracer.delete_obj(&obj, ts),
             Event::Restarted(objs) => tracer.update_all_objs(objs, ts),
-        }
+        };
     }
 }

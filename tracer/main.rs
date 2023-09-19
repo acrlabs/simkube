@@ -1,4 +1,3 @@
-use std::fs::File;
 use std::sync::{
     Arc,
     Mutex,
@@ -44,7 +43,7 @@ async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Trace
 
 async fn run(args: &Options) -> anyhow::Result<()> {
     info!("Reading tracer configuration from {}", &args.config_file);
-    let config: TracerConfig = serde_yaml::from_reader(File::open(&args.config_file)?)?;
+    let config = TracerConfig::load(&args.config_file)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
     let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await?;
@@ -65,7 +64,7 @@ async fn run(args: &Options) -> anyhow::Result<()> {
 #[tokio::main]
 async fn main() {
     let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
+    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     if let Err(e) = run(&args).await {
         error!("{e}");
         std::process::exit(1);

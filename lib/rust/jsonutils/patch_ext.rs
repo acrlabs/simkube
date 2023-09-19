@@ -13,7 +13,7 @@ err_impl! {JsonPatchError,
     UnexpectedType(String),
 }
 
-pub fn patch_ext_add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: bool) -> anyhow::Result<()> {
+pub fn add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: bool) -> anyhow::Result<()> {
     let parts: Vec<_> = path.split('*').collect();
     for v in patch_ext_helper(&parts, obj).ok_or(JsonPatchError::invalid_pointer(path))? {
         match v {
@@ -37,8 +37,8 @@ pub fn patch_ext_add(path: &str, key: &str, value: &Value, obj: &mut Value, over
     Ok(())
 }
 
-pub fn patch_ext_remove(path: &str, key: &str, obj: &mut Value) -> anyhow::Result<()> {
-    let parts: Vec<&str> = path.split('*').collect();
+pub fn remove(path: &str, key: &str, obj: &mut Value) -> anyhow::Result<()> {
+    let parts: Vec<_> = path.split('*').collect();
     for v in patch_ext_helper(&parts, obj).ok_or(JsonPatchError::invalid_pointer(path))? {
         v.as_object_mut().ok_or(JsonPatchError::unexpected_type(path))?.remove(key);
     }
