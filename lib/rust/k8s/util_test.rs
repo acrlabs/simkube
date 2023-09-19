@@ -7,7 +7,7 @@ use kube::api::DynamicObject;
 use rstest::*;
 use serde_json::json;
 
-use super::k8s::*;
+use super::util::*;
 
 #[rstest]
 fn test_strip_obj() {

@@ -3,7 +3,7 @@ use kube::api::DynamicObject;
 use serde::Deserialize;
 
 use super::TraceEvent;
-use crate::util::obj_matches_selector;
+use crate::k8s::obj_matches_selector;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TraceFilter {
@@ -25,8 +25,8 @@ impl TraceFilter {
 pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
     let new_evt = TraceEvent {
         ts: evt.ts,
-        created_objs: evt
-            .created_objs
+        applied_objs: evt
+            .applied_objs
             .iter()
             .filter(|obj| !obj_matches_filter(obj, f))
             .cloned()
@@ -39,7 +39,7 @@ pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
             .collect(),
     };
 
-    if new_evt.created_objs.is_empty() && new_evt.deleted_objs.is_empty() {
+    if new_evt.applied_objs.is_empty() && new_evt.deleted_objs.is_empty() {
         return None;
     }
 

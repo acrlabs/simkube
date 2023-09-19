@@ -10,12 +10,12 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
-use serde_json::Value;
+use serde_json::json;
+use simkube::time::Clockable;
 use simkube::trace::{
     TraceFilter,
     Tracer,
 };
-use simkube::util::Clockable;
 use simkube::watch::{
     KubeObjectStream,
     Watcher,
@@ -48,7 +48,7 @@ fn test_pod(idx: i64) -> DynamicObject {
             ..Default::default()
         },
         types: None,
-        data: Value::Null,
+        data: json!({"spec": {}}),
     };
 }
 
@@ -176,6 +176,6 @@ async fn test_export() {
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(actual_pods, expected_pods);
         },
-        Err(e) => panic!("failed with {}", e),
+        Err(e) => panic!("failed with error: {}", e),
     };
 }

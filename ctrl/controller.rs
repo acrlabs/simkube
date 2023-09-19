@@ -7,12 +7,12 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
-use simkube::prelude::*;
-use simkube::trace::storage;
-use simkube::util::{
+use simkube::k8s::{
     add_common_fields,
     namespaced_name,
 };
+use simkube::prelude::*;
+use simkube::trace::storage;
 use tokio::time::Duration;
 use tracing::*;
 

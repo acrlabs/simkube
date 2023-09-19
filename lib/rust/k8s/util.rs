@@ -10,12 +10,13 @@ use kube::api::{
 };
 use kube::discovery;
 use kube::discovery::ApiCapabilities;
+use serde_json as json;
 use thiserror::Error;
 use tracing::*;
 
 use crate::constants::SIMULATION_LABEL_KEY;
 use crate::errors::*;
-use crate::json::patch_ext_remove;
+use crate::jsonutils;
 
 pub(super) const LAST_APPLIED_CONFIG_LABEL_KEY: &str = "kubectl.kubernetes.io/last-applied-configuration";
 pub(super) const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revision";
@@ -64,6 +65,19 @@ pub fn label_for(key: &str, val: &str) -> String {
     format!("{}={}", key, val)
 }
 
+pub fn make_deletable(ns_name: &str) -> DynamicObject {
+    let (ns, name) = split_namespaced_name(ns_name);
+    DynamicObject {
+        metadata: metav1::ObjectMeta {
+            namespace: Some(ns),
+            name: Some(name),
+            ..Default::default()
+        },
+        types: None,
+        data: json::Value::Null,
+    }
+}
+
 pub fn namespaced_name(obj: &impl Resource) -> String {
     match obj.namespace() {
         Some(ns) => format!("{}/{}", ns, obj.name_any()),
@@ -110,7 +124,7 @@ pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) {
     }
 
     for key in &["nodeName", "serviceAccount", "serviceAccountName"] {
-        if let Err(e) = patch_ext_remove(pod_spec_path, key, &mut obj.data) {
+        if let Err(e) = jsonutils::patch_ext::remove(pod_spec_path, key, &mut obj.data) {
             debug!("could not patch object {}, skipping: {}", namespaced_name(obj), e);
         }
     }
