@@ -17,11 +17,14 @@ use tracing::*;
 
 #[derive(Parser, Debug)]
 struct Options {
+    #[arg(short, long)]
+    config_file: String,
+
     #[arg(long)]
     server_port: u16,
 
-    #[arg(short, long)]
-    config_file: String,
+    #[arg(short, long, default_value = "warn")]
+    verbosity: String,
 }
 
 #[derive(Deserialize, Debug)]
@@ -62,11 +65,9 @@ async fn run(args: &Options) -> EmptyResult {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> EmptyResult {
     let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
-    if let Err(e) = run(&args).await {
-        error!("{e}");
-        std::process::exit(1);
-    }
+    logging::setup(&args.verbosity)?;
+    run(&args).await?;
+    Ok(())
 }

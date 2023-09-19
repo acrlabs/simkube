@@ -3,6 +3,7 @@ mod constants;
 mod errors;
 pub mod jsonutils;
 pub mod k8s;
+pub mod logging;
 pub mod time;
 pub mod trace;
 pub mod watch;
@@ -38,4 +39,5 @@ pub mod prelude {
     pub use crate::config::*;
     pub use crate::constants::*;
     pub use crate::errors::EmptyResult;
+    pub use crate::logging;
 }
