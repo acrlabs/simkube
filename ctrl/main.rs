@@ -32,20 +32,23 @@ enum ReconcileError {
     KubeApiError(#[from] kube::Error),
 }
 
-#[tokio::main]
-async fn main() -> Result<(), ()> {
-    let args = Options::parse();
-
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+async fn run(args: &Options) -> EmptyResult {
     info!("Simulation controller starting");
 
-    let k8s_client = kube::Client::try_default().await.expect("failed to create kube client");
+    let k8s_client = kube::Client::try_default().await?;
     let sim_api = kube::Api::<Simulation>::all(k8s_client.clone());
     let sim_root_api = kube::Api::<SimulationRoot>::all(k8s_client.clone());
 
     let ctrl = Controller::new(sim_api, Default::default())
         .owns(sim_root_api, Default::default())
-        .run(reconcile, error_policy, Arc::new(SimulationContext { k8s_client, driver_image: args.driver_image }))
+        .run(
+            reconcile,
+            error_policy,
+            Arc::new(SimulationContext {
+                k8s_client,
+                driver_image: args.driver_image.clone(),
+            }),
+        )
         .for_each(|_| future::ready(()));
 
     tokio::select!(
@@ -54,4 +57,14 @@ async fn main() -> Result<(), ()> {
 
     info!("shutting down...");
     Ok(())
+}
+
+#[tokio::main]
+async fn main() {
+    let args = Options::parse();
+    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
+    if let Err(e) = run(&args).await {
+        error!("{e}");
+        std::process::exit(1);
+    }
 }

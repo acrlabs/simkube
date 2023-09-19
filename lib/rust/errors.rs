@@ -6,6 +6,8 @@ pub(crate) use anyhow::{
 pub(crate) use paste::paste;
 pub(crate) use thiserror::Error;
 
+pub type EmptyResult = anyhow::Result<()>;
+
 macro_rules! err_impl_helper {
     ($errtype:ident, $item:ident, String) => {
         paste! {

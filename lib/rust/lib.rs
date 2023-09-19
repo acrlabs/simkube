@@ -37,4 +37,5 @@ pub mod prelude {
     };
     pub use crate::config::*;
     pub use crate::constants::*;
+    pub use crate::errors::EmptyResult;
 }

@@ -7,7 +7,7 @@ pub enum Scheme {
     Local,
 }
 
-pub fn fetch_from_s3(_path: String) -> anyhow::Result<()> {
+pub fn fetch_from_s3(_path: String) -> EmptyResult {
     todo!();
 }
 

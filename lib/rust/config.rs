@@ -6,7 +6,7 @@ use serde::{
     Serialize,
 };
 
-use crate::k8s::GVKKey;
+use crate::k8s::GVK;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -17,7 +17,7 @@ pub struct TrackedObject {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TracerConfig {
-    pub tracked_objects: HashMap<GVKKey, TrackedObject>,
+    pub tracked_objects: HashMap<GVK, TrackedObject>,
 }
 
 impl TracerConfig {

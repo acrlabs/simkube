@@ -1,4 +1,5 @@
 use std::fmt;
+use std::ops::Deref;
 
 use kube::api::{
     DynamicObject,
@@ -15,33 +16,39 @@ use serde::{
 use crate::errors::*;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
-pub struct GVKKey {
-    pub gvk: GroupVersionKind,
-}
+pub struct GVK(GroupVersionKind);
 
-impl GVKKey {
+impl GVK {
     pub fn from_dynamic_obj(obj: &DynamicObject) -> anyhow::Result<Self> {
         match &obj.types {
-            Some(t) => Ok(GVKKey { gvk: t.try_into()? }),
+            Some(t) => Ok(GVK(t.try_into()?)),
             None => bail!("no type data present"),
         }
     }
 }
 
-impl Serialize for GVKKey {
+impl Deref for GVK {
+    type Target = GroupVersionKind;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl Serialize for GVK {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        let skey = format!("{}/{}.{}", self.gvk.group, self.gvk.version, self.gvk.kind);
+        let skey = format!("{}/{}.{}", self.0.group, self.0.version, self.0.kind);
         serializer.serialize_str(&skey)
     }
 }
 
-struct ObjectKeyVisitor;
+struct GVKVisitor;
 
-impl<'de> de::Visitor<'de> for ObjectKeyVisitor {
-    type Value = GVKKey;
+impl<'de> de::Visitor<'de> for GVKVisitor {
+    type Value = GVK;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.write_str("a GroupVersionKind in the format group/version.kind")
@@ -55,21 +62,19 @@ impl<'de> de::Visitor<'de> for ObjectKeyVisitor {
         if parts.len() != 3 {
             return Err(E::custom(format!("invalid format for gvk: {}", value)));
         }
-        Ok(GVKKey {
-            gvk: GroupVersionKind {
-                group: parts[0].into(),
-                version: parts[1].into(),
-                kind: parts[2].into(),
-            },
-        })
+        Ok(GVK(GroupVersionKind {
+            group: parts[0].into(),
+            version: parts[1].into(),
+            kind: parts[2].into(),
+        }))
     }
 }
 
-impl<'de> Deserialize<'de> for GVKKey {
-    fn deserialize<D>(deserializer: D) -> Result<GVKKey, D::Error>
+impl<'de> Deserialize<'de> for GVK {
+    fn deserialize<D>(deserializer: D) -> Result<GVK, D::Error>
     where
         D: Deserializer<'de>,
     {
-        deserializer.deserialize_str(ObjectKeyVisitor)
+        deserializer.deserialize_str(GVKVisitor)
     }
 }

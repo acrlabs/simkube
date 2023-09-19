@@ -7,7 +7,7 @@ use std::collections::{
 use std::fs;
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::anyhow;
 use clap::Parser;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
@@ -23,7 +23,7 @@ use simkube::k8s::{
     add_common_fields,
     get_api_resource,
     prefixed_ns,
-    GVKKey,
+    GVK,
 };
 use simkube::prelude::*;
 use simkube::trace::Tracer;
@@ -70,10 +70,7 @@ fn build_virtual_obj(
     vobj.metadata.namespace = Some(vns_name.into());
     vobj.labels_mut().insert(VIRTUAL_LABEL_KEY.into(), "true".into());
 
-    let gvk = match &obj.types {
-        Some(t) => GVKKey { gvk: t.try_into()? },
-        None => bail!("no type data present"),
-    };
+    let gvk = GVK::from_dynamic_obj(obj)?;
     let psp = &config.tracked_objects[&gvk].pod_spec_path;
 
     jsonutils::patch_ext::add(psp, "nodeSelector", &json!({"type": "virtual"}), &mut vobj.data, true)?;
@@ -91,7 +88,7 @@ fn build_virtual_obj(
     Ok(vobj)
 }
 
-async fn run(args: &Options) -> anyhow::Result<()> {
+async fn run(args: &Options) -> EmptyResult {
     info!("Simulation driver starting");
 
     let trace_data = fs::read(&args.trace_path)?;
@@ -100,20 +97,20 @@ async fn run(args: &Options) -> anyhow::Result<()> {
     let k8s_client = kube::Client::try_default().await?;
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(k8s_client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(k8s_client.clone());
-    let mut obj_apis: HashMap<(GVKKey, String), kube::Api<DynamicObject>> = HashMap::new();
+    let mut obj_apis: HashMap<(GVK, String), kube::Api<DynamicObject>> = HashMap::new();
 
     let root = roots_api.get(&args.sim_root).await?;
 
-    let mut sim_ts = tracer.start_ts().expect("no trace data");
+    let mut sim_ts = tracer.start_ts().ok_or(anyhow!("no trace data"))?;
     for (evt, next_ts) in tracer.iter() {
         for obj in evt.applied_objs {
-            let key = GVKKey::from_dynamic_obj(&obj)?;
+            let gvk = GVK::from_dynamic_obj(&obj)?;
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            let obj_api = match obj_apis.entry((key.clone(), vns_name.clone())) {
+            let obj_api = match obj_apis.entry((gvk.clone(), vns_name.clone())) {
                 Entry::Vacant(e) => {
                     let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
                     ns_api.create(&Default::default(), &vns).await?;
-                    let (ar, _) = get_api_resource(&key.gvk, &k8s_client).await?;
+                    let (ar, _) = get_api_resource(&gvk, &k8s_client).await?;
                     e.insert(kube::Api::namespaced_with(k8s_client.clone(), &vns_name, &ar))
                 },
                 Entry::Occupied(e) => e.into_mut(),
@@ -129,9 +126,9 @@ async fn run(args: &Options) -> anyhow::Result<()> {
 
         for obj in evt.deleted_objs {
             info!("deleting pod {}", obj.name_any());
-            let key = GVKKey::from_dynamic_obj(&obj)?;
+            let gvk = GVK::from_dynamic_obj(&obj)?;
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            match obj_apis.get(&(key, vns_name)) {
+            match obj_apis.get(&(gvk, vns_name)) {
                 Some(obj_api) => _ = obj_api.delete(&obj.name_any(), &Default::default()).await?,
                 None => warn!("could not find namespace"),
             }
