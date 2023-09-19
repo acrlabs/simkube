@@ -11,9 +11,8 @@ TRACER_CONFIG_YML = """---
 trackedObjects:
   apps/v1.Deployment:
     podSpecPath: /spec/template/spec
-    watchedFields:
-      - replicas
-      - strategy
+  batch.volcano.sh/v1alpha1.Job:
+    podSpecPath: /spec/tasks/*/template/spec
 """
 CONFIGMAP_NAME = "tracer-config"
 

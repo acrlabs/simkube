@@ -58,10 +58,16 @@ impl<'de> de::Visitor<'de> for GVKVisitor {
     where
         E: de::Error,
     {
-        let parts: Vec<_> = value.split(|c| c == '/' || c == '.').collect();
-        if parts.len() != 3 {
+        let p1: Vec<_> = value.split('/').collect();
+        if p1.len() != 2 {
             return Err(E::custom(format!("invalid format for gvk: {}", value)));
         }
+        let p2: Vec<_> = p1[1].split('.').collect();
+        if p2.len() != 2 {
+            return Err(E::custom(format!("invalid format for gvk: {}", value)));
+        }
+
+        let parts = vec![p1[0], p2[0], p2[1]];
         Ok(GVK(GroupVersionKind {
             group: parts[0].into(),
             version: parts[1].into(),
