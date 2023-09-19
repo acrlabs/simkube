@@ -43,6 +43,9 @@ struct Options {
 
     #[arg(long)]
     trace_path: String,
+
+    #[arg(short, long, default_value = "warn")]
+    verbosity: String,
 }
 
 fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> anyhow::Result<corev1::Namespace> {
@@ -150,11 +153,9 @@ async fn run(args: &Options) -> EmptyResult {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> EmptyResult {
     let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
-    if let Err(e) = run(&args).await {
-        error!("{e}");
-        std::process::exit(1);
-    }
+    logging::setup(&args.verbosity)?;
+    run(&args).await?;
+    Ok(())
 }

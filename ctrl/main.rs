@@ -23,6 +23,9 @@ use crate::controller::{
 struct Options {
     #[arg(long)]
     driver_image: String,
+
+    #[arg(short, long, default_value = "warn")]
+    verbosity: String,
 }
 
 #[derive(Error, Debug)]
@@ -60,11 +63,9 @@ async fn run(args: &Options) -> EmptyResult {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> EmptyResult {
     let args = Options::parse();
-    tracing_subscriber::fmt().with_max_level(Level::DEBUG).init();
-    if let Err(e) = run(&args).await {
-        error!("{e}");
-        std::process::exit(1);
-    }
+    logging::setup(&args.verbosity)?;
+    run(&args).await?;
+    Ok(())
 }
