@@ -17,6 +17,7 @@ use simkube::trace::{
     Tracer,
 };
 use simkube::watch::{
+    KubeEvent,
     KubeObjectStream,
     Watcher,
 };
@@ -77,7 +78,7 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
                     let mut pods: Vec<_> = (0..10).map(|i| test_pod(i)).collect();
                     let ds_pods: Vec<_> = (0..5).map(|i| test_daemonset_pod(i)).collect();
                     pods.extend(ds_pods);
-                    return Some((Ok(Event::Restarted(pods)), (0, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Restarted(pods))), (0, id)));
                 },
 
                 // We recreate one of the pods at time zero just to make sure there's
@@ -85,14 +86,14 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
                 (0, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
                 },
 
                 // From times 10..20, we delete one of the regular pods
                 (5..=19, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id + 1)));
                 },
 
                 // In times 20..25, we test the various filter options:
@@ -104,36 +105,36 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
                 (20, id) => {
                     let pod = test_daemonset_pod(7);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
                 },
                 (21, id) => {
                     let pod = test_daemonset_pod(8);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
                 },
                 (22, id) => {
                     let mut pod = test_pod(30);
                     pod.metadata.namespace = Some("kube-system".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
                 },
                 (23, id) => {
                     let pod = test_daemonset_pod(1);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id)));
                 },
                 (24, id) => {
                     let mut pod = test_pod(31);
                     pod.labels_mut().insert("foo".into(), "bar".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
                 },
 
                 // Lastly we delete the remaining "regular" pods
                 (25..=55, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id + 1)));
                 },
                 _ => None,
             }
@@ -151,7 +152,7 @@ async fn test_export() {
     let t = Tracer::new(&Default::default());
 
     // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let mut w = Watcher::new_from_parts(test_stream(clock.clone()), t.clone(), clock);
+    let mut w = Watcher::new_from_parts(test_stream(clock.clone()), stream::empty().boxed(), t.clone(), clock);
     w.start().await;
 
     // Next export the data with the chosen filters

@@ -8,6 +8,7 @@ use std::sync::{
     Mutex,
 };
 
+use k8s_openapi::api::core::v1 as corev1;
 use kube::api::DynamicObject;
 use serde::{
     Deserialize,
@@ -120,9 +121,9 @@ impl Tracer {
         self.tracked_objs.remove(&ns_name);
     }
 
-    pub(crate) fn update_all_objs(&mut self, objs: Vec<DynamicObject>, ts: i64) {
+    pub(crate) fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64) {
         self.version += 1;
-        for obj in objs.iter() {
+        for obj in objs {
             self.create_or_update_obj(obj, ts);
         }
 
@@ -139,6 +140,12 @@ impl Tracer {
             self.delete_obj(&obj, ts)
         }
     }
+
+    pub(crate) fn record_pod_lifecycle(&mut self, _pod: &corev1::Pod, _ts: i64) {}
+
+    pub(crate) fn record_pod_deleted(&mut self, _pod: &corev1::Pod, _ts: i64) {}
+
+    pub(crate) fn update_pod_lifecycles(&mut self, _pods: Vec<corev1::Pod>, _ts: i64) {}
 
     fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
         info!("{} - {:?} @ {}", namespaced_name(obj), action, ts);

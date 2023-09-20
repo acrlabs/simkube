@@ -108,8 +108,8 @@ async fn test_recreate_tracked_objs_all_new(mut tracer: Tracer) {
     let ts: i64 = 1234;
 
     // Calling it twice shouldn't change the tracked objs, but should increase the version twice
-    tracer.update_all_objs(objs.clone(), ts);
-    tracer.update_all_objs(objs.clone(), 2445);
+    tracer.update_all_objs(&objs, ts);
+    tracer.update_all_objs(&objs, 2445);
 
     assert_eq!(tracer.tracked_objs.len(), objs.len());
     for p in objs.iter() {
@@ -133,8 +133,8 @@ async fn test_recreate_tracked_objs_with_created_obj(mut tracer: Tracer) {
     // Calling it twice shouldn't change the tracked objs, but should increase the version twice
     let mut fewer_objs = objs.clone();
     fewer_objs.pop();
-    tracer.update_all_objs(fewer_objs.clone(), ts[0]);
-    tracer.update_all_objs(objs.clone(), ts[1]);
+    tracer.update_all_objs(&fewer_objs, ts[0]);
+    tracer.update_all_objs(&objs, ts[1]);
 
     assert_eq!(tracer.tracked_objs.len(), objs.len());
     for p in fewer_objs.iter() {
@@ -159,10 +159,10 @@ async fn test_recreate_tracked_objs_with_deleted_obj(mut tracer: Tracer) {
     let ts = vec![1234, 2445];
 
     // Calling it twice shouldn't change the tracked objs, but should increase the version twice
-    tracer.update_all_objs(objs.clone(), ts[0]);
+    tracer.update_all_objs(&objs, ts[0]);
     let mut fewer_objs = objs.clone();
     fewer_objs.pop();
-    tracer.update_all_objs(fewer_objs.clone(), ts[1]);
+    tracer.update_all_objs(&fewer_objs, ts[1]);
 
     assert_eq!(tracer.tracked_objs.len(), fewer_objs.len());
     for p in fewer_objs.iter() {
