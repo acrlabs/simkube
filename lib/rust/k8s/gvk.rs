@@ -1,6 +1,7 @@
 use std::fmt;
 use std::ops::Deref;
 
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
     DynamicObject,
     GroupVersionKind,
@@ -19,11 +20,18 @@ use crate::errors::*;
 pub struct GVK(GroupVersionKind);
 
 impl GVK {
-    pub fn from_dynamic_obj(obj: &DynamicObject) -> anyhow::Result<Self> {
+    pub fn from_dynamic_obj(obj: &DynamicObject) -> anyhow::Result<GVK> {
         match &obj.types {
             Some(t) => Ok(GVK(t.try_into()?)),
             None => bail!("no type data present"),
         }
+    }
+
+    pub fn from_owner_ref(rf: &metav1::OwnerReference) -> anyhow::Result<GVK> {
+        let parts: Vec<_> = rf.api_version.split('/').collect();
+        ensure!(parts.len() == 2, "invalid format for api_version: {}", rf.api_version);
+
+        Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], &rf.kind)))
     }
 }
 
@@ -68,11 +76,7 @@ impl<'de> de::Visitor<'de> for GVKVisitor {
         }
 
         let parts = vec![p1[0], p2[0], p2[1]];
-        Ok(GVK(GroupVersionKind {
-            group: parts[0].into(),
-            version: parts[1].into(),
-            kind: parts[2].into(),
-        }))
+        Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], parts[2])))
     }
 }
 

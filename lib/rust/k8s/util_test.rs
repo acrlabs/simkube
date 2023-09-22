@@ -10,7 +10,7 @@ use serde_json::json;
 use super::util::*;
 
 #[rstest]
-fn test_strip_obj() {
+fn test_sanitize_obj() {
     let mut obj = DynamicObject {
         metadata: metav1::ObjectMeta {
             name: Some("test".into()),
@@ -56,7 +56,7 @@ fn test_strip_obj() {
         }),
     };
 
-    strip_obj(&mut obj, "/foo/bars/*/spec");
+    sanitize_obj(&mut obj, "/foo/bars/*/spec", "bar.blah.sh/v2", "Stuff");
 
     assert_eq!(obj.metadata.creation_timestamp, None);
     assert_eq!(obj.metadata.deletion_timestamp, None);
@@ -68,6 +68,9 @@ fn test_strip_obj() {
     assert_eq!(obj.metadata.uid, None);
 
     assert_eq!(obj.metadata.annotations, Some(BTreeMap::from([("some_random_annotation".into(), "blah".into())])));
+    assert!(obj
+        .types
+        .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff"));
 
     assert_eq!(
         obj.data,

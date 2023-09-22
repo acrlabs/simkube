@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
-use std::sync::{
-    Arc,
-    Mutex,
+use std::sync::atomic::{
+    AtomicI64,
+    Ordering,
 };
+use std::sync::Arc;
 
 use futures::stream;
 use futures::stream::StreamExt;
@@ -17,27 +18,31 @@ use simkube::trace::{
     Tracer,
 };
 use simkube::watch::{
-    KubeEvent,
+    DynObjWatcher,
     KubeObjectStream,
-    Watcher,
 };
 
 const TESTING_NAMESPACE: &str = "test";
 
+#[derive(Clone)]
 struct MockUtcClock {
-    now: i64,
+    now: Arc<AtomicI64>,
 }
 
 impl MockUtcClock {
+    fn new() -> MockUtcClock {
+        MockUtcClock { now: Arc::new(AtomicI64::new(0)) }
+    }
+
     fn advance(&mut self, duration: i64) -> i64 {
-        self.now += duration;
-        self.now
+        let old = self.now.fetch_add(duration, Ordering::Relaxed);
+        old + duration
     }
 }
 
 impl Clockable for MockUtcClock {
     fn now(&self) -> i64 {
-        return self.now;
+        return self.now.load(Ordering::Relaxed);
     }
 }
 
@@ -67,18 +72,17 @@ fn test_daemonset_pod(idx: i64) -> DynamicObject {
 //
 // This is a little subtle because the event that we're returning at state (ts_i, id) does not
 // actually _happen_ until time ts_{i+1}.
-fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
+fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
     return stream::unfold((-1, 0), move |state| {
-        let clock = clock.clone();
+        let mut c = clock.clone();
         async move {
-            let mut c = clock.lock().unwrap();
             match state {
                 // Initial conditions: we create 10 regular pods and 5 daemonset pods
                 (-1, id) => {
                     let mut pods: Vec<_> = (0..10).map(|i| test_pod(i)).collect();
                     let ds_pods: Vec<_> = (0..5).map(|i| test_daemonset_pod(i)).collect();
                     pods.extend(ds_pods);
-                    return Some((Ok(KubeEvent::Dyn(Event::Restarted(pods))), (0, id)));
+                    return Some((Ok(Event::Restarted(pods)), (0, id)));
                 },
 
                 // We recreate one of the pods at time zero just to make sure there's
@@ -86,14 +90,14 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
                 (0, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
                 },
 
                 // From times 10..20, we delete one of the regular pods
                 (5..=19, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id + 1)));
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
                 },
 
                 // In times 20..25, we test the various filter options:
@@ -105,36 +109,36 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
                 (20, id) => {
                     let pod = test_daemonset_pod(7);
                     let new_ts = c.advance(1);
-                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
                 },
                 (21, id) => {
                     let pod = test_daemonset_pod(8);
                     let new_ts = c.advance(1);
-                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
                 },
                 (22, id) => {
                     let mut pod = test_pod(30);
                     pod.metadata.namespace = Some("kube-system".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
                 },
                 (23, id) => {
                     let pod = test_daemonset_pod(1);
                     let new_ts = c.advance(1);
-                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id)));
                 },
                 (24, id) => {
                     let mut pod = test_pod(31);
                     pod.labels_mut().insert("foo".into(), "bar".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(KubeEvent::Dyn(Event::Applied(pod))), (new_ts, id)));
+                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
                 },
 
                 // Lastly we delete the remaining "regular" pods
                 (25..=55, id) => {
                     let pod = test_pod(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(KubeEvent::Dyn(Event::Deleted(pod))), (new_ts, id + 1)));
+                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
                 },
                 _ => None,
             }
@@ -145,14 +149,14 @@ fn test_stream(clock: Arc<Mutex<MockUtcClock>>) -> KubeObjectStream<'static> {
 
 #[tokio::test]
 async fn test_export() {
-    let clock = Arc::new(Mutex::new(MockUtcClock { now: 0 }));
+    let clock = Box::new(MockUtcClock::new());
 
     // Since we're just generating the results from the stream and not actually querying any
     // Kubernetes internals or whatever, the TracerConfig is empty.
-    let t = Tracer::new(&Default::default());
+    let t = Tracer::new(Default::default());
 
     // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let mut w = Watcher::new_from_parts(test_stream(clock.clone()), stream::empty().boxed(), t.clone(), clock);
+    let w = DynObjWatcher::new_from_parts(test_stream(*clock.clone()), t.clone(), clock);
     w.start().await;
 
     // Next export the data with the chosen filters

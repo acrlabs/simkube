@@ -1,9 +1,5 @@
 use std::cmp::max;
-use std::collections::hash_map::Entry;
-use std::collections::{
-    BTreeMap,
-    HashMap,
-};
+use std::collections::BTreeMap;
 use std::fs;
 use std::time::Duration;
 
@@ -21,8 +17,8 @@ use serde_json::json;
 use simkube::jsonutils;
 use simkube::k8s::{
     add_common_fields,
-    get_api_resource,
     prefixed_ns,
+    ApiSet,
     GVK,
 };
 use simkube::prelude::*;
@@ -97,10 +93,10 @@ async fn run(args: &Options) -> EmptyResult {
     let trace_data = fs::read(&args.trace_path)?;
     let tracer = Tracer::import(trace_data)?;
 
-    let k8s_client = kube::Client::try_default().await?;
-    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(k8s_client.clone());
-    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(k8s_client.clone());
-    let mut obj_apis: HashMap<(GVK, String), kube::Api<DynamicObject>> = HashMap::new();
+    let client = kube::Client::try_default().await?;
+    let mut apiset = ApiSet::new(&client);
+    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
+    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
 
     let root = roots_api.get(&args.sim_root).await?;
 
@@ -109,20 +105,15 @@ async fn run(args: &Options) -> EmptyResult {
         for obj in evt.applied_objs {
             let gvk = GVK::from_dynamic_obj(&obj)?;
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            let obj_api = match obj_apis.entry((gvk.clone(), vns_name.clone())) {
-                Entry::Vacant(e) => {
-                    let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
-                    ns_api.create(&Default::default(), &vns).await?;
-                    let (ar, _) = get_api_resource(&gvk, &k8s_client).await?;
-                    e.insert(kube::Api::namespaced_with(k8s_client.clone(), &vns_name, &ar))
-                },
-                Entry::Occupied(e) => e.into_mut(),
-            };
-
             let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root, tracer.config())?;
 
+            let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
+            ns_api.create(&Default::default(), &vns).await?;
+
             info!("applying object {:?}", vobj);
-            obj_api
+            apiset
+                .namespaced_api_for(gvk, vns_name)
+                .await?
                 .patch(&vobj.name_any(), &PatchParams::apply("simkube"), &Patch::Apply(&vobj))
                 .await?;
         }
@@ -131,10 +122,11 @@ async fn run(args: &Options) -> EmptyResult {
             info!("deleting pod {}", obj.name_any());
             let gvk = GVK::from_dynamic_obj(&obj)?;
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            match obj_apis.get(&(gvk, vns_name)) {
-                Some(obj_api) => _ = obj_api.delete(&obj.name_any(), &Default::default()).await?,
-                None => warn!("could not find namespace"),
-            }
+            apiset
+                .namespaced_api_for(gvk, vns_name)
+                .await?
+                .delete(&obj.name_any(), &Default::default())
+                .await?;
         }
 
         if let Some(ts) = next_ts {
