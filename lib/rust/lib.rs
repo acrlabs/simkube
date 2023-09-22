@@ -7,7 +7,6 @@ pub mod logging;
 pub mod time;
 pub mod trace;
 pub mod watch;
-pub mod watchertracer;
 
 use kube::CustomResource;
 use schemars::JsonSchema;

@@ -2,14 +2,12 @@ use std::collections::BTreeMap;
 
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
-    ApiResource,
     DynamicObject,
-    GroupVersionKind,
+    ListParams,
     Resource,
     ResourceExt,
+    TypeMeta,
 };
-use kube::discovery;
-use kube::discovery::ApiCapabilities;
 use serde_json as json;
 use thiserror::Error;
 use tracing::*;
@@ -24,9 +22,6 @@ pub(super) const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revis
 err_impl! {KubernetesError,
     #[error("field not found in struct: {0}")]
     FieldNotFound(String),
-
-    #[error("gvk not found: {0:?}")]
-    GroupVersionKindNotFound(GroupVersionKind),
 
     #[error("malformed label selector: {0:?}")]
     MalformedLabelSelector(metav1::LabelSelectorRequirement),
@@ -48,21 +43,15 @@ where
     Ok(())
 }
 
-pub async fn get_api_resource(
-    gvk: &GroupVersionKind,
-    client: &kube::Client,
-) -> anyhow::Result<(ApiResource, ApiCapabilities)> {
-    let apigroup = discovery::group(client, &gvk.group).await?;
-    apigroup
-        .versioned_resources(&gvk.version)
-        .iter()
-        .find(|(res, _)| res.kind == gvk.kind)
-        .cloned()
-        .ok_or(KubernetesError::group_version_kind_not_found(gvk))
-}
-
 pub fn label_for(key: &str, val: &str) -> String {
     format!("{}={}", key, val)
+}
+
+pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
+    ListParams {
+        field_selector: Some(format!("metadata.namespace={},metadata.name={}", namespace, name)),
+        ..Default::default()
+    }
 }
 
 pub fn make_deletable(ns_name: &str) -> DynamicObject {
@@ -108,7 +97,7 @@ pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
     format!("{}-{}", prefix, obj.namespace().unwrap())
 }
 
-pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) {
+pub fn sanitize_obj(obj: &mut DynamicObject, pod_spec_path: &str, api_version: &str, kind: &str) {
     obj.metadata.creation_timestamp = None;
     obj.metadata.deletion_timestamp = None;
     obj.metadata.deletion_grace_period_seconds = None;
@@ -128,6 +117,8 @@ pub fn strip_obj(obj: &mut DynamicObject, pod_spec_path: &str) {
             debug!("could not patch object {}, skipping: {}", namespaced_name(obj), e);
         }
     }
+
+    obj.types = Some(TypeMeta { api_version: api_version.into(), kind: kind.into() });
 }
 
 pub fn split_namespaced_name(name: &str) -> (String, String) {

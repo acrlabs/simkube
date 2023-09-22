@@ -50,9 +50,9 @@ pub struct Tracer {
 }
 
 impl Tracer {
-    pub fn new(config: &TracerConfig) -> Arc<Mutex<Tracer>> {
+    pub fn new(config: TracerConfig) -> Arc<Mutex<Tracer>> {
         Arc::new(Mutex::new(Tracer {
-            config: config.clone(),
+            config,
             events: VecDeque::new(),
             tracked_objs: HashMap::new(),
             version: 0,
@@ -145,7 +145,7 @@ impl Tracer {
 
     pub(crate) fn record_pod_deleted(&mut self, _pod: &corev1::Pod, _ts: i64) {}
 
-    pub(crate) fn update_pod_lifecycles(&mut self, _pods: Vec<corev1::Pod>, _ts: i64) {}
+    pub(crate) fn update_pod_lifecycles(&mut self, _pods: &[corev1::Pod], _ts: i64) {}
 
     fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
         info!("{} - {:?} @ {}", namespaced_name(obj), action, ts);

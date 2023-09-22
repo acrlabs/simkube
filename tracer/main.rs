@@ -7,12 +7,16 @@ use clap::Parser;
 use kube::Client;
 use rocket::serde::json::Json;
 use serde::Deserialize;
+use simkube::k8s::ApiSet;
 use simkube::prelude::*;
 use simkube::trace::{
     TraceFilter,
     Tracer,
 };
-use simkube::watchertracer::new_watcher_tracer;
+use simkube::watch::{
+    DynObjWatcher,
+    PodWatcher,
+};
 use tracing::*;
 
 #[derive(Parser, Debug)]
@@ -49,17 +53,22 @@ async fn run(args: &Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
-    let (mut watcher, tracer) = new_watcher_tracer(&config, client.clone()).await?;
+    let mut apiset = ApiSet::new(&client);
+
+    let tracer = Tracer::new(config.clone());
+    let dyn_obj_watcher = DynObjWatcher::new(tracer.clone(), &mut apiset, &config.tracked_objects).await?;
+    let pod_watcher = PodWatcher::new(tracer.clone(), apiset);
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![export])
         .manage(tracer.clone());
 
-    tokio::select!(
-        _ = watcher.start() => warn!("watcher finished"),
-        _ = server.launch() => warn!("server failed"),
-    );
+    tokio::select! {
+        _ = tokio::spawn(dyn_obj_watcher.start()) => warn!("object watcher terminated"),
+        _ = tokio::spawn(pod_watcher.start()) => warn!("pod watcher terminated"),
+        _ = tokio::spawn(server.launch()) => warn!("server terminated"),
+    };
 
     Ok(())
 }
