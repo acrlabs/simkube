@@ -4,6 +4,10 @@ use std::sync::{
 };
 
 use async_recursion::async_recursion;
+use cached::{
+    Cached,
+    SizedCache,
+};
 use futures::stream::{
     StreamExt,
     TryStreamExt,
@@ -21,10 +25,6 @@ use kube::{
 };
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
-use tokio::time::{
-    sleep,
-    Duration,
-};
 use tracing::*;
 
 use super::PodStream;
@@ -40,6 +40,8 @@ use crate::time::{
     UtcClock,
 };
 use crate::trace::Tracer;
+
+type OwnerCache = SizedCache<String, Vec<metav1::OwnerReference>>;
 
 pub struct PodWatcher {
     clock: Box<dyn Clockable + Send>,
@@ -75,13 +77,23 @@ impl PodWatcher {
 }
 
 #[async_recursion(?Send)]
-async fn compute_owner_chain(apiset: &mut ApiSet, obj: &impl Resource) -> anyhow::Result<Vec<metav1::OwnerReference>> {
-    info!("computing owner references for {}", namespaced_name(obj));
+async fn compute_owner_chain(
+    apiset: &mut ApiSet,
+    obj: &impl Resource,
+    cache: &mut OwnerCache,
+) -> anyhow::Result<Vec<metav1::OwnerReference>> {
+    let ns_name = namespaced_name(obj);
+
+    if let Some(owners) = cache.cache_get(&ns_name) {
+        info!("found owners for {} in cache", ns_name);
+        return Ok(owners.clone());
+    }
+
+    info!("computing owner references for {}", ns_name);
     let mut owners = Vec::from(obj.owner_references());
 
     for rf in obj.owner_references() {
         let gvk = GVK::from_owner_ref(rf)?;
-        sleep(Duration::from_secs(10)).await;
         let api = apiset.api_for(gvk).await?;
         let resp = api.list(&list_params_for(&obj.namespace().unwrap(), &rf.name)).await?;
         if resp.items.len() != 1 {
@@ -89,19 +101,21 @@ async fn compute_owner_chain(apiset: &mut ApiSet, obj: &impl Resource) -> anyhow
         }
 
         let owner = &resp.items[0];
-        owners.extend(compute_owner_chain(apiset, owner).await?);
+        owners.extend(compute_owner_chain(apiset, owner, cache).await?);
     }
 
+    cache.cache_set(ns_name, owners.clone());
     Ok(owners)
 }
 
 fn build_stream_for_pods(mut apiset: ApiSet) -> PodStream {
     let pod_api: kube::Api<corev1::Pod> = kube::Api::all(apiset.client().clone());
+    let mut cache: SizedCache<String, Vec<metav1::OwnerReference>> = SizedCache::with_size(100);
     watcher(pod_api, Default::default())
         .modify(move |pod| {
             block_in_place(|| {
                 Handle::current().block_on(async {
-                    let owners = compute_owner_chain(&mut apiset, pod).await;
+                    let owners = compute_owner_chain(&mut apiset, pod, &mut cache).await;
                     pod.metadata.owner_references = owners.ok();
                 })
             });
