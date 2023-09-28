@@ -1,4 +1,4 @@
-mod tracer;
+mod trace_store;
 
 use rstest::*;
 

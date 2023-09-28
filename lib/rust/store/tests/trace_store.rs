@@ -9,7 +9,7 @@ const TESTING_NAMESPACE: &str = "test";
 const EMPTY_SPEC_HASH: u64 = 15130871412783076140;
 
 #[fixture]
-fn tracer() -> Tracer {
+fn tracer() -> TraceStore {
     Default::default()
 }
 
@@ -28,7 +28,7 @@ fn test_obj(#[default(TESTING_NAMESPACE)] namespace: &str, #[default("obj")] nam
 
 #[rstest]
 #[tokio::test]
-async fn test_create_or_update_obj(mut tracer: Tracer, test_obj: DynamicObject) {
+async fn test_create_or_update_obj(mut tracer: TraceStore, test_obj: DynamicObject) {
     let ns_name = test_obj.namespaced_name();
     let ts: i64 = 1234;
 
@@ -46,7 +46,7 @@ async fn test_create_or_update_obj(mut tracer: Tracer, test_obj: DynamicObject) 
 
 #[rstest]
 #[tokio::test]
-async fn test_create_or_update_objs(mut tracer: Tracer) {
+async fn test_create_or_update_objs(mut tracer: TraceStore) {
     let obj_names = vec!["obj1", "obj2"];
     let ts = vec![1234, 3445];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
@@ -71,7 +71,7 @@ async fn test_create_or_update_objs(mut tracer: Tracer) {
 
 #[rstest]
 #[tokio::test]
-async fn test_delete_obj(mut tracer: Tracer, test_obj: DynamicObject) {
+async fn test_delete_obj(mut tracer: TraceStore, test_obj: DynamicObject) {
     let ns_name = test_obj.namespaced_name();
     let ts: i64 = 1234;
 
@@ -88,7 +88,7 @@ async fn test_delete_obj(mut tracer: Tracer, test_obj: DynamicObject) {
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_index_all_new(mut tracer: Tracer) {
+async fn test_recreate_index_all_new(mut tracer: TraceStore) {
     let obj_names = vec!["obj1", "obj2", "obj3"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts: i64 = 1234;
@@ -110,7 +110,7 @@ async fn test_recreate_index_all_new(mut tracer: Tracer) {
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_index_with_created_obj(mut tracer: Tracer) {
+async fn test_recreate_index_with_created_obj(mut tracer: TraceStore) {
     let obj_names = vec!["obj1", "obj2", "obj3", "obj4"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts = vec![1234, 2445];
@@ -137,7 +137,7 @@ async fn test_recreate_index_with_created_obj(mut tracer: Tracer) {
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_index_with_deleted_obj(mut tracer: Tracer) {
+async fn test_recreate_index_with_deleted_obj(mut tracer: TraceStore) {
     let obj_names = vec!["obj1", "obj2", "obj3"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts = vec![1234, 2445];

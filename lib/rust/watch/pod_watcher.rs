@@ -35,7 +35,7 @@ use crate::k8s::{
     PodLifecycleData,
     GVK,
 };
-use crate::trace::Tracer;
+use crate::store::TraceStore;
 
 type OwnerCache = SizedCache<String, Vec<metav1::OwnerReference>>;
 const CACHE_SIZE: usize = 10000;
@@ -43,19 +43,19 @@ const CACHE_SIZE: usize = 10000;
 pub struct PodWatcher {
     apiset: ApiSet,
     pod_stream: PodStream,
-    tracer: Arc<Mutex<Tracer>>,
+    store: Arc<Mutex<TraceStore>>,
     owned_pods: HashMap<String, PodLifecycleData>,
     owners_cache: SizedCache<String, Vec<metav1::OwnerReference>>,
 }
 
 impl PodWatcher {
-    pub fn new(tracer: Arc<Mutex<Tracer>>, apiset: ApiSet) -> PodWatcher {
+    pub fn new(store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> PodWatcher {
         let pod_api: kube::Api<corev1::Pod> = kube::Api::all(apiset.client().clone());
         let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
         PodWatcher {
             apiset,
             pod_stream,
-            tracer,
+            store,
             owned_pods: HashMap::new(),
             owners_cache: SizedCache::with_size(CACHE_SIZE),
         }
@@ -165,8 +165,8 @@ impl PodWatcher {
             _ => bail!("could not store lifecycle data for {}", ns_name),
         };
 
-        let mut tracer = self.tracer.lock().unwrap();
-        tracer.record_pod_lifecycle(ns_name, owners, lifecycle_data);
+        let mut store = self.store.lock().unwrap();
+        store.record_pod_lifecycle(ns_name, owners, lifecycle_data);
 
         Ok(())
     }

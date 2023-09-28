@@ -22,7 +22,7 @@ use simkube::k8s::{
     GVK,
 };
 use simkube::prelude::*;
-use simkube::trace::Tracer;
+use simkube::store::TraceStore;
 use tokio::time::sleep;
 use tracing::*;
 
@@ -91,7 +91,7 @@ async fn run(args: &Options) -> EmptyResult {
     info!("Simulation driver starting");
 
     let trace_data = fs::read(&args.trace_path)?;
-    let tracer = Tracer::import(trace_data)?;
+    let trace_store = TraceStore::import(trace_data)?;
 
     let client = kube::Client::try_default().await?;
     let mut apiset = ApiSet::new(&client);
@@ -100,12 +100,12 @@ async fn run(args: &Options) -> EmptyResult {
 
     let root = roots_api.get(&args.sim_root).await?;
 
-    let mut sim_ts = tracer.start_ts().ok_or(anyhow!("no trace data"))?;
-    for (evt, next_ts) in tracer.iter() {
+    let mut sim_ts = trace_store.start_ts().ok_or(anyhow!("no trace data"))?;
+    for (evt, next_ts) in trace_store.iter() {
         for obj in evt.applied_objs {
             let gvk = GVK::from_dynamic_obj(&obj)?;
             let vns_name = prefixed_ns(&args.sim_namespace_prefix, &obj);
-            let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root, tracer.config())?;
+            let vobj = build_virtual_obj(&obj, &vns_name, &args.sim_name, &root, trace_store.config())?;
 
             let vns = build_virtual_ns(&args.sim_name, &vns_name, &root)?;
             ns_api.create(&Default::default(), &vns).await?;
