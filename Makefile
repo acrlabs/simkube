@@ -55,7 +55,7 @@ cover-go:
 
 .PHONY: cover-rust
 cover-rust:
-	grcov . --binary-path $(BUILD_DIR)/test/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
+	grcov . --binary-path $(BUILD_DIR)/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
 		--ignore '../*' \
 		--ignore '/*' \
 		--ignore 'tests/*' \
