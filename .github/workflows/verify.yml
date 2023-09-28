@@ -1,7 +1,7 @@
 name: code verification
 on: [push]
 jobs:
-  verify:
+  build-go:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repo and build scripts
@@ -12,31 +12,96 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version-file: go.mod
-      - uses: Swatinem/rust-cache@v2
+      - name: Build
+        run: ARTIFACTS="sk-vnode sk-cloudprov" make build
+  verify-go:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
         with:
-          cache-directories: |
-            .build
-      - name: Add llvm-tools
-        run: rustup component add llvm-tools-preview
-      - name: Install grcov
-        run: cargo install grcov
-      # We use the golangci-lint action here instead of just calling make because
-      # the provided action does much more aggressive caching
+          submodules: recursive
+      - name: Install Golang
+        uses: actions/setup-go@v4
+        with:
+          go-version-file: go.mod
       - name: Lint Go code
         uses: golangci/golangci-lint-action@v3
         with:
           version: v1.53
+      - name: Test
+        run: make test-go cover-go
+      - name: Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: go-coverage
+          path: .build/coverage/go-coverage.txt
+  build-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: |
+            .build
+          shared-key: verify-rust
+      - name: Build
+        run: ARTIFACTS="sk-ctrl sk-driver sk-tracer" make build
+  lint-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: |
+            .build
+          shared-key: verify-rust
       - name: Lint Rust code
         run: cargo clippy
-      - name: Build
-        run: make build
-      # We don't call verify here because of the linting thing above
+  test-rust:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-directories: |
+            .build
+          shared-key: verify-rust
+      - name: Install grcov
+        run: cargo install grcov
+      - name: Add llvm-tools
+        run: rustup component add llvm-tools-preview
       - name: Test
-        run: make test cover
+        run: make test-rust cover-rust
         env:
-          RUST_COVER_TYPE: lcov
+          WITH_COVERAGE: "true"
+      - name: Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: rust-coverage
+          path: .build/coverage/rust-coverage.lcov
+  check-coverage:
+    runs-on: ubuntu-latest
+    needs:
+      - verify-go
+      - test-rust
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Download coverage
+        uses: actions/download-artifact@v3
       - name: Check coverage
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          directory: .build/coverage
