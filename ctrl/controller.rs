@@ -7,10 +7,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use reqwest::Url;
-use simkube::k8s::{
-    add_common_fields,
-    namespaced_name,
-};
+use simkube::k8s::add_common_fields;
 use simkube::prelude::*;
 use simkube::trace::storage;
 use tokio::time::Duration;
@@ -117,6 +114,6 @@ pub(crate) async fn reconcile(
 }
 
 pub(crate) fn error_policy(simulation: Arc<Simulation>, error: &ReconcileError, _: Arc<SimulationContext>) -> Action {
-    warn!("reconcile failed on simulation {}: {:?}", namespaced_name(simulation.deref()), error);
+    warn!("reconcile failed on simulation {}: {:?}", simulation.namespaced_name(), error);
     Action::requeue(Duration::from_secs(5 * 60))
 }

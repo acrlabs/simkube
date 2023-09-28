@@ -3,7 +3,7 @@ use kube::api::DynamicObject;
 use serde::Deserialize;
 
 use super::TraceEvent;
-use crate::k8s::obj_matches_selector;
+use crate::k8s::KubeResourceExt;
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct TraceFilter {
@@ -56,5 +56,5 @@ fn obj_matches_filter(obj: &DynamicObject, f: &TraceFilter) -> bool {
             .owner_references
             .as_ref()
             .is_some_and(|owners| owners.iter().any(|owner| &owner.kind == "DaemonSet"))
-        || f.excluded_labels.iter().any(|sel| obj_matches_selector(obj, sel).unwrap())
+        || f.excluded_labels.iter().any(|sel| obj.matches(sel).unwrap())
 }

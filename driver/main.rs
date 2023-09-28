@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::collections::BTreeMap;
 use std::fs;
 use std::time::Duration;
 
@@ -15,6 +14,7 @@ use kube::api::{
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::jsonutils;
+use simkube::k8s::macros::*;
 use simkube::k8s::{
     add_common_fields,
     prefixed_ns,
@@ -48,7 +48,7 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
     let mut ns = corev1::Namespace {
         metadata: metav1::ObjectMeta {
             name: Some(ns_name.into()),
-            labels: Some(BTreeMap::from([(VIRTUAL_LABEL_KEY.into(), "true".into())])),
+            labels: klabel!(VIRTUAL_LABEL_KEY = "true"),
             ..Default::default()
         },
         ..Default::default()

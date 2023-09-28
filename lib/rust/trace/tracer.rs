@@ -3,12 +3,13 @@ use std::collections::{
     HashSet,
     VecDeque,
 };
+use std::mem::take;
 use std::sync::{
     Arc,
     Mutex,
 };
 
-use k8s_openapi::api::core::v1 as corev1;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde::{
     Deserialize,
@@ -16,18 +17,15 @@ use serde::{
 };
 use tracing::*;
 
-use super::trace_filter::{
-    filter_event,
-    TraceFilter,
-};
+use super::trace_filter::filter_event;
+use super::*;
 use crate::config::TracerConfig;
 use crate::jsonutils;
 use crate::k8s::{
     make_deletable,
-    namespaced_name,
+    KubeResourceExt,
+    PodLifecycleData,
 };
-
-type ObjectTracker = HashMap<String, (u64, u64)>;
 
 #[derive(Debug)]
 enum TraceAction {
@@ -42,34 +40,25 @@ pub struct TraceEvent {
     pub deleted_objs: Vec<DynamicObject>,
 }
 
+#[derive(Default)]
 pub struct Tracer {
     pub(super) config: TracerConfig,
     pub(super) events: VecDeque<TraceEvent>,
-    pub(super) tracked_objs: ObjectTracker,
-    pub(super) version: u64,
+    pub(super) _pod_owners: OwnedPodMap,
+    pub(super) index: HashMap<String, u64>,
 }
 
 impl Tracer {
     pub fn new(config: TracerConfig) -> Arc<Mutex<Tracer>> {
-        Arc::new(Mutex::new(Tracer {
-            config,
-            events: VecDeque::new(),
-            tracked_objs: HashMap::new(),
-            version: 0,
-        }))
+        Arc::new(Mutex::new(Tracer { config, ..Default::default() }))
     }
 
     pub fn import(data: Vec<u8>) -> anyhow::Result<Tracer> {
         let (config, events): (TracerConfig, VecDeque<TraceEvent>) = rmp_serde::from_slice(&data)?;
 
-        let mut tracer = Tracer {
-            config,
-            events,
-            tracked_objs: HashMap::new(),
-            version: 0,
-        };
-        let (_, tracked_objs) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
-        tracer.tracked_objs = tracked_objs;
+        let mut tracer = Tracer { config, events, ..Default::default() };
+        let (_, index) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
+        tracer.index = index;
 
         Ok(tracer)
     }
@@ -88,12 +77,12 @@ impl Tracer {
     }
 
     pub fn objs(&self) -> HashSet<String> {
-        self.tracked_objs.keys().cloned().collect()
+        self.index.keys().cloned().collect()
     }
 
     pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
-        let (_, tracked_objs) = self.collect_events(0, end_ts, filter);
-        tracked_objs.keys().cloned().collect()
+        let (_, index) = self.collect_events(0, end_ts, filter);
+        index.keys().cloned().collect()
     }
 
     pub fn start_ts(&self) -> Option<i64> {
@@ -103,52 +92,46 @@ impl Tracer {
         }
     }
 
-    pub(crate) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) {
-        let ns_name = namespaced_name(obj);
+    pub(crate) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) {
+        let ns_name = obj.namespaced_name();
         let new_hash = jsonutils::hash(obj.data.get("spec"));
+        let old_hash = if maybe_old_hash.is_some() { maybe_old_hash } else { self.index.get(&ns_name).cloned() };
 
-        if !self.tracked_objs.contains_key(&ns_name) || self.tracked_objs[&ns_name].0 != new_hash {
+        if Some(new_hash) != old_hash {
             self.append_event(ts, obj, TraceAction::ObjectApplied);
         }
-        self.tracked_objs.insert(ns_name, (new_hash, self.version));
+        self.index.insert(ns_name, new_hash);
     }
 
     pub(crate) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
-        let ns_name = namespaced_name(obj);
-        if self.tracked_objs.contains_key(&ns_name) {
-            self.append_event(ts, obj, TraceAction::ObjectDeleted);
-        }
-        self.tracked_objs.remove(&ns_name);
+        let ns_name = obj.namespaced_name();
+        self.append_event(ts, obj, TraceAction::ObjectDeleted);
+        self.index.remove(&ns_name);
     }
 
     pub(crate) fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64) {
-        self.version += 1;
+        let mut old_index = take(&mut self.index);
         for obj in objs {
-            self.create_or_update_obj(obj, ts);
+            let ns_name = obj.namespaced_name();
+            let old_hash = old_index.remove(&ns_name);
+            self.create_or_update_obj(obj, ts, old_hash);
         }
 
-        let to_delete: Vec<_> = self
-            .tracked_objs
-            .iter()
-            .filter_map(|(k, (_, v))| match v {
-                v if *v < self.version => Some(make_deletable(k)),
-                _ => None,
-            })
-            .collect();
-
-        for obj in to_delete {
-            self.delete_obj(&obj, ts)
+        for ns_name in old_index.keys() {
+            self.delete_obj(&make_deletable(ns_name), ts);
         }
     }
 
-    pub(crate) fn record_pod_lifecycle(&mut self, _pod: &corev1::Pod, _ts: i64) {}
-
-    pub(crate) fn record_pod_deleted(&mut self, _pod: &corev1::Pod, _ts: i64) {}
-
-    pub(crate) fn update_pod_lifecycles(&mut self, _pods: &[corev1::Pod], _ts: i64) {}
+    pub(crate) fn record_pod_lifecycle(
+        &mut self,
+        _ns_name: &str,
+        _owners: Vec<metav1::OwnerReference>,
+        _lifecycle_data: &PodLifecycleData,
+    ) {
+    }
 
     fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
-        info!("{} - {:?} @ {}", namespaced_name(obj), action, ts);
+        info!("{} - {:?} @ {}", obj.namespaced_name(), action, ts);
 
         let obj = obj.clone();
         match self.events.back_mut() {
@@ -166,10 +149,15 @@ impl Tracer {
         }
     }
 
-    fn collect_events(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> (Vec<TraceEvent>, ObjectTracker) {
+    fn collect_events(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        filter: &TraceFilter,
+    ) -> (Vec<TraceEvent>, HashMap<String, u64>) {
         let mut events = vec![TraceEvent { ts: start_ts, ..Default::default() }];
-        let mut flattened_obj_objects = HashMap::new();
-        let mut tracked_objs = HashMap::new();
+        let mut flattened_objects = HashMap::new();
+        let mut index = HashMap::new();
         for (evt, _) in self.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
             // end_ts or greater gets discarded.  The event list is stored in
@@ -180,29 +168,30 @@ impl Tracer {
 
             if let Some(new_evt) = filter_event(&evt, filter) {
                 for obj in &new_evt.applied_objs {
-                    let ns_name = namespaced_name(obj);
+                    let ns_name = obj.namespaced_name();
                     if new_evt.ts < start_ts {
-                        flattened_obj_objects.insert(ns_name.clone(), obj.clone());
+                        flattened_objects.insert(ns_name.clone(), obj.clone());
                     }
                     let hash = jsonutils::hash(obj.data.get("spec"));
-                    tracked_objs.insert(ns_name, (hash, self.version));
+                    index.insert(ns_name, hash);
                 }
 
                 for obj in &evt.deleted_objs {
-                    let ns_name = namespaced_name(obj);
+                    let ns_name = obj.namespaced_name();
                     if new_evt.ts < start_ts {
-                        flattened_obj_objects.remove(&ns_name);
+                        flattened_objects.remove(&ns_name);
                     }
-                    tracked_objs.remove(&ns_name);
+                    index.remove(&ns_name);
                 }
+
                 if new_evt.ts >= start_ts {
                     events.push(new_evt.clone());
                 }
             }
         }
 
-        events[0].applied_objs = flattened_obj_objects.values().cloned().collect();
-        (events, tracked_objs)
+        events[0].applied_objs = flattened_objects.values().cloned().collect();
+        (events, index)
     }
 }
 

@@ -1,28 +1,16 @@
-use std::collections::{
-    HashMap,
-    VecDeque,
-};
-
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
-use rstest::*;
 use serde_json::json;
 
 use super::*;
-use crate::config::TracerConfig;
-use crate::k8s::namespaced_name;
+use crate::k8s::KubeResourceExt;
 
 const TESTING_NAMESPACE: &str = "test";
 const EMPTY_SPEC_HASH: u64 = 15130871412783076140;
 
 #[fixture]
 fn tracer() -> Tracer {
-    return Tracer {
-        config: TracerConfig { tracked_objects: HashMap::new() },
-        events: VecDeque::new(),
-        tracked_objs: HashMap::new(),
-        version: 0,
-    };
+    Default::default()
 }
 
 #[fixture]
@@ -41,15 +29,15 @@ fn test_obj(#[default(TESTING_NAMESPACE)] namespace: &str, #[default("obj")] nam
 #[rstest]
 #[tokio::test]
 async fn test_create_or_update_obj(mut tracer: Tracer, test_obj: DynamicObject) {
-    let ns_name = namespaced_name(&test_obj);
+    let ns_name = test_obj.namespaced_name();
     let ts: i64 = 1234;
 
     // test idempotency, if we create the same obj twice nothing should change
-    tracer.create_or_update_obj(&test_obj, ts);
-    tracer.create_or_update_obj(&test_obj, 2445);
+    tracer.create_or_update_obj(&test_obj, ts, None);
+    tracer.create_or_update_obj(&test_obj, 2445, None);
 
-    assert_eq!(tracer.tracked_objs.len(), 1);
-    assert_eq!(tracer.tracked_objs[&ns_name].0, EMPTY_SPEC_HASH);
+    assert_eq!(tracer.index.len(), 1);
+    assert_eq!(tracer.index[&ns_name], EMPTY_SPEC_HASH);
     assert_eq!(tracer.events.len(), 1);
     assert_eq!(tracer.events[0].applied_objs.len(), 1);
     assert_eq!(tracer.events[0].deleted_objs.len(), 0);
@@ -64,13 +52,13 @@ async fn test_create_or_update_objs(mut tracer: Tracer) {
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
 
     for i in 0..objs.len() {
-        tracer.create_or_update_obj(&objs[i], ts[i]);
+        tracer.create_or_update_obj(&objs[i], ts[i], None);
     }
 
-    assert_eq!(tracer.tracked_objs.len(), objs.len());
+    assert_eq!(tracer.index.len(), objs.len());
     for p in objs.iter() {
-        let ns_name = namespaced_name(p);
-        assert_eq!(tracer.tracked_objs[&ns_name].0, EMPTY_SPEC_HASH);
+        let ns_name = p.namespaced_name();
+        assert_eq!(tracer.index[&ns_name], EMPTY_SPEC_HASH);
     }
     assert_eq!(tracer.events.len(), 2);
 
@@ -84,16 +72,14 @@ async fn test_create_or_update_objs(mut tracer: Tracer) {
 #[rstest]
 #[tokio::test]
 async fn test_delete_obj(mut tracer: Tracer, test_obj: DynamicObject) {
-    let ns_name = namespaced_name(&test_obj);
+    let ns_name = test_obj.namespaced_name();
     let ts: i64 = 1234;
 
-    tracer.tracked_objs.insert(ns_name.clone(), (EMPTY_SPEC_HASH, 0));
+    tracer.index.insert(ns_name.clone(), EMPTY_SPEC_HASH);
 
-    // test idempotency, if we delete the same obj twice nothing should change
     tracer.delete_obj(&test_obj, ts);
-    tracer.delete_obj(&test_obj, 2445);
 
-    assert_eq!(tracer.tracked_objs.len(), 0);
+    assert_eq!(tracer.index.len(), 0);
     assert_eq!(tracer.events.len(), 1);
     assert_eq!(tracer.events[0].applied_objs.len(), 0);
     assert_eq!(tracer.events[0].deleted_objs.len(), 1);
@@ -102,44 +88,43 @@ async fn test_delete_obj(mut tracer: Tracer, test_obj: DynamicObject) {
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_tracked_objs_all_new(mut tracer: Tracer) {
+async fn test_recreate_index_all_new(mut tracer: Tracer) {
     let obj_names = vec!["obj1", "obj2", "obj3"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts: i64 = 1234;
 
-    // Calling it twice shouldn't change the tracked objs, but should increase the version twice
+    // Calling it twice shouldn't change the tracked objs
     tracer.update_all_objs(&objs, ts);
     tracer.update_all_objs(&objs, 2445);
 
-    assert_eq!(tracer.tracked_objs.len(), objs.len());
+    assert_eq!(tracer.index.len(), objs.len());
     for p in objs.iter() {
-        let ns_name = namespaced_name(p);
-        assert_eq!(tracer.tracked_objs[&ns_name].0, EMPTY_SPEC_HASH);
+        let ns_name = p.namespaced_name();
+        assert_eq!(tracer.index[&ns_name], EMPTY_SPEC_HASH);
     }
     assert_eq!(tracer.events.len(), 1);
     assert_eq!(tracer.events[0].applied_objs.len(), 3);
     assert_eq!(tracer.events[0].deleted_objs.len(), 0);
     assert_eq!(tracer.events[0].ts, ts);
-    assert_eq!(tracer.version, 2);
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_tracked_objs_with_created_obj(mut tracer: Tracer) {
+async fn test_recreate_index_with_created_obj(mut tracer: Tracer) {
     let obj_names = vec!["obj1", "obj2", "obj3", "obj4"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts = vec![1234, 2445];
 
-    // Calling it twice shouldn't change the tracked objs, but should increase the version twice
+    // Calling it twice shouldn't change the tracked objs
     let mut fewer_objs = objs.clone();
     fewer_objs.pop();
     tracer.update_all_objs(&fewer_objs, ts[0]);
     tracer.update_all_objs(&objs, ts[1]);
 
-    assert_eq!(tracer.tracked_objs.len(), objs.len());
+    assert_eq!(tracer.index.len(), objs.len());
     for p in fewer_objs.iter() {
-        let ns_name = namespaced_name(p);
-        assert_eq!(tracer.tracked_objs[&ns_name].0, EMPTY_SPEC_HASH);
+        let ns_name = p.namespaced_name();
+        assert_eq!(tracer.index[&ns_name], EMPTY_SPEC_HASH);
     }
     assert_eq!(tracer.events.len(), 2);
     assert_eq!(tracer.events[0].applied_objs.len(), 3);
@@ -148,26 +133,25 @@ async fn test_recreate_tracked_objs_with_created_obj(mut tracer: Tracer) {
     assert_eq!(tracer.events[1].applied_objs.len(), 1);
     assert_eq!(tracer.events[1].deleted_objs.len(), 0);
     assert_eq!(tracer.events[1].ts, ts[1]);
-    assert_eq!(tracer.version, 2);
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_recreate_tracked_objs_with_deleted_obj(mut tracer: Tracer) {
+async fn test_recreate_index_with_deleted_obj(mut tracer: Tracer) {
     let obj_names = vec!["obj1", "obj2", "obj3"];
     let objs: Vec<_> = obj_names.iter().map(|p| test_obj("test", p)).collect();
     let ts = vec![1234, 2445];
 
-    // Calling it twice shouldn't change the tracked objs, but should increase the version twice
+    // Calling it twice shouldn't change the tracked objs
     tracer.update_all_objs(&objs, ts[0]);
     let mut fewer_objs = objs.clone();
     fewer_objs.pop();
     tracer.update_all_objs(&fewer_objs, ts[1]);
 
-    assert_eq!(tracer.tracked_objs.len(), fewer_objs.len());
+    assert_eq!(tracer.index.len(), fewer_objs.len());
     for p in fewer_objs.iter() {
-        let ns_name = namespaced_name(p);
-        assert_eq!(tracer.tracked_objs[&ns_name].0, EMPTY_SPEC_HASH);
+        let ns_name = p.namespaced_name();
+        assert_eq!(tracer.index[&ns_name], EMPTY_SPEC_HASH);
     }
     assert_eq!(tracer.events.len(), 2);
     assert_eq!(tracer.events[0].applied_objs.len(), 3);
@@ -176,5 +160,4 @@ async fn test_recreate_tracked_objs_with_deleted_obj(mut tracer: Tracer) {
     assert_eq!(tracer.events[1].applied_objs.len(), 0);
     assert_eq!(tracer.events[1].deleted_objs.len(), 1);
     assert_eq!(tracer.events[1].ts, ts[1]);
-    assert_eq!(tracer.version, 2);
 }

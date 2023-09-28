@@ -78,7 +78,7 @@ impl DynObjWatcher {
     fn handle_obj_event(&self, evt: Event<DynamicObject>, ts: i64) {
         let mut tracer = self.tracer.lock().unwrap();
         match evt {
-            Event::Applied(obj) => tracer.create_or_update_obj(&obj, ts),
+            Event::Applied(obj) => tracer.create_or_update_obj(&obj, ts, None),
             Event::Deleted(obj) => tracer.delete_obj(&obj, ts),
             Event::Restarted(objs) => tracer.update_all_objs(&objs, ts),
         };
