@@ -9,7 +9,7 @@ use kube::ResourceExt;
 use reqwest::Url;
 use simkube::k8s::add_common_fields;
 use simkube::prelude::*;
-use simkube::trace::storage;
+use simkube::store::storage;
 use tokio::time::Duration;
 use tracing::*;
 

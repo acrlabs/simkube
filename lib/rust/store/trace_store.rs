@@ -41,22 +41,22 @@ pub struct TraceEvent {
 }
 
 #[derive(Default)]
-pub struct Tracer {
+pub struct TraceStore {
     pub(super) config: TracerConfig,
     pub(super) events: VecDeque<TraceEvent>,
     pub(super) _pod_owners: OwnedPodMap,
     pub(super) index: HashMap<String, u64>,
 }
 
-impl Tracer {
-    pub fn new(config: TracerConfig) -> Arc<Mutex<Tracer>> {
-        Arc::new(Mutex::new(Tracer { config, ..Default::default() }))
+impl TraceStore {
+    pub fn new(config: TracerConfig) -> Arc<Mutex<TraceStore>> {
+        Arc::new(Mutex::new(TraceStore { config, ..Default::default() }))
     }
 
-    pub fn import(data: Vec<u8>) -> anyhow::Result<Tracer> {
+    pub fn import(data: Vec<u8>) -> anyhow::Result<TraceStore> {
         let (config, events): (TracerConfig, VecDeque<TraceEvent>) = rmp_serde::from_slice(&data)?;
 
-        let mut tracer = Tracer { config, events, ..Default::default() };
+        let mut tracer = TraceStore { config, events, ..Default::default() };
         let (_, index) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
         tracer.index = index;
 
@@ -200,7 +200,7 @@ pub struct TraceIterator<'a> {
     idx: usize,
 }
 
-impl<'a> Tracer {
+impl<'a> TraceStore {
     pub fn iter(&'a self) -> TraceIterator<'a> {
         TraceIterator { events: &self.events, idx: 0 }
     }

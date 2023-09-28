@@ -1,7 +1,6 @@
 use std::fmt;
 use std::ops::Deref;
 
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
     DynamicObject,
     GroupVersionKind,
@@ -14,6 +13,7 @@ use serde::{
     Serializer,
 };
 
+use super::*;
 use crate::errors::*;
 
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]

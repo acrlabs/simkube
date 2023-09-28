@@ -25,21 +25,21 @@ use crate::k8s::{
     GVK,
 };
 use crate::prelude::*;
+use crate::store::TraceStore;
 use crate::time::{
     Clockable,
     UtcClock,
 };
-use crate::trace::Tracer;
 
 pub struct DynObjWatcher {
     clock: Box<dyn Clockable + Send>,
     obj_stream: SelectAll<KubeObjectStream>,
-    tracer: Arc<Mutex<Tracer>>,
+    store: Arc<Mutex<TraceStore>>,
 }
 
 impl DynObjWatcher {
     pub async fn new(
-        tracer: Arc<Mutex<Tracer>>,
+        store: Arc<Mutex<TraceStore>>,
         apiset: &mut ApiSet,
         tracked_objects: &HashMap<GVK, TrackedObjectConfig>,
     ) -> anyhow::Result<DynObjWatcher> {
@@ -52,16 +52,16 @@ impl DynObjWatcher {
         Ok(DynObjWatcher {
             clock: Box::new(UtcClock),
             obj_stream: select_all(apis),
-            tracer,
+            store,
         })
     }
 
     pub fn new_from_parts(
         objs: KubeObjectStream,
-        tracer: Arc<Mutex<Tracer>>,
+        store: Arc<Mutex<TraceStore>>,
         clock: Box<dyn Clockable + Send>,
     ) -> DynObjWatcher {
-        DynObjWatcher { obj_stream: select_all(vec![objs]), tracer, clock }
+        DynObjWatcher { obj_stream: select_all(vec![objs]), store, clock }
     }
 
     pub async fn start(mut self) {
@@ -76,11 +76,11 @@ impl DynObjWatcher {
     }
 
     fn handle_obj_event(&self, evt: Event<DynamicObject>, ts: i64) {
-        let mut tracer = self.tracer.lock().unwrap();
+        let mut store = self.store.lock().unwrap();
         match evt {
-            Event::Applied(obj) => tracer.create_or_update_obj(&obj, ts, None),
-            Event::Deleted(obj) => tracer.delete_obj(&obj, ts),
-            Event::Restarted(objs) => tracer.update_all_objs(&objs, ts),
+            Event::Applied(obj) => store.create_or_update_obj(&obj, ts, None),
+            Event::Deleted(obj) => store.delete_obj(&obj, ts),
+            Event::Restarted(objs) => store.update_all_objs(&objs, ts),
         };
     }
 }

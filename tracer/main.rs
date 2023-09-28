@@ -9,9 +9,9 @@ use rocket::serde::json::Json;
 use serde::Deserialize;
 use simkube::k8s::ApiSet;
 use simkube::prelude::*;
-use simkube::trace::{
+use simkube::store::{
     TraceFilter,
-    Tracer,
+    TraceStore,
 };
 use simkube::watch::{
     DynObjWatcher,
@@ -39,9 +39,9 @@ struct ExportRequest {
 }
 
 #[rocket::post("/export", data = "<req>")]
-async fn export(req: Json<ExportRequest>, tracer: &rocket::State<Arc<Mutex<Tracer>>>) -> Result<Vec<u8>, String> {
+async fn export(req: Json<ExportRequest>, store: &rocket::State<Arc<Mutex<TraceStore>>>) -> Result<Vec<u8>, String> {
     debug!("export called with {:?}", req);
-    tracer
+    store
         .lock()
         .unwrap()
         .export(req.start_ts, req.end_ts, &req.filter)
@@ -55,14 +55,14 @@ async fn run(args: &Options) -> EmptyResult {
     let client = Client::try_default().await.expect("failed to create kube client");
     let mut apiset = ApiSet::new(&client);
 
-    let tracer = Tracer::new(config.clone());
-    let dyn_obj_watcher = DynObjWatcher::new(tracer.clone(), &mut apiset, &config.tracked_objects).await?;
-    let pod_watcher = PodWatcher::new(tracer.clone(), apiset);
+    let store = TraceStore::new(config.clone());
+    let dyn_obj_watcher = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
+    let pod_watcher = PodWatcher::new(store.clone(), apiset);
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![export])
-        .manage(tracer.clone());
+        .manage(store.clone());
 
     tokio::select! {
         _ = tokio::spawn(dyn_obj_watcher.start()) => warn!("object watcher terminated"),

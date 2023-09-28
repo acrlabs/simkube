@@ -12,11 +12,11 @@ use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::k8s::macros::*;
-use simkube::time::Clockable;
-use simkube::trace::{
+use simkube::store::{
     TraceFilter,
-    Tracer,
+    TraceStore,
 };
+use simkube::time::Clockable;
 use simkube::watch::{
     DynObjWatcher,
     KubeObjectStream,
@@ -153,10 +153,10 @@ async fn test_export() {
 
     // Since we're just generating the results from the stream and not actually querying any
     // Kubernetes internals or whatever, the TracerConfig is empty.
-    let t = Tracer::new(Default::default());
+    let s = TraceStore::new(Default::default());
 
     // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let w = DynObjWatcher::new_from_parts(test_stream(*clock.clone()), t.clone(), clock);
+    let w = DynObjWatcher::new_from_parts(test_stream(*clock.clone()), s.clone(), clock);
     w.start().await;
 
     // Next export the data with the chosen filters
@@ -169,14 +169,14 @@ async fn test_export() {
         exclude_daemonsets: true,
     };
 
-    let tracer = t.lock().unwrap();
+    let store = s.lock().unwrap();
     let (start_ts, end_ts) = (15, 46);
-    match tracer.export(start_ts, end_ts, &filter) {
+    match store.export(start_ts, end_ts, &filter) {
         Ok(data) => {
             // Confirm that the results match what we expect
-            let new_tracer = Tracer::import(data).unwrap();
-            let expected_pods = tracer.objs_at(end_ts, &filter);
-            let actual_pods = new_tracer.objs();
+            let new_store = TraceStore::import(data).unwrap();
+            let expected_pods = store.objs_at(end_ts, &filter);
+            let actual_pods = new_store.objs();
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(actual_pods, expected_pods);

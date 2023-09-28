@@ -55,4 +55,4 @@ trait StartEndTimeable {
 }
 
 #[cfg(test)]
-mod test;
+mod tests;

@@ -5,8 +5,8 @@ pub mod jsonutils;
 pub mod k8s;
 pub mod logging;
 mod macros;
+pub mod store;
 pub mod time;
-pub mod trace;
 pub mod util;
 pub mod watch;
 
