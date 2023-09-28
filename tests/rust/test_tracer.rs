@@ -1,4 +1,3 @@
-use std::collections::BTreeMap;
 use std::sync::atomic::{
     AtomicI64,
     Ordering,
@@ -12,6 +11,7 @@ use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use serde_json::json;
+use simkube::k8s::macros::*;
 use simkube::time::Clockable;
 use simkube::trace::{
     TraceFilter,
@@ -163,7 +163,7 @@ async fn test_export() {
     let filter = TraceFilter {
         excluded_namespaces: vec!["kube-system".into()],
         excluded_labels: vec![metav1::LabelSelector {
-            match_labels: Some(BTreeMap::from([("foo".into(), "bar".into())])),
+            match_labels: klabel!("foo" = "bar"),
             ..Default::default()
         }],
         exclude_daemonsets: true,

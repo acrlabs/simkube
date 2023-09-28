@@ -8,8 +8,8 @@ pub(crate) use thiserror::Error;
 
 pub type EmptyResult = anyhow::Result<()>;
 
-macro_rules! err_impl_helper {
-    ($errtype:ident, $item:ident, String) => {
+macro_rules! err_impl {
+    (@hidden $errtype:ident, $item:ident, String) => {
         paste! {
             pub(crate) fn [<$item:snake>](in_: &str) -> anyhow::Error {
                 anyhow!{$errtype::$item(in_.into())}
@@ -17,31 +17,26 @@ macro_rules! err_impl_helper {
         }
     };
 
-    ($errtype:ident, $item:ident, $($dtype:tt)::+) => {
+    (@hidden $errtype:ident, $item:ident, $($dtype:tt)::+) => {
         paste! {
             pub(crate) fn [<$item:snake>](in_: &$($dtype)::+) -> anyhow::Error {
                 anyhow!{$errtype::$item(in_.clone())}
             }
         }
     };
-}
 
-macro_rules! err_impl {
     ($errtype:ident,
         $(#[$errinfo:meta] $item:ident($($dtype:tt)::+),)+
-    ) => (
+    ) => {
         #[derive(Debug, Error)]
         pub(crate) enum $errtype {
             $(#[$errinfo] $item($($dtype)::+)),+
         }
 
         impl $errtype {
-            $(err_impl_helper! {$errtype, $item, $($dtype)::+})+
+            $(err_impl! {@hidden $errtype, $item, $($dtype)::+})+
         }
-    )
+    };
 }
 
-pub(crate) use {
-    err_impl,
-    err_impl_helper,
-};
+pub(crate) use err_impl;

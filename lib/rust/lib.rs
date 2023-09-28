@@ -4,8 +4,10 @@ mod errors;
 pub mod jsonutils;
 pub mod k8s;
 pub mod logging;
+mod macros;
 pub mod time;
 pub mod trace;
+pub mod util;
 pub mod watch;
 
 use kube::CustomResource;
@@ -38,5 +40,9 @@ pub mod prelude {
     pub use crate::config::*;
     pub use crate::constants::*;
     pub use crate::errors::EmptyResult;
+    pub use crate::k8s::{
+        KubeResourceExt,
+        PodExt,
+    };
     pub use crate::logging;
 }
