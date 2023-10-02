@@ -1,3 +1,12 @@
+pub use std::collections::BTreeMap;
+
+#[macro_export]
+macro_rules! klabel {
+    ($($key:tt=$val:literal),+$(,)?) => {
+        Some(BTreeMap::from([$(($key.to_string(), $val.to_string())),+]))
+    };
+}
+
 macro_rules! partial_ord_eq_ref {
     ($type:ty) => {
         impl<'a> PartialEq<&'a $type> for $type {
@@ -26,4 +35,5 @@ macro_rules! partial_ord_eq_ref {
     };
 }
 
+pub use klabel;
 pub(crate) use partial_ord_eq_ref;

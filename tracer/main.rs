@@ -53,7 +53,7 @@ async fn run(args: &Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
-    let mut apiset = ApiSet::new(&client);
+    let mut apiset = ApiSet::new(client.clone());
 
     let store = TraceStore::new(config.clone());
     let dyn_obj_watcher = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;

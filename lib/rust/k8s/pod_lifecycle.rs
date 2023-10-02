@@ -3,10 +3,10 @@ use std::cmp::{
     Ordering,
 };
 
-use chrono::Utc;
 use kube::ResourceExt;
 
 use super::*;
+use crate::time::Clockable;
 use crate::util::min_some;
 
 impl PodLifecycleData {
@@ -47,25 +47,36 @@ impl PodLifecycleData {
         Ok(PodLifecycleData::new(earliest_start_ts, latest_end_ts))
     }
 
-    pub fn guess_finished(
-        maybe_pod: Option<&corev1::Pod>,
+    pub fn start_ts(&self) -> Option<i64> {
+        match self {
+            PodLifecycleData::Empty => None,
+            PodLifecycleData::Running(ts) => Some(*ts),
+            PodLifecycleData::Finished(ts, _) => Some(*ts),
+        }
+    }
+
+    pub fn guess_finished_lifecycle(
+        pod: &corev1::Pod,
         current_lifecycle_data: &PodLifecycleData,
-    ) -> PodLifecycleData {
-        let (new_lifecycle_data, pod_creation_ts) = match maybe_pod {
-            None => (PodLifecycleData::Empty, None),
-            Some(pod) => (PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty), pod.creation_timestamp()),
-        };
+        clock: &(dyn Clockable + Send),
+    ) -> anyhow::Result<PodLifecycleData> {
+        let new_lifecycle_data = PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty);
+        let now = clock.now();
 
-        let end_ts = Some(Utc::now().timestamp());
-        let start_ts = if let PodLifecycleData::Running(ts) = current_lifecycle_data {
-            Some(*ts)
-        } else if let PodLifecycleData::Running(ts) = new_lifecycle_data {
-            Some(ts)
-        } else {
-            pod_creation_ts.map(|t| t.0.timestamp())
-        };
-
-        PodLifecycleData::new(start_ts, end_ts)
+        match new_lifecycle_data {
+            PodLifecycleData::Finished(..) => Ok(new_lifecycle_data),
+            PodLifecycleData::Running(start_ts) => Ok(PodLifecycleData::Finished(start_ts, now)),
+            PodLifecycleData::Empty => {
+                let start_ts = if let Some(ts) = current_lifecycle_data.start_ts() {
+                    ts
+                } else if let Some(t) = pod.creation_timestamp() {
+                    t.0.timestamp()
+                } else {
+                    bail!("could not determine final pod lifecycle for {}", pod.namespaced_name());
+                };
+                Ok(PodLifecycleData::Finished(start_ts, now))
+            },
+        }
     }
 
     pub fn empty(&self) -> bool {
@@ -124,8 +135,8 @@ impl PartialOrd for PodLifecycleData {
 }
 
 
-impl PartialEq<Option<PodLifecycleData>> for PodLifecycleData {
-    fn eq(&self, other: &Option<PodLifecycleData>) -> bool {
+impl PartialEq<Option<&PodLifecycleData>> for PodLifecycleData {
+    fn eq(&self, other: &Option<&PodLifecycleData>) -> bool {
         match self {
             PodLifecycleData::Empty => other.is_none() || other.as_ref().is_some_and(|plt| plt.empty()),
             _ => other.as_ref().is_some_and(|plt| plt == self),
@@ -133,8 +144,8 @@ impl PartialEq<Option<PodLifecycleData>> for PodLifecycleData {
     }
 }
 
-impl PartialOrd<Option<PodLifecycleData>> for PodLifecycleData {
-    fn partial_cmp(&self, other: &Option<PodLifecycleData>) -> Option<Ordering> {
+impl PartialOrd<Option<&PodLifecycleData>> for PodLifecycleData {
+    fn partial_cmp(&self, other: &Option<&PodLifecycleData>) -> Option<Ordering> {
         match self {
             PodLifecycleData::Empty => other.as_ref().map_or(Some(Ordering::Equal), |o| self.partial_cmp(o)),
             _ => other.as_ref().map_or(Some(Ordering::Greater), |o| self.partial_cmp(o)),
@@ -149,63 +160,63 @@ mod test {
     #[test]
     fn test_partial_eq() {
         assert_eq!(PodLifecycleData::Empty, None);
-        assert_eq!(PodLifecycleData::Empty, Some(PodLifecycleData::Empty));
-        assert_eq!(PodLifecycleData::Running(1), Some(PodLifecycleData::Running(1)));
-        assert_eq!(PodLifecycleData::Finished(1, 2), Some(PodLifecycleData::Finished(1, 2)));
+        assert_eq!(PodLifecycleData::Empty, Some(&PodLifecycleData::Empty));
+        assert_eq!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Running(1)));
+        assert_eq!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Finished(1, 2)));
 
-        assert_ne!(PodLifecycleData::Empty, Some(PodLifecycleData::Running(1)));
-        assert_ne!(PodLifecycleData::Empty, Some(PodLifecycleData::Finished(1, 2)));
+        assert_ne!(PodLifecycleData::Empty, Some(&PodLifecycleData::Running(1)));
+        assert_ne!(PodLifecycleData::Empty, Some(&PodLifecycleData::Finished(1, 2)));
         assert_ne!(PodLifecycleData::Running(1), None);
-        assert_ne!(PodLifecycleData::Running(1), Some(PodLifecycleData::Empty));
-        assert_ne!(PodLifecycleData::Running(1), Some(PodLifecycleData::Running(2)));
-        assert_ne!(PodLifecycleData::Running(1), Some(PodLifecycleData::Finished(1, 2)));
+        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Empty));
+        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Running(2)));
+        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Finished(1, 2)));
         assert_ne!(PodLifecycleData::Finished(1, 2), None);
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(PodLifecycleData::Empty));
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(PodLifecycleData::Running(2)));
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(PodLifecycleData::Finished(1, 3)));
+        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Empty));
+        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Running(2)));
+        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Finished(1, 3)));
     }
 
     #[test]
     fn test_partial_ord() {
         for cmp in [
             PodLifecycleData::Empty.partial_cmp(&None),
-            PodLifecycleData::Empty.partial_cmp(&Some(PodLifecycleData::Empty)),
-            PodLifecycleData::Running(1).partial_cmp(&Some(PodLifecycleData::Running(1))),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(PodLifecycleData::Finished(1, 2))),
+            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Empty)),
+            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Running(1))),
+            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
         ] {
             assert_eq!(cmp, Some(Ordering::Equal));
         }
 
         for cmp in [
-            PodLifecycleData::Empty.partial_cmp(&Some(PodLifecycleData::Running(1))),
-            PodLifecycleData::Empty.partial_cmp(&Some(PodLifecycleData::Finished(1, 2))),
+            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Running(1))),
+            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
             PodLifecycleData::Running(1).partial_cmp(&None),
-            PodLifecycleData::Running(1).partial_cmp(&Some(PodLifecycleData::Empty)),
-            PodLifecycleData::Running(1).partial_cmp(&Some(PodLifecycleData::Running(2))),
-            PodLifecycleData::Running(1).partial_cmp(&Some(PodLifecycleData::Finished(1, 2))),
+            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Empty)),
+            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Running(2))),
+            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
             PodLifecycleData::Finished(1, 2).partial_cmp(&None),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(PodLifecycleData::Empty)),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(PodLifecycleData::Running(2))),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(PodLifecycleData::Finished(1, 3))),
+            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Empty)),
+            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Running(2))),
+            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Finished(1, 3))),
         ] {
             assert_ne!(cmp, Some(Ordering::Equal));
         }
 
-        assert!(PodLifecycleData::Empty < Some(PodLifecycleData::Running(1)));
-        assert!(PodLifecycleData::Empty < Some(PodLifecycleData::Finished(1, 2)));
-        assert!(PodLifecycleData::Running(1) < Some(PodLifecycleData::Finished(1, 2)));
+        assert!(PodLifecycleData::Empty < Some(&PodLifecycleData::Running(1)));
+        assert!(PodLifecycleData::Empty < Some(&PodLifecycleData::Finished(1, 2)));
+        assert!(PodLifecycleData::Running(1) < Some(&PodLifecycleData::Finished(1, 2)));
 
         assert!(PodLifecycleData::Running(1) > None);
-        assert!(PodLifecycleData::Running(1) > Some(PodLifecycleData::Empty));
+        assert!(PodLifecycleData::Running(1) > Some(&PodLifecycleData::Empty));
         assert!(PodLifecycleData::Finished(1, 2) > None);
-        assert!(PodLifecycleData::Finished(1, 2) > Some(PodLifecycleData::Empty));
-        assert!(PodLifecycleData::Finished(1, 2) > Some(PodLifecycleData::Running(1)));
+        assert!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Empty));
+        assert!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Running(1)));
 
-        assert!(!(PodLifecycleData::Finished(1, 2) > Some(PodLifecycleData::Running(0))));
-        assert!(!(PodLifecycleData::Finished(1, 2) < Some(PodLifecycleData::Running(0))));
-        assert!(!(PodLifecycleData::Finished(1, 2) > Some(PodLifecycleData::Finished(1, 3))));
-        assert!(!(PodLifecycleData::Finished(1, 2) < Some(PodLifecycleData::Finished(1, 3))));
-        assert!(!(PodLifecycleData::Running(1) < Some(PodLifecycleData::Running(2))));
-        assert!(!(PodLifecycleData::Running(1) > Some(PodLifecycleData::Running(2))));
+        assert!(!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Running(0))));
+        assert!(!(PodLifecycleData::Finished(1, 2) < Some(&PodLifecycleData::Running(0))));
+        assert!(!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Finished(1, 3))));
+        assert!(!(PodLifecycleData::Finished(1, 2) < Some(&PodLifecycleData::Finished(1, 3))));
+        assert!(!(PodLifecycleData::Running(1) < Some(&PodLifecycleData::Running(2))));
+        assert!(!(PodLifecycleData::Running(1) > Some(&PodLifecycleData::Running(2))));
     }
 }

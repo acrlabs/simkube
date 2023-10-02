@@ -8,7 +8,7 @@ CARGO_HOME_ENV=CARGO_HOME=$(BUILD_DIR)/cargo
 
 ifdef WITH_COVERAGE
 CARGO_TEST_PREFIX=$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/coverage/cargo-test-%p-%m.profraw'
-RUST_COVER_TYPE=lcov
+RUST_COVER_TYPE ?= lcov
 else
 CARGO_TEST_PREFIX=$(CARGO_HOME_ENV)
 RUST_COVER_TYPE=markdown
@@ -58,11 +58,13 @@ cover-rust:
 	grcov . --binary-path $(BUILD_DIR)/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
 		--ignore '../*' \
 		--ignore '/*' \
-		--ignore 'tests/*' \
+		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
+		--ignore '*/testutils/*' \
 		--ignore '.build/cargo/*' \
 		--ignore 'hack/*' \
-		--excl-line '#\[derive'
+		--excl-line '#\[derive' \
+		--excl-start '#\[cfg\(test'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
 
 .PHONY: crd

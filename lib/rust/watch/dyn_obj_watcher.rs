@@ -25,7 +25,10 @@ use crate::k8s::{
     GVK,
 };
 use crate::prelude::*;
-use crate::store::TraceStore;
+use crate::store::{
+    TraceStorable,
+    TraceStore,
+};
 use crate::time::{
     Clockable,
     UtcClock,
@@ -34,7 +37,7 @@ use crate::time::{
 pub struct DynObjWatcher {
     clock: Box<dyn Clockable + Send>,
     obj_stream: SelectAll<KubeObjectStream>,
-    store: Arc<Mutex<TraceStore>>,
+    store: Arc<Mutex<dyn TraceStorable + Send>>,
 }
 
 impl DynObjWatcher {
@@ -54,14 +57,6 @@ impl DynObjWatcher {
             obj_stream: select_all(apis),
             store,
         })
-    }
-
-    pub fn new_from_parts(
-        objs: KubeObjectStream,
-        store: Arc<Mutex<TraceStore>>,
-        clock: Box<dyn Clockable + Send>,
-    ) -> DynObjWatcher {
-        DynObjWatcher { obj_stream: select_all(vec![objs]), store, clock }
     }
 
     pub async fn start(mut self) {
@@ -103,4 +98,15 @@ async fn build_stream_for_tracked_obj(
         })
         .map_err(|e| e.into())
         .boxed())
+}
+
+#[cfg(test)]
+impl DynObjWatcher {
+    pub fn new_from_parts(
+        objs: KubeObjectStream,
+        store: Arc<Mutex<TraceStore>>,
+        clock: Box<dyn Clockable + Send>,
+    ) -> DynObjWatcher {
+        DynObjWatcher { obj_stream: select_all(vec![objs]), store, clock }
+    }
 }

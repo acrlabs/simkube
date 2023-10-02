@@ -1,8 +1,7 @@
 mod apiset;
 mod container;
 mod gvk;
-pub mod macros;
-mod pod;
+mod pod_ext;
 mod pod_lifecycle;
 mod util;
 
@@ -45,8 +44,6 @@ pub trait KubeResourceExt {
 pub trait PodExt {
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec>;
     fn status(&self) -> anyhow::Result<&corev1::PodStatus>;
-    fn spec_mut(&mut self) -> &mut corev1::PodSpec;
-    fn status_mut(&mut self) -> &mut corev1::PodStatus;
 }
 
 trait StartEndTimeable {
@@ -55,4 +52,4 @@ trait StartEndTimeable {
 }
 
 #[cfg(test)]
-mod tests;
+pub mod tests;
