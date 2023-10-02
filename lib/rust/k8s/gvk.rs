@@ -20,6 +20,10 @@ use crate::errors::*;
 pub struct GVK(GroupVersionKind);
 
 impl GVK {
+    pub fn new(group: &str, version: &str, kind: &str) -> GVK {
+        GVK(GroupVersionKind::gvk(group, version, kind))
+    }
+
     pub fn from_dynamic_obj(obj: &DynamicObject) -> anyhow::Result<GVK> {
         match &obj.types {
             Some(t) => Ok(GVK(t.try_into()?)),
@@ -86,5 +90,18 @@ impl<'de> Deserialize<'de> for GVK {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_str(GVKVisitor)
+    }
+}
+
+#[cfg(test)]
+impl GVK {
+    pub fn guess_api_resource(&self) -> kube::api::ApiResource {
+        kube::api::ApiResource {
+            group: self.group.clone(),
+            version: self.version.clone(),
+            api_version: self.api_version(),
+            kind: self.kind.clone(),
+            plural: format!("{}s", self.kind),
+        }
     }
 }

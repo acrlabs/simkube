@@ -14,13 +14,13 @@ use kube::api::{
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::jsonutils;
-use simkube::k8s::macros::*;
 use simkube::k8s::{
     add_common_fields,
     prefixed_ns,
     ApiSet,
     GVK,
 };
+use simkube::macros::*;
 use simkube::prelude::*;
 use simkube::store::TraceStore;
 use tokio::time::sleep;
@@ -94,7 +94,7 @@ async fn run(args: &Options) -> EmptyResult {
     let trace_store = TraceStore::import(trace_data)?;
 
     let client = kube::Client::try_default().await?;
-    let mut apiset = ApiSet::new(&client);
+    let mut apiset = ApiSet::new(client.clone());
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
 

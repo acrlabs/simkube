@@ -1,3 +1,4 @@
+use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::mem::take;
 use std::sync::{
@@ -14,8 +15,6 @@ use futures::stream::{
     StreamExt,
     TryStreamExt,
 };
-use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::watcher::{
     watcher,
     Event,
@@ -26,7 +25,7 @@ use kube::{
 };
 use tracing::*;
 
-use super::PodStream;
+use super::*;
 use crate::errors::*;
 use crate::k8s::{
     list_params_for,
@@ -35,17 +34,27 @@ use crate::k8s::{
     PodLifecycleData,
     GVK,
 };
-use crate::store::TraceStore;
+use crate::store::{
+    TraceStorable,
+    TraceStore,
+};
+use crate::time::{
+    Clockable,
+    UtcClock,
+};
 
 type OwnerCache = SizedCache<String, Vec<metav1::OwnerReference>>;
-const CACHE_SIZE: usize = 10000;
+pub(crate) const CACHE_SIZE: usize = 10000;
 
 pub struct PodWatcher {
     apiset: ApiSet,
     pod_stream: PodStream,
-    store: Arc<Mutex<TraceStore>>,
+
     owned_pods: HashMap<String, PodLifecycleData>,
     owners_cache: SizedCache<String, Vec<metav1::OwnerReference>>,
+    store: Arc<Mutex<dyn TraceStorable + Send>>,
+
+    clock: Box<dyn Clockable + Send>,
 }
 
 impl PodWatcher {
@@ -58,6 +67,7 @@ impl PodWatcher {
             store,
             owned_pods: HashMap::new(),
             owners_cache: SizedCache::with_size(CACHE_SIZE),
+            clock: Box::new(UtcClock),
         }
     }
 
@@ -72,12 +82,11 @@ impl PodWatcher {
         }
     }
 
-    async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) -> EmptyResult {
+    pub(super) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) -> EmptyResult {
         match evt {
             Event::Applied(pod) => {
                 let ns_name = pod.namespaced_name();
-                let current_lifecycle_data = self.owned_pods.get(&ns_name).cloned();
-                self.handle_pod_applied(&ns_name, pod, current_lifecycle_data).await?;
+                self.handle_pod_applied(&ns_name, pod).await?;
             },
             Event::Deleted(pod) => {
                 let ns_name = pod.namespaced_name();
@@ -94,8 +103,9 @@ impl PodWatcher {
                 let mut old_owned_pods = take(&mut self.owned_pods);
                 for pod in pods {
                     let ns_name = &pod.namespaced_name();
-                    let old_entry = old_owned_pods.remove(ns_name);
-                    self.handle_pod_applied(ns_name, pod, old_entry).await?;
+                    let current_lifecycle_data = old_owned_pods.remove(ns_name).unwrap();
+                    self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
+                    self.handle_pod_applied(ns_name, pod).await?;
                 }
 
                 for (ns_name, current_lifecycle_data) in &old_owned_pods {
@@ -107,21 +117,17 @@ impl PodWatcher {
         Ok(())
     }
 
-    async fn handle_pod_applied(
-        &mut self,
-        ns_name: &str,
-        pod: &corev1::Pod,
-        current_lifecycle_data: Option<PodLifecycleData>,
-    ) -> EmptyResult {
-        let lifecycle_data = PodLifecycleData::new_for(pod)?;
+    async fn handle_pod_applied(&mut self, ns_name: &str, pod: &corev1::Pod) -> EmptyResult {
+        let new_lifecycle_data = PodLifecycleData::new_for(pod)?;
+        let current_lifecycle_data = self.owned_pods.get(ns_name);
 
-        if lifecycle_data > current_lifecycle_data {
-            self.owned_pods.insert(ns_name.into(), lifecycle_data.clone());
-            self.store_pod_lifecycle_data(ns_name, Some(pod), &lifecycle_data).await?;
-        } else if lifecycle_data != current_lifecycle_data {
+        if new_lifecycle_data > current_lifecycle_data {
+            self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
+            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data).await?;
+        } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
                 "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
-                ns_name, lifecycle_data, current_lifecycle_data
+                ns_name, new_lifecycle_data, current_lifecycle_data
             );
         }
 
@@ -134,22 +140,23 @@ impl PodWatcher {
         maybe_pod: Option<&corev1::Pod>,
         current_lifecycle_data: PodLifecycleData,
     ) -> EmptyResult {
-        let new_lifecycle_data = PodLifecycleData::guess_finished(maybe_pod, &current_lifecycle_data);
+        // Always remove the pod from our tracker, regardless of what else happens
+        self.owned_pods.remove(ns_name);
 
         if current_lifecycle_data.finished() {
-            // do nothing
-            if new_lifecycle_data != current_lifecycle_data {
-                warn!(
-                    "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
-                    ns_name, current_lifecycle_data, new_lifecycle_data,
-                );
-            }
-        } else if new_lifecycle_data.finished() && new_lifecycle_data > current_lifecycle_data {
-            self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await?;
-        } else {
-            bail!("could not determine lifecycle data for pod {}", ns_name);
+            return Ok(());
         }
 
+        let new_lifecycle_data = match maybe_pod {
+            None => {
+                // We never store "empty" data so this unwrap should always succeed
+                let start_ts = current_lifecycle_data.start_ts().unwrap();
+                PodLifecycleData::Finished(start_ts, self.clock.now())
+            },
+            Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, self.clock.borrow())?,
+        };
+
+        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await?;
         Ok(())
     }
 
@@ -162,7 +169,7 @@ impl PodWatcher {
         let owners = match (self.owners_cache.cache_get(ns_name), maybe_pod) {
             (Some(o), _) => o.clone(),
             (None, Some(pod)) => compute_owner_chain(&mut self.apiset, pod, &mut self.owners_cache).await?,
-            _ => bail!("could not store lifecycle data for {}", ns_name),
+            _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
         let mut store = self.store.lock().unwrap();
@@ -202,4 +209,29 @@ async fn compute_owner_chain(
 
     cache.cache_set(ns_name, owners.clone());
     Ok(owners)
+}
+
+#[cfg(test)]
+impl PodWatcher {
+    pub(crate) fn new_from_parts(
+        apiset: ApiSet,
+        pod_stream: PodStream,
+        owned_pods: HashMap<String, PodLifecycleData>,
+        owners_cache: SizedCache<String, Vec<metav1::OwnerReference>>,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+        clock: Box<dyn Clockable + Send>,
+    ) -> PodWatcher {
+        PodWatcher {
+            apiset,
+            pod_stream,
+            owned_pods,
+            owners_cache,
+            store,
+            clock,
+        }
+    }
+
+    pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {
+        self.owned_pods.get(ns_name)
+    }
 }

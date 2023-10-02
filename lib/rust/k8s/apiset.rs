@@ -16,9 +16,9 @@ pub struct ApiSet {
 }
 
 impl ApiSet {
-    pub fn new(client: &kube::Client) -> ApiSet {
+    pub fn new(client: kube::Client) -> ApiSet {
         ApiSet {
-            client: client.clone(),
+            client,
             resources: HashMap::new(),
             apis: HashMap::new(),
             namespaced_apis: HashMap::new(),
@@ -59,5 +59,17 @@ impl ApiSet {
                 Ok(e.insert(ar))
             },
         }
+    }
+}
+
+#[cfg(test)]
+impl ApiSet {
+    pub(crate) fn new_from_parts(
+        client: kube::Client,
+        resources: HashMap<GVK, ApiResource>,
+        apis: HashMap<GVK, kube::Api<DynamicObject>>,
+        namespaced_apis: HashMap<(GVK, String), kube::Api<DynamicObject>>,
+    ) -> ApiSet {
+        ApiSet { client, resources, apis, namespaced_apis }
     }
 }

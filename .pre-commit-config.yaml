@@ -7,14 +7,20 @@ repos:
         args: ["--allow-multiple-documents"]
       - id: trailing-whitespace
   - repo: https://github.com/golangci/golangci-lint
-    rev: v1.53.3
+    rev: v1.54.2
     hooks:
       - id: golangci-lint
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
       - id: cargo-check
+        args:
+          - --target-dir
+          - /tmp/cargo
       - id: clippy
+        args:
+          - --target-dir
+          - /tmp/cargo
   - repo: https://github.com/futuretech6/pre-commit-rust-nightly
     rev: v1.1
     hooks:

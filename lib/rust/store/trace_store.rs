@@ -9,15 +9,9 @@ use std::sync::{
     Mutex,
 };
 
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 use tracing::*;
 
-use super::trace_filter::filter_event;
 use super::*;
 use crate::config::TracerConfig;
 use crate::jsonutils;
@@ -26,19 +20,6 @@ use crate::k8s::{
     KubeResourceExt,
     PodLifecycleData,
 };
-
-#[derive(Debug)]
-enum TraceAction {
-    ObjectApplied,
-    ObjectDeleted,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-pub struct TraceEvent {
-    pub ts: i64,
-    pub applied_objs: Vec<DynamicObject>,
-    pub deleted_objs: Vec<DynamicObject>,
-}
 
 #[derive(Default)]
 pub struct TraceStore {
@@ -90,44 +71,6 @@ impl TraceStore {
             Some((_, Some(ts))) => Some(ts),
             _ => None,
         }
-    }
-
-    pub(crate) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) {
-        let ns_name = obj.namespaced_name();
-        let new_hash = jsonutils::hash(obj.data.get("spec"));
-        let old_hash = if maybe_old_hash.is_some() { maybe_old_hash } else { self.index.get(&ns_name).cloned() };
-
-        if Some(new_hash) != old_hash {
-            self.append_event(ts, obj, TraceAction::ObjectApplied);
-        }
-        self.index.insert(ns_name, new_hash);
-    }
-
-    pub(crate) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
-        let ns_name = obj.namespaced_name();
-        self.append_event(ts, obj, TraceAction::ObjectDeleted);
-        self.index.remove(&ns_name);
-    }
-
-    pub(crate) fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64) {
-        let mut old_index = take(&mut self.index);
-        for obj in objs {
-            let ns_name = obj.namespaced_name();
-            let old_hash = old_index.remove(&ns_name);
-            self.create_or_update_obj(obj, ts, old_hash);
-        }
-
-        for ns_name in old_index.keys() {
-            self.delete_obj(&make_deletable(ns_name), ts);
-        }
-    }
-
-    pub(crate) fn record_pod_lifecycle(
-        &mut self,
-        _ns_name: &str,
-        _owners: Vec<metav1::OwnerReference>,
-        _lifecycle_data: &PodLifecycleData,
-    ) {
     }
 
     fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
@@ -192,6 +135,46 @@ impl TraceStore {
 
         events[0].applied_objs = flattened_objects.values().cloned().collect();
         (events, index)
+    }
+}
+
+impl TraceStorable for TraceStore {
+    fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) {
+        let ns_name = obj.namespaced_name();
+        let new_hash = jsonutils::hash(obj.data.get("spec"));
+        let old_hash = if maybe_old_hash.is_some() { maybe_old_hash } else { self.index.get(&ns_name).cloned() };
+
+        if Some(new_hash) != old_hash {
+            self.append_event(ts, obj, TraceAction::ObjectApplied);
+        }
+        self.index.insert(ns_name, new_hash);
+    }
+
+    fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) {
+        let ns_name = obj.namespaced_name();
+        self.append_event(ts, obj, TraceAction::ObjectDeleted);
+        self.index.remove(&ns_name);
+    }
+
+    fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64) {
+        let mut old_index = take(&mut self.index);
+        for obj in objs {
+            let ns_name = obj.namespaced_name();
+            let old_hash = old_index.remove(&ns_name);
+            self.create_or_update_obj(obj, ts, old_hash);
+        }
+
+        for ns_name in old_index.keys() {
+            self.delete_obj(&make_deletable(ns_name), ts);
+        }
+    }
+
+    fn record_pod_lifecycle(
+        &mut self,
+        _ns_name: &str,
+        _owners: Vec<metav1::OwnerReference>,
+        _lifecycle_data: &PodLifecycleData,
+    ) {
     }
 }
 

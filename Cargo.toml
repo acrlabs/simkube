@@ -51,4 +51,9 @@ features = ["client", "derive", "runtime", "rustls-tls"]
 default-features = false
 
 [dev-dependencies]
+http = "0.2.9"
+hyper = "0.14.27"
+mockall = "0.11.4"
 rstest = "0.18.2"
+tower-test = "0.4.0"
+tracing-test = "0.2.4"

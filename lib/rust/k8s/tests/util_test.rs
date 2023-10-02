@@ -2,10 +2,8 @@ use chrono::Utc;
 use kube::api::DynamicObject;
 use serde_json::json;
 
-use super::{
-    pod,
-    *,
-};
+use super::*;
+use crate::testutils::test_pod;
 
 #[rstest]
 fn test_sanitize_obj() {
@@ -105,65 +103,65 @@ fn make_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSele
 #[rstest]
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
-fn test_label_expr_match(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_match(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("foo", op, Some("bar"));
-    let res = pod.matches(&sel).unwrap();
+    let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_IN);
 }
 
 #[rstest]
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
-fn test_label_expr_no_values(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_no_values(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("foo", op, None);
-    let res = pod.matches(&sel).unwrap_err().downcast().unwrap();
+    let res = test_pod.matches(&sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
-fn test_label_expr_no_match(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_no_match(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("baz", op, Some("qux"));
-    let res = pod.matches(&sel).unwrap();
+    let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_NOT_IN);
 }
 
 #[rstest]
 #[case::op_exists(OPERATOR_EXISTS)]
 #[case::op_exists(OPERATOR_DOES_NOT_EXIST)]
-fn test_label_expr_exists(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_exists(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("foo", op, None);
-    let res = pod.matches(&sel).unwrap();
+    let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_EXISTS);
 }
 
 #[rstest]
 #[case::op_exists(OPERATOR_EXISTS)]
 #[case::op_not_exists(OPERATOR_DOES_NOT_EXIST)]
-fn test_label_expr_exists_values(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_exists_values(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("foo", op, Some("bar"));
-    let res = pod.matches(&sel).unwrap_err().downcast().unwrap();
+    let res = test_pod.matches(&sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
 
 #[rstest]
 #[case::op_in(OPERATOR_EXISTS)]
 #[case::op_not_in(OPERATOR_DOES_NOT_EXIST)]
-fn test_label_expr_not_exists(pod: corev1::Pod, #[case] op: &str) {
+fn test_label_expr_not_exists(test_pod: corev1::Pod, #[case] op: &str) {
     let sel = make_label_sel("baz", op, None);
-    let res = pod.matches(&sel).unwrap();
+    let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_DOES_NOT_EXIST);
 }
 
 #[rstest]
 #[case::label_match("foo".into())]
 #[case::label_no_match("baz".into())]
-fn test_label_match(pod: corev1::Pod, #[case] label_key: String) {
+fn test_label_match(test_pod: corev1::Pod, #[case] label_key: String) {
     let sel = metav1::LabelSelector {
         match_labels: klabel!(label_key = "bar"),
         ..Default::default()
     };
-    let res = pod.matches(&sel).unwrap();
+    let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, &label_key == "foo");
 }

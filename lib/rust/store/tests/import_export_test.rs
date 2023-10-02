@@ -1,9 +1,3 @@
-use std::sync::atomic::{
-    AtomicI64,
-    Ordering,
-};
-use std::sync::Arc;
-
 use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
@@ -11,40 +5,19 @@ use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use serde_json::json;
-use simkube::k8s::macros::*;
-use simkube::store::{
+
+use crate::macros::*;
+use crate::store::{
     TraceFilter,
     TraceStore,
 };
-use simkube::time::Clockable;
-use simkube::watch::{
+use crate::testutils::MockUtcClock;
+use crate::watch::{
     DynObjWatcher,
     KubeObjectStream,
 };
 
 const TESTING_NAMESPACE: &str = "test";
-
-#[derive(Clone)]
-struct MockUtcClock {
-    now: Arc<AtomicI64>,
-}
-
-impl MockUtcClock {
-    fn new() -> MockUtcClock {
-        MockUtcClock { now: Arc::new(AtomicI64::new(0)) }
-    }
-
-    fn advance(&mut self, duration: i64) -> i64 {
-        let old = self.now.fetch_add(duration, Ordering::Relaxed);
-        old + duration
-    }
-}
-
-impl Clockable for MockUtcClock {
-    fn now(&self) -> i64 {
-        return self.now.load(Ordering::Relaxed);
-    }
-}
 
 fn test_pod(idx: i64) -> DynamicObject {
     return DynamicObject {
@@ -149,7 +122,7 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
 
 #[tokio::test]
 async fn test_export() {
-    let clock = Box::new(MockUtcClock::new());
+    let clock = MockUtcClock::new(0);
 
     // Since we're just generating the results from the stream and not actually querying any
     // Kubernetes internals or whatever, the TracerConfig is empty.

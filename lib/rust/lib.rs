@@ -4,7 +4,7 @@ mod errors;
 pub mod jsonutils;
 pub mod k8s;
 pub mod logging;
-mod macros;
+pub mod macros;
 pub mod store;
 pub mod time;
 pub mod util;
@@ -46,3 +46,6 @@ pub mod prelude {
     };
     pub use crate::logging;
 }
+
+#[cfg(test)]
+pub mod testutils;
