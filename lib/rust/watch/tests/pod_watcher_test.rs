@@ -78,7 +78,7 @@ async fn test_handle_pod_event_applied_empty(test_pod: corev1::Pod, clock: Box<M
 
     let mut evt = Event::Applied(test_pod.clone());
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name), None);
 }
@@ -94,7 +94,7 @@ async fn test_handle_pod_event_applied(mut test_pod: corev1::Pod, clock: Box<Moc
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Applied(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
 }
@@ -116,7 +116,7 @@ async fn test_handle_pod_event_applied_already_stored(
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Applied(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name).unwrap(), stored_data);
 }
@@ -133,7 +133,7 @@ async fn test_handle_pod_event_applied_running_to_finished(mut test_pod: corev1:
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Applied(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
 }
@@ -152,7 +152,7 @@ async fn test_handle_pod_event_applied_running_to_finished_wrong_start_ts(
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Applied(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name).unwrap(), stored_data);
 }
@@ -175,7 +175,7 @@ async fn test_handle_pod_event_deleted_no_update(
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Deleted(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name), None);
 }
@@ -203,7 +203,7 @@ async fn test_handle_pod_event_deleted_finished(
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Deleted(test_pod);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name), None);
 }
@@ -224,7 +224,7 @@ async fn test_handle_pod_event_deleted_running(mut test_pod: corev1::Pod, mut cl
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Deleted(test_pod.clone());
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name), None);
 }
@@ -242,7 +242,7 @@ async fn test_handle_pod_event_deleted_no_container_data(test_pod: corev1::Pod, 
 
     let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), Some(&expected_data));
     let mut evt = Event::Deleted(test_pod);
-    pw.handle_pod_event(&mut evt).await.unwrap();
+    pw.handle_pod_event(&mut evt).await;
 
     assert_eq!(pw.get_owned_pod_lifecycle(&ns_name), None);
 }
@@ -251,16 +251,20 @@ async fn test_handle_pod_event_deleted_no_container_data(test_pod: corev1::Pod, 
 #[traced_test]
 #[tokio::test]
 async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
-    let pod_names = ["pod1", "pod2", "pod3"].map(|name| format!("{}/{}", TEST_NAMESPACE, name));
+    // This test probably requires some explanation: pod0 and pod1 are testing that when a
+    // restart event comes in, updated or unchanged data is processed correctly.  pod2 will fail
+    // because there is no stored ownership data, and this is testing that we correctly continue
+    // processing on an error.  pod3 is testing that we handle deletes correctly.
+    let pod_names = ["pod0", "pod1", "pod2", "pod3"].map(|name| format!("{}/{}", TEST_NAMESPACE, name));
     let pod_lifecycles: HashMap<String, PodLifecycleData> = pod_names
         .iter()
         .map(|ns_name| (ns_name.clone(), PodLifecycleData::Running(START_TS)))
         .collect();
 
+    let mut update_pod0 = test_pod("pod0".into());
+    pods::add_finished_container(&mut update_pod0, START_TS, END_TS);
     let mut update_pod1 = test_pod("pod1".into());
-    pods::add_finished_container(&mut update_pod1, START_TS, END_TS);
-    let mut update_pod2 = test_pod("pod2".into());
-    pods::add_running_container(&mut update_pod2, START_TS);
+    pods::add_running_container(&mut update_pod1, START_TS);
 
     let clock_ts = clock.set(10000);
 
@@ -268,7 +272,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
     let _ = store
         .expect_record_pod_lifecycle()
         .with(
-            predicate::eq("test/pod1"),
+            predicate::eq(pod_names[0].clone()),
             predicate::eq(vec![]),
             predicate::eq(PodLifecycleData::Finished(START_TS, END_TS)),
         )
@@ -277,13 +281,15 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
 
     let _ = store
         .expect_record_pod_lifecycle()
-        .with(predicate::eq("test/pod2".to_string()), predicate::eq(vec![]), predicate::always())
+        .with(predicate::eq(pod_names[1].clone()), predicate::eq(vec![]), predicate::always())
         .never();
+
+    // no expectations for pod2, because it errors out
 
     let _ = store
         .expect_record_pod_lifecycle()
         .with(
-            predicate::eq("test/pod3".to_string()),
+            predicate::eq(pod_names[3].clone()),
             predicate::eq(vec![]),
             predicate::eq(PodLifecycleData::Finished(START_TS, clock_ts)),
         )
@@ -291,9 +297,10 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         .once();
 
     let mut cache = SizedCache::with_size(CACHE_SIZE);
-    for ns_name in &pod_names {
-        cache.cache_set(ns_name.clone(), vec![]);
-    }
+    cache.cache_set(pod_names[0].clone(), vec![]);
+    cache.cache_set(pod_names[1].clone(), vec![]);
+    // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
+    cache.cache_set(pod_names[3].clone(), vec![]);
 
     let (_, apiset) = make_fake_apiserver();
     let mut pw = PodWatcher::new_from_parts(
@@ -305,12 +312,13 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         clock,
     );
 
-    let mut evt = Event::Restarted(vec![update_pod1, update_pod2]);
+    let mut evt = Event::Restarted(vec![update_pod0, update_pod1]);
 
-    pw.handle_pod_event(&mut evt).await.unwrap();
-    assert_eq!(pw.get_owned_pod_lifecycle("test/pod1").unwrap(), PodLifecycleData::Finished(START_TS, END_TS));
-    assert_eq!(pw.get_owned_pod_lifecycle("test/pod2").unwrap(), PodLifecycleData::Running(START_TS));
-    assert_eq!(pw.get_owned_pod_lifecycle("test/pod3"), None);
+    pw.handle_pod_event(&mut evt).await;
+    assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[0]).unwrap(), PodLifecycleData::Finished(START_TS, END_TS));
+    assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[1]).unwrap(), PodLifecycleData::Running(START_TS));
+    assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[2]), None); // pod2 should still be deleted from our index
+    assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[3]), None);
 }
 
 #[rstest]
