@@ -36,6 +36,9 @@ impl MockServerBuilder {
             self.server.mock(f);
         }
 
+        // Print all unmatched/unhandled requests for easier debugging;
+        // this has to go last so that the other mock rules have a chance
+        // to match first
         self.server.mock(|when, _| {
             when.matches(print_req);
         });

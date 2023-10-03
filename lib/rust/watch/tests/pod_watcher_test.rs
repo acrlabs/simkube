@@ -376,7 +376,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
             "items": [
                 {
                     "metadata": {
-                        "namespace": "test",
+                        "namespace": TEST_NAMESPACE,
                         "name": "test-rs",
                         "ownerReferences": [rs_owner],
                     }
@@ -392,7 +392,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
             "items": [
                 {
                     "metadata": {
-                        "namespace": "test",
+                        "namespace": TEST_NAMESPACE,
                         "name": "test-depl",
                     }
                 },
