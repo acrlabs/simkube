@@ -9,10 +9,10 @@ const CONTAINER_PREFIX: &str = "container";
 const INIT_CONTAINER_PREFIX: &str = "init-container";
 
 #[fixture]
-pub fn test_pod(#[default("test".into())] namespace: String, #[default("the-pod".into())] name: String) -> corev1::Pod {
+pub fn test_pod(#[default("the-pod".into())] name: String) -> corev1::Pod {
     corev1::Pod {
         metadata: metav1::ObjectMeta {
-            namespace: Some(namespace),
+            namespace: Some(TEST_NAMESPACE.into()),
             name: Some(name),
             labels: klabel!("foo" = "bar"),
             ..Default::default()

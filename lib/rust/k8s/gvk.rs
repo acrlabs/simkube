@@ -92,16 +92,3 @@ impl<'de> Deserialize<'de> for GVK {
         deserializer.deserialize_str(GVKVisitor)
     }
 }
-
-#[cfg(test)]
-impl GVK {
-    pub fn guess_api_resource(&self) -> kube::api::ApiResource {
-        kube::api::ApiResource {
-            group: self.group.clone(),
-            version: self.version.clone(),
-            api_version: self.api_version(),
-            kind: self.kind.clone(),
-            plural: format!("{}s", self.kind),
-        }
-    }
-}

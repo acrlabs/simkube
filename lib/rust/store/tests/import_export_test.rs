@@ -11,18 +11,19 @@ use crate::store::{
     TraceFilter,
     TraceStore,
 };
-use crate::testutils::MockUtcClock;
+use crate::testutils::{
+    MockUtcClock,
+    TEST_NAMESPACE,
+};
 use crate::watch::{
     DynObjWatcher,
     KubeObjectStream,
 };
 
-const TESTING_NAMESPACE: &str = "test";
-
 fn test_pod(idx: i64) -> DynamicObject {
     return DynamicObject {
         metadata: metav1::ObjectMeta {
-            namespace: Some(TESTING_NAMESPACE.into()),
+            namespace: Some(TEST_NAMESPACE.into()),
             name: Some(format!("pod{}", idx).into()),
             ..Default::default()
         },
