@@ -12,23 +12,22 @@ use futures::{
     stream,
     StreamExt,
 };
-use hyper::Body;
+use kube::ResourceExt;
 use mockall::predicate;
+use serde_json::json;
 use tracing_test::*;
 
 use super::*;
 use crate::k8s::{
-    ApiSet,
     KubeResourceExt,
     PodLifecycleData,
-    GVK,
 };
 use crate::store::MockTraceStorable;
-use crate::testutils::{
-    pods,
-    test_pod,
-    MockUtcClock,
+use crate::testutils::fake::{
+    apps_v1_discovery,
+    make_fake_apiserver,
 };
+use crate::testutils::*;
 
 const START_TS: i64 = 1234;
 const END_TS: i64 = 5678;
@@ -38,27 +37,8 @@ fn clock() -> Box<MockUtcClock> {
     MockUtcClock::new(START_TS)
 }
 
-#[fixture]
-fn client() -> kube::Client {
-    let (mock_service, _) = tower_test::mock::pair::<http::Request<Body>, http::Response<Body>>();
-    kube::Client::new(mock_service, "default")
-}
-
-#[fixture]
-fn apiset(client: kube::Client) -> ApiSet {
-    let gvk = GVK::new("foo", "v1", "bar");
-    let ar = gvk.guess_api_resource();
-
-    let api_resources = HashMap::from([(gvk.clone(), ar.clone())]);
-    let api: kube::Api<DynamicObject> = kube::Api::all_with(client.clone(), &ar);
-    let apis = HashMap::from([(gvk, api)]);
-
-    ApiSet::new_from_parts(client.clone(), api_resources, apis, HashMap::new())
-}
-
 fn make_pod_watcher(
     ns_name: &str,
-    apiset: ApiSet,
     clock: Box<MockUtcClock>,
     stored_data: Option<&PodLifecycleData>,
     expected_data: Option<&PodLifecycleData>,
@@ -78,6 +58,7 @@ fn make_pod_watcher(
         HashMap::new()
     };
 
+    let (_, apiset) = make_fake_apiserver();
     PodWatcher::new_from_parts(
         apiset,
         stream::empty().boxed(),
@@ -91,9 +72,9 @@ fn make_pod_watcher(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_applied_empty(test_pod: corev1::Pod, apiset: ApiSet, clock: Box<MockUtcClock>) {
+async fn test_handle_pod_event_applied_empty(test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, None, None);
+    let mut pw = make_pod_watcher(&ns_name, clock, None, None);
 
     let mut evt = Event::Applied(test_pod.clone());
 
@@ -105,10 +86,10 @@ async fn test_handle_pod_event_applied_empty(test_pod: corev1::Pod, apiset: ApiS
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_applied(mut test_pod: corev1::Pod, apiset: ApiSet, clock: Box<MockUtcClock>) {
+async fn test_handle_pod_event_applied(mut test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
     let expected_data = PodLifecycleData::Running(START_TS);
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, None, Some(&expected_data));
+    let mut pw = make_pod_watcher(&ns_name, clock, None, Some(&expected_data));
 
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Applied(test_pod);
@@ -125,13 +106,12 @@ async fn test_handle_pod_event_applied(mut test_pod: corev1::Pod, apiset: ApiSet
 #[tokio::test]
 async fn test_handle_pod_event_applied_already_stored(
     mut test_pod: corev1::Pod,
-    apiset: ApiSet,
     clock: Box<MockUtcClock>,
     #[case] stored_ts: i64,
 ) {
     let ns_name = test_pod.namespaced_name();
     let stored_data = PodLifecycleData::Running(stored_ts);
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), None);
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), None);
 
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Applied(test_pod);
@@ -144,15 +124,11 @@ async fn test_handle_pod_event_applied_already_stored(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_applied_running_to_finished(
-    mut test_pod: corev1::Pod,
-    apiset: ApiSet,
-    clock: Box<MockUtcClock>,
-) {
+async fn test_handle_pod_event_applied_running_to_finished(mut test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
     let stored_data = PodLifecycleData::Running(START_TS);
     let expected_data = PodLifecycleData::Finished(START_TS, END_TS);
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), Some(&expected_data));
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), Some(&expected_data));
 
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Applied(test_pod);
@@ -167,12 +143,11 @@ async fn test_handle_pod_event_applied_running_to_finished(
 #[tokio::test]
 async fn test_handle_pod_event_applied_running_to_finished_wrong_start_ts(
     mut test_pod: corev1::Pod,
-    apiset: ApiSet,
     clock: Box<MockUtcClock>,
 ) {
     let ns_name = test_pod.namespaced_name();
     let stored_data = PodLifecycleData::Running(5555);
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), None);
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), None);
 
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Applied(test_pod);
@@ -189,14 +164,13 @@ async fn test_handle_pod_event_applied_running_to_finished_wrong_start_ts(
 #[tokio::test]
 async fn test_handle_pod_event_deleted_no_update(
     mut test_pod: corev1::Pod,
-    apiset: ApiSet,
     mut clock: Box<MockUtcClock>,
     #[case] stored_data: Option<&PodLifecycleData>,
 ) {
     let ns_name = test_pod.namespaced_name();
     clock.set(END_TS);
 
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, stored_data, None);
+    let mut pw = make_pod_watcher(&ns_name, clock, stored_data, None);
 
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Deleted(test_pod);
@@ -213,7 +187,6 @@ async fn test_handle_pod_event_deleted_no_update(
 #[tokio::test]
 async fn test_handle_pod_event_deleted_finished(
     mut test_pod: corev1::Pod,
-    apiset: ApiSet,
     mut clock: Box<MockUtcClock>,
     #[case] old_finished: bool,
 ) {
@@ -225,7 +198,7 @@ async fn test_handle_pod_event_deleted_finished(
     let expected_data = if old_finished { None } else { Some(&finished) };
     clock.set(10000);
 
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), expected_data);
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), expected_data);
 
     pods::add_finished_container(&mut test_pod, START_TS, END_TS);
     let mut evt = Event::Deleted(test_pod);
@@ -238,11 +211,7 @@ async fn test_handle_pod_event_deleted_finished(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_deleted_running(
-    mut test_pod: corev1::Pod,
-    apiset: ApiSet,
-    mut clock: Box<MockUtcClock>,
-) {
+async fn test_handle_pod_event_deleted_running(mut test_pod: corev1::Pod, mut clock: Box<MockUtcClock>) {
     // Here the pod is still "running" when the delete call comes in, so we
     // expect the end_ts in the lifecycle data to match the current time
     let ns_name = test_pod.namespaced_name();
@@ -250,7 +219,7 @@ async fn test_handle_pod_event_deleted_running(
     let expected_data = PodLifecycleData::Finished(START_TS, END_TS);
     clock.set(END_TS);
 
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), Some(&expected_data));
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), Some(&expected_data));
 
     pods::add_running_container(&mut test_pod, START_TS);
     let mut evt = Event::Deleted(test_pod.clone());
@@ -263,11 +232,7 @@ async fn test_handle_pod_event_deleted_running(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_deleted_no_container_data(
-    test_pod: corev1::Pod,
-    apiset: ApiSet,
-    mut clock: Box<MockUtcClock>,
-) {
+async fn test_handle_pod_event_deleted_no_container_data(test_pod: corev1::Pod, mut clock: Box<MockUtcClock>) {
     // Same as the test case above, except this time the pod object
     // doesn't include any info about its containers, it just has metadata
     let ns_name = test_pod.namespaced_name();
@@ -275,7 +240,7 @@ async fn test_handle_pod_event_deleted_no_container_data(
     let expected_data = PodLifecycleData::Finished(START_TS, END_TS);
     clock.set(END_TS);
 
-    let mut pw = make_pod_watcher(&ns_name, apiset, clock, Some(&stored_data), Some(&expected_data));
+    let mut pw = make_pod_watcher(&ns_name, clock, Some(&stored_data), Some(&expected_data));
     let mut evt = Event::Deleted(test_pod);
     pw.handle_pod_event(&mut evt).await.unwrap();
 
@@ -285,15 +250,16 @@ async fn test_handle_pod_event_deleted_no_container_data(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_handle_pod_event_restarted(apiset: ApiSet, mut clock: Box<MockUtcClock>) {
-    let pod_lifecycles = [
-        ("test/pod1".to_string(), PodLifecycleData::Running(START_TS)),
-        ("test/pod2".to_string(), PodLifecycleData::Running(START_TS)),
-        ("test/pod3".to_string(), PodLifecycleData::Running(START_TS)),
-    ];
-    let mut update_pod1 = test_pod("test".into(), "pod1".into());
+async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
+    let pod_names = ["pod1", "pod2", "pod3"].map(|name| format!("{}/{}", TEST_NAMESPACE, name));
+    let pod_lifecycles: HashMap<String, PodLifecycleData> = pod_names
+        .iter()
+        .map(|ns_name| (ns_name.clone(), PodLifecycleData::Running(START_TS)))
+        .collect();
+
+    let mut update_pod1 = test_pod("pod1".into());
     pods::add_finished_container(&mut update_pod1, START_TS, END_TS);
-    let mut update_pod2 = test_pod("test".into(), "pod2".into());
+    let mut update_pod2 = test_pod("pod2".into());
     pods::add_running_container(&mut update_pod2, START_TS);
 
     let clock_ts = clock.set(10000);
@@ -325,14 +291,15 @@ async fn test_handle_pod_event_restarted(apiset: ApiSet, mut clock: Box<MockUtcC
         .once();
 
     let mut cache = SizedCache::with_size(CACHE_SIZE);
-    cache.cache_set("test/pod1".into(), vec![]);
-    cache.cache_set("test/pod2".into(), vec![]);
-    cache.cache_set("test/pod3".into(), vec![]);
+    for ns_name in &pod_names {
+        cache.cache_set(ns_name.clone(), vec![]);
+    }
 
+    let (_, apiset) = make_fake_apiserver();
     let mut pw = PodWatcher::new_from_parts(
         apiset,
         stream::empty().boxed(),
-        HashMap::from(pod_lifecycles),
+        pod_lifecycles,
         cache,
         Arc::new(Mutex::new(store)),
         clock,
@@ -344,4 +311,100 @@ async fn test_handle_pod_event_restarted(apiset: ApiSet, mut clock: Box<MockUtcC
     assert_eq!(pw.get_owned_pod_lifecycle("test/pod1").unwrap(), PodLifecycleData::Finished(START_TS, END_TS));
     assert_eq!(pw.get_owned_pod_lifecycle("test/pod2").unwrap(), PodLifecycleData::Running(START_TS));
     assert_eq!(pw.get_owned_pod_lifecycle("test/pod3"), None);
+}
+
+#[rstest]
+#[traced_test]
+#[tokio::test]
+async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
+    let rsref = metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "replicaset".into(),
+        name: "test-rs".into(),
+        uid: "asdfasdf".into(),
+        ..Default::default()
+    };
+    let deplref = metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "deployment".into(),
+        name: "test-depl".into(),
+        uid: "yuioyoiuy".into(),
+        ..Default::default()
+    };
+
+    test_pod.owner_references_mut().push(rsref.clone());
+    let expected_owners = vec![rsref, deplref];
+
+    let mut cache = SizedCache::with_size(CACHE_SIZE);
+    cache.cache_set(test_pod.namespaced_name(), expected_owners.clone());
+
+    let (_, mut apiset) = make_fake_apiserver();
+    let res = compute_owner_chain(&mut apiset, &test_pod, &mut cache).await.unwrap();
+    assert_eq!(res, expected_owners);
+}
+
+#[rstest]
+#[traced_test]
+#[tokio::test]
+async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
+    let rsref = metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "ReplicaSet".into(),
+        name: "test-rs".into(),
+        uid: "asdfasdf".into(),
+        ..Default::default()
+    };
+    let deplref = metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "Deployment".into(),
+        name: "test-depl".into(),
+        uid: "yuioyoiuy".into(),
+        ..Default::default()
+    };
+
+    let (mut fake_apiserver, mut apiset) = make_fake_apiserver();
+    fake_apiserver.handle(|when, then| {
+        when.path("/apis/apps/v1");
+        then.json_body(apps_v1_discovery());
+    });
+
+    let rs_owner = deplref.clone();
+    fake_apiserver.handle(move |when, then| {
+        when.path("/apis/apps/v1/replicasets");
+        then.json_body(json!({
+            "metadata": {},
+            "items": [
+                {
+                    "metadata": {
+                        "namespace": "test",
+                        "name": "test-rs",
+                        "ownerReferences": [rs_owner],
+                    }
+                },
+            ],
+        }));
+    });
+
+    fake_apiserver.handle(move |when, then| {
+        when.path("/apis/apps/v1/deployments");
+        then.json_body(json!({
+            "metadata": {},
+            "items": [
+                {
+                    "metadata": {
+                        "namespace": "test",
+                        "name": "test-depl",
+                    }
+                },
+            ],
+        }));
+    });
+    fake_apiserver.build();
+
+    test_pod.owner_references_mut().push(rsref.clone());
+    let res = compute_owner_chain(&mut apiset, &test_pod, &mut SizedCache::with_size(CACHE_SIZE))
+        .await
+        .unwrap();
+
+    assert_eq!(res, vec![rsref, deplref]);
 }

@@ -4,8 +4,8 @@ use serde_json::json;
 
 use super::*;
 use crate::k8s::KubeResourceExt;
+use crate::testutils::TEST_NAMESPACE;
 
-const TESTING_NAMESPACE: &str = "test";
 const EMPTY_SPEC_HASH: u64 = 15130871412783076140;
 
 #[fixture]
@@ -14,7 +14,7 @@ fn tracer() -> TraceStore {
 }
 
 #[fixture]
-fn test_obj(#[default(TESTING_NAMESPACE)] namespace: &str, #[default("obj")] name: &str) -> DynamicObject {
+fn test_obj(#[default(TEST_NAMESPACE)] namespace: &str, #[default("obj")] name: &str) -> DynamicObject {
     DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some(namespace.into()),

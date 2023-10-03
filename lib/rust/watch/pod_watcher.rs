@@ -180,25 +180,26 @@ impl PodWatcher {
 }
 
 #[async_recursion]
-async fn compute_owner_chain(
+pub(super) async fn compute_owner_chain(
     apiset: &mut ApiSet,
     obj: &(impl Resource + Sync),
     cache: &mut OwnerCache,
 ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
     let ns_name = obj.namespaced_name();
+    info!("computing owner references for {}", ns_name);
 
     if let Some(owners) = cache.cache_get(&ns_name) {
         info!("found owners for {} in cache", ns_name);
         return Ok(owners.clone());
     }
 
-    info!("computing owner references for {}", ns_name);
     let mut owners = Vec::from(obj.owner_references());
 
     for rf in obj.owner_references() {
         let gvk = GVK::from_owner_ref(rf)?;
         let api = apiset.api_for(gvk).await?;
         let resp = api.list(&list_params_for(&obj.namespace().unwrap(), &rf.name)).await?;
+        println!("FOO BAR {:?}", resp);
         if resp.items.len() != 1 {
             bail!("could not find single owner for {}, found {:?}", obj.namespaced_name(), resp.items);
         }

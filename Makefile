@@ -45,7 +45,7 @@ test-go:
 test-rust:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test -- --nocapture
+	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) -- --nocapture
 
 cover: cover-go cover-rust
 
