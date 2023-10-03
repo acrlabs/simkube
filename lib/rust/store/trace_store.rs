@@ -171,10 +171,19 @@ impl TraceStorable for TraceStore {
 
     fn record_pod_lifecycle(
         &mut self,
-        _ns_name: &str,
-        _owners: Vec<metav1::OwnerReference>,
-        _lifecycle_data: &PodLifecycleData,
+        ns_name: &str,
+        owners: Vec<metav1::OwnerReference>,
+        lifecycle_data: &PodLifecycleData,
     ) {
+        info!(
+            "{} owned by {:?} is {:?}",
+            ns_name,
+            owners
+                .iter()
+                .map(|rf| format!("{}/{}", rf.kind, rf.name))
+                .collect::<Vec<String>>(),
+            lifecycle_data
+        );
     }
 }
 

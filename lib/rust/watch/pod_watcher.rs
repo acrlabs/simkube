@@ -74,47 +74,52 @@ impl PodWatcher {
     pub async fn start(mut self) {
         while let Some(res) = self.pod_stream.next().await {
             match res {
-                Ok(mut evt) => {
-                    let _ = self.handle_pod_event(&mut evt).await;
-                },
+                Ok(mut evt) => self.handle_pod_event(&mut evt).await,
                 Err(e) => error!("pod watcher received error on stream: {}", e),
             }
         }
     }
 
-    pub(super) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) -> EmptyResult {
+    pub(super) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) {
         match evt {
             Event::Applied(pod) => {
                 let ns_name = pod.namespaced_name();
-                self.handle_pod_applied(&ns_name, pod).await?;
+                if let Err(e) = self.handle_pod_applied(&ns_name, pod).await {
+                    error!("applied pod {} lifecycle data could not be stored: {}", ns_name, e);
+                }
             },
             Event::Deleted(pod) => {
                 let ns_name = pod.namespaced_name();
                 let current_lifecycle_data = match self.owned_pods.get(&ns_name) {
                     None => {
                         warn!("pod {} deleted but not tracked, may have already been processed", ns_name);
-                        return Ok(());
+                        return;
                     },
                     Some(data) => data.clone(),
                 };
-                self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data).await?;
+                if let Err(e) = self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data).await {
+                    error!("deleted pod {} lifecycle data could not be stored: {}", ns_name, e);
+                }
             },
             Event::Restarted(pods) => {
                 let mut old_owned_pods = take(&mut self.owned_pods);
                 for pod in pods {
                     let ns_name = &pod.namespaced_name();
-                    let current_lifecycle_data = old_owned_pods.remove(ns_name).unwrap();
-                    self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
-                    self.handle_pod_applied(ns_name, pod).await?;
+                    if let Some(current_lifecycle_data) = old_owned_pods.remove(ns_name) {
+                        self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
+                    }
+                    if let Err(e) = self.handle_pod_applied(ns_name, pod).await {
+                        error!("applied pod {} lifecycle data could not be stored: {} (watcher restart)", ns_name, e);
+                    }
                 }
 
                 for (ns_name, current_lifecycle_data) in &old_owned_pods {
-                    self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone()).await?;
+                    if let Err(e) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone()).await {
+                        error!("deleted pod {} lifecycle data could not be stored: {} (watcher restart)", ns_name, e);
+                    }
                 }
             },
         };
-
-        Ok(())
     }
 
     async fn handle_pod_applied(&mut self, ns_name: &str, pod: &corev1::Pod) -> EmptyResult {
@@ -199,7 +204,6 @@ pub(super) async fn compute_owner_chain(
         let gvk = GVK::from_owner_ref(rf)?;
         let api = apiset.api_for(gvk).await?;
         let resp = api.list(&list_params_for(&obj.namespace().unwrap(), &rf.name)).await?;
-        println!("FOO BAR {:?}", resp);
         if resp.items.len() != 1 {
             bail!("could not find single owner for {}, found {:?}", obj.namespaced_name(), resp.items);
         }
