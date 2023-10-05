@@ -1,3 +1,4 @@
+use assertables::*;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde_json::json;
@@ -31,6 +32,65 @@ fn test_obj(#[default("obj")] name: &str) -> DynamicObject {
 #[fixture]
 fn owner_ref() -> metav1::OwnerReference {
     metav1::OwnerReference { name: DEPLOYMENT_NAME.into(), ..Default::default() }
+}
+
+#[rstest]
+fn test_collect_events_filtered(mut tracer: TraceStore) {
+    tracer.events = [("obj1", 0), ("obj2", 1), ("obj3", 5), ("obj4", 10), ("obj5", 15)]
+        .iter()
+        .map(|(name, ts)| TraceEvent {
+            ts: *ts,
+            applied_objs: vec![test_obj(name)],
+            deleted_objs: vec![],
+        })
+        .collect();
+
+    let (events, index) = tracer.collect_events(
+        1,
+        10,
+        &TraceFilter {
+            excluded_namespaces: vec![TEST_NAMESPACE.into()],
+            ..Default::default()
+        },
+        false,
+    );
+
+    // Always an empty event at the beginning
+    assert_eq!(events, vec![TraceEvent { ts: 1, ..Default::default() }]);
+    assert!(index.is_empty());
+}
+
+#[rstest]
+fn test_collect_events(mut tracer: TraceStore) {
+    let mut all_events: Vec<_> = [("obj1", 0), ("obj2", 1), ("obj3", 5), ("obj4", 10), ("obj5", 15)]
+        .iter()
+        .map(|(name, ts)| TraceEvent {
+            ts: *ts,
+            applied_objs: vec![test_obj(name)],
+            deleted_objs: vec![],
+        })
+        .collect();
+    all_events.insert(
+        3,
+        TraceEvent {
+            ts: 4,
+            applied_objs: vec![],
+            deleted_objs: vec![test_obj("obj2")],
+        },
+    );
+    all_events.push(TraceEvent {
+        ts: 25,
+        applied_objs: vec![],
+        deleted_objs: vec![test_obj("obj1")],
+    });
+    tracer.events = all_events.clone().into();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true);
+
+    // The first object was created before the collection started so the timestamp changes
+    all_events[0].ts = 1;
+    assert_eq!(events, all_events[0..4]);
+    let keys: Vec<_> = index.into_keys().collect();
+    assert_bag_eq!(keys, ["test/obj1", "test/obj2", "test/obj3"].map(|s| s.to_string()));
 }
 
 #[rstest]

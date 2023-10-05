@@ -51,6 +51,7 @@ features = ["client", "derive", "runtime", "rustls-tls"]
 default-features = false
 
 [dev-dependencies]
+assertables = "7.0.1"
 http = "0.2.9"
 httpmock = "0.6.8"
 hyper = "0.14.27"

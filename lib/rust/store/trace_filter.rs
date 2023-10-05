@@ -5,21 +5,11 @@ use serde::Deserialize;
 use super::TraceEvent;
 use crate::k8s::KubeResourceExt;
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Default, Deserialize, Debug, Clone)]
 pub struct TraceFilter {
     pub excluded_namespaces: Vec<String>,
     pub excluded_labels: Vec<metav1::LabelSelector>,
     pub exclude_daemonsets: bool,
-}
-
-impl TraceFilter {
-    pub fn blank() -> TraceFilter {
-        TraceFilter {
-            excluded_namespaces: vec![],
-            excluded_labels: vec![],
-            exclude_daemonsets: false,
-        }
-    }
 }
 
 pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
