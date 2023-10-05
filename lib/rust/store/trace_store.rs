@@ -1,7 +1,6 @@
 use std::collections::{
     HashMap,
     HashSet,
-    VecDeque,
 };
 use std::mem::take;
 use std::sync::{
@@ -10,24 +9,16 @@ use std::sync::{
 };
 
 use kube::api::DynamicObject;
+use kube::ResourceExt;
 use tracing::*;
 
 use super::*;
-use crate::config::TracerConfig;
 use crate::jsonutils;
 use crate::k8s::{
     make_deletable,
     KubeResourceExt,
     PodLifecycleData,
 };
-
-#[derive(Default)]
-pub struct TraceStore {
-    pub(super) config: TracerConfig,
-    pub(super) events: VecDeque<TraceEvent>,
-    pub(super) _pod_owners: OwnedPodMap,
-    pub(super) index: HashMap<String, u64>,
-}
 
 impl TraceStore {
     pub fn new(config: TracerConfig) -> Arc<Mutex<TraceStore>> {
@@ -115,7 +106,7 @@ impl TraceStore {
                     if new_evt.ts < start_ts {
                         flattened_objects.insert(ns_name.clone(), obj.clone());
                     }
-                    let hash = jsonutils::hash(obj.data.get("spec"));
+                    let hash = jsonutils::hash_option(obj.data.get("spec"));
                     index.insert(ns_name, hash);
                 }
 
@@ -141,7 +132,7 @@ impl TraceStore {
 impl TraceStorable for TraceStore {
     fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) {
         let ns_name = obj.namespaced_name();
-        let new_hash = jsonutils::hash(obj.data.get("spec"));
+        let new_hash = jsonutils::hash_option(obj.data.get("spec"));
         let old_hash = if maybe_old_hash.is_some() { maybe_old_hash } else { self.index.get(&ns_name).cloned() };
 
         if Some(new_hash) != old_hash {
@@ -172,9 +163,10 @@ impl TraceStorable for TraceStore {
     fn record_pod_lifecycle(
         &mut self,
         ns_name: &str,
+        maybe_pod: Option<corev1::Pod>,
         owners: Vec<metav1::OwnerReference>,
-        lifecycle_data: &PodLifecycleData,
-    ) {
+        lifecycle_data: PodLifecycleData,
+    ) -> EmptyResult {
         info!(
             "{} owned by {:?} is {:?}",
             ns_name,
@@ -184,6 +176,25 @@ impl TraceStorable for TraceStore {
                 .collect::<Vec<String>>(),
             lifecycle_data
         );
+
+        if self.pod_owners.has_pod(ns_name) {
+            self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
+        } else if let Some(pod) = &maybe_pod {
+            for rf in &owners {
+                let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), rf.name);
+                if !self.index.contains_key(&owner_ns_name) {
+                    continue;
+                }
+                let hash = jsonutils::hash(&serde_json::to_value(&pod.spec)?);
+                self.pod_owners
+                    .store_new_pod_lifecycle(ns_name, &owner_ns_name, hash, lifecycle_data);
+                break;
+            }
+        } else {
+            bail!("no pod ownership data found for {}, cannot store", ns_name);
+        }
+
+        Ok(())
     }
 }
 

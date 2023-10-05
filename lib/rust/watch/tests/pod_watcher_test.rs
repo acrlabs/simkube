@@ -47,8 +47,13 @@ fn make_pod_watcher(
     if let Some(data) = expected_data {
         let _ = store
             .expect_record_pod_lifecycle()
-            .with(predicate::eq(ns_name.to_string()), predicate::eq(vec![]), predicate::eq(data.clone()))
-            .return_const(())
+            .with(
+                predicate::eq(ns_name.to_string()),
+                predicate::always(),
+                predicate::eq(vec![]),
+                predicate::eq(data.clone()),
+            )
+            .returning(|_, _, _, _| Ok(()))
             .once();
     }
 
@@ -273,27 +278,33 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         .expect_record_pod_lifecycle()
         .with(
             predicate::eq(pod_names[0].clone()),
+            predicate::always(),
             predicate::eq(vec![]),
             predicate::eq(PodLifecycleData::Finished(START_TS, END_TS)),
         )
-        .return_const(())
+        .returning(|_, _, _, _| Ok(()))
         .once();
 
     let _ = store
         .expect_record_pod_lifecycle()
-        .with(predicate::eq(pod_names[1].clone()), predicate::eq(vec![]), predicate::always())
+        .with(predicate::eq(pod_names[1].clone()), predicate::always(), predicate::eq(vec![]), predicate::always())
         .never();
 
     // no expectations for pod2, because it errors out
+    let _ = store
+        .expect_record_pod_lifecycle()
+        .with(predicate::eq(pod_names[2].clone()), predicate::always(), predicate::eq(vec![]), predicate::always())
+        .never();
 
     let _ = store
         .expect_record_pod_lifecycle()
         .with(
             predicate::eq(pod_names[3].clone()),
+            predicate::eq(None),
             predicate::eq(vec![]),
             predicate::eq(PodLifecycleData::Finished(START_TS, clock_ts)),
         )
-        .return_const(())
+        .returning(|_, _, _, _| Ok(()))
         .once();
 
     let mut cache = SizedCache::with_size(CACHE_SIZE);
