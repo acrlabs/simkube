@@ -16,7 +16,10 @@ use serde::{
     Serialize,
 };
 
-use self::pod_owners_map::PodOwnersMap;
+use self::pod_owners_map::{
+    PodLifecyclesMap,
+    PodOwnersMap,
+};
 use self::trace_filter::filter_event;
 pub use self::trace_filter::TraceFilter;
 use crate::config::TracerConfig;
@@ -29,7 +32,7 @@ enum TraceAction {
     ObjectDeleted,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct TraceEvent {
     pub ts: i64,
     pub applied_objs: Vec<DynamicObject>,
@@ -49,7 +52,6 @@ pub(crate) trait TraceStorable {
         lifecycle_data: PodLifecycleData,
     ) -> EmptyResult;
 }
-
 
 #[derive(Default)]
 pub struct TraceStore {

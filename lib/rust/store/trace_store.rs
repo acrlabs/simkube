@@ -26,10 +26,17 @@ impl TraceStore {
     }
 
     pub fn import(data: Vec<u8>) -> anyhow::Result<TraceStore> {
-        let (config, events): (TracerConfig, VecDeque<TraceEvent>) = rmp_serde::from_slice(&data)?;
+        let (config, events, lifecycle_data): (TracerConfig, VecDeque<TraceEvent>, HashMap<String, PodLifecyclesMap>) =
+            rmp_serde::from_slice(&data)?;
 
-        let mut tracer = TraceStore { config, events, ..Default::default() };
-        let (_, index) = tracer.collect_events(0, i64::MAX, &TraceFilter::blank());
+        let mut tracer = TraceStore {
+            config,
+            events,
+            pod_owners: PodOwnersMap::new_from_parts(lifecycle_data, HashMap::new()),
+            ..Default::default()
+        };
+
+        let (_, index) = tracer.collect_events(0, i64::MAX, &Default::default(), false);
         tracer.index = index;
 
         Ok(tracer)
@@ -41,8 +48,9 @@ impl TraceStore {
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {:?}", filter);
-        let (events, _) = self.collect_events(start_ts, end_ts, filter);
-        let data = rmp_serde::to_vec_named(&(&self.config, &events))?;
+        let (events, index) = self.collect_events(start_ts, end_ts, filter, true);
+        let lifecycle_data = self.pod_owners.filter(start_ts, end_ts, &index);
+        let data = rmp_serde::to_vec_named(&(&self.config, &events, &lifecycle_data))?;
 
         info!("Exported {} events.", events.len());
         Ok(data)
@@ -53,8 +61,8 @@ impl TraceStore {
     }
 
     pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
-        let (_, index) = self.collect_events(0, end_ts, filter);
-        index.keys().cloned().collect()
+        let (_, index) = self.collect_events(0, end_ts, filter, false);
+        index.into_keys().collect()
     }
 
     pub fn start_ts(&self) -> Option<i64> {
@@ -64,31 +72,16 @@ impl TraceStore {
         }
     }
 
-    fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
-        info!("{} - {:?} @ {}", obj.namespaced_name(), action, ts);
-
-        let obj = obj.clone();
-        match self.events.back_mut() {
-            Some(evt) if evt.ts == ts => match action {
-                TraceAction::ObjectApplied => evt.applied_objs.push(obj),
-                TraceAction::ObjectDeleted => evt.deleted_objs.push(obj),
-            },
-            _ => {
-                let evt = match action {
-                    TraceAction::ObjectApplied => TraceEvent { ts, applied_objs: vec![obj], ..Default::default() },
-                    TraceAction::ObjectDeleted => TraceEvent { ts, deleted_objs: vec![obj], ..Default::default() },
-                };
-                self.events.push_back(evt);
-            },
-        }
-    }
-
-    fn collect_events(
+    pub(super) fn collect_events(
         &self,
         start_ts: i64,
         end_ts: i64,
         filter: &TraceFilter,
+        keep_deleted: bool,
     ) -> (Vec<TraceEvent>, HashMap<String, u64>) {
+        // TODO this is not a huge inefficiency but it is a little annoying to have
+        // an empty event at the start_ts if there aren't any events that happened
+        // exactly at the start_ts
         let mut events = vec![TraceEvent { ts: start_ts, ..Default::default() }];
         let mut flattened_objects = HashMap::new();
         let mut index = HashMap::new();
@@ -115,7 +108,9 @@ impl TraceStore {
                     if new_evt.ts < start_ts {
                         flattened_objects.remove(&ns_name);
                     }
-                    index.remove(&ns_name);
+                    if !keep_deleted {
+                        index.remove(&ns_name);
+                    }
                 }
 
                 if new_evt.ts >= start_ts {
@@ -124,8 +119,27 @@ impl TraceStore {
             }
         }
 
-        events[0].applied_objs = flattened_objects.values().cloned().collect();
+        events[0].applied_objs = flattened_objects.into_values().collect();
         (events, index)
+    }
+
+    fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
+        info!("{} - {:?} @ {}", obj.namespaced_name(), action, ts);
+
+        let obj = obj.clone();
+        match self.events.back_mut() {
+            Some(evt) if evt.ts == ts => match action {
+                TraceAction::ObjectApplied => evt.applied_objs.push(obj),
+                TraceAction::ObjectDeleted => evt.deleted_objs.push(obj),
+            },
+            _ => {
+                let evt = match action {
+                    TraceAction::ObjectApplied => TraceEvent { ts, applied_objs: vec![obj], ..Default::default() },
+                    TraceAction::ObjectDeleted => TraceEvent { ts, deleted_objs: vec![obj], ..Default::default() },
+                };
+                self.events.push_back(evt);
+            },
+        }
     }
 }
 
@@ -133,7 +147,7 @@ impl TraceStorable for TraceStore {
     fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) {
         let ns_name = obj.namespaced_name();
         let new_hash = jsonutils::hash_option(obj.data.get("spec"));
-        let old_hash = if maybe_old_hash.is_some() { maybe_old_hash } else { self.index.get(&ns_name).cloned() };
+        let old_hash = maybe_old_hash.or_else(|| self.index.get(&ns_name).cloned());
 
         if Some(new_hash) != old_hash {
             self.append_event(ts, obj, TraceAction::ObjectApplied);
@@ -167,16 +181,6 @@ impl TraceStorable for TraceStore {
         owners: Vec<metav1::OwnerReference>,
         lifecycle_data: PodLifecycleData,
     ) -> EmptyResult {
-        info!(
-            "{} owned by {:?} is {:?}",
-            ns_name,
-            owners
-                .iter()
-                .map(|rf| format!("{}/{}", rf.kind, rf.name))
-                .collect::<Vec<String>>(),
-            lifecycle_data
-        );
-
         if self.pod_owners.has_pod(ns_name) {
             self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
         } else if let Some(pod) = &maybe_pod {

@@ -133,6 +133,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "assertables"
+version = "7.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0c24e9d990669fbd16806bff449e4ac644fd9b1fca014760087732fe4102f131"
+
+[[package]]
 name = "async-channel"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2712,6 +2718,7 @@ name = "simkube"
 version = "0.4.0"
 dependencies = [
  "anyhow",
+ "assertables",
  "async-recursion",
  "cached",
  "chrono",

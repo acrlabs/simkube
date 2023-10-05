@@ -177,6 +177,16 @@ impl PodWatcher {
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
+        info!(
+            "{} owned by {:?} is {:?}",
+            ns_name,
+            owners
+                .iter()
+                .map(|rf| format!("{}/{}", rf.kind, rf.name))
+                .collect::<Vec<String>>(),
+            lifecycle_data
+        );
+
         let mut store = self.store.lock().unwrap();
         store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)?;
 

@@ -47,11 +47,26 @@ impl PodLifecycleData {
         Ok(PodLifecycleData::new(earliest_start_ts, latest_end_ts))
     }
 
+    pub fn end_ts(&self) -> Option<i64> {
+        match self {
+            &PodLifecycleData::Finished(_, ts) => Some(ts),
+            _ => None,
+        }
+    }
+
     pub fn start_ts(&self) -> Option<i64> {
         match self {
-            PodLifecycleData::Empty => None,
-            PodLifecycleData::Running(ts) => Some(*ts),
-            PodLifecycleData::Finished(ts, _) => Some(*ts),
+            &PodLifecycleData::Running(ts) => Some(ts),
+            &PodLifecycleData::Finished(ts, _) => Some(ts),
+            _ => None,
+        }
+    }
+
+    pub fn overlaps(&self, start_ts: i64, end_ts: i64) -> bool {
+        match self {
+            &PodLifecycleData::Running(ts) => ts < end_ts,
+            &PodLifecycleData::Finished(s, e) => (start_ts <= s && s < end_ts) || (start_ts <= e && e < end_ts),
+            _ => false,
         }
     }
 
