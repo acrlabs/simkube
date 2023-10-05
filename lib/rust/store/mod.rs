@@ -1,9 +1,14 @@
+mod pod_owners_map;
 pub mod storage;
 mod trace_filter;
 mod trace_store;
 
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    VecDeque,
+};
 
+use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde::{
@@ -11,9 +16,11 @@ use serde::{
     Serialize,
 };
 
+use self::pod_owners_map::PodOwnersMap;
 use self::trace_filter::filter_event;
 pub use self::trace_filter::TraceFilter;
-pub use self::trace_store::TraceStore;
+use crate::config::TracerConfig;
+use crate::errors::*;
 use crate::k8s::PodLifecycleData;
 
 #[derive(Debug)]
@@ -36,13 +43,21 @@ pub(crate) trait TraceStorable {
     fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64);
     fn record_pod_lifecycle(
         &mut self,
-        _ns_name: &str,
-        _owners: Vec<metav1::OwnerReference>,
-        _lifecycle_data: &PodLifecycleData,
-    );
+        ns_name: &str,
+        maybe_pod: Option<corev1::Pod>,
+        owners: Vec<metav1::OwnerReference>,
+        lifecycle_data: PodLifecycleData,
+    ) -> EmptyResult;
 }
 
-type OwnedPodMap = HashMap<String, HashMap<u64, Vec<(i64, i64)>>>;
+
+#[derive(Default)]
+pub struct TraceStore {
+    config: TracerConfig,
+    events: VecDeque<TraceEvent>,
+    pod_owners: PodOwnersMap,
+    index: HashMap<String, u64>,
+}
 
 #[cfg(test)]
 mod tests;

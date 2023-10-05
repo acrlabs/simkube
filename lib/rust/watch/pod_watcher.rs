@@ -30,10 +30,10 @@ use crate::errors::*;
 use crate::k8s::{
     list_params_for,
     ApiSet,
-    KubeResourceExt,
     PodLifecycleData,
     GVK,
 };
+use crate::prelude::*;
 use crate::store::{
     TraceStorable,
     TraceStore,
@@ -128,7 +128,7 @@ impl PodWatcher {
 
         if new_lifecycle_data > current_lifecycle_data {
             self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
-            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data).await?;
+            self.store_pod_lifecycle_data(ns_name, Some(pod), new_lifecycle_data).await?;
         } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
                 "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
@@ -161,7 +161,7 @@ impl PodWatcher {
             Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, self.clock.borrow())?,
         };
 
-        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await?;
+        self.store_pod_lifecycle_data(ns_name, maybe_pod, new_lifecycle_data).await?;
         Ok(())
     }
 
@@ -169,7 +169,7 @@ impl PodWatcher {
         &mut self,
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
-        lifecycle_data: &PodLifecycleData,
+        lifecycle_data: PodLifecycleData,
     ) -> EmptyResult {
         let owners = match (self.owners_cache.cache_get(ns_name), maybe_pod) {
             (Some(o), _) => o.clone(),
@@ -178,7 +178,7 @@ impl PodWatcher {
         };
 
         let mut store = self.store.lock().unwrap();
-        store.record_pod_lifecycle(ns_name, owners, lifecycle_data);
+        store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)?;
 
         Ok(())
     }

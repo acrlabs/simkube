@@ -5,6 +5,7 @@ use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use serde_json::json;
+use tracing_test::traced_test;
 
 use crate::macros::*;
 use crate::store::{
@@ -121,6 +122,7 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
     .boxed();
 }
 
+#[traced_test]
 #[tokio::test]
 async fn test_export() {
     let clock = MockUtcClock::new(0);

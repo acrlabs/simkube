@@ -30,11 +30,17 @@ impl<'a> Hash for HashableJsonValue<'a> {
     }
 }
 
-pub fn hash(maybe_v: Option<&json::Value>) -> u64 {
+pub fn hash_option(maybe_v: Option<&json::Value>) -> u64 {
     let mut s = DefaultHasher::new();
     match maybe_v {
         None => HashableJsonValue(&json::Value::Null).hash(&mut s),
         Some(v) => HashableJsonValue(v).hash(&mut s),
     }
+    s.finish()
+}
+
+pub fn hash(v: &json::Value) -> u64 {
+    let mut s = DefaultHasher::new();
+    HashableJsonValue(v).hash(&mut s);
     s.finish()
 }

@@ -3,14 +3,14 @@ use kube::api::DynamicObject;
 use serde_json::json;
 
 use super::*;
-use crate::testutils::test_pod;
+use crate::testutils::*;
 
 #[rstest]
 fn test_sanitize_obj() {
     let mut obj = DynamicObject {
         metadata: metav1::ObjectMeta {
-            name: Some("test".into()),
-            namespace: Some("test".into()),
+            name: Some("test-obj".into()),
+            namespace: Some(TEST_NAMESPACE.into()),
 
             annotations: klabel!(
                 "some_random_annotation" = "blah",
