@@ -9,6 +9,30 @@ use super::*;
 use crate::time::Clockable;
 use crate::util::min_some;
 
+// A PodLifecycleData object is how we track the length of time a pod was running in a cluster.  It
+// has three states, Empty, Running, and Finished.  For each state, we track the timestamps that
+// are relevant for that state, e.g., Running only has a start time, and Finished has both a start
+// and end time.
+//
+// We compute this by tracking the earliest container start time and the latest container end time
+// among all the containers in the pod (we don't want to use the pod's creation timestamp field,
+// for example, because this will include time when the pod was pending and not running;
+// additionally, the various pod phase statuses don't actually have a "first container started"
+// status -- "Running" means that all of the containers are created, and "Pending" means that "one
+// or more of the containers is not running".  So instead, we track it by hand.
+//
+// There's some slightly ugly code here, mostly because of annoyances in the k8s API spec.  We want
+// to look at all containers, including init containers, but the initContainer field is optional,
+// whereas the main container field is not.  So we have to treat these paths slightly differently.
+//
+// A pod can only be marked "finished" if all of the containers in the pod have terminated, OR if
+// the pod has been deleted externally -- in the happy path, even if the pod is deleted externally,
+// we'd still get a status update saying that the containers have terminated, but I'm not sure this
+// is guaranteed to be received, or received in the correct order.  So we have two different ways
+// of trying to determine this information: the `new_for` function will only return `Finished` if
+// all the containers have been definitively terminated, but the `guess_finished_lifecycle` will
+// just fill in the finished timestamp with `Utc::now()`.
+
 impl PodLifecycleData {
     fn new(start_ts: Option<i64>, end_ts: Option<i64>) -> PodLifecycleData {
         match (start_ts, end_ts) {
@@ -41,6 +65,11 @@ impl PodLifecycleData {
             }
         }
 
+        // all init containers must have terminated before any of the main containers
+        // start, so we don't need to additionally check the init containers here.
+        //
+        // TODO: I am not sure if or how this logic needs to change with the stabilization
+        // of the sidecar primitive as a "non-terminating init container"
         if terminated_container_count != pod.spec()?.containers.len() {
             latest_end_ts = None;
         }
@@ -63,6 +92,9 @@ impl PodLifecycleData {
     }
 
     pub fn overlaps(&self, start_ts: i64, end_ts: i64) -> bool {
+        // If at least one of the pod's lifecycle events appears between the given time window, OR
+        // if the pod is still running at the end of the given time window, it counts as
+        // overlapping the time window.
         match self {
             &PodLifecycleData::Running(ts) => ts < end_ts,
             &PodLifecycleData::Finished(s, e) => (start_ts <= s && s < end_ts) || (start_ts <= e && e < end_ts),
@@ -107,6 +139,21 @@ impl PodLifecycleData {
     }
 }
 
+// We implement PartialOrd and PartialEq for PodLifecycleData; this is maybe a little bit magic,
+// but it makes the code at the calling site much cleaner.  The motivation here is thus: if we've
+// already received some lifecycle data, we don't want to override the data with differing data.
+// An example could be, if a pod is in CrashLoopBackoff, every time we get a status update, the
+// container is going to have a different start time recorded, but for the purposes of simulation,
+// we want to record the _earliest_ start time we saw for the pod.
+//
+// With this in mind, we implemnt a partial order over PodLifecycleData, as follows:
+//   - Empty < X, \forall X
+//   - Running(start) < Finished(start, end), \forall Running, Finished, start, end
+//   - Running(start1) <> Finished(start2, end), \forall start1 != start2
+//   - Finished(start1, end1) <> Finished(start2, end2) \forall (start1 != start2 || end1 != end2)
+//
+// This allows us to concisely check for _valid_ updates to pod lifecycle data with an expression
+// like if pld1 > pld2 { do update };  if pld1 and pld2 aren't comparable, no update will occur.
 impl PartialOrd for PodLifecycleData {
     fn partial_cmp(&self, other: &PodLifecycleData) -> Option<Ordering> {
         match self {

@@ -5,6 +5,8 @@ use serde::Deserialize;
 use super::TraceEvent;
 use crate::k8s::KubeResourceExt;
 
+// TODO: we also want to add "positive" selectors, e.g., only take objects in a particular
+// namespace or matching a particular label-selector.
 #[derive(Default, Deserialize, Debug, Clone)]
 pub struct TraceFilter {
     pub excluded_namespaces: Vec<String>,

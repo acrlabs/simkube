@@ -2,6 +2,27 @@ use serde_json::Value;
 
 use crate::errors::*;
 
+// This module provides some unofficial "extensions" to the [jsonpatch](https://jsonpatch.com)
+// format for describing changes to a JSON document.  In particular, it adds the `*` operator as a
+// valid token for arrays in a JSON document.  It means: apply this change to all elements of this
+// array.  For example, consider the following document:
+//
+// ```json
+// {
+//   "foo": {
+//     "bar": [
+//       {"baz": 1},
+//       {"baz": 2},
+//       {"baz": 3},
+//     ]
+//   }
+// }
+// ```
+//
+// The pathspec `/foo/bar/*/baz` would reference the `baz` field of all three array entries in the
+// `bar` array.  It is an error to use `*` to reference a field that is not an array.  Currently
+// the only supported operations are `add` and `remove`.
+
 err_impl! {JsonPatchError,
     #[error("invalid JSON pointer: {0}")]
     InvalidPointer(String),
@@ -28,6 +49,8 @@ pub fn add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: boo
                 } else if let Ok(idx) = key.parse::<usize>() {
                     ensure!(idx <= vec.len(), JsonPatchError::out_of_bounds(&format!("{}/{}", path, key)));
                     vec.insert(idx, value.clone());
+                } else {
+                    bail!(JsonPatchError::out_of_bounds(path));
                 }
             },
             _ => bail!(JsonPatchError::unexpected_type(path)),
@@ -46,6 +69,11 @@ pub fn remove(path: &str, key: &str, obj: &mut Value) -> EmptyResult {
     Ok(())
 }
 
+// Given a list of "path parts", i.e., paths split by `*`, recursively walk through all the
+// possible "end" values that the path references; return a mutable reference so we can make
+// modifications at those points.  We assume that this function is never called with an empty
+// `parts` array, which is valid in normal use since "some_string".split('*') will return
+// ["some_string"].
 fn patch_ext_helper<'a>(parts: &[&str], value: &'a mut Value) -> Option<Vec<&'a mut Value>> {
     if parts.len() == 1 {
         return Some(vec![value.pointer_mut(parts[0])?]);

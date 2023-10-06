@@ -16,6 +16,10 @@ use serde::{
 use super::*;
 use crate::errors::*;
 
+// GVK is a "newtype" wrapper around the metav1::GroupVersionKind object that lets me provide
+// custom serialization methods.  We also add some handy helper/conversion functions.
+//
+// Specifically for serialization/deserialization, we convert to the format "group/version.kind".
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct GVK(GroupVersionKind);
 
@@ -39,6 +43,7 @@ impl GVK {
     }
 }
 
+// Impl Deref lets a GVK act like a GroupVersionKind anywhere one of those is expected
 impl Deref for GVK {
     type Target = GroupVersionKind;
 
