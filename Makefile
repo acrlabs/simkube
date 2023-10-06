@@ -34,7 +34,7 @@ lint:
 	$(CARGO_HOME_ENV) cargo clippy
 	golangci-lint run
 
-test: test-go test-rust
+test: test-go test-rust itest-rust
 
 .PHONY: test-go
 test-go:
@@ -45,7 +45,11 @@ test-go:
 test-rust:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) -- --nocapture
+	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) $(patsubst %, --bin %, $(RUST_ARTIFACTS)) --lib -- --nocapture --skip itest
+
+.PHONY: itest-rust
+itest-rust:
+	$(CARGO_TEST_PREFIX) cargo test itest --lib -- --nocapture
 
 cover: cover-go cover-rust
 

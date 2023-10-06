@@ -124,7 +124,7 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
 
 #[traced_test]
 #[tokio::test]
-async fn test_export() {
+async fn itest_export() {
     let clock = MockUtcClock::new(0);
 
     // Since we're just generating the results from the stream and not actually querying any
