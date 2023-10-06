@@ -8,6 +8,8 @@ pub(crate) use thiserror::Error;
 
 pub type EmptyResult = anyhow::Result<()>;
 
+// This macro creates an enum which derives from thiserror::Error, and also
+// creates constructor functions in snake case for each of the enum variants
 macro_rules! err_impl {
     (@hidden $errtype:ident, $item:ident, String) => {
         paste! {

@@ -8,6 +8,8 @@ use kube::api::{
 
 use crate::k8s::GVK;
 
+// An ApiSet object caches a list of ApiResources returned by the k8s server so that we don't have
+// to repeatedly make "discovery" calls against the apiserver.
 pub struct ApiSet {
     client: kube::Client,
     resources: HashMap<GVK, ApiResource>,

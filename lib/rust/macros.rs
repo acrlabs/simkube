@@ -1,5 +1,6 @@
 pub use std::collections::BTreeMap;
 
+// Generate labels for a k8s object, using klabel!("label1" = "value1", "label2" = "value2") syntax
 #[macro_export]
 macro_rules! klabel {
     ($($key:tt=$val:literal),+$(,)?) => {
@@ -7,6 +8,8 @@ macro_rules! klabel {
     };
 }
 
+// Implement PartialEq and PartialOrd for comparisons between an object and a reference to that
+// object
 macro_rules! partial_ord_eq_ref {
     ($type:ty) => {
         impl<'a> PartialEq<&'a $type> for $type {

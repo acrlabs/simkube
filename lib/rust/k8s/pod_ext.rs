@@ -1,5 +1,6 @@
 use super::*;
 
+// Helper functions to get references to a pod's spec and status objects
 impl PodExt for corev1::Pod {
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec> {
         match self.spec.as_ref() {

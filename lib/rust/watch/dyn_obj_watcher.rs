@@ -34,6 +34,11 @@ use crate::time::{
     UtcClock,
 };
 
+// Watch a (customizable) list of objects.  Since we don't know what these object types will be at
+// runtime, we have to use the DynamicObject API, which gives us everything in JSON format that we
+// have to parse.  Unlike the pod watcher, this is pretty straightforward.  We just forward all the
+// events that we receive to the object store.
+
 pub struct DynObjWatcher {
     clock: Box<dyn Clockable + Send>,
     obj_stream: SelectAll<KubeObjectStream>,
