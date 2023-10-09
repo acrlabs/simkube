@@ -12,9 +12,11 @@ use simkube::macros::*;
 use simkube::prelude::*;
 use simkube::store::storage;
 
+use super::cert_manager::DRIVER_CERT_NAME;
 use super::trace::get_local_trace_volume;
 
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
+const DRIVER_CERT_VOLUME: &str = "driver-cert";
 
 pub(super) fn sim_root_name(sim_name: &str) -> String {
     format!("sk-{}-root", sim_name)
@@ -47,11 +49,20 @@ pub(super) fn build_mutating_webhook(
     driver_ns_name: &str,
     driver_service_name: &str,
     driver_port: i32,
+    use_cert_manager: bool,
     sim_name: &str,
     owner: &SimulationRoot,
 ) -> anyhow::Result<admissionv1::MutatingWebhookConfiguration> {
+    let mut metadata = build_global_object_meta(name, sim_name, owner)?;
+    if use_cert_manager {
+        metadata
+            .annotations
+            .get_or_insert(BTreeMap::new())
+            .insert("cert-manager.io/inject-ca-from".into(), format!("{}/{}", driver_ns_name, DRIVER_CERT_NAME));
+    }
+
     Ok(admissionv1::MutatingWebhookConfiguration {
-        metadata: build_global_object_meta(name, sim_name, owner)?,
+        metadata,
         webhooks: Some(vec![admissionv1::MutatingWebhook {
             admission_review_versions: vec!["v1".into()],
             client_config: admissionv1::WebhookClientConfig {
@@ -86,6 +97,7 @@ pub(super) fn driver_service_name(sim_name: &str) -> String {
 pub(super) fn build_driver_service(
     namespace: &str,
     name: &str,
+    driver_name: &str,
     port: i32,
     sim_name: &str,
     owner: &SimulationRoot,
@@ -98,7 +110,7 @@ pub(super) fn build_driver_service(
                 target_port: Some(IntOrString::Int(port)),
                 ..Default::default()
             }]),
-            selector: klabel!("app" = "sk-driver"),
+            selector: klabel!("job-name" = driver_name),
             ..Default::default()
         }),
         ..Default::default()
@@ -112,6 +124,7 @@ pub(super) fn sim_driver_name(sim_name: &str) -> String {
 pub(super) fn build_driver_job(
     namespace: &str,
     name: &str,
+    cert_secret_name: &str,
     driver_image: &str,
     trace_path: &str,
     sim_service_account_name: &str,
@@ -124,6 +137,7 @@ pub(super) fn build_driver_job(
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
     };
+    let (cert_vm, cert_volume, cert_mount_path) = create_certificate_volumes(cert_secret_name);
 
     Ok(batchv1::Job {
         metadata: build_object_meta(namespace, name, sim_name, owner)?,
@@ -135,6 +149,8 @@ pub(super) fn build_driver_job(
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
                         args: Some(vec![
+                            "--cert-path".into(),
+                            cert_mount_path.into(),
                             "--trace-path".into(),
                             mount_path,
                             "--sim-namespace-prefix".into(),
@@ -145,11 +161,11 @@ pub(super) fn build_driver_job(
                             sim_name.into(),
                         ]),
                         image: Some(driver_image.into()),
-                        volume_mounts: Some(vec![trace_vm]),
+                        volume_mounts: Some(vec![trace_vm, cert_vm]),
                         ..Default::default()
                     }],
                     restart_policy: Some("Never".into()),
-                    volumes: Some(vec![trace_volume]),
+                    volumes: Some(vec![trace_volume, cert_volume]),
                     service_account: Some(sim_service_account_name.into()),
                     ..Default::default()
                 }),
@@ -159,4 +175,24 @@ pub(super) fn build_driver_job(
         }),
         ..Default::default()
     })
+}
+
+fn create_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, corev1::Volume, String) {
+    (
+        corev1::VolumeMount {
+            name: DRIVER_CERT_VOLUME.into(),
+            mount_path: "/etc/ssl/".into(),
+            ..Default::default()
+        },
+        corev1::Volume {
+            name: DRIVER_CERT_VOLUME.into(),
+            secret: Some(corev1::SecretVolumeSource {
+                secret_name: Some(cert_secret_name.into()),
+                default_mode: Some(0o600),
+                ..Default::default()
+            }),
+            ..Default::default()
+        },
+        "/etc/ssl/tls.key".into(),
+    )
 }

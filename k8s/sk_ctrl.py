@@ -23,7 +23,9 @@ class SKController(Chart):
             image=image,
             args=[
                 "/sk-ctrl",
-                "--driver-image", driver_image
+                "--driver-image", driver_image,
+                "--use-cert-manager",
+                "--cert-manager-issuer", "selfsigned",
             ],
         ).with_security_context(Capability.DEBUG)
 
