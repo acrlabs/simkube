@@ -1,114 +1,117 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
+use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
-use reqwest::Url;
-use simkube::k8s::add_common_fields;
 use simkube::prelude::*;
-use simkube::store::storage;
 use tokio::time::Duration;
 use tracing::*;
 
-use super::trace::get_local_trace_volume;
-use super::ReconcileError;
+use super::objects::*;
+use super::*;
 
-pub(super) struct SimulationContext {
-    pub(super) k8s_client: kube::Client,
-    pub(super) driver_image: String,
-}
+async fn do_global_setup(
+    sim_name: &str,
+    simulation: &Simulation,
+    driver_ns_name: &str,
+    driver_svc_name: &str,
+    sim_root_name: &str,
+    ctx: &SimulationContext,
+) -> anyhow::Result<SimulationRoot> {
+    let roots_api = kube::Api::<SimulationRoot>::all(ctx.k8s_client.clone());
+    let ns_api = kube::Api::<corev1::Namespace>::all(ctx.k8s_client.clone());
+    let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.k8s_client.clone());
 
-fn create_simulation_root(simulation: &Simulation) -> anyhow::Result<SimulationRoot> {
-    let mut root = SimulationRoot {
-        metadata: metav1::ObjectMeta {
-            name: Some(simulation.name_any()),
-            ..Default::default()
+    let root = match roots_api.get_opt(sim_root_name).await? {
+        None => {
+            info!("creating SimulationRoot for {}", sim_name);
+            let obj = build_simulation_root(sim_root_name, sim_name, simulation)?;
+            roots_api.create(&Default::default(), &obj).await?
         },
-        spec: SimulationRootSpec {},
+        Some(r) => r,
     };
-    add_common_fields(&simulation.name_any(), simulation, &mut root)?;
+
+    if ns_api.get_opt(driver_ns_name).await?.is_none() {
+        info!("creating driver namespace {} for {}", driver_ns_name, sim_name);
+        let obj = build_driver_namespace(driver_ns_name, sim_name, simulation)?;
+        ns_api.create(&Default::default(), &obj).await?;
+    };
+
+    let webhook_config_name = &mutating_webhook_config_name(sim_name);
+    if webhook_api.get_opt(webhook_config_name).await?.is_none() {
+        info!("creating mutating webhook configuration {} for {}", webhook_config_name, sim_name);
+        let obj = build_mutating_webhook(
+            webhook_config_name,
+            driver_ns_name,
+            driver_svc_name,
+            ctx.driver_port,
+            sim_name,
+            &root,
+        )?;
+        webhook_api.create(&Default::default(), &obj).await?;
+    };
 
     Ok(root)
 }
 
-fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image: &str) -> anyhow::Result<batchv1::Job> {
-    let trace_path = Url::parse(&simulation.spec.trace)?;
-    let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_path)? {
-        storage::Scheme::AmazonS3 => todo!(),
-        storage::Scheme::Local => get_local_trace_volume(&trace_path)?,
-    };
+async fn setup_driver(
+    sim_name: &str,
+    simulation: &Simulation,
+    driver_ns_name: &str,
+    driver_svc_name: &str,
+    root: &SimulationRoot,
+    ctx: &SimulationContext,
+) -> EmptyResult {
+    let svc_api = kube::Api::<corev1::Service>::namespaced(ctx.k8s_client.clone(), driver_ns_name);
+    let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.k8s_client.clone(), driver_ns_name);
 
-    let mut job = batchv1::Job {
-        metadata: metav1::ObjectMeta {
-            namespace: Some(simulation.spec.driver_namespace.clone()),
-            name: Some(format!("{}-driver", simulation.name_any())),
-            ..Default::default()
-        },
-        spec: Some(batchv1::JobSpec {
-            backoff_limit: Some(1),
-            template: corev1::PodTemplateSpec {
-                spec: Some(corev1::PodSpec {
-                    containers: vec![corev1::Container {
-                        name: "driver".into(),
-                        command: Some(vec!["/sk-driver".into()]),
-                        args: Some(vec![
-                            "--trace-path".into(),
-                            mount_path,
-                            "--sim-namespace-prefix".into(),
-                            "virtual".into(),
-                            "--sim-root".into(),
-                            sim_root_name.into(),
-                            "--sim-name".into(),
-                            simulation.name_any(),
-                        ]),
-                        image: Some(driver_image.into()),
-                        volume_mounts: Some(vec![trace_vm]),
-                        ..Default::default()
-                    }],
-                    restart_policy: Some("Never".into()),
-                    volumes: Some(vec![trace_volume]),
-                    service_account: Some("sk-ctrl-service-account-c8688aad".into()),
-                    ..Default::default()
-                }),
-                ..Default::default()
-            },
-            ..Default::default()
-        }),
-        ..Default::default()
-    };
-    add_common_fields(&simulation.name_any(), simulation, &mut job)?;
+    if svc_api.get_opt(driver_svc_name).await?.is_none() {
+        info!("creating driver service {} for {}", driver_svc_name, sim_name);
+        let obj = build_driver_service(driver_ns_name, driver_svc_name, ctx.driver_port, sim_name, root)?;
+        svc_api.create(&Default::default(), &obj).await?;
+    }
 
-    Ok(job)
+    // TODO should check if there are any other simulations running and block/wait until
+    // they're done before proceeding
+    let driver_name = &sim_driver_name(sim_name);
+    let driver = jobs_api.get_opt(driver_name).await?;
+    if driver.is_none() {
+        info!("creating driver job {} for {}", driver_name, simulation.name_any());
+        let obj = build_driver_job(
+            driver_ns_name,
+            driver_name,
+            &ctx.driver_image,
+            &simulation.spec.trace,
+            &ctx.sim_svc_account,
+            sim_name,
+            root,
+            simulation,
+        )?;
+        jobs_api.create(&Default::default(), &obj).await?;
+    }
+
+    Ok(())
 }
 
 pub(crate) async fn reconcile(
     simulation: Arc<Simulation>,
     ctx: Arc<SimulationContext>,
 ) -> Result<Action, ReconcileError> {
-    let k8s_client = &ctx.k8s_client;
     info!("got simulation object: {:?}", simulation);
 
-    let roots_api = kube::Api::<SimulationRoot>::all(k8s_client.clone());
-    let jobs_api = kube::Api::<batchv1::Job>::namespaced(k8s_client.clone(), &simulation.spec.driver_namespace);
-    match roots_api.get_opt(&simulation.name_any()).await? {
-        None => {
-            info!("creating SimulationRoot for {}", simulation.name_any());
-            let root = create_simulation_root(simulation.deref())?;
-            roots_api.create(&Default::default(), &root).await?;
-        },
-        Some(root) => {
-            // TODO need to create the namespace
+    let simulation = simulation.deref();
+    let ctx = ctx.deref();
 
-            // TODO should check if there are any other simulations running and block/wait until
-            // they're done before proceeding
-            info!("creating driver Job for {}", simulation.name_any());
-            let job = create_driver_job(simulation.deref(), &root.name_any(), &ctx.driver_image)?;
-            jobs_api.create(&Default::default(), &job).await?;
-        },
-    }
+    let sim_name = &simulation.name_any();
+    let root_name = &sim_root_name(sim_name);
+    let driver_ns_name = &simulation.spec.driver_namespace;
+    let driver_svc_name = &driver_service_name(sim_name);
+
+    let root = do_global_setup(sim_name, simulation, driver_ns_name, driver_svc_name, root_name, ctx).await?;
+    setup_driver(sim_name, simulation, driver_ns_name, driver_svc_name, &root, ctx).await?;
 
     Ok(Action::await_change())
 }

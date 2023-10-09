@@ -15,7 +15,7 @@ use tracing::*;
 use super::*;
 use crate::jsonutils;
 use crate::k8s::{
-    make_deletable,
+    build_deletable,
     KubeResourceExt,
     PodLifecycleData,
 };
@@ -196,7 +196,7 @@ impl TraceStorable for TraceStore {
         }
 
         for ns_name in old_index.keys() {
-            self.delete_obj(&make_deletable(ns_name), ts);
+            self.delete_obj(&build_deletable(ns_name), ts);
         }
     }
 

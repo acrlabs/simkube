@@ -27,7 +27,7 @@ struct Options {
     #[arg(long)]
     server_port: u16,
 
-    #[arg(short, long, default_value = "warn")]
+    #[arg(short, long, default_value = "info")]
     verbosity: String,
 }
 

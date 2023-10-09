@@ -1,4 +1,5 @@
 mod controller;
+mod objects;
 mod trace;
 
 use std::sync::Arc;
@@ -16,7 +17,6 @@ use tracing::*;
 use crate::controller::{
     error_policy,
     reconcile,
-    SimulationContext,
 };
 
 #[derive(Parser, Debug)]
@@ -24,7 +24,10 @@ struct Options {
     #[arg(long)]
     driver_image: String,
 
-    #[arg(short, long, default_value = "warn")]
+    #[arg(long, default_value = "8888")]
+    driver_port: i32,
+
+    #[arg(short, long, default_value = "info")]
     verbosity: String,
 }
 
@@ -33,6 +36,13 @@ struct Options {
 enum ReconcileError {
     AnyhowError(#[from] anyhow::Error),
     KubeApiError(#[from] kube::Error),
+}
+
+struct SimulationContext {
+    k8s_client: kube::Client,
+    driver_image: String,
+    driver_port: i32,
+    sim_svc_account: String,
 }
 
 async fn run(args: &Options) -> EmptyResult {
@@ -50,6 +60,9 @@ async fn run(args: &Options) -> EmptyResult {
             Arc::new(SimulationContext {
                 k8s_client,
                 driver_image: args.driver_image.clone(),
+                driver_port: args.driver_port,
+                // TODO don't hardcode this
+                sim_svc_account: "sk-ctrl-service-account-c8688aad".into(),
             }),
         )
         .for_each(|_| future::ready(()));
