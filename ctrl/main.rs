@@ -1,3 +1,4 @@
+mod cert_manager;
 mod controller;
 mod objects;
 mod trace;
@@ -24,8 +25,15 @@ struct Options {
     #[arg(long)]
     driver_image: String,
 
-    #[arg(long, default_value = "8888")]
+    #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     driver_port: i32,
+
+    // TODO: should support non-cert-manager for configuring certs as well
+    #[arg(long)]
+    use_cert_manager: bool,
+
+    #[arg(long, default_value = "")]
+    cert_manager_issuer: String,
 
     #[arg(short, long, default_value = "info")]
     verbosity: String,
@@ -40,28 +48,25 @@ enum ReconcileError {
 
 struct SimulationContext {
     k8s_client: kube::Client,
-    driver_image: String,
-    driver_port: i32,
+    opts: Options,
     sim_svc_account: String,
 }
 
-async fn run(args: &Options) -> EmptyResult {
+async fn run(args: Options) -> EmptyResult {
     info!("Simulation controller starting");
 
     let k8s_client = kube::Client::try_default().await?;
     let sim_api = kube::Api::<Simulation>::all(k8s_client.clone());
-    let sim_root_api = kube::Api::<SimulationRoot>::all(k8s_client.clone());
 
     let ctrl = Controller::new(sim_api, Default::default())
-        .owns(sim_root_api, Default::default())
         .run(
             reconcile,
             error_policy,
             Arc::new(SimulationContext {
                 k8s_client,
-                driver_image: args.driver_image.clone(),
-                driver_port: args.driver_port,
-                // TODO don't hardcode this
+                opts: args,
+
+                // TODO don't hardcode these
                 sim_svc_account: "sk-ctrl-service-account-c8688aad".into(),
             }),
         )
@@ -79,6 +84,6 @@ async fn run(args: &Options) -> EmptyResult {
 async fn main() -> EmptyResult {
     let args = Options::parse();
     logging::setup(&args.verbosity)?;
-    run(&args).await?;
+    run(args).await?;
     Ok(())
 }

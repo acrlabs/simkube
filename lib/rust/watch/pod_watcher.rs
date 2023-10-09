@@ -28,7 +28,7 @@ use tracing::*;
 use super::*;
 use crate::errors::*;
 use crate::k8s::{
-    list_params_for,
+    namespaced_name_selector,
     ApiSet,
     PodLifecycleData,
     GVK,
@@ -261,7 +261,7 @@ pub(super) async fn compute_owner_chain(
     for rf in obj.owner_references() {
         let gvk = GVK::from_owner_ref(rf)?;
         let api = apiset.api_for(gvk).await?;
-        let resp = api.list(&list_params_for(&obj.namespace().unwrap(), &rf.name)).await?;
+        let resp = api.list(&namespaced_name_selector(&obj.namespace().unwrap(), &rf.name)).await?;
         if resp.items.len() != 1 {
             bail!("could not find single owner for {}, found {:?}", obj.namespaced_name(), resp.items);
         }
