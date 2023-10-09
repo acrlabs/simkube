@@ -86,7 +86,7 @@ fn test_sanitize_obj() {
     );
 }
 
-fn make_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {
+fn build_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {
     metav1::LabelSelector {
         match_expressions: Some(vec![metav1::LabelSelectorRequirement {
             key: key.into(),
@@ -104,7 +104,7 @@ fn make_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSele
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
 fn test_label_expr_match(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("foo", op, Some("bar"));
+    let sel = build_label_sel("foo", op, Some("bar"));
     let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_IN);
 }
@@ -113,7 +113,7 @@ fn test_label_expr_match(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
 fn test_label_expr_no_values(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("foo", op, None);
+    let sel = build_label_sel("foo", op, None);
     let res = test_pod.matches(&sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
@@ -122,7 +122,7 @@ fn test_label_expr_no_values(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::op_in(OPERATOR_IN)]
 #[case::op_not_in(OPERATOR_NOT_IN)]
 fn test_label_expr_no_match(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("baz", op, Some("qux"));
+    let sel = build_label_sel("baz", op, Some("qux"));
     let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_NOT_IN);
 }
@@ -131,7 +131,7 @@ fn test_label_expr_no_match(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::op_exists(OPERATOR_EXISTS)]
 #[case::op_exists(OPERATOR_DOES_NOT_EXIST)]
 fn test_label_expr_exists(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("foo", op, None);
+    let sel = build_label_sel("foo", op, None);
     let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_EXISTS);
 }
@@ -140,7 +140,7 @@ fn test_label_expr_exists(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::op_exists(OPERATOR_EXISTS)]
 #[case::op_not_exists(OPERATOR_DOES_NOT_EXIST)]
 fn test_label_expr_exists_values(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("foo", op, Some("bar"));
+    let sel = build_label_sel("foo", op, Some("bar"));
     let res = test_pod.matches(&sel).unwrap_err().downcast().unwrap();
     assert!(matches!(res, KubernetesError::MalformedLabelSelector(_)));
 }
@@ -149,7 +149,7 @@ fn test_label_expr_exists_values(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::op_in(OPERATOR_EXISTS)]
 #[case::op_not_in(OPERATOR_DOES_NOT_EXIST)]
 fn test_label_expr_not_exists(test_pod: corev1::Pod, #[case] op: &str) {
-    let sel = make_label_sel("baz", op, None);
+    let sel = build_label_sel("baz", op, None);
     let res = test_pod.matches(&sel).unwrap();
     assert_eq!(res, op == OPERATOR_DOES_NOT_EXIST);
 }

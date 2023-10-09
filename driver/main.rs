@@ -5,7 +5,6 @@ use std::time::Duration;
 use anyhow::anyhow;
 use clap::Parser;
 use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
     DynamicObject,
     Patch,
@@ -15,7 +14,8 @@ use kube::ResourceExt;
 use serde_json::json;
 use simkube::jsonutils;
 use simkube::k8s::{
-    add_common_fields,
+    add_common_metadata,
+    build_global_object_meta,
     prefixed_ns,
     ApiSet,
     GVK,
@@ -40,20 +40,16 @@ struct Options {
     #[arg(long)]
     trace_path: String,
 
-    #[arg(short, long, default_value = "warn")]
+    #[arg(short, long, default_value = "info")]
     verbosity: String,
 }
 
 fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> anyhow::Result<corev1::Namespace> {
     let mut ns = corev1::Namespace {
-        metadata: metav1::ObjectMeta {
-            name: Some(ns_name.into()),
-            labels: klabel!(VIRTUAL_LABEL_KEY = "true"),
-            ..Default::default()
-        },
+        metadata: build_global_object_meta(ns_name, sim_name, sim_root)?,
         ..Default::default()
     };
-    add_common_fields(sim_name, sim_root, &mut ns)?;
+    klabel_insert!(ns, VIRTUAL_LABEL_KEY = "true");
 
     Ok(ns)
 }
@@ -66,8 +62,9 @@ fn build_virtual_obj(
     config: &TracerConfig,
 ) -> anyhow::Result<DynamicObject> {
     let mut vobj = obj.clone();
+
     vobj.metadata.namespace = Some(vns_name.into());
-    vobj.labels_mut().insert(VIRTUAL_LABEL_KEY.into(), "true".into());
+    klabel_insert!(vobj, VIRTUAL_LABEL_KEY = "true");
 
     let gvk = GVK::from_dynamic_obj(obj)?;
     let psp = &config.tracked_objects[&gvk].pod_spec_path;
@@ -82,7 +79,7 @@ fn build_virtual_obj(
         true,
     )?;
     jsonutils::patch_ext::remove(psp, "status", &mut vobj.data)?;
-    add_common_fields(sim_name, root, &mut vobj)?;
+    add_common_metadata(sim_name, root, &mut vobj.metadata)?;
 
     Ok(vobj)
 }

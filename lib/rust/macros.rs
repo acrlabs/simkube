@@ -3,8 +3,15 @@ pub use std::collections::BTreeMap;
 // Generate labels for a k8s object, using klabel!("label1" = "value1", "label2" = "value2") syntax
 #[macro_export]
 macro_rules! klabel {
-    ($($key:tt=$val:literal),+$(,)?) => {
+    ($($key:tt=$val:tt),+$(,)?) => {
         Some(BTreeMap::from([$(($key.to_string(), $val.to_string())),+]))
+    };
+}
+
+#[macro_export]
+macro_rules! klabel_insert {
+    ($obj:ident, $($key:tt=$val:tt),+$(,)?) => {
+        $($obj.labels_mut().insert($key.to_string(), $val.to_string()));+
     };
 }
 
@@ -38,5 +45,8 @@ macro_rules! partial_ord_eq_ref {
     };
 }
 
-pub use klabel;
 pub(crate) use partial_ord_eq_ref;
+pub use {
+    klabel,
+    klabel_insert,
+};

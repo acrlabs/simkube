@@ -23,22 +23,22 @@ pub fn test_pod(#[default("the-pod".into())] name: String) -> corev1::Pod {
 }
 
 pub fn add_running_init_container(pod: &mut corev1::Pod, t: i64) {
-    add_container_with_status(pod, make_container_state_running(t), true);
+    add_container_with_status(pod, build_container_state_running(t), true);
 }
 
 pub fn add_finished_init_container(pod: &mut corev1::Pod, t1: i64, t2: i64) {
-    add_container_with_status(pod, make_container_state_finished(t1, t2), true);
+    add_container_with_status(pod, build_container_state_finished(t1, t2), true);
 }
 
 pub fn add_running_container(pod: &mut corev1::Pod, t: i64) {
-    add_container_with_status(pod, make_container_state_running(t), false);
+    add_container_with_status(pod, build_container_state_running(t), false);
 }
 
 pub fn add_finished_container(pod: &mut corev1::Pod, t1: i64, t2: i64) {
-    add_container_with_status(pod, make_container_state_finished(t1, t2), false);
+    add_container_with_status(pod, build_container_state_finished(t1, t2), false);
 }
 
-fn make_container_state_running(t: i64) -> Option<corev1::ContainerState> {
+fn build_container_state_running(t: i64) -> Option<corev1::ContainerState> {
     Some(corev1::ContainerState {
         running: Some(corev1::ContainerStateRunning {
             started_at: Some(metav1::Time(DateTime::from_timestamp(t, 0).unwrap())),
@@ -47,7 +47,7 @@ fn make_container_state_running(t: i64) -> Option<corev1::ContainerState> {
     })
 }
 
-fn make_container_state_finished(t1: i64, t2: i64) -> Option<corev1::ContainerState> {
+fn build_container_state_finished(t1: i64, t2: i64) -> Option<corev1::ContainerState> {
     Some(corev1::ContainerState {
         terminated: Some(corev1::ContainerStateTerminated {
             started_at: Some(metav1::Time(DateTime::from_timestamp(t1, 0).unwrap())),

@@ -15,30 +15,24 @@ use crate::constants::SIMULATION_LABEL_KEY;
 use crate::errors::*;
 use crate::jsonutils;
 
-pub fn add_common_fields<K>(sim_name: &str, owner: &K, obj: &mut impl Resource) -> EmptyResult
+pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta) -> EmptyResult
 where
     K: Resource<DynamicType = ()>,
 {
-    obj.labels_mut().insert(SIMULATION_LABEL_KEY.into(), sim_name.into());
-    obj.owner_references_mut().push(metav1::OwnerReference {
+    meta.labels
+        .get_or_insert(BTreeMap::new())
+        .insert(SIMULATION_LABEL_KEY.into(), sim_name.into());
+    meta.owner_references.get_or_insert(vec![]).push(metav1::OwnerReference {
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),
         uid: owner.uid().ok_or(KubernetesError::field_not_found("uid"))?,
         ..Default::default()
     });
-
     Ok(())
 }
 
-pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
-    ListParams {
-        field_selector: Some(format!("metadata.namespace={},metadata.name={}", namespace, name)),
-        ..Default::default()
-    }
-}
-
-pub fn make_deletable(ns_name: &str) -> DynamicObject {
+pub fn build_deletable(ns_name: &str) -> DynamicObject {
     let (ns, name) = split_namespaced_name(ns_name);
     DynamicObject {
         metadata: metav1::ObjectMeta {
@@ -51,6 +45,31 @@ pub fn make_deletable(ns_name: &str) -> DynamicObject {
     }
 }
 
+pub fn build_global_object_meta<K>(name: &str, sim_name: &str, owner: &K) -> anyhow::Result<metav1::ObjectMeta>
+where
+    K: Resource<DynamicType = ()>,
+{
+    build_object_meta_helper(None, name, sim_name, owner)
+}
+
+pub fn build_object_meta<K>(
+    namespace: &str,
+    name: &str,
+    sim_name: &str,
+    owner: &K,
+) -> anyhow::Result<metav1::ObjectMeta>
+where
+    K: Resource<DynamicType = ()>,
+{
+    build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
+}
+
+pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
+    ListParams {
+        field_selector: Some(format!("metadata.namespace={},metadata.name={}", namespace, name)),
+        ..Default::default()
+    }
+}
 
 pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
     format!("{}-{}", prefix, obj.namespace().unwrap())
@@ -113,6 +132,25 @@ impl<T: Resource> KubeResourceExt for T {
         }
         Ok(true)
     }
+}
+
+fn build_object_meta_helper<K>(
+    namespace: Option<String>,
+    name: &str,
+    sim_name: &str,
+    owner: &K,
+) -> anyhow::Result<metav1::ObjectMeta>
+where
+    K: Resource<DynamicType = ()>,
+{
+    let mut meta = metav1::ObjectMeta {
+        namespace,
+        name: Some(name.into()),
+        ..Default::default()
+    };
+
+    add_common_metadata(sim_name, owner, &mut meta)?;
+    Ok(meta)
 }
 
 // The meanings of these operators is explained here:
