@@ -34,6 +34,10 @@ err_impl! {JsonPatchError,
     UnexpectedType(String),
 }
 
+pub fn escape(path: &str) -> String {
+    path.replace("/", "~1")
+}
+
 pub fn add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: bool) -> EmptyResult {
     let parts: Vec<_> = path.split('*').collect();
     for v in patch_ext_helper(&parts, obj).ok_or(JsonPatchError::invalid_pointer(path))? {

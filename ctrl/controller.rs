@@ -92,6 +92,7 @@ async fn setup_driver(
         cert_manager::create_certificate_if_not_present(
             ctx.k8s_client.clone(),
             driver_ns_name,
+            driver_svc_name,
             &ctx.opts.cert_manager_issuer,
             sim_name,
             root,

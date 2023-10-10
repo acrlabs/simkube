@@ -5,6 +5,7 @@ use kube::api::{
     ApiResource,
     DynamicObject,
 };
+use kube::discovery::ApiCapabilities;
 
 use crate::k8s::GVK;
 
@@ -12,7 +13,7 @@ use crate::k8s::GVK;
 // to repeatedly make "discovery" calls against the apiserver.
 pub struct ApiSet {
     client: kube::Client,
-    resources: HashMap<GVK, ApiResource>,
+    resources: HashMap<GVK, (ApiResource, ApiCapabilities)>,
     apis: HashMap<GVK, kube::Api<DynamicObject>>,
     namespaced_apis: HashMap<(GVK, String), kube::Api<DynamicObject>>,
 }
@@ -27,20 +28,20 @@ impl ApiSet {
         }
     }
 
-    pub async fn api_for(&mut self, gvk: GVK) -> anyhow::Result<&kube::Api<DynamicObject>> {
-        let ar = self.api_resource_for(gvk.clone()).await?.clone();
-        match self.apis.entry(gvk) {
-            Entry::Occupied(e) => Ok(e.into_mut()),
+    pub async fn api_for(&mut self, gvk: &GVK) -> anyhow::Result<(&kube::Api<DynamicObject>, ApiCapabilities)> {
+        let (ar, cap) = self.api_meta_for(gvk.clone()).await?.clone();
+        match self.apis.entry(gvk.clone()) {
+            Entry::Occupied(e) => Ok((e.into_mut(), cap)),
             Entry::Vacant(e) => {
                 let api = kube::Api::all_with(self.client.clone(), &ar);
-                Ok(e.insert(api))
+                Ok((e.insert(api), cap))
             },
         }
     }
 
-    pub async fn namespaced_api_for(&mut self, gvk: GVK, ns: String) -> anyhow::Result<&kube::Api<DynamicObject>> {
-        let ar = self.api_resource_for(gvk.clone()).await?.clone();
-        match self.namespaced_apis.entry((gvk, ns)) {
+    pub async fn namespaced_api_for(&mut self, gvk: &GVK, ns: String) -> anyhow::Result<&kube::Api<DynamicObject>> {
+        let ar = self.api_meta_for(gvk.clone()).await?.0.clone();
+        match self.namespaced_apis.entry((gvk.clone(), ns)) {
             Entry::Occupied(e) => Ok(e.into_mut()),
             Entry::Vacant(e) => {
                 let api = kube::Api::namespaced_with(self.client.clone(), &e.key().1, &ar);
@@ -53,12 +54,12 @@ impl ApiSet {
         &self.client
     }
 
-    async fn api_resource_for(&mut self, gvk: GVK) -> anyhow::Result<&ApiResource> {
+    async fn api_meta_for(&mut self, gvk: GVK) -> anyhow::Result<&(ApiResource, ApiCapabilities)> {
         match self.resources.entry(gvk) {
             Entry::Occupied(e) => Ok(e.into_mut()),
             Entry::Vacant(e) => {
-                let (ar, _) = kube::discovery::pinned_kind(&self.client, e.key()).await?;
-                Ok(e.insert(ar))
+                let api_meta = kube::discovery::pinned_kind(&self.client, e.key()).await?;
+                Ok(e.insert(api_meta))
             },
         }
     }

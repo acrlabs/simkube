@@ -150,7 +150,9 @@ pub(super) fn build_driver_job(
                         command: Some(vec!["/sk-driver".into()]),
                         args: Some(vec![
                             "--cert-path".into(),
-                            cert_mount_path.into(),
+                            format!("{}/tls.crt", cert_mount_path),
+                            "--key-path".into(),
+                            format!("{}/tls.key", cert_mount_path),
                             "--trace-path".into(),
                             mount_path,
                             "--sim-namespace-prefix".into(),
@@ -193,6 +195,6 @@ fn create_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, c
             }),
             ..Default::default()
         },
-        "/etc/ssl/tls.key".into(),
+        "/etc/ssl/".into(),
     )
 }

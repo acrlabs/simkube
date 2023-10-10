@@ -6,11 +6,6 @@ use std::sync::{
     Mutex,
 };
 
-use async_recursion::async_recursion;
-use cached::{
-    Cached,
-    SizedCache,
-};
 use futures::stream::{
     StreamExt,
     TryStreamExt,
@@ -19,19 +14,14 @@ use kube::runtime::watcher::{
     watcher,
     Event,
 };
-use kube::{
-    Resource,
-    ResourceExt,
-};
 use tracing::*;
 
 use super::*;
 use crate::errors::*;
 use crate::k8s::{
-    namespaced_name_selector,
     ApiSet,
+    OwnersCache,
     PodLifecycleData,
-    GVK,
 };
 use crate::prelude::*;
 use crate::store::{
@@ -42,9 +32,6 @@ use crate::time::{
     Clockable,
     UtcClock,
 };
-
-type OwnerCache = SizedCache<String, Vec<metav1::OwnerReference>>;
-pub(crate) const CACHE_SIZE: usize = 10000;
 
 // The PodWatcher object monitors incoming pod events and records the relevant ones to the object
 // store; becaues in clusters of any reasonable size, there are a) a lot of pods, and b) a lot of
@@ -57,7 +44,6 @@ pub(crate) const CACHE_SIZE: usize = 10000;
 // ownership chain for the pod, and forward that info on to the store.
 
 pub struct PodWatcher {
-    apiset: ApiSet,
     pod_stream: PodStream,
 
     // We store the list of owned pods in memory here, and cache the ownership chain for each pod;
@@ -65,7 +51,7 @@ pub struct PodWatcher {
     // by pod name.  (The object store needs to store a bunch of extra metadata about sequence
     // number and pod hash and so forth).
     owned_pods: HashMap<String, PodLifecycleData>,
-    owners_cache: SizedCache<String, Vec<metav1::OwnerReference>>,
+    owners_cache: OwnersCache,
     store: Arc<Mutex<dyn TraceStorable + Send>>,
 
     clock: Box<dyn Clockable + Send>,
@@ -82,11 +68,10 @@ impl PodWatcher {
         let pod_api: kube::Api<corev1::Pod> = kube::Api::all(apiset.client().clone());
         let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
         PodWatcher {
-            apiset,
             pod_stream,
             store,
             owned_pods: HashMap::new(),
-            owners_cache: SizedCache::with_size(CACHE_SIZE),
+            owners_cache: OwnersCache::new(apiset),
             clock: Box::new(UtcClock),
         }
     }
@@ -218,9 +203,9 @@ impl PodWatcher {
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
         // determined that we want to store the data but _before_ we unlock the object store, since
         // this involves a bunch of API calls, and we don't want to block either thread.
-        let owners = match (self.owners_cache.cache_get(ns_name), maybe_pod) {
+        let owners = match (self.owners_cache.lookup(ns_name), maybe_pod) {
             (Some(o), _) => o.clone(),
-            (None, Some(pod)) => compute_owner_chain(&mut self.apiset, pod, &mut self.owners_cache).await?,
+            (None, Some(pod)) => self.owners_cache.compute_owner_chain(pod).await?,
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
@@ -241,57 +226,16 @@ impl PodWatcher {
     }
 }
 
-// Recursively look up all of the owning objects for a given Kubernetes object
-#[async_recursion]
-pub(super) async fn compute_owner_chain(
-    apiset: &mut ApiSet,
-    obj: &(impl Resource + Sync),
-    cache: &mut OwnerCache,
-) -> anyhow::Result<Vec<metav1::OwnerReference>> {
-    let ns_name = obj.namespaced_name();
-    info!("computing owner references for {}", ns_name);
-
-    if let Some(owners) = cache.cache_get(&ns_name) {
-        info!("found owners for {} in cache", ns_name);
-        return Ok(owners.clone());
-    }
-
-    let mut owners = Vec::from(obj.owner_references());
-
-    for rf in obj.owner_references() {
-        let gvk = GVK::from_owner_ref(rf)?;
-        let api = apiset.api_for(gvk).await?;
-        let resp = api.list(&namespaced_name_selector(&obj.namespace().unwrap(), &rf.name)).await?;
-        if resp.items.len() != 1 {
-            bail!("could not find single owner for {}, found {:?}", obj.namespaced_name(), resp.items);
-        }
-
-        let owner = &resp.items[0];
-        owners.extend(compute_owner_chain(apiset, owner, cache).await?);
-    }
-
-    cache.cache_set(ns_name, owners.clone());
-    Ok(owners)
-}
-
 #[cfg(test)]
 impl PodWatcher {
     pub(crate) fn new_from_parts(
-        apiset: ApiSet,
         pod_stream: PodStream,
         owned_pods: HashMap<String, PodLifecycleData>,
-        owners_cache: SizedCache<String, Vec<metav1::OwnerReference>>,
+        owners_cache: OwnersCache,
         store: Arc<Mutex<dyn TraceStorable + Send>>,
         clock: Box<dyn Clockable + Send>,
     ) -> PodWatcher {
-        PodWatcher {
-            apiset,
-            pod_stream,
-            owned_pods,
-            owners_cache,
-            store,
-            clock,
-        }
+        PodWatcher { pod_stream, owned_pods, owners_cache, store, clock }
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {

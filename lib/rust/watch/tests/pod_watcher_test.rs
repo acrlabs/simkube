@@ -12,21 +12,17 @@ use futures::{
     stream,
     StreamExt,
 };
-use kube::ResourceExt;
 use mockall::predicate;
-use serde_json::json;
 use tracing_test::*;
 
 use super::*;
 use crate::k8s::{
     KubeResourceExt,
+    OwnersCache,
     PodLifecycleData,
 };
 use crate::store::MockTraceStorable;
-use crate::testutils::fake::{
-    apps_v1_discovery,
-    make_fake_apiserver,
-};
+use crate::testutils::fake::make_fake_apiserver;
 use crate::testutils::*;
 
 const START_TS: i64 = 1234;
@@ -65,10 +61,9 @@ fn make_pod_watcher(
 
     let (_, apiset) = make_fake_apiserver();
     PodWatcher::new_from_parts(
-        apiset,
         stream::empty().boxed(),
         stored_pods,
-        SizedCache::with_size(CACHE_SIZE),
+        OwnersCache::new(apiset),
         Arc::new(Mutex::new(store)),
         clock,
     )
@@ -307,21 +302,16 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         .returning(|_, _, _, _| Ok(()))
         .once();
 
-    let mut cache = SizedCache::with_size(CACHE_SIZE);
-    cache.cache_set(pod_names[0].clone(), vec![]);
-    cache.cache_set(pod_names[1].clone(), vec![]);
-    // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
-    cache.cache_set(pod_names[3].clone(), vec![]);
-
     let (_, apiset) = make_fake_apiserver();
-    let mut pw = PodWatcher::new_from_parts(
-        apiset,
-        stream::empty().boxed(),
-        pod_lifecycles,
-        cache,
-        Arc::new(Mutex::new(store)),
-        clock,
-    );
+    let mut owners = SizedCache::with_size(1000);
+    owners.cache_set(pod_names[0].clone(), vec![]);
+    owners.cache_set(pod_names[1].clone(), vec![]);
+    // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
+    owners.cache_set(pod_names[3].clone(), vec![]);
+
+    let cache = OwnersCache::new_from_parts(apiset, owners);
+    let mut pw =
+        PodWatcher::new_from_parts(stream::empty().boxed(), pod_lifecycles, cache, Arc::new(Mutex::new(store)), clock);
 
     let mut evt = Event::Restarted(vec![update_pod0, update_pod1]);
 
@@ -330,100 +320,4 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[1]).unwrap(), PodLifecycleData::Running(START_TS));
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[2]), None); // pod2 should still be deleted from our index
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[3]), None);
-}
-
-#[rstest]
-#[traced_test]
-#[tokio::test]
-async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
-    let rsref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "replicaset".into(),
-        name: "test-rs".into(),
-        uid: "asdfasdf".into(),
-        ..Default::default()
-    };
-    let deplref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "deployment".into(),
-        name: "test-depl".into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    };
-
-    test_pod.owner_references_mut().push(rsref.clone());
-    let expected_owners = vec![rsref, deplref];
-
-    let mut cache = SizedCache::with_size(CACHE_SIZE);
-    cache.cache_set(test_pod.namespaced_name(), expected_owners.clone());
-
-    let (_, mut apiset) = make_fake_apiserver();
-    let res = compute_owner_chain(&mut apiset, &test_pod, &mut cache).await.unwrap();
-    assert_eq!(res, expected_owners);
-}
-
-#[rstest]
-#[traced_test]
-#[tokio::test]
-async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
-    let rsref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "ReplicaSet".into(),
-        name: "test-rs".into(),
-        uid: "asdfasdf".into(),
-        ..Default::default()
-    };
-    let deplref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "Deployment".into(),
-        name: "test-depl".into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    };
-
-    let (mut fake_apiserver, mut apiset) = make_fake_apiserver();
-    fake_apiserver.handle(|when, then| {
-        when.path("/apis/apps/v1");
-        then.json_body(apps_v1_discovery());
-    });
-
-    let rs_owner = deplref.clone();
-    fake_apiserver.handle(move |when, then| {
-        when.path("/apis/apps/v1/replicasets");
-        then.json_body(json!({
-            "metadata": {},
-            "items": [
-                {
-                    "metadata": {
-                        "namespace": TEST_NAMESPACE,
-                        "name": "test-rs",
-                        "ownerReferences": [rs_owner],
-                    }
-                },
-            ],
-        }));
-    });
-
-    fake_apiserver.handle(move |when, then| {
-        when.path("/apis/apps/v1/deployments");
-        then.json_body(json!({
-            "metadata": {},
-            "items": [
-                {
-                    "metadata": {
-                        "namespace": TEST_NAMESPACE,
-                        "name": "test-depl",
-                    }
-                },
-            ],
-        }));
-    });
-    fake_apiserver.build();
-
-    test_pod.owner_references_mut().push(rsref.clone());
-    let res = compute_owner_chain(&mut apiset, &test_pod, &mut SizedCache::with_size(CACHE_SIZE))
-        .await
-        .unwrap();
-
-    assert_eq!(res, vec![rsref, deplref]);
 }

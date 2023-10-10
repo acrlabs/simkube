@@ -72,6 +72,7 @@ fn api_resource() -> ApiResource {
 pub(super) async fn create_certificate_if_not_present(
     k8s_client: kube::Client,
     namespace: &str,
+    driver_svc_name: &str,
     issuer_name: &str,
     sim_name: &str,
     owner: &SimulationRoot,
@@ -96,7 +97,7 @@ pub(super) async fn create_certificate_if_not_present(
                     kind: Some("ClusterIssuer".into()),
                     ..Default::default()
                 },
-                dns_names: Some(vec![format!("mutatepods.sk-driver")]),
+                dns_names: Some(vec![format!("{}.{}.svc", driver_svc_name, namespace)]),
             },
             status: None,
             types: Some(TypeMeta {
