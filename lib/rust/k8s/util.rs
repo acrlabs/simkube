@@ -45,20 +45,6 @@ pub fn build_deletable(ns_name: &str) -> DynamicObject {
     }
 }
 
-pub fn namespaced_name_selector(namespace: &str, name: &str) -> ListParams {
-    ListParams {
-        field_selector: Some(format!("metadata.namespace={},metadata.name={}", namespace, name)),
-        ..Default::default()
-    }
-}
-
-pub fn label_selector(key: &str, value: &str) -> ListParams {
-    ListParams {
-        label_selector: Some(format!("{}={}", key, value)),
-        ..Default::default()
-    }
-}
-
 pub fn build_global_object_meta<K>(name: &str, sim_name: &str, owner: &K) -> anyhow::Result<metav1::ObjectMeta>
 where
     K: Resource<DynamicType = ()>,
@@ -76,6 +62,13 @@ where
     K: Resource<DynamicType = ()>,
 {
     build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
+}
+
+pub fn label_selector(key: &str, value: &str) -> ListParams {
+    ListParams {
+        label_selector: Some(format!("{}={}", key, value)),
+        ..Default::default()
+    }
 }
 
 pub fn list_params_for(namespace: &str, name: &str) -> ListParams {

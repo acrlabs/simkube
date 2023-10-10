@@ -90,12 +90,14 @@ async fn build_stream_for_tracked_obj(
     gvk: &GVK,
     pod_spec_path: &str,
 ) -> anyhow::Result<KubeObjectStream> {
+    // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
+    // it will prevent the tracer from starting up
     let gvk = gvk.clone();
     let pod_spec_path = pod_spec_path.to_owned();
 
     let api_version = gvk.api_version().clone();
     let kind = gvk.kind.clone();
-    let api = apiset.api_for(gvk).await?;
+    let (api, _) = apiset.api_for(&gvk).await?;
 
     Ok(watcher(api.clone(), Default::default())
         .modify(move |obj| {

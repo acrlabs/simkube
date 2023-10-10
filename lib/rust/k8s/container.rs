@@ -7,6 +7,7 @@ use super::*;
 impl StartEndTimeable for corev1::ContainerState {
     fn start_ts(&self) -> anyhow::Result<Option<i64>> {
         match self {
+            // TODO: saw a panic here once
             corev1::ContainerState { running: Some(r), terminated: None, waiting: None } => {
                 Ok(Some(r.started_at.as_ref().unwrap().0.timestamp()))
             },

@@ -1,3 +1,4 @@
+mod owners_test;
 mod pod_lifecycle_test;
 mod util_test;
 

@@ -30,11 +30,12 @@ cached = { version = "0.45.1", features = ["async"] }
 chrono = "0.4.26"
 clap = { version = "4.3.21", features = ["derive"] }
 futures = "0.3.28"
+json-patch = "1.2.0"
 k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
 paste = "1.0.14"
 reqwest = { version = "0.11.18", default-features = false, features = ["json", "rustls-tls"] }
 rmp-serde = "1.1.2"
-rocket = { version = "0.5.0-rc.3", features = ["json"] }
+rocket = { version = "0.5.0-rc.3", features = ["json", "tls"] }
 schemars = "0.8.12"
 serde = "1.0.188"
 serde_json = "1.0.105"
@@ -47,7 +48,7 @@ url = "2.4.1"
 
 [dependencies.kube]
 version = "0.85.0"
-features = ["client", "derive", "runtime", "rustls-tls"]
+features = ["client", "derive", "runtime", "rustls-tls", "admission"]
 default-features = false
 
 [dev-dependencies]

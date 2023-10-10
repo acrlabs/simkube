@@ -1,6 +1,7 @@
 mod apiset;
 mod container;
 mod gvk;
+mod owners;
 mod pod_ext;
 mod pod_lifecycle;
 mod util;
@@ -9,6 +10,7 @@ pub use apiset::*;
 pub use gvk::*;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+pub use owners::OwnersCache;
 use serde::{
     Deserialize,
     Serialize,

@@ -73,4 +73,4 @@ cover-rust:
 
 .PHONY: crd
 crd:
-	cargo run --bin gencrd > $(BUILD_DIR)/manifests/0000-crd.yml
+	$(CARGO_HOME_ENV) cargo run --bin gencrd > k8s/raw/0000-crd.yml
