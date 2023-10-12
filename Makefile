@@ -45,11 +45,11 @@ test-go:
 test-rust:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) $(patsubst %, --bin %, $(RUST_ARTIFACTS)) --lib -- --nocapture --skip itest
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) $(patsubst %, --bin %, $(RUST_ARTIFACTS)) --lib -- --nocapture --skip itest
 
 .PHONY: itest-rust
 itest-rust:
-	$(CARGO_TEST_PREFIX) cargo test itest --lib -- --nocapture
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils itest --lib -- --nocapture
 
 cover: cover-go cover-rust
 
@@ -68,7 +68,7 @@ cover-rust:
 		--ignore '.build/cargo/*' \
 		--ignore 'hack/*' \
 		--excl-line '#\[derive' \
-		--excl-start '#\[cfg\(test'
+		--excl-start '#\[cfg\((test|feature = "testutils")'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
 
 .PHONY: crd

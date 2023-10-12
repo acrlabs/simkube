@@ -10,7 +10,10 @@ use kube::core::admission::{
     AdmissionReview,
 };
 use rocket::serde::json::Json;
-use serde_json::json;
+use serde_json::{
+    json,
+    Value,
+};
 use simkube::jsonutils;
 use simkube::prelude::*;
 use tracing::*;
@@ -51,7 +54,7 @@ pub async fn handler(
 
 // TODO when we get the pod object, the final name hasn't been filled in yet; make sure this
 // doesn't cause any problems
-async fn mutate_pod(
+pub(super) async fn mutate_pod(
     ctx: &rocket::State<DriverContext>,
     resp: AdmissionResponse,
     pod: &corev1::Pod,
@@ -71,10 +74,14 @@ async fn mutate_pod(
         patches.push(PatchOperation::Add(AddOperation { path: "/metadata/labels".into(), value: json!({}) }));
     }
 
+    if pod.spec()?.tolerations.is_none() {
+        patches.push(PatchOperation::Add(AddOperation { path: "/spec/tolerations".into(), value: json!([]) }));
+    }
+
     patches.extend(vec![
         PatchOperation::Add(AddOperation {
             path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
-            value: serde_json::Value::String(ctx.sim_name.clone()),
+            value: Value::String(ctx.sim_name.clone()),
         }),
         PatchOperation::Add(AddOperation {
             path: "/spec/nodeSelector".into(),
@@ -88,9 +95,11 @@ async fn mutate_pod(
     Ok(resp.with_patch(Patch(patches))?)
 }
 
+// Have to duplicate this fn because AdmissionResponse::into_review uses the dynamic API
 fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
     AdmissionReview {
         types: resp.types.clone(),
+        // All that matters is that we keep the request UUID, which is in the TypeMeta
         request: None,
         response: Some(resp),
     }

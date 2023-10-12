@@ -77,7 +77,7 @@ fn build_owner_selector(owner_name: &str, obj: &(impl Resource + Sync), owner_ca
     ListParams { field_selector: sel, ..Default::default() }
 }
 
-#[cfg(test)]
+#[cfg(feature = "testutils")]
 impl OwnersCache {
     pub fn new_from_parts(apiset: ApiSet, owners: SizedCache<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
         OwnersCache { apiset, owners }
