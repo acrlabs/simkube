@@ -2,6 +2,7 @@
 name = "simkube"
 version = "0.4.0"
 edition = "2021"
+resolver = "2"
 
 [[bin]]
 name = "sk-ctrl"
@@ -46,6 +47,11 @@ tracing = "0.1.37"
 tracing-subscriber = "0.3.17"
 url = "2.4.1"
 
+# These are actually dev dependencies of the testutils feature
+httpmock = { version = "0.6.8", optional = true }
+rstest = { version = "0.18.2", optional = true }
+http = { version = "0.2.9", optional = true }
+
 [dependencies.kube]
 version = "0.85.0"
 features = ["client", "derive", "runtime", "rustls-tls", "admission"]
@@ -53,9 +59,9 @@ default-features = false
 
 [dev-dependencies]
 assertables = "7.0.1"
-http = "0.2.9"
-httpmock = "0.6.8"
 hyper = "0.14.27"
 mockall = "0.11.4"
-rstest = "0.18.2"
 tracing-test = "0.2.4"
+
+[features]
+testutils = ["dep:http", "dep:httpmock", "dep:rstest"]

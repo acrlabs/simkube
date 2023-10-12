@@ -55,7 +55,7 @@ async fn run(args: &Options) -> EmptyResult {
     let client = Client::try_default().await.expect("failed to create kube client");
     let mut apiset = ApiSet::new(client.clone());
 
-    let store = TraceStore::new(config.clone());
+    let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
     let dyn_obj_watcher = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
     let pod_watcher = PodWatcher::new(store.clone(), apiset);
 

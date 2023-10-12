@@ -47,5 +47,5 @@ pub mod prelude {
     pub use crate::logging;
 }
 
-#[cfg(test)]
+#[cfg(feature = "testutils")]
 pub mod testutils;

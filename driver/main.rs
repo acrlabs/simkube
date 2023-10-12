@@ -104,3 +104,6 @@ async fn main() -> EmptyResult {
     run(&args).await?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests;

@@ -84,7 +84,7 @@ jobs:
       - name: Add llvm-tools
         run: rustup component add llvm-tools-preview
       - name: Test
-        run: make test-rust cover-rust
+        run: make test-rust itest-rust cover-rust
         env:
           WITH_COVERAGE: "true"
       - name: Upload coverage

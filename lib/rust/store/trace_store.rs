@@ -3,10 +3,6 @@ use std::collections::{
     HashSet,
 };
 use std::mem::take;
-use std::sync::{
-    Arc,
-    Mutex,
-};
 
 use kube::api::DynamicObject;
 use kube::ResourceExt;
@@ -28,8 +24,8 @@ use crate::k8s::{
 // point in the future we plan to implement garbage collection so this isn't a problem.
 
 impl TraceStore {
-    pub fn new(config: TracerConfig) -> Arc<Mutex<TraceStore>> {
-        Arc::new(Mutex::new(TraceStore { config, ..Default::default() }))
+    pub fn new(config: TracerConfig) -> TraceStore {
+        TraceStore { config, ..Default::default() }
     }
 
     pub fn config(&self) -> &TracerConfig {

@@ -1,3 +1,8 @@
+use std::sync::{
+    Arc,
+    Mutex,
+};
+
 use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
@@ -129,7 +134,7 @@ async fn itest_export() {
 
     // Since we're just generating the results from the stream and not actually querying any
     // Kubernetes internals or whatever, the TracerConfig is empty.
-    let s = TraceStore::new(Default::default());
+    let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
 
     // First build up the stream of test data and run the watcher (this advances time to the "end")
     let w = DynObjWatcher::new_from_parts(test_stream(*clock.clone()), s.clone(), clock);
