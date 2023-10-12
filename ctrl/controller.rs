@@ -38,7 +38,7 @@ fn create_driver_job(simulation: &Simulation, sim_root_name: &str, driver_image:
     let trace_path = Url::parse(&simulation.spec.trace)?;
     let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_path)? {
         storage::Scheme::AmazonS3 => todo!(),
-        storage::Scheme::Local => get_local_trace_volume(&trace_path),
+        storage::Scheme::Local => get_local_trace_volume(&trace_path)?,
     };
 
     let mut job = batchv1::Job {

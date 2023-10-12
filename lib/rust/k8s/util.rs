@@ -31,10 +31,6 @@ where
     Ok(())
 }
 
-pub fn label_for(key: &str, val: &str) -> String {
-    format!("{}={}", key, val)
-}
-
 pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
     ListParams {
         field_selector: Some(format!("metadata.namespace={},metadata.name={}", namespace, name)),
