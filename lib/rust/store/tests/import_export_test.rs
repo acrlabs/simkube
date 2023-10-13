@@ -144,7 +144,7 @@ async fn itest_export() {
     let filter = TraceFilter {
         excluded_namespaces: vec!["kube-system".into()],
         excluded_labels: vec![metav1::LabelSelector {
-            match_labels: klabel!("foo" = "bar"),
+            match_labels: klabel!("foo" => "bar"),
             ..Default::default()
         }],
         exclude_daemonsets: true,

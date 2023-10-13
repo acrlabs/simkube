@@ -64,8 +64,8 @@ impl PodWatcher {
     // DynamicObject watcher just needs to construct the relevant api clients once, when it creates
     // the watch streams, so it can yield when it's done.  If at some point in the future this
     // becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
-    pub fn new(store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> PodWatcher {
-        let pod_api: kube::Api<corev1::Pod> = kube::Api::all(apiset.client().clone());
+    pub fn new(client: kube::Client, store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> PodWatcher {
+        let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
         let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
         PodWatcher {
             pod_stream,

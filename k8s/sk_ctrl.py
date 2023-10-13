@@ -24,6 +24,8 @@ class SKController(Chart):
             args=[
                 "/sk-ctrl",
                 "--driver-image", driver_image,
+                # TODO can we auto-detect this in fireconfig?
+                "--sim-svc-account", "sk-ctrl-service-account-c8688aad",
                 "--use-cert-manager",
                 "--cert-manager-issuer", "selfsigned",
             ],

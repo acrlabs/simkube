@@ -11,6 +11,7 @@ use futures::{
     StreamExt,
 };
 use kube::runtime::controller::Controller;
+use kube::ResourceExt;
 use simkube::prelude::*;
 use thiserror::Error;
 use tracing::*;
@@ -20,13 +21,16 @@ use crate::controller::{
     reconcile,
 };
 
-#[derive(Parser, Debug)]
+#[derive(Clone, Debug, Parser)]
 struct Options {
     #[arg(long)]
     driver_image: String,
 
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     driver_port: i32,
+
+    #[arg(long)]
+    sim_svc_account: String,
 
     // TODO: should support non-cert-manager for configuring certs as well
     #[arg(long)]
@@ -46,30 +50,54 @@ enum ReconcileError {
     KubeApiError(#[from] kube::Error),
 }
 
+#[derive(Clone)]
 struct SimulationContext {
-    k8s_client: kube::Client,
+    client: kube::Client,
     opts: Options,
-    sim_svc_account: String,
+
+    name: String,
+    root: String,
+    driver_ns: String,
+    driver_name: String,
+    driver_svc: String,
+    webhook_name: String,
 }
 
-async fn run(args: Options) -> EmptyResult {
+impl SimulationContext {
+    fn new(client: kube::Client, opts: Options) -> SimulationContext {
+        SimulationContext {
+            client,
+            opts,
+            name: String::new(),
+            root: String::new(),
+            driver_ns: String::new(),
+            driver_name: String::new(),
+            driver_svc: String::new(),
+            webhook_name: String::new(),
+        }
+    }
+
+    fn new_with_sim(self: Arc<Self>, sim: &Simulation) -> SimulationContext {
+        let mut new = (*self).clone();
+        new.name = sim.name_any();
+        new.root = format!("sk-{}-root", new.name);
+        new.driver_name = format!("sk-{}-driver", new.name);
+        new.driver_ns = sim.spec.driver_namespace.clone();
+        new.driver_svc = format!("sk-{}-driver-svc", new.name);
+        new.webhook_name = format!("sk-{}-mutatepods", new.name);
+
+        new
+    }
+}
+
+async fn run(opts: Options) -> EmptyResult {
     info!("Simulation controller starting");
 
-    let k8s_client = kube::Client::try_default().await?;
-    let sim_api = kube::Api::<Simulation>::all(k8s_client.clone());
+    let client = kube::Client::try_default().await?;
+    let sim_api = kube::Api::<Simulation>::all(client.clone());
 
     let ctrl = Controller::new(sim_api, Default::default())
-        .run(
-            reconcile,
-            error_policy,
-            Arc::new(SimulationContext {
-                k8s_client,
-                opts: args,
-
-                // TODO don't hardcode these
-                sim_svc_account: "sk-ctrl-service-account-c8688aad".into(),
-            }),
-        )
+        .run(reconcile, error_policy, Arc::new(SimulationContext::new(client, opts)))
         .for_each(|_| future::ready(()));
 
     tokio::select!(

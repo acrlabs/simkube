@@ -2,7 +2,6 @@ use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
-use kube::ResourceExt;
 use reqwest::Url;
 use simkube::k8s::{
     build_global_object_meta,
@@ -14,51 +13,35 @@ use simkube::store::storage;
 
 use super::cert_manager::DRIVER_CERT_NAME;
 use super::trace::get_local_trace_volume;
+use crate::SimulationContext;
 
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
 const DRIVER_CERT_VOLUME: &str = "driver-cert";
 
-pub(super) fn sim_root_name(sim_name: &str) -> String {
-    format!("sk-{}-root", sim_name)
-}
-
-pub(super) fn build_simulation_root(name: &str, sim_name: &str, owner: &Simulation) -> anyhow::Result<SimulationRoot> {
+pub(super) fn build_simulation_root(ctx: &SimulationContext, owner: &Simulation) -> anyhow::Result<SimulationRoot> {
     Ok(SimulationRoot {
-        metadata: build_global_object_meta(name, sim_name, owner)?,
+        metadata: build_global_object_meta(&ctx.root, &ctx.name, owner)?,
         spec: SimulationRootSpec {},
     })
 }
 
-pub(super) fn build_driver_namespace(
-    driver_ns: &str,
-    sim_name: &str,
-    owner: &Simulation,
-) -> anyhow::Result<corev1::Namespace> {
+pub(super) fn build_driver_namespace(ctx: &SimulationContext, owner: &Simulation) -> anyhow::Result<corev1::Namespace> {
     Ok(corev1::Namespace {
-        metadata: build_global_object_meta(driver_ns, sim_name, owner)?,
+        metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner)?,
         ..Default::default()
     })
 }
 
-pub(super) fn mutating_webhook_config_name(sim_name: &str) -> String {
-    format!("sk-{}-mutatepods", sim_name)
-}
-
 pub(super) fn build_mutating_webhook(
-    name: &str,
-    driver_ns_name: &str,
-    driver_service_name: &str,
-    driver_port: i32,
-    use_cert_manager: bool,
-    sim_name: &str,
+    ctx: &SimulationContext,
     owner: &SimulationRoot,
 ) -> anyhow::Result<admissionv1::MutatingWebhookConfiguration> {
-    let mut metadata = build_global_object_meta(name, sim_name, owner)?;
-    if use_cert_manager {
+    let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner)?;
+    if ctx.opts.use_cert_manager {
         metadata
             .annotations
             .get_or_insert(BTreeMap::new())
-            .insert("cert-manager.io/inject-ca-from".into(), format!("{}/{}", driver_ns_name, DRIVER_CERT_NAME));
+            .insert("cert-manager.io/inject-ca-from".into(), format!("{}/{}", ctx.driver_ns, DRIVER_CERT_NAME));
     }
 
     Ok(admissionv1::MutatingWebhookConfiguration {
@@ -67,9 +50,9 @@ pub(super) fn build_mutating_webhook(
             admission_review_versions: vec!["v1".into()],
             client_config: admissionv1::WebhookClientConfig {
                 service: Some(admissionv1::ServiceReference {
-                    namespace: driver_ns_name.into(),
-                    name: driver_service_name.into(),
-                    port: Some(driver_port),
+                    namespace: ctx.driver_ns.clone(),
+                    name: ctx.driver_svc.clone(),
+                    port: Some(ctx.opts.driver_port),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -90,49 +73,29 @@ pub(super) fn build_mutating_webhook(
     })
 }
 
-pub(super) fn driver_service_name(sim_name: &str) -> String {
-    format!("sk-{}-driver-svc", sim_name)
-}
-
-pub(super) fn build_driver_service(
-    namespace: &str,
-    name: &str,
-    driver_name: &str,
-    port: i32,
-    sim_name: &str,
-    owner: &SimulationRoot,
-) -> anyhow::Result<corev1::Service> {
+pub(super) fn build_driver_service(ctx: &SimulationContext, owner: &SimulationRoot) -> anyhow::Result<corev1::Service> {
     Ok(corev1::Service {
-        metadata: build_object_meta(namespace, name, sim_name, owner)?,
+        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_svc, &ctx.name, owner)?,
         spec: Some(corev1::ServiceSpec {
             ports: Some(vec![corev1::ServicePort {
-                port,
-                target_port: Some(IntOrString::Int(port)),
+                port: ctx.opts.driver_port,
+                target_port: Some(IntOrString::Int(ctx.opts.driver_port)),
                 ..Default::default()
             }]),
-            selector: klabel!("job-name" = driver_name),
+            selector: klabel!("job-name" => ctx.driver_name),
             ..Default::default()
         }),
         ..Default::default()
     })
 }
 
-pub(super) fn sim_driver_name(sim_name: &str) -> String {
-    format!("sk-{}-driver", sim_name)
-}
-
 pub(super) fn build_driver_job(
-    namespace: &str,
-    name: &str,
-    cert_secret_name: &str,
-    driver_image: &str,
-    trace_path: &str,
-    sim_service_account_name: &str,
-    sim_name: &str,
-    root: &SimulationRoot,
+    ctx: &SimulationContext,
     owner: &Simulation,
+    cert_secret_name: &str,
+    trace_path: &str,
 ) -> anyhow::Result<batchv1::Job> {
-    let trace_url = Url::parse(trace_path)?;
+    let trace_url = Url::parse(&trace_path)?;
     let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_url)? {
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
@@ -140,7 +103,7 @@ pub(super) fn build_driver_job(
     let (cert_vm, cert_volume, cert_mount_path) = create_certificate_volumes(cert_secret_name);
 
     Ok(batchv1::Job {
-        metadata: build_object_meta(namespace, name, sim_name, owner)?,
+        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, owner)?,
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(1),
             template: corev1::PodTemplateSpec {
@@ -158,17 +121,17 @@ pub(super) fn build_driver_job(
                             "--sim-namespace-prefix".into(),
                             "virtual".into(),
                             "--sim-root".into(),
-                            root.name_any(),
+                            ctx.root.clone(),
                             "--sim-name".into(),
-                            sim_name.into(),
+                            ctx.name.clone(),
                         ]),
-                        image: Some(driver_image.into()),
+                        image: Some(ctx.opts.driver_image.clone()),
                         volume_mounts: Some(vec![trace_vm, cert_vm]),
                         ..Default::default()
                     }],
                     restart_policy: Some("Never".into()),
                     volumes: Some(vec![trace_volume, cert_volume]),
-                    service_account: Some(sim_service_account_name.into()),
+                    service_account: Some(ctx.opts.sim_svc_account.clone()),
                     ..Default::default()
                 }),
                 ..Default::default()

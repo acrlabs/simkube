@@ -12,6 +12,10 @@ use simkube::macros::*;
 use simkube::prelude::*;
 use tracing::*;
 
+use super::*;
+
+// Adapted from the "full" cert-manager CRD output from kopium
+
 pub(super) const DRIVER_CERT_NAME: &str = "sk-driver-cert";
 const CERT_MANAGER_GROUP: &str = "cert-manager.io";
 const CERT_MANAGER_VERSION: &str = "v1";
@@ -69,35 +73,29 @@ fn api_resource() -> ApiResource {
     }
 }
 
-pub(super) async fn create_certificate_if_not_present(
-    k8s_client: kube::Client,
-    namespace: &str,
-    driver_svc_name: &str,
-    issuer_name: &str,
-    sim_name: &str,
-    owner: &SimulationRoot,
-) -> EmptyResult {
-    let cert_api = kube::Api::<PartialCertificate>::namespaced_with(k8s_client, namespace, &api_resource());
+pub(super) async fn create_certificate_if_not_present(ctx: &SimulationContext, owner: &SimulationRoot) -> EmptyResult {
+    let cert_api =
+        kube::Api::<PartialCertificate>::namespaced_with(ctx.client.clone(), &ctx.driver_ns, &api_resource());
 
     if cert_api.get_opt(DRIVER_CERT_NAME).await?.is_none() {
         info!(
             "creating cert-manager certificate {} for {}, using issuer {}",
-            DRIVER_CERT_NAME, sim_name, issuer_name
+            DRIVER_CERT_NAME, ctx.name, ctx.opts.cert_manager_issuer,
         );
         let obj = PartialCertificate {
-            metadata: build_object_meta(namespace, DRIVER_CERT_NAME, sim_name, owner)?,
+            metadata: build_object_meta(&ctx.driver_ns, DRIVER_CERT_NAME, &ctx.name, owner)?,
             spec: PartialCertificateSpec {
                 secret_name: DRIVER_CERT_NAME.into(),
                 secret_template: Some(CertificateSecretTemplate {
                     annotations: None,
-                    labels: klabel!(SIMULATION_LABEL_KEY = sim_name),
+                    labels: klabel!(SIMULATION_LABEL_KEY => ctx.name),
                 }),
                 issuer_ref: CertificateIssuerRef {
-                    name: issuer_name.into(),
+                    name: ctx.opts.cert_manager_issuer.clone(),
                     kind: Some("ClusterIssuer".into()),
                     ..Default::default()
                 },
-                dns_names: Some(vec![format!("{}.{}.svc", driver_svc_name, namespace)]),
+                dns_names: Some(vec![format!("{}.{}.svc", ctx.driver_svc, ctx.driver_ns)]),
             },
             status: None,
             types: Some(TypeMeta {

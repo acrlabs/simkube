@@ -13,9 +13,9 @@ fn test_sanitize_obj() {
             namespace: Some(TEST_NAMESPACE.into()),
 
             annotations: klabel!(
-                "some_random_annotation" = "blah",
-                LAST_APPLIED_CONFIG_LABEL_KEY = "foo",
-                DEPL_REVISION_LABEL_KEY = "42.5",
+                "some_random_annotation" => "blah",
+                LAST_APPLIED_CONFIG_LABEL_KEY => "foo",
+                DEPL_REVISION_LABEL_KEY => "42.5",
             ),
 
             creation_timestamp: Some(metav1::Time(Utc::now())),
@@ -63,7 +63,7 @@ fn test_sanitize_obj() {
     assert_eq!(obj.metadata.resource_version, None);
     assert_eq!(obj.metadata.uid, None);
 
-    assert_eq!(obj.metadata.annotations, klabel!("some_random_annotation" = "blah"));
+    assert_eq!(obj.metadata.annotations, klabel!("some_random_annotation" => "blah"));
     assert!(obj
         .types
         .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff"));
@@ -159,7 +159,7 @@ fn test_label_expr_not_exists(test_pod: corev1::Pod, #[case] op: &str) {
 #[case::label_no_match("baz".into())]
 fn test_label_match(test_pod: corev1::Pod, #[case] label_key: String) {
     let sel = metav1::LabelSelector {
-        match_labels: klabel!(label_key = "bar"),
+        match_labels: klabel!(label_key => "bar"),
         ..Default::default()
     };
     let res = test_pod.matches(&sel).unwrap();

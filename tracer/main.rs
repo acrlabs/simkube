@@ -48,7 +48,7 @@ async fn export(req: Json<ExportRequest>, store: &rocket::State<Arc<Mutex<TraceS
         .map_err(|e| format!("{:?}", e))
 }
 
-async fn run(args: &Options) -> EmptyResult {
+async fn run(args: Options) -> EmptyResult {
     info!("Reading tracer configuration from {}", &args.config_file);
     let config = TracerConfig::load(&args.config_file)?;
 
@@ -57,7 +57,7 @@ async fn run(args: &Options) -> EmptyResult {
 
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
     let dyn_obj_watcher = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
-    let pod_watcher = PodWatcher::new(store.clone(), apiset);
+    let pod_watcher = PodWatcher::new(client, store.clone(), apiset);
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
@@ -77,6 +77,6 @@ async fn run(args: &Options) -> EmptyResult {
 async fn main() -> EmptyResult {
     let args = Options::parse();
     logging::setup(&args.verbosity)?;
-    run(&args).await?;
+    run(args).await?;
     Ok(())
 }
