@@ -50,10 +50,6 @@ impl ApiSet {
         }
     }
 
-    pub fn client(&self) -> &kube::Client {
-        &self.client
-    }
-
     async fn api_meta_for(&mut self, gvk: GVK) -> anyhow::Result<&(ApiResource, ApiCapabilities)> {
         match self.resources.entry(gvk) {
             Entry::Occupied(e) => Ok(e.into_mut()),

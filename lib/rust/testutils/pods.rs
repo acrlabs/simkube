@@ -14,7 +14,7 @@ pub fn test_pod(#[default("the-pod".into())] name: String) -> corev1::Pod {
         metadata: metav1::ObjectMeta {
             namespace: Some(TEST_NAMESPACE.into()),
             name: Some(name),
-            labels: klabel!("foo" = "bar"),
+            labels: klabel!("foo" => "bar"),
             ..Default::default()
         },
         spec: Some(corev1::PodSpec { ..Default::default() }),

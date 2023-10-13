@@ -37,8 +37,9 @@ fn ctx(test_pod: corev1::Pod, #[default(vec![])] pod_owners: Vec<metav1::OwnerRe
     owners.cache_set(test_pod.namespaced_name(), pod_owners);
 
     DriverContext {
-        sim_name: TEST_SIM_NAME.into(),
-        sim_root_name: TEST_SIM_ROOT_NAME.into(),
+        name: TEST_SIM_NAME.into(),
+        sim_root: TEST_SIM_ROOT_NAME.into(),
+        virtual_ns_prefix: "virtual".into(),
         owners_cache: Arc::new(Mutex::new(OwnersCache::new_from_parts(apiset, owners))),
         store: Arc::new(TraceStore::new(Default::default())),
     }

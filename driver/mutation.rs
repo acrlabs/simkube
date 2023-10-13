@@ -64,7 +64,7 @@ pub(super) async fn mutate_pod(
         let mut owners_cache = ctx.owners_cache.lock().await;
         let owners = owners_cache.compute_owner_chain(pod).await?;
 
-        if owners.iter().all(|o| o.name != ctx.sim_root_name) {
+        if owners.iter().all(|o| o.name != ctx.sim_root) {
             return Ok(resp);
         }
     }
@@ -81,7 +81,7 @@ pub(super) async fn mutate_pod(
     patches.extend(vec![
         PatchOperation::Add(AddOperation {
             path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
-            value: Value::String(ctx.sim_name.clone()),
+            value: Value::String(ctx.name.clone()),
         }),
         PatchOperation::Add(AddOperation {
             path: "/spec/nodeSelector".into(),

@@ -23,7 +23,7 @@ use tracing::*;
 
 use crate::runner::TraceRunner;
 
-#[derive(Parser, Debug)]
+#[derive(Clone, Debug, Parser)]
 struct Options {
     #[arg(long)]
     sim_name: String,
@@ -32,7 +32,7 @@ struct Options {
     sim_root: String,
 
     #[arg(long)]
-    sim_namespace_prefix: String,
+    virtual_ns_prefix: String,
 
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     admission_webhook_port: u16,
@@ -50,44 +50,48 @@ struct Options {
     verbosity: String,
 }
 
+#[derive(Clone)]
 pub struct DriverContext {
-    sim_name: String,
-    sim_root_name: String,
+    name: String,
+    sim_root: String,
+    virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
     store: Arc<TraceStore>,
 }
 
-async fn run(args: &Options) -> EmptyResult {
+async fn run(opts: Options) -> EmptyResult {
     info!("Simulation driver starting");
 
     let client = kube::Client::try_default().await?;
 
-    let trace_data = fs::read(&args.trace_path)?;
+    let trace_data = fs::read(opts.trace_path)?;
     let apiset = ApiSet::new(client.clone());
     let store = Arc::new(TraceStore::import(trace_data)?);
+    let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
     let ctx = DriverContext {
-        sim_name: args.sim_name.clone(),
-        sim_root_name: args.sim_root.clone(),
-        owners_cache: Arc::new(Mutex::new(OwnersCache::new(apiset))),
-        store: store.clone(),
+        name: opts.sim_name.clone(),
+        sim_root: opts.sim_root.clone(),
+        virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
+        owners_cache,
+        store,
     };
 
     let rkt_config = rocket::Config {
         address: IpAddr::V4(Ipv4Addr::UNSPECIFIED),
-        port: args.admission_webhook_port,
-        tls: Some(TlsConfig::from_paths(&args.cert_path, &args.key_path)),
+        port: opts.admission_webhook_port,
+        tls: Some(TlsConfig::from_paths(&opts.cert_path, &opts.key_path)),
         ..Default::default()
     };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![mutation::handler])
-        .manage(ctx);
+        .manage(ctx.clone());
 
     let server_task = tokio::spawn(server.launch());
 
     // Give the mutation handler a bit of time to come online before starting the sim:w
     sleep(Duration::from_secs(5)).await;
 
-    let runner = TraceRunner::new(&args.sim_name, &args.sim_root, store.clone(), &args.sim_namespace_prefix).await?;
+    let runner = TraceRunner::new(ctx.clone()).await?;
 
     tokio::select! {
         _ = server_task => warn!("server terminated"),
@@ -101,7 +105,7 @@ async fn run(args: &Options) -> EmptyResult {
 async fn main() -> EmptyResult {
     let args = Options::parse();
     logging::setup(&args.verbosity)?;
-    run(&args).await?;
+    run(args).await?;
     Ok(())
 }
 

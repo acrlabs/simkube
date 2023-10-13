@@ -35,6 +35,7 @@ err_impl! {JsonPatchError,
 }
 
 pub fn escape(path: &str) -> String {
+    let path = path.replace("~", "~0");
     path.replace("/", "~1")
 }
 

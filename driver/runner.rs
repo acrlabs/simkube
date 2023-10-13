@@ -1,5 +1,4 @@
 use std::cmp::max;
-use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
@@ -20,15 +19,16 @@ use simkube::k8s::{
 };
 use simkube::macros::*;
 use simkube::prelude::*;
-use simkube::store::TraceStore;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::*;
 
-fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) -> anyhow::Result<corev1::Namespace> {
+use super::*;
+
+fn build_virtual_ns(ctx: &DriverContext, owner: &SimulationRoot, namespace: &str) -> anyhow::Result<corev1::Namespace> {
     let mut ns = corev1::Namespace {
-        metadata: build_global_object_meta(ns_name, sim_name, sim_root)?,
+        metadata: build_global_object_meta(namespace, &ctx.name, owner)?,
         ..Default::default()
     };
     klabel_insert!(ns, VIRTUAL_LABEL_KEY = "true");
@@ -37,64 +37,51 @@ fn build_virtual_ns(sim_name: &str, ns_name: &str, sim_root: &SimulationRoot) ->
 }
 
 fn build_virtual_obj(
+    ctx: &DriverContext,
+    owner: &SimulationRoot,
+    namespace: &str,
     obj: &DynamicObject,
-    vns_name: &str,
-    sim_name: &str,
-    root: &SimulationRoot,
 ) -> anyhow::Result<DynamicObject> {
     let mut vobj = obj.clone();
 
-    vobj.metadata.namespace = Some(vns_name.into());
+    vobj.metadata.namespace = Some(namespace.into());
     jsonutils::patch_ext::remove("", "status", &mut vobj.data)?;
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY = "true");
 
-    add_common_metadata(sim_name, root, &mut vobj.metadata)?;
+    add_common_metadata(&ctx.name, owner, &mut vobj.metadata)?;
 
     Ok(vobj)
 }
 
 pub struct TraceRunner {
-    store: Arc<TraceStore>,
-    sim_root: SimulationRoot,
-    ns_prefix: String,
-    sim_name: String,
+    ctx: DriverContext,
     client: kube::Client,
+    root: SimulationRoot,
 }
 
 impl TraceRunner {
-    pub async fn new(
-        sim_name: &str,
-        sim_root: &str,
-        store: Arc<TraceStore>,
-        ns_prefix: &str,
-    ) -> anyhow::Result<TraceRunner> {
+    pub async fn new(ctx: DriverContext) -> anyhow::Result<TraceRunner> {
         let client = kube::Client::try_default().await?;
         let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-        let root = roots_api.get(sim_root).await?;
+        let root = roots_api.get(&ctx.sim_root).await?;
 
-        Ok(TraceRunner {
-            sim_name: sim_name.into(),
-            sim_root: root,
-            store,
-            ns_prefix: ns_prefix.into(),
-            client,
-        })
+        Ok(TraceRunner { ctx, client, root })
     }
 
     pub async fn run(self) -> EmptyResult {
-        info!("starting simulation {}", self.sim_name);
+        info!("starting simulation {}", self.ctx.name);
         let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(self.client.clone());
         let mut apiset = ApiSet::new(self.client.clone());
-        let mut sim_ts = self.store.start_ts().ok_or(anyhow!("no trace data"))?;
-        for (evt, next_ts) in self.store.iter() {
+        let mut sim_ts = self.ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
+        for (evt, next_ts) in self.ctx.store.iter() {
             for obj in evt.applied_objs {
                 let gvk = GVK::from_dynamic_obj(&obj)?;
-                let vns_name = prefixed_ns(&self.ns_prefix, &obj);
-                let vobj = build_virtual_obj(&obj, &vns_name, &self.sim_name, &self.sim_root)?;
+                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, &obj);
+                let vobj = build_virtual_obj(&self.ctx, &self.root, &vns_name, &obj)?;
 
                 if ns_api.get_opt(&vns_name).await?.is_none() {
                     info!("creating virtual namespace: {}", vns_name);
-                    let vns = build_virtual_ns(&self.sim_name, &vns_name, &self.sim_root)?;
+                    let vns = build_virtual_ns(&self.ctx, &self.root, &vns_name)?;
                     ns_api.create(&Default::default(), &vns).await?;
                 }
 
@@ -109,7 +96,7 @@ impl TraceRunner {
             for obj in evt.deleted_objs {
                 info!("deleting object {}", obj.namespaced_name());
                 let gvk = GVK::from_dynamic_obj(&obj)?;
-                let vns_name = prefixed_ns(&self.ns_prefix, &obj);
+                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, &obj);
                 apiset
                     .namespaced_api_for(&gvk, vns_name)
                     .await?
@@ -133,10 +120,9 @@ impl TraceRunner {
 
 impl Drop for TraceRunner {
     fn drop(&mut self) {
-        info!("cleaning up simulation {}", self.sim_name);
+        info!("cleaning up simulation {}", self.ctx.name);
         let roots_api: kube::Api<SimulationRoot> = kube::Api::all(self.client.clone());
-        let _ = block_in_place(|| {
-            Handle::current().block_on(roots_api.delete(&self.sim_root.name_any(), &Default::default()))
-        });
+        let _ =
+            block_in_place(|| Handle::current().block_on(roots_api.delete(&self.root.name_any(), &Default::default())));
     }
 }

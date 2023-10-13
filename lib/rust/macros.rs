@@ -3,7 +3,7 @@ pub use std::collections::BTreeMap;
 // Generate labels for a k8s object, using klabel!("label1" = "value1", "label2" = "value2") syntax
 #[macro_export]
 macro_rules! klabel {
-    ($($key:tt=$val:tt),+$(,)?) => {
+    ($($key:expr=>$val:expr),+$(,)?) => {
         Some(BTreeMap::from([$(($key.to_string(), $val.to_string())),+]))
     };
 }
