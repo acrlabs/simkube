@@ -28,7 +28,7 @@ pub async fn handler(
     let req: AdmissionRequest<_> = match body.into_inner().try_into() {
         Ok(r) => r,
         Err(e) => {
-            error!("could not parse request: {}", e);
+            error!("could not parse request: {e}");
             let resp = AdmissionResponse::invalid(e);
             return Json(into_pod_review(resp));
         },
@@ -43,7 +43,7 @@ pub async fn handler(
                 r
             },
             Err(e) => {
-                error!("could not perform mutation, blocking pod object: {}", e);
+                error!("could not perform mutation, blocking pod object: {e}");
                 AdmissionResponse::from(&req).deny(e)
             },
         };

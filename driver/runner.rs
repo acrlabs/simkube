@@ -88,7 +88,7 @@ impl TraceRunner {
                 let vobj = build_virtual_obj(&self.ctx, &self.root, &vns_name, obj)?;
 
                 if ns_api.get_opt(&vns_name).await?.is_none() {
-                    info!("creating virtual namespace: {}", vns_name);
+                    info!("creating virtual namespace: {vns_name}");
                     let vns = build_virtual_ns(&self.ctx, &self.root, &vns_name)?;
                     ns_api.create(&Default::default(), &vns).await?;
                 }
@@ -115,7 +115,7 @@ impl TraceRunner {
             if let Some(ts) = next_ts {
                 let sleep_duration = max(0, ts - sim_ts);
                 sim_ts = ts;
-                info!("next event happens in {} seconds, sleeping", sleep_duration);
+                info!("next event happens in {sleep_duration} seconds, sleeping");
                 sleep(Duration::from_secs(sleep_duration as u64)).await;
             }
         }

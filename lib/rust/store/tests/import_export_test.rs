@@ -30,7 +30,7 @@ fn test_pod(idx: i64) -> DynamicObject {
     return DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some(TEST_NAMESPACE.into()),
-            name: Some(format!("pod{}", idx).into()),
+            name: Some(format!("pod{idx}").into()),
             ..Default::default()
         },
         types: None,

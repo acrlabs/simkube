@@ -95,7 +95,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     tokio::select! {
         _ = server_task => warn!("server terminated"),
-        res = tokio::spawn(runner.run()) => info!("simulation runner completed: {:?}", res),
+        res = tokio::spawn(runner.run()) => info!("simulation runner completed: {res:?}"),
     };
 
     Ok(())

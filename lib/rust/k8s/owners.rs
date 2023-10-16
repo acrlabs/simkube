@@ -32,10 +32,10 @@ impl OwnersCache {
         obj: &(impl Resource + Sync),
     ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
         let ns_name = obj.namespaced_name();
-        info!("computing owner references for {}", ns_name);
+        info!("computing owner references for {ns_name}");
 
         if let Some(owners) = self.owners.get(&ns_name) {
-            info!("found owners for {} in cache", ns_name);
+            info!("found owners for {ns_name} in cache");
             return Ok(owners.clone());
         }
 
@@ -65,7 +65,7 @@ impl OwnersCache {
 
 fn build_owner_selector(owner_name: &str, obj: &(impl Resource + Sync), owner_cap: ApiCapabilities) -> ListParams {
     let sel = match owner_cap.scope {
-        Scope::Cluster => Some(format!("metadata.name={}", owner_name)),
+        Scope::Cluster => Some(format!("metadata.name={owner_name}")),
         Scope::Namespaced => {
             // if it's namespaced, the namespace field should be populated, so the unwrap is
             // safe/should never trigger

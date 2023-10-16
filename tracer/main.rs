@@ -45,7 +45,7 @@ async fn export(req: Json<ExportRequest>, store: &rocket::State<Arc<Mutex<TraceS
         .lock()
         .unwrap()
         .export(req.start_ts, req.end_ts, &req.filter)
-        .map_err(|e| format!("{:?}", e))
+        .map_err(|e| format!("{e:?}"))
 }
 
 async fn run(args: Options) -> EmptyResult {

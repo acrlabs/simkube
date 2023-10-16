@@ -33,7 +33,7 @@ impl TraceStore {
     }
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
-        info!("Exporting objs with filters: {:?}", filter);
+        info!("Exporting objs with filters: {filter:?}");
 
         // First, we collect all the events in our trace that match our configured filters.  This
         // will return an index of objects that we collected, and we set the keep_deleted flag =
