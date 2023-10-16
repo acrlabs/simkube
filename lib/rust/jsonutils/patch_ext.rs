@@ -52,7 +52,7 @@ pub fn add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: boo
                 if key == "-" {
                     vec.push(value.clone());
                 } else if let Ok(idx) = key.parse::<usize>() {
-                    ensure!(idx <= vec.len(), JsonPatchError::out_of_bounds(&format!("{}/{}", path, key)));
+                    ensure!(idx <= vec.len(), JsonPatchError::out_of_bounds(&format!("{path}/{key}")));
                     vec.insert(idx, value.clone());
                 } else {
                     bail!(JsonPatchError::out_of_bounds(path));

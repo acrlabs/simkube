@@ -14,7 +14,7 @@ pub struct MockServerBuilder {
 }
 
 fn print_req(req: &HttpMockRequest) -> bool {
-    info!("Received: {:?}", req);
+    info!("Received: {req:?}");
     true
 }
 

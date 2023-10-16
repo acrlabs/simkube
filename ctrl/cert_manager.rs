@@ -60,7 +60,7 @@ pub(super) struct PartialCertificateStatus {
 pub(super) type PartialCertificate = kube::api::Object<PartialCertificateSpec, PartialCertificateStatus>;
 
 fn api_version() -> String {
-    format!("{}/{}", CERT_MANAGER_GROUP, CERT_MANAGER_VERSION)
+    format!("{CERT_MANAGER_GROUP}/{CERT_MANAGER_VERSION}")
 }
 
 fn api_resource() -> ApiResource {
@@ -79,8 +79,8 @@ pub(super) async fn create_certificate_if_not_present(ctx: &SimulationContext, o
 
     if cert_api.get_opt(DRIVER_CERT_NAME).await?.is_none() {
         info!(
-            "creating cert-manager certificate {} for {}, using issuer {}",
-            DRIVER_CERT_NAME, ctx.name, ctx.opts.cert_manager_issuer,
+            "creating cert-manager certificate {} using issuer {}",
+            DRIVER_CERT_NAME, ctx.opts.cert_manager_issuer,
         );
         let obj = PartialCertificate {
             metadata: build_object_meta(&ctx.driver_ns, DRIVER_CERT_NAME, &ctx.name, owner)?,

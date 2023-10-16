@@ -80,7 +80,7 @@ impl PodWatcher {
         while let Some(res) = self.pod_stream.next().await {
             match res {
                 Ok(mut evt) => self.handle_pod_event(&mut evt).await,
-                Err(e) => error!("pod watcher received error on stream: {}", e),
+                Err(e) => error!("pod watcher received error on stream: {e}"),
             }
         }
     }
@@ -93,20 +93,20 @@ impl PodWatcher {
             Event::Applied(pod) => {
                 let ns_name = pod.namespaced_name();
                 if let Err(e) = self.handle_pod_applied(&ns_name, pod).await {
-                    error!("applied pod {} lifecycle data could not be stored: {}", ns_name, e);
+                    error!("applied pod {ns_name} lifecycle data could not be stored: {e}");
                 }
             },
             Event::Deleted(pod) => {
                 let ns_name = pod.namespaced_name();
                 let current_lifecycle_data = match self.owned_pods.get(&ns_name) {
                     None => {
-                        warn!("pod {} deleted but not tracked, may have already been processed", ns_name);
+                        warn!("pod {ns_name} deleted but not tracked, may have already been processed");
                         return;
                     },
                     Some(data) => data.clone(),
                 };
                 if let Err(e) = self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data).await {
-                    error!("deleted pod {} lifecycle data could not be stored: {}", ns_name, e);
+                    error!("deleted pod {ns_name} lifecycle data could not be stored: {e}");
                 }
             },
             Event::Restarted(pods) => {
@@ -122,7 +122,7 @@ impl PodWatcher {
                         self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
                     }
                     if let Err(e) = self.handle_pod_applied(ns_name, pod).await {
-                        error!("applied pod {} lifecycle data could not be stored: {} (watcher restart)", ns_name, e);
+                        error!("applied pod {ns_name} lifecycle data could not be stored: {e} (watcher restart)");
                     }
                 }
 
@@ -130,7 +130,7 @@ impl PodWatcher {
                     // We don't have data on the deleted pods aside from the name, so we just pass
                     // in `None` for the pod object.
                     if let Err(e) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone()).await {
-                        error!("deleted pod {} lifecycle data could not be stored: {} (watcher restart)", ns_name, e);
+                        error!("deleted pod {ns_name} lifecycle data could not be stored: {e} (watcher restart)");
                     }
                 }
             },

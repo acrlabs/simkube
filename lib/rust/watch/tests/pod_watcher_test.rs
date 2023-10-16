@@ -251,7 +251,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
     // restart event comes in, updated or unchanged data is processed correctly.  pod2 will fail
     // because there is no stored ownership data, and this is testing that we correctly continue
     // processing on an error.  pod3 is testing that we handle deletes correctly.
-    let pod_names = ["pod0", "pod1", "pod2", "pod3"].map(|name| format!("{}/{}", TEST_NAMESPACE, name));
+    let pod_names = ["pod0", "pod1", "pod2", "pod3"].map(|name| format!("{TEST_NAMESPACE}/{name}"));
     let pod_lifecycles: HashMap<String, PodLifecycleData> = pod_names
         .iter()
         .map(|ns_name| (ns_name.clone(), PodLifecycleData::Running(START_TS)))

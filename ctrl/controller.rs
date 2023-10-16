@@ -27,7 +27,7 @@ async fn do_global_setup(ctx: &SimulationContext, sim: &Simulation) -> anyhow::R
 
     let root = match roots_api.get_opt(&ctx.root).await? {
         None => {
-            info!("creating SimulationRoot for {}", ctx.name);
+            info!("creating SimulationRoot");
             let obj = build_simulation_root(ctx, sim)?;
             roots_api.create(&Default::default(), &obj).await?
         },
@@ -35,7 +35,7 @@ async fn do_global_setup(ctx: &SimulationContext, sim: &Simulation) -> anyhow::R
     };
 
     if ns_api.get_opt(&ctx.driver_ns).await?.is_none() {
-        info!("creating driver namespace {} for {}", ctx.driver_ns, ctx.name);
+        info!("creating driver namespace {}", ctx.driver_ns);
         let obj = build_driver_namespace(ctx, sim)?;
         ns_api.create(&Default::default(), &obj).await?;
     };
@@ -57,7 +57,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
 
     if svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
-        info!("creating driver service {} for {}", &ctx.driver_svc, &ctx.name);
+        info!("creating driver service {}", &ctx.driver_svc);
         let obj = build_driver_service(ctx, root)?;
         svc_api.create(&Default::default(), &obj).await?;
     }
@@ -80,7 +80,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     // they're done before proceeding
     let driver = jobs_api.get_opt(&ctx.driver_name).await?;
     if driver.is_none() {
-        info!("creating driver job {} for {}", ctx.driver_name, ctx.name);
+        info!("creating driver job {}", ctx.driver_name);
         let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, &sim.spec.trace)?;
         jobs_api.create(&Default::default(), &obj).await?;
     }
@@ -89,7 +89,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
 }
 
 pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, ReconcileError> {
-    info!("got simulation object: {:?}", sim);
+    info!("got simulation object");
 
     let sim = sim.deref();
     let ctx = ctx.new_with_sim(sim);
@@ -99,6 +99,6 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
 }
 
 pub(crate) fn error_policy(sim: Arc<Simulation>, error: &ReconcileError, _: Arc<SimulationContext>) -> Action {
-    warn!("reconcile failed on simulation {}: {:?}", sim.namespaced_name(), error);
+    error!("reconcile failed on simulation {}: {:?}", sim.namespaced_name(), error);
     Action::requeue(REQUEUE_ERROR_DURATION)
 }
