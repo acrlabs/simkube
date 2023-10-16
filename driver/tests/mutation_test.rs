@@ -1,7 +1,5 @@
-use cached::{
-    Cached,
-    SizedCache,
-};
+use std::collections::HashMap;
+
 use json_patch::{
     patch,
     Patch,
@@ -33,8 +31,8 @@ const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
 #[fixture]
 fn ctx(test_pod: corev1::Pod, #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>) -> DriverContext {
     let (_, apiset) = make_fake_apiserver();
-    let mut owners = SizedCache::with_size(1000);
-    owners.cache_set(test_pod.namespaced_name(), pod_owners);
+    let mut owners = HashMap::new();
+    owners.insert(test_pod.namespaced_name(), pod_owners);
 
     DriverContext {
         name: TEST_SIM_NAME.into(),
