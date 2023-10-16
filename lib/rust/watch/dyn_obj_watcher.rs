@@ -76,6 +76,7 @@ impl DynObjWatcher {
     }
 
     fn handle_obj_event(&self, evt: Event<DynamicObject>, ts: i64) {
+        // We don't expect the trace store to panic, but if it does we should panic here too
         let mut store = self.store.lock().unwrap();
         match evt {
             Event::Applied(obj) => store.create_or_update_obj(&obj, ts, None),
@@ -92,14 +93,14 @@ async fn build_stream_for_tracked_obj(
 ) -> anyhow::Result<KubeObjectStream> {
     // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
     // it will prevent the tracer from starting up
-    let gvk = gvk.clone();
     let pod_spec_path = pod_spec_path.to_owned();
 
     let api_version = gvk.api_version().clone();
     let kind = gvk.kind.clone();
-    let (api, _) = apiset.api_for(&gvk).await?;
+    let (api, _) = apiset.api_for(gvk).await?;
 
     Ok(watcher(api.clone(), Default::default())
+        // All these objects need to be cloned because they're moved into the stream here
         .modify(move |obj| {
             sanitize_obj(obj, &pod_spec_path, &api_version, &kind);
         })

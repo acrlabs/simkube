@@ -78,10 +78,6 @@ pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
     }
 }
 
-pub fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
-    format!("{}-{}", prefix, obj.namespace().unwrap())
-}
-
 pub fn sanitize_obj(obj: &mut DynamicObject, pod_spec_path: &str, api_version: &str, kind: &str) {
     obj.metadata.creation_timestamp = None;
     obj.metadata.deletion_timestamp = None;

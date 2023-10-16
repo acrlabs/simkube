@@ -48,5 +48,8 @@ fn obj_matches_filter(obj: &DynamicObject, f: &TraceFilter) -> bool {
             .owner_references
             .as_ref()
             .is_some_and(|owners| owners.iter().any(|owner| &owner.kind == "DaemonSet"))
+        // TODO: maybe don't call unwrap here?  Right now we panic if the user specifies
+        // an invalid label selector.  Or, maybe it doesn't matter once we write the CLI
+        // tool.
         || f.excluded_labels.iter().any(|sel| obj.matches(sel).unwrap())
 }

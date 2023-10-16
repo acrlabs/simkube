@@ -71,6 +71,8 @@ fn build_owner_selector(owner_name: &str, obj: &(impl Resource + Sync), owner_ca
     let sel = match owner_cap.scope {
         Scope::Cluster => Some(format!("metadata.name={}", owner_name)),
         Scope::Namespaced => {
+            // if it's namespaced, the namespace field should be populated, so the unwrap is
+            // safe/should never trigger
             Some(format!("metadata.namespace={},metadata.name={}", obj.namespace().unwrap(), owner_name))
         },
     };

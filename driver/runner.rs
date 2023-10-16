@@ -8,12 +8,14 @@ use kube::api::{
     Patch,
     PatchParams,
 };
-use kube::ResourceExt;
+use kube::{
+    Resource,
+    ResourceExt,
+};
 use simkube::jsonutils;
 use simkube::k8s::{
     add_common_metadata,
     build_global_object_meta,
-    prefixed_ns,
     ApiSet,
     GVK,
 };
@@ -53,6 +55,10 @@ fn build_virtual_obj(
     Ok(vobj)
 }
 
+fn prefixed_ns(prefix: &str, obj: &impl Resource) -> String {
+    format!("{}-{}", prefix, obj.namespace().unwrap())
+}
+
 pub struct TraceRunner {
     ctx: DriverContext,
     client: kube::Client,
@@ -74,10 +80,12 @@ impl TraceRunner {
         let mut apiset = ApiSet::new(self.client.clone());
         let mut sim_ts = self.ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
         for (evt, next_ts) in self.ctx.store.iter() {
-            for obj in evt.applied_objs {
+            // We're currently assuming that all tracked objects are namespace-scoped,
+            // this will panic/fail if that is not true.
+            for obj in &evt.applied_objs {
                 let gvk = GVK::from_dynamic_obj(&obj)?;
-                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, &obj);
-                let vobj = build_virtual_obj(&self.ctx, &self.root, &vns_name, &obj)?;
+                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, obj);
+                let vobj = build_virtual_obj(&self.ctx, &self.root, &vns_name, obj)?;
 
                 if ns_api.get_opt(&vns_name).await?.is_none() {
                     info!("creating virtual namespace: {}", vns_name);
@@ -93,10 +101,10 @@ impl TraceRunner {
                     .await?;
             }
 
-            for obj in evt.deleted_objs {
+            for obj in &evt.deleted_objs {
                 info!("deleting object {}", obj.namespaced_name());
-                let gvk = GVK::from_dynamic_obj(&obj)?;
-                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, &obj);
+                let gvk = GVK::from_dynamic_obj(obj)?;
+                let vns_name = prefixed_ns(&self.ctx.virtual_ns_prefix, obj);
                 apiset
                     .namespaced_api_for(&gvk, vns_name)
                     .await?
