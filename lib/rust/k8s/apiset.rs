@@ -29,7 +29,7 @@ impl ApiSet {
     }
 
     pub async fn api_for(&mut self, gvk: &GVK) -> anyhow::Result<(&kube::Api<DynamicObject>, ApiCapabilities)> {
-        let (ar, cap) = self.api_meta_for(gvk.clone()).await?.clone();
+        let (ar, cap) = self.api_meta_for(gvk).await?.clone();
         match self.apis.entry(gvk.clone()) {
             Entry::Occupied(e) => Ok((e.into_mut(), cap)),
             Entry::Vacant(e) => {
@@ -40,7 +40,7 @@ impl ApiSet {
     }
 
     pub async fn namespaced_api_for(&mut self, gvk: &GVK, ns: String) -> anyhow::Result<&kube::Api<DynamicObject>> {
-        let ar = self.api_meta_for(gvk.clone()).await?.0.clone();
+        let ar = self.api_meta_for(gvk).await?.0.clone();
         match self.namespaced_apis.entry((gvk.clone(), ns)) {
             Entry::Occupied(e) => Ok(e.into_mut()),
             Entry::Vacant(e) => {
@@ -50,8 +50,8 @@ impl ApiSet {
         }
     }
 
-    async fn api_meta_for(&mut self, gvk: GVK) -> anyhow::Result<&(ApiResource, ApiCapabilities)> {
-        match self.resources.entry(gvk) {
+    async fn api_meta_for(&mut self, gvk: &GVK) -> anyhow::Result<&(ApiResource, ApiCapabilities)> {
+        match self.resources.entry(gvk.clone()) {
             Entry::Occupied(e) => Ok(e.into_mut()),
             Entry::Vacant(e) => {
                 let api_meta = kube::discovery::pinned_kind(&self.client, e.key()).await?;

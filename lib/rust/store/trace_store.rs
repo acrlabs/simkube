@@ -216,6 +216,7 @@ impl TraceStorable for TraceStore {
         } else if let Some(pod) = &maybe_pod {
             // Otherwise, we need to check if any of the pod's owners are tracked by us
             for rf in &owners {
+                // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), rf.name);
                 if !self.index.contains_key(&owner_ns_name) {
                     continue;
@@ -257,7 +258,7 @@ impl<'a> TraceStore {
 // Our iterator implementation iterates over all the events in timeseries order.  It returns the
 // current event, and the timestamp of the _next_ event.
 impl<'a> Iterator for TraceIterator<'a> {
-    type Item = (TraceEvent, Option<i64>);
+    type Item = (&'a TraceEvent, Option<i64>);
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.events.is_empty() {
@@ -265,8 +266,8 @@ impl<'a> Iterator for TraceIterator<'a> {
         }
 
         let ret = match self.idx {
-            i if i < self.events.len() - 1 => Some((self.events[i].clone(), Some(self.events[i + 1].ts))),
-            i if i == self.events.len() - 1 => Some((self.events[i].clone(), None)),
+            i if i < self.events.len() - 1 => Some((&self.events[i], Some(self.events[i + 1].ts))),
+            i if i == self.events.len() - 1 => Some((&self.events[i], None)),
             _ => None,
         };
 

@@ -219,6 +219,7 @@ impl PodWatcher {
             lifecycle_data
         );
 
+        // We don't expect the trace store to panic, but if it does, we should panic here too
         let mut store = self.store.lock().unwrap();
         store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)?;
 
