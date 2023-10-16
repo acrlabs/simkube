@@ -96,11 +96,11 @@ pub(super) fn build_driver_job(
     trace_path: &str,
 ) -> anyhow::Result<batchv1::Job> {
     let trace_url = Url::parse(&trace_path)?;
-    let (trace_vm, trace_volume, mount_path) = match storage::get_scheme(&trace_url)? {
+    let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
     };
-    let (cert_vm, cert_volume, cert_mount_path) = create_certificate_volumes(cert_secret_name);
+    let (cert_vm, cert_volume, cert_mount_path) = build_certificate_volumes(cert_secret_name);
 
     Ok(batchv1::Job {
         metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, owner)?,
@@ -111,20 +111,7 @@ pub(super) fn build_driver_job(
                     containers: vec![corev1::Container {
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
-                        args: Some(vec![
-                            "--cert-path".into(),
-                            format!("{}/tls.crt", cert_mount_path),
-                            "--key-path".into(),
-                            format!("{}/tls.key", cert_mount_path),
-                            "--trace-path".into(),
-                            mount_path,
-                            "--sim-namespace-prefix".into(),
-                            "virtual".into(),
-                            "--sim-root".into(),
-                            ctx.root.clone(),
-                            "--sim-name".into(),
-                            ctx.name.clone(),
-                        ]),
+                        args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path)),
                         image: Some(ctx.opts.driver_image.clone()),
                         volume_mounts: Some(vec![trace_vm, cert_vm]),
                         ..Default::default()
@@ -142,7 +129,26 @@ pub(super) fn build_driver_job(
     })
 }
 
-fn create_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, corev1::Volume, String) {
+fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mount_path: String) -> Vec<String> {
+    vec![
+        "--cert-path".into(),
+        format!("{cert_mount_path}/tls.crt"),
+        "--key-path".into(),
+        format!("{cert_mount_path}/tls.key"),
+        "--trace-path".into(),
+        trace_mount_path,
+        "--virtual-ns-prefix".into(),
+        "virtual".into(),
+        "--sim-root".into(),
+        ctx.root.clone(),
+        "--sim-name".into(),
+        ctx.name.clone(),
+        "--verbosity".into(),
+        ctx.opts.verbosity.clone(),
+    ]
+}
+
+fn build_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, corev1::Volume, String) {
     (
         corev1::VolumeMount {
             name: DRIVER_CERT_VOLUME.into(),
