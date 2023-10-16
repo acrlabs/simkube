@@ -1,7 +1,5 @@
-use cached::{
-    Cached,
-    SizedCache,
-};
+use std::collections::HashMap;
+
 use kube::ResourceExt;
 use serde_json::json;
 use tracing_test::traced_test;
@@ -33,8 +31,7 @@ async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
     let expected_owners = vec![rsref, deplref];
 
     let (_, apiset) = make_fake_apiserver();
-    let mut owners = SizedCache::with_size(1000);
-    owners.cache_set(test_pod.namespaced_name(), expected_owners.clone());
+    let owners = HashMap::from([(test_pod.namespaced_name(), expected_owners.clone())]);
     let mut cache = OwnersCache::new_from_parts(apiset, owners);
 
     let res = cache.compute_owner_chain(&test_pod).await.unwrap();

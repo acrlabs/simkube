@@ -4,10 +4,6 @@ use std::sync::{
     Mutex,
 };
 
-use cached::{
-    Cached,
-    SizedCache,
-};
 use futures::{
     stream,
     StreamExt,
@@ -303,11 +299,12 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         .once();
 
     let (_, apiset) = make_fake_apiserver();
-    let mut owners = SizedCache::with_size(1000);
-    owners.cache_set(pod_names[0].clone(), vec![]);
-    owners.cache_set(pod_names[1].clone(), vec![]);
-    // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
-    owners.cache_set(pod_names[3].clone(), vec![]);
+    let owners = HashMap::from([
+        (pod_names[0].clone(), vec![]),
+        (pod_names[1].clone(), vec![]),
+        // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
+        (pod_names[3].clone(), vec![]),
+    ]);
 
     let cache = OwnersCache::new_from_parts(apiset, owners);
     let mut pw =

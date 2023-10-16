@@ -1,8 +1,6 @@
+use std::collections::HashMap;
+
 use async_recursion::async_recursion;
-use cached::{
-    Cached,
-    SizedCache,
-};
 use kube::api::ListParams;
 use kube::discovery::{
     ApiCapabilities,
@@ -17,16 +15,14 @@ use tracing::*;
 use super::*;
 use crate::k8s::ApiSet;
 
-pub(crate) const CACHE_SIZE: usize = 10000;
-
 pub struct OwnersCache {
     apiset: ApiSet,
-    owners: SizedCache<String, Vec<metav1::OwnerReference>>,
+    owners: HashMap<String, Vec<metav1::OwnerReference>>,
 }
 
 impl OwnersCache {
     pub fn new(apiset: ApiSet) -> OwnersCache {
-        OwnersCache { apiset, owners: SizedCache::with_size(CACHE_SIZE) }
+        OwnersCache { apiset, owners: HashMap::new() }
     }
 
     // Recursively look up all of the owning objects for a given Kubernetes object
@@ -38,7 +34,7 @@ impl OwnersCache {
         let ns_name = obj.namespaced_name();
         info!("computing owner references for {}", ns_name);
 
-        if let Some(owners) = self.owners.cache_get(&ns_name) {
+        if let Some(owners) = self.owners.get(&ns_name) {
             info!("found owners for {} in cache", ns_name);
             return Ok(owners.clone());
         }
@@ -58,12 +54,12 @@ impl OwnersCache {
             owners.extend(self.compute_owner_chain(owner).await?);
         }
 
-        self.owners.cache_set(ns_name.clone(), owners.clone());
+        self.owners.insert(ns_name.clone(), owners.clone());
         Ok(owners)
     }
 
     pub fn lookup(&mut self, ns_name: &str) -> Option<&Vec<metav1::OwnerReference>> {
-        self.owners.cache_get(ns_name)
+        self.owners.get(ns_name)
     }
 }
 
@@ -81,7 +77,7 @@ fn build_owner_selector(owner_name: &str, obj: &(impl Resource + Sync), owner_ca
 
 #[cfg(feature = "testutils")]
 impl OwnersCache {
-    pub fn new_from_parts(apiset: ApiSet, owners: SizedCache<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
+    pub fn new_from_parts(apiset: ApiSet, owners: HashMap<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
         OwnersCache { apiset, owners }
     }
 }
