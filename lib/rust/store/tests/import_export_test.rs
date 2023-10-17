@@ -157,7 +157,7 @@ async fn itest_export() {
             // Confirm that the results match what we expect
             let new_store = TraceStore::import(data).unwrap();
             let expected_pods = store.objs_at(end_ts, &filter);
-            let actual_pods = new_store.objs();
+            let actual_pods = new_store.objs_at(end_ts, &filter);
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(actual_pods, expected_pods);

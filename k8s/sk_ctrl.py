@@ -29,7 +29,6 @@ class SKController(Chart):
             args=[
                 "/sk-ctrl",
                 "--driver-image", driver_image,
-                "--sim-svc-account", "$POD_SVC_ACCOUNT",
                 "--use-cert-manager",
                 "--cert-manager-issuer", "selfsigned",
             ],

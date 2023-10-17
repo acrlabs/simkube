@@ -16,7 +16,10 @@ use simkube::k8s::{
     OwnersCache,
 };
 use simkube::prelude::*;
-use simkube::store::TraceStore;
+use simkube::store::{
+    TraceStorable,
+    TraceStore,
+};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;
@@ -56,7 +59,7 @@ pub struct DriverContext {
     sim_root: String,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
-    store: Arc<TraceStore>,
+    store: Arc<dyn TraceStorable + Send + Sync>,
 }
 
 async fn run(opts: Options) -> EmptyResult {
@@ -88,14 +91,21 @@ async fn run(opts: Options) -> EmptyResult {
 
     let server_task = tokio::spawn(server.launch());
 
-    // Give the mutation handler a bit of time to come online before starting the sim:w
+    // Give the mutation handler a bit of time to come online before starting the sim
     sleep(Duration::from_secs(5)).await;
 
     let runner = TraceRunner::new(ctx.clone()).await?;
 
     tokio::select! {
         _ = server_task => warn!("server terminated"),
-        res = tokio::spawn(runner.run()) => info!("simulation runner completed: {res:?}"),
+        res = tokio::spawn(runner.run()) => {
+            let flattened_res = match res {
+                Ok(r) => r,
+                Err(err) => Err(err.into()),
+            };
+
+            info!("simulation runner completed: {flattened_res:?}");
+        },
     };
 
     Ok(())

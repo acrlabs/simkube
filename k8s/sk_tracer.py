@@ -10,9 +10,9 @@ SERVER_PORT = 7777
 TRACER_CONFIG_YML = """---
 trackedObjects:
   apps/v1.Deployment:
-    podSpecPath: /spec/template/spec
+    podSpecTemplatePath: /spec/template
   batch.volcano.sh/v1alpha1.Job:
-    podSpecPath: /spec/tasks/*/template/spec
+    podSpecTemplatePath: /spec/tasks/*/template
 """
 CONFIGMAP_NAME = "tracer-config"
 

@@ -43,6 +43,7 @@ pub mod prelude {
     pub use crate::k8s::{
         KubeResourceExt,
         PodExt,
+        PodLifecycleData,
     };
     pub use crate::logging;
 }

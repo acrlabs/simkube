@@ -30,9 +30,6 @@ struct Options {
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     driver_port: i32,
 
-    #[arg(long)]
-    sim_svc_account: String,
-
     // TODO: should support non-cert-manager for configuring certs as well
     #[arg(long)]
     use_cert_manager: bool,

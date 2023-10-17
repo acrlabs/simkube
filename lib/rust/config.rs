@@ -11,7 +11,7 @@ use crate::k8s::GVK;
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedObjectConfig {
-    pub pod_spec_path: String,
+    pub pod_spec_template_path: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -23,5 +23,9 @@ pub struct TracerConfig {
 impl TracerConfig {
     pub fn load(filename: &str) -> anyhow::Result<TracerConfig> {
         Ok(serde_yaml::from_reader(File::open(filename)?)?)
+    }
+
+    pub fn pod_spec_template_path(&self, gvk: &GVK) -> Option<&str> {
+        Some(&self.tracked_objects.get(gvk)?.pod_spec_template_path)
     }
 }

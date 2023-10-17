@@ -1,6 +1,6 @@
 use chrono::Utc;
 use kube::api::DynamicObject;
-use serde_json::json;
+use serde_json as json;
 
 use super::*;
 use crate::testutils::*;
@@ -30,29 +30,10 @@ fn test_sanitize_obj() {
             ..Default::default()
         },
         types: None,
-        data: json!({
-            "foo": {
-                "bars": [{
-                    "spec": {
-                        "nodeName": "foo",
-                        "serviceAccountName": "bar",
-                        "nodeSelector": {"buz": "biz"},
-                    },
-                },
-                {
-                    "spec": {},
-                },
-                {
-                    "spec": {
-                        "serviceAccount": "flumm",
-                    },
-                },
-                ],
-            },
-        }),
+        data: json::Value::Null,
     };
 
-    sanitize_obj(&mut obj, "/foo/bars/*/spec", "bar.blah.sh/v2", "Stuff");
+    sanitize_obj(&mut obj, "bar.blah.sh/v2", "Stuff");
 
     assert_eq!(obj.metadata.creation_timestamp, None);
     assert_eq!(obj.metadata.deletion_timestamp, None);
@@ -67,23 +48,6 @@ fn test_sanitize_obj() {
     assert!(obj
         .types
         .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff"));
-
-    assert_eq!(
-        obj.data,
-        json!({
-            "foo": {
-                "bars": [
-                {
-                    "spec": {
-                        "nodeSelector": {"buz": "biz"},
-                    },
-                },
-                { "spec": {} },
-                { "spec": {} },
-                ],
-            },
-        })
-    );
 }
 
 fn build_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {

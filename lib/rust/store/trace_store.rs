@@ -13,6 +13,7 @@ use crate::jsonutils;
 use crate::k8s::{
     build_deletable,
     KubeResourceExt,
+    PodExt,
     PodLifecycleData,
 };
 
@@ -28,10 +29,6 @@ impl TraceStore {
         TraceStore { config, ..Default::default() }
     }
 
-    pub fn config(&self) -> &TracerConfig {
-        &self.config
-    }
-
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {filter:?}");
 
@@ -44,7 +41,7 @@ impl TraceStore {
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
         let lifecycle_data = self.pod_owners.filter(start_ts, end_ts, &index);
-        let data = rmp_serde::to_vec_named(&(&self.config, &events, &lifecycle_data))?;
+        let data = rmp_serde::to_vec_named(&(&self.config, &events, &index, &lifecycle_data))?;
 
         info!("Exported {} events.", events.len());
         Ok(data)
@@ -54,24 +51,20 @@ impl TraceStore {
     // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
     // information to be able to run a simulation off the trace store.
     pub fn import(data: Vec<u8>) -> anyhow::Result<TraceStore> {
-        let (config, events, lifecycle_data): (TracerConfig, VecDeque<TraceEvent>, HashMap<String, PodLifecyclesMap>) =
-            rmp_serde::from_slice(&data)?;
+        let (config, events, index, lifecycle_data): (
+            TracerConfig,
+            VecDeque<TraceEvent>,
+            HashMap<String, u64>,
+            HashMap<String, PodLifecyclesMap>,
+        ) = rmp_serde::from_slice(&data)?;
 
-        let mut tracer = TraceStore {
+        Ok(TraceStore {
             config,
             events,
+            index,
             pod_owners: PodOwnersMap::new_from_parts(lifecycle_data, HashMap::new()),
             ..Default::default()
-        };
-
-        let (_, index) = tracer.collect_events(0, i64::MAX, &Default::default(), false);
-        tracer.index = index;
-
-        Ok(tracer)
-    }
-
-    pub fn objs(&self) -> HashSet<String> {
-        self.index.keys().cloned().collect()
+        })
     }
 
     pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
@@ -79,13 +72,6 @@ impl TraceStore {
         // keep the deleted objects around, so we set that parameter to `false`.
         let (_, index) = self.collect_events(0, end_ts, filter, false);
         index.into_keys().collect()
-    }
-
-    pub fn start_ts(&self) -> Option<i64> {
-        match self.iter().next() {
-            Some((_, Some(ts))) => Some(ts),
-            _ => None,
-        }
     }
 
     pub(super) fn collect_events(
@@ -196,6 +182,24 @@ impl TraceStorable for TraceStore {
         }
     }
 
+    fn lookup_pod_lifecycle(
+        &self,
+        pod: &corev1::Pod,
+        owner_ns_name: &str,
+        seq: usize,
+    ) -> anyhow::Result<PodLifecycleData> {
+        if !self.index.contains_key(owner_ns_name) {
+            return Ok(PodLifecycleData::Empty);
+        }
+
+        let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
+        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(&owner_ns_name, hash);
+        match maybe_lifecycle_data {
+            Some(data) if seq < data.len() => Ok(data[seq].clone()),
+            _ => Ok(PodLifecycleData::Empty),
+        }
+    }
+
     // We assume that we are given a valid/correct lifecycle event here, so we will just
     // blindly store whatever we are given.  It's up to the caller (the pod watcher in this
     // case) to ensure that the lifecycle data isn't incorrect.
@@ -231,7 +235,7 @@ impl TraceStorable for TraceStore {
                 // of data that are unique to each pod that won't materially impact the behaviour?
                 // This does occur for example with coredns's volume mounts.  We may need to filter
                 // more things out from this and/or allow users to specify what is filtered out.
-                let hash = jsonutils::hash(&serde_json::to_value(&pod.spec)?);
+                let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
                 self.pod_owners
                     .store_new_pod_lifecycle(ns_name, &owner_ns_name, hash, lifecycle_data);
                 break;
@@ -242,15 +246,19 @@ impl TraceStorable for TraceStore {
 
         Ok(())
     }
-}
 
-pub struct TraceIterator<'a> {
-    events: &'a VecDeque<TraceEvent>,
-    idx: usize,
-}
+    fn config(&self) -> &TracerConfig {
+        &self.config
+    }
 
-impl<'a> TraceStore {
-    pub fn iter(&'a self) -> TraceIterator<'a> {
+    fn start_ts(&self) -> Option<i64> {
+        match self.iter().next() {
+            Some((_, Some(ts))) => Some(ts),
+            _ => None,
+        }
+    }
+
+    fn iter<'a>(&'a self) -> TraceIterator<'a> {
         TraceIterator { events: &self.events, idx: 0 }
     }
 }

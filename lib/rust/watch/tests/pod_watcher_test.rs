@@ -17,7 +17,6 @@ use crate::k8s::{
     OwnersCache,
     PodLifecycleData,
 };
-use crate::store::MockTraceStorable;
 use crate::testutils::fake::make_fake_apiserver;
 use crate::testutils::*;
 
@@ -35,7 +34,7 @@ fn make_pod_watcher(
     stored_data: Option<&PodLifecycleData>,
     expected_data: Option<&PodLifecycleData>,
 ) -> PodWatcher {
-    let mut store = MockTraceStorable::new();
+    let mut store = MockTraceStore::new();
     if let Some(data) = expected_data {
         let _ = store
             .expect_record_pod_lifecycle()
@@ -264,7 +263,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
 
     let clock_ts = clock.set(10000);
 
-    let mut store = MockTraceStorable::new();
+    let mut store = MockTraceStore::new();
     let _ = store
         .expect_record_pod_lifecycle()
         .with(

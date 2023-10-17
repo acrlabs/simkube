@@ -3,9 +3,16 @@ use std::cmp::{
     Ordering,
 };
 
+use json_patch::{
+    AddOperation,
+    PatchOperation,
+};
 use kube::ResourceExt;
+use serde_json::Value;
 
 use super::*;
+use crate::constants::*;
+use crate::jsonutils;
 use crate::time::Clockable;
 use crate::util::min_some;
 
@@ -136,6 +143,16 @@ impl PodLifecycleData {
 
     pub fn finished(&self) -> bool {
         matches!(self, PodLifecycleData::Finished(..))
+    }
+
+    pub fn to_annotation_patch(&self) -> Option<PatchOperation> {
+        match self {
+            PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
+            PodLifecycleData::Finished(start_ts, end_ts) => Some(PatchOperation::Add(AddOperation {
+                path: format!("/metadata/annotations/{}", jsonutils::escape(LIFETIME_ANNOTATION_KEY)),
+                value: Value::String(format!("{}", end_ts - start_ts)),
+            })),
+        }
     }
 }
 
