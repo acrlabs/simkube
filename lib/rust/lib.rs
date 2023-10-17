@@ -1,6 +1,6 @@
 mod config;
 mod constants;
-mod errors;
+pub mod errors;
 pub mod jsonutils;
 pub mod k8s;
 pub mod logging;
