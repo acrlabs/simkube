@@ -18,18 +18,24 @@ use kube::core::{
     GroupVersionResource,
 };
 use kube::ResourceExt;
+use mockall::predicate;
 use rocket::serde::json::Json;
 use simkube::testutils::fake::make_fake_apiserver;
-use simkube::testutils::test_pod;
+use simkube::testutils::*;
 use tracing_test::traced_test;
 
 use super::*;
 
 const TEST_SIM_NAME: &str = "test-sim";
 const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
+const DEPLOYMENT_NAME: &str = "the-deployment";
 
 #[fixture]
-fn ctx(test_pod: corev1::Pod, #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>) -> DriverContext {
+fn ctx(
+    test_pod: corev1::Pod,
+    #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>,
+    #[default(MockTraceStore::new())] store: MockTraceStore,
+) -> DriverContext {
     let (_, apiset) = make_fake_apiserver();
     let mut owners = HashMap::new();
     owners.insert(test_pod.namespaced_name(), pod_owners);
@@ -39,7 +45,7 @@ fn ctx(test_pod: corev1::Pod, #[default(vec![])] pod_owners: Vec<metav1::OwnerRe
         sim_root: TEST_SIM_ROOT_NAME.into(),
         virtual_ns_prefix: "virtual".into(),
         owners_cache: Arc::new(Mutex::new(OwnersCache::new_from_parts(apiset, owners))),
-        store: Arc::new(TraceStore::new(Default::default())),
+        store: Arc::new(store),
     }
 }
 
@@ -102,7 +108,7 @@ async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: Admis
         name: TEST_SIM_ROOT_NAME.into(),
         ..Default::default()
     };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()]);
+    let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
     test_pod.owner_references_mut().push(owner);
     test_pod.spec = None;
 
@@ -115,7 +121,7 @@ async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: Admis
 #[tokio::test]
 async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse) {
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()]);
+    let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
     test_pod.owner_references_mut().push(owner);
     adm_resp = mutate_pod(rocket::State::from(&ctx), adm_resp, &test_pod).await.unwrap();
     assert_eq!(adm_resp.patch, None);
@@ -124,12 +130,26 @@ async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_res
 #[rstest]
 #[tokio::test]
 async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse) {
-    let owner = metav1::OwnerReference {
+    test_pod
+        .annotations_mut()
+        .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
+    let root = metav1::OwnerReference {
         name: TEST_SIM_ROOT_NAME.into(),
         ..Default::default()
     };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()]);
-    test_pod.owner_references_mut().push(owner);
+    let depl = metav1::OwnerReference { name: DEPLOYMENT_NAME.into(), ..Default::default() };
+
+    let owner_ns_name = format!("{TEST_NAMESPACE}/{DEPLOYMENT_NAME}");
+    let mut store = MockTraceStore::new();
+    let _ = store
+        .expect_lookup_pod_lifecycle()
+        .with(predicate::eq(test_pod.clone()), predicate::always(), predicate::eq(0))
+        .returning(move |_, owner, _| match owner {
+            o if o == owner_ns_name => Ok(PodLifecycleData::Finished(1, 2)),
+            _ => Ok(PodLifecycleData::Empty),
+        });
+
+    let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
 
     adm_resp = mutate_pod(rocket::State::from(&ctx), adm_resp, &test_pod).await.unwrap();
     let mut json_pod = serde_json::to_value(&test_pod).unwrap();

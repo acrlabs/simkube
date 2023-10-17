@@ -26,9 +26,10 @@ path = "lib/rust/lib.rs"
 
 [dependencies]
 # These are actually dev dependencies of the testutils feature
-httpmock = { version = "0.6.8", optional = true }
-rstest = { version = "0.18.2", optional = true }
 http = { version = "0.2.9", optional = true }
+httpmock = { version = "0.6.8", optional = true }
+mockall = { version = "0.11.4", optional = true }
+rstest = { version = "0.18.2", optional = true }
 
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
@@ -61,8 +62,7 @@ default-features = false
 [dev-dependencies]
 assertables = "7.0.1"
 hyper = "0.14.27"
-mockall = "0.11.4"
 tracing-test = "0.2.4"
 
 [features]
-testutils = ["dep:http", "dep:httpmock", "dep:rstest"]
+testutils = ["dep:http", "dep:httpmock", "dep:mockall", "dep:rstest"]

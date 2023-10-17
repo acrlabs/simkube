@@ -1,3 +1,5 @@
+use std::env;
+
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::api::core::v1 as corev1;
@@ -102,6 +104,8 @@ pub(super) fn build_driver_job(
     };
     let (cert_vm, cert_volume, cert_mount_path) = build_certificate_volumes(cert_secret_name);
 
+    let service_account = Some(env::var("POD_SVC_ACCOUNT")?);
+
     Ok(batchv1::Job {
         metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, owner)?,
         spec: Some(batchv1::JobSpec {
@@ -113,12 +117,17 @@ pub(super) fn build_driver_job(
                         command: Some(vec!["/sk-driver".into()]),
                         args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path)),
                         image: Some(ctx.opts.driver_image.clone()),
+                        env: Some(vec![corev1::EnvVar {
+                            name: "RUST_BACKTRACE".into(),
+                            value: Some("1".into()),
+                            ..Default::default()
+                        }]),
                         volume_mounts: Some(vec![trace_vm, cert_vm]),
                         ..Default::default()
                     }],
                     restart_policy: Some("Never".into()),
                     volumes: Some(vec![trace_volume, cert_volume]),
-                    service_account: Some(ctx.opts.sim_svc_account.clone()),
+                    service_account,
                     ..Default::default()
                 }),
                 ..Default::default()

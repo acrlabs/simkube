@@ -52,8 +52,8 @@ impl DynObjWatcher {
         tracked_objects: &HashMap<GVK, TrackedObjectConfig>,
     ) -> anyhow::Result<DynObjWatcher> {
         let mut apis = vec![];
-        for (gvk, obj_cfg) in tracked_objects {
-            let stream = build_stream_for_tracked_obj(apiset, gvk, &obj_cfg.pod_spec_path).await?;
+        for gvk in tracked_objects.keys() {
+            let stream = build_stream_for_tracked_obj(apiset, gvk).await?;
             apis.push(stream);
         }
 
@@ -88,15 +88,9 @@ impl DynObjWatcher {
     }
 }
 
-async fn build_stream_for_tracked_obj(
-    apiset: &mut ApiSet,
-    gvk: &GVK,
-    pod_spec_path: &str,
-) -> anyhow::Result<KubeObjectStream> {
+async fn build_stream_for_tracked_obj(apiset: &mut ApiSet, gvk: &GVK) -> anyhow::Result<KubeObjectStream> {
     // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
     // it will prevent the tracer from starting up
-    let pod_spec_path = pod_spec_path.to_owned();
-
     let api_version = gvk.api_version().clone();
     let kind = gvk.kind.clone();
     let (api, _) = apiset.api_for(gvk).await?;
@@ -104,7 +98,7 @@ async fn build_stream_for_tracked_obj(
     Ok(watcher(api.clone(), Default::default())
         // All these objects need to be cloned because they're moved into the stream here
         .modify(move |obj| {
-            sanitize_obj(obj, &pod_spec_path, &api_version, &kind);
+            sanitize_obj(obj, &api_version, &kind);
         })
         .map_err(|e| e.into())
         .boxed())

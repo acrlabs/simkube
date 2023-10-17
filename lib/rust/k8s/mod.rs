@@ -49,6 +49,7 @@ pub trait KubeResourceExt {
 
 pub trait PodExt {
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec>;
+    fn stable_spec(&self) -> anyhow::Result<corev1::PodSpec>;
     fn status(&self) -> anyhow::Result<&corev1::PodStatus>;
 }
 

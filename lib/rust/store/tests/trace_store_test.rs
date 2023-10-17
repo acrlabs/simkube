@@ -8,7 +8,7 @@ use crate::k8s::KubeResourceExt;
 use crate::testutils::*;
 
 const EMPTY_OBJ_HASH: u64 = 15130871412783076140;
-const EMPTY_POD_SPEC_HASH: u64 = 16349339464234908611;
+const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
 const DEPLOYMENT_NAME: &str = "the-deployment";
 
 #[fixture]
@@ -32,6 +32,34 @@ fn test_obj(#[default("obj")] name: &str) -> DynamicObject {
 #[fixture]
 fn owner_ref() -> metav1::OwnerReference {
     metav1::OwnerReference { name: DEPLOYMENT_NAME.into(), ..Default::default() }
+}
+
+#[rstest]
+fn test_lookup_pod_lifecycle_no_owner(tracer: TraceStore, test_pod: corev1::Pod) {
+    let res = tracer.lookup_pod_lifecycle(&test_pod, DEPLOYMENT_NAME, 0).unwrap();
+    assert_eq!(res, PodLifecycleData::Empty);
+}
+
+#[rstest]
+fn test_lookup_pod_lifecycle_no_hash(mut tracer: TraceStore, test_pod: corev1::Pod) {
+    tracer.index.insert(DEPLOYMENT_NAME.into(), 1234);
+    let res = tracer.lookup_pod_lifecycle(&test_pod, DEPLOYMENT_NAME, 0).unwrap();
+    assert_eq!(res, PodLifecycleData::Empty);
+}
+
+#[rstest]
+fn test_lookup_pod_lifecycle(mut tracer: TraceStore, test_pod: corev1::Pod) {
+    let owner_ns_name = format!("{TEST_NAMESPACE}/{DEPLOYMENT_NAME}");
+    let pod_lifecycle = PodLifecycleData::Finished(1, 2);
+
+    tracer.index.insert(owner_ns_name.clone(), 1234);
+    tracer.pod_owners = PodOwnersMap::new_from_parts(
+        HashMap::from([(owner_ns_name.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, vec![pod_lifecycle.clone()])]))]),
+        HashMap::new(),
+    );
+
+    let res = tracer.lookup_pod_lifecycle(&test_pod, &owner_ns_name, 0).unwrap();
+    assert_eq!(res, pod_lifecycle);
 }
 
 #[rstest]
@@ -255,8 +283,8 @@ fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore, owner
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, &EMPTY_POD_SPEC_HASH),
-        Some(expected_lifecycle_data)
+        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        Some(&expected_lifecycle_data)
     );
 }
 
@@ -274,7 +302,7 @@ fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(
         .unwrap();
 
     let unused_hash = 0;
-    assert_eq!(tracer.pod_owners.lifecycle_data_for(&owner_ns_name, &unused_hash), None);
+    assert_eq!(tracer.pod_owners.lifecycle_data_for(&owner_ns_name, unused_hash), None);
 }
 
 #[rstest]
@@ -292,8 +320,8 @@ fn test_record_pod_lifecycle_with_new_pod_type(
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, &EMPTY_POD_SPEC_HASH),
-        Some(vec![new_lifecycle_data])
+        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        Some(&vec![new_lifecycle_data])
     );
 }
 
@@ -322,8 +350,8 @@ fn test_record_pod_lifecycle_with_new_pod_existing_hash(
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, &EMPTY_POD_SPEC_HASH),
-        Some(expected_lifecycle_data)
+        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        Some(&expected_lifecycle_data)
     );
 }
 
@@ -351,7 +379,7 @@ fn test_record_pod_lifecycle_with_existing_pod(
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, &EMPTY_POD_SPEC_HASH),
-        Some(expected_lifecycle_data)
+        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        Some(&expected_lifecycle_data)
     );
 }

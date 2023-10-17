@@ -82,6 +82,14 @@ impl PodOwnersMap {
         self.index.insert(ns_name.into(), (owner_ns_name.into(), hash, idx));
     }
 
+    pub(super) fn lifecycle_data_for<'a>(
+        &'a self,
+        owner_ns_name: &str,
+        pod_hash: u64,
+    ) -> Option<&'a Vec<PodLifecycleData>> {
+        Some(self.m.get(owner_ns_name)?.get(&pod_hash)?)
+    }
+
     pub(super) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: PodLifecycleData) -> EmptyResult {
         match self.index.get(ns_name) {
             None => bail!("pod {} not present in index", ns_name),
@@ -156,10 +164,6 @@ pub(super) fn filter_lifecycles_map(
 
 #[cfg(test)]
 impl PodOwnersMap {
-    pub(super) fn lifecycle_data_for(&self, owner_ns_name: &str, pod_hash: &u64) -> Option<Vec<PodLifecycleData>> {
-        Some(self.m.get(owner_ns_name)?.get(pod_hash)?.clone())
-    }
-
     pub(super) fn pod_owner_meta(&self, ns_name: &str) -> Option<&(String, u64, usize)> {
         self.index.get(ns_name)
     }

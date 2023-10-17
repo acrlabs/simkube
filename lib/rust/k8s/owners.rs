@@ -32,10 +32,10 @@ impl OwnersCache {
         obj: &(impl Resource + Sync),
     ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
         let ns_name = obj.namespaced_name();
-        info!("computing owner references for {ns_name}");
+        debug!("computing owner references for {ns_name}");
 
         if let Some(owners) = self.owners.get(&ns_name) {
-            info!("found owners for {ns_name} in cache");
+            debug!("found owners for {ns_name} in cache");
             return Ok(owners.clone());
         }
 

@@ -4,11 +4,13 @@ use json_patch::{
     PatchOperation,
 };
 use k8s_openapi::api::core::v1 as corev1;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
     AdmissionReview,
 };
+use kube::ResourceExt;
 use rocket::serde::json::Json;
 use serde_json::{
     json,
@@ -55,44 +57,81 @@ pub async fn handler(
 // TODO when we get the pod object, the final name hasn't been filled in yet; make sure this
 // doesn't cause any problems
 pub(super) async fn mutate_pod(
-    ctx: &rocket::State<DriverContext>,
+    ctx: &DriverContext,
     resp: AdmissionResponse,
     pod: &corev1::Pod,
 ) -> anyhow::Result<AdmissionResponse> {
-    {
-        // enclose in a block so we release the mutex when we're done
+    // enclose in a block so we release the mutex when we're done
+    let owners = {
         let mut owners_cache = ctx.owners_cache.lock().await;
-        let owners = owners_cache.compute_owner_chain(pod).await?;
+        owners_cache.compute_owner_chain(pod).await?
+    };
 
-        if owners.iter().all(|o| o.name != ctx.sim_root) {
-            return Ok(resp);
-        }
+    if !owners.iter().any(|o| o.name == ctx.sim_root) {
+        return Ok(resp);
     }
 
     let mut patches = vec![];
+    add_simulation_labels(ctx, pod, &mut patches)?;
+    add_lifecycle_annotation(ctx, pod, &owners, &mut patches)?;
+    add_node_selector_tolerations(pod, &mut patches)?;
+
+    Ok(resp.with_patch(Patch(patches))?)
+}
+
+fn add_simulation_labels(ctx: &DriverContext, pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
     if pod.metadata.labels.is_none() {
         patches.push(PatchOperation::Add(AddOperation { path: "/metadata/labels".into(), value: json!({}) }));
     }
+    patches.push(PatchOperation::Add(AddOperation {
+        path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
+        value: Value::String(ctx.name.clone()),
+    }));
 
+    Ok(())
+}
+
+fn add_lifecycle_annotation(
+    ctx: &DriverContext,
+    pod: &corev1::Pod,
+    owners: &Vec<metav1::OwnerReference>,
+    patches: &mut Vec<PatchOperation>,
+) -> EmptyResult {
+    if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
+        for owner in owners {
+            let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
+            let lifecycle = ctx.store.lookup_pod_lifecycle(pod, &owner_ns_name, 0)?;
+            if let Some(patch) = lifecycle.to_annotation_patch() {
+                if pod.metadata.annotations.is_none() {
+                    patches.push(PatchOperation::Add(AddOperation {
+                        path: "/metadata/annotations".into(),
+                        value: json!({}),
+                    }));
+                }
+                patches.push(patch);
+                break;
+            }
+        }
+    }
+
+    warn!("no pod lifecycle data found for {}", pod.namespaced_name());
+    Ok(())
+}
+
+fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
     if pod.spec()?.tolerations.is_none() {
         patches.push(PatchOperation::Add(AddOperation { path: "/spec/tolerations".into(), value: json!([]) }));
     }
+    patches.push(PatchOperation::Add(AddOperation {
+        path: "/spec/nodeSelector".into(),
+        value: json!({"type": "virtual"}),
+    }));
+    patches.push(PatchOperation::Add(AddOperation {
+        path: "/spec/tolerations/-".into(),
+        value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "value": "true"}),
+    }));
 
-    patches.extend(vec![
-        PatchOperation::Add(AddOperation {
-            path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
-            value: Value::String(ctx.name.clone()),
-        }),
-        PatchOperation::Add(AddOperation {
-            path: "/spec/nodeSelector".into(),
-            value: json!({"type": "virtual"}),
-        }),
-        PatchOperation::Add(AddOperation {
-            path: "/spec/tolerations/-".into(),
-            value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "value": "true"}),
-        }),
-    ]);
-    Ok(resp.with_patch(Patch(patches))?)
+    Ok(())
 }
 
 // Have to duplicate this fn because AdmissionResponse::into_review uses the dynamic API

@@ -8,12 +8,10 @@ use kube::api::{
     TypeMeta,
 };
 use serde_json as json;
-use tracing::*;
 
 use super::*;
 use crate::constants::SIMULATION_LABEL_KEY;
 use crate::errors::*;
-use crate::jsonutils;
 
 pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta) -> EmptyResult
 where
@@ -78,7 +76,7 @@ pub fn list_params_for(namespace: &str, name: &str) -> ListParams {
     }
 }
 
-pub fn sanitize_obj(obj: &mut DynamicObject, pod_spec_path: &str, api_version: &str, kind: &str) {
+pub fn sanitize_obj(obj: &mut DynamicObject, api_version: &str, kind: &str) {
     obj.metadata.creation_timestamp = None;
     obj.metadata.deletion_timestamp = None;
     obj.metadata.deletion_grace_period_seconds = None;
@@ -91,12 +89,6 @@ pub fn sanitize_obj(obj: &mut DynamicObject, pod_spec_path: &str, api_version: &
     if let Some(a) = obj.metadata.annotations.as_mut() {
         a.remove(LAST_APPLIED_CONFIG_LABEL_KEY);
         a.remove(DEPL_REVISION_LABEL_KEY);
-    }
-
-    for key in &["nodeName", "serviceAccount", "serviceAccountName"] {
-        if let Err(e) = jsonutils::patch_ext::remove(pod_spec_path, key, &mut obj.data) {
-            debug!("could not patch object {}, skipping: {}", obj.namespaced_name(), e);
-        }
     }
 
     obj.types = Some(TypeMeta { api_version: api_version.into(), kind: kind.into() });
