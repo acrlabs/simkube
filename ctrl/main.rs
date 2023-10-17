@@ -3,6 +3,7 @@ mod controller;
 mod objects;
 mod trace;
 
+use std::ops::Deref;
 use std::sync::Arc;
 
 use clap::Parser;
@@ -43,11 +44,21 @@ struct Options {
     verbosity: String,
 }
 
-#[derive(Error, Debug)]
+// This is sortof a stupid hack, because anyhow::Error doesn't derive from
+// std::error::Error, but the reconcile functions require you to return a
+// result that derives from std::error::Error.  So we just wrap the anyhow,
+// and then implement deref for it so we can get back to the underlying error
+// wherever we actually care.
+#[derive(Debug, Error)]
 #[error(transparent)]
-enum ReconcileError {
-    AnyhowError(#[from] anyhow::Error),
-    KubeApiError(#[from] kube::Error),
+struct AnyhowError(#[from] anyhow::Error);
+
+impl Deref for AnyhowError {
+    type Target = anyhow::Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
 }
 
 #[derive(Clone)]

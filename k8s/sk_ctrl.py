@@ -4,6 +4,7 @@ import fireconfig as fire
 from cdk8s import Chart
 from constructs import Construct
 from fireconfig.types import Capability
+from fireconfig.types import DownwardAPIField
 
 ID = "sk-ctrl"
 
@@ -13,6 +14,10 @@ class SKController(Chart):
         super().__init__(scope, ID)
 
         app_key = "app"
+
+        env = (fire.EnvBuilder({"RUST_BACKTRACE": "1"})
+            .with_field_ref("POD_SVC_ACCOUNT", DownwardAPIField.SERVICE_ACCOUNT_NAME)
+        )
 
         with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
             image = f.read()
@@ -24,12 +29,11 @@ class SKController(Chart):
             args=[
                 "/sk-ctrl",
                 "--driver-image", driver_image,
-                # TODO can we auto-detect this in fireconfig?
-                "--sim-svc-account", "sk-ctrl-service-account-c8688aad",
+                "--sim-svc-account", "$POD_SVC_ACCOUNT",
                 "--use-cert-manager",
                 "--cert-manager-issuer", "selfsigned",
             ],
-        ).with_security_context(Capability.DEBUG)
+        ).with_security_context(Capability.DEBUG).with_env(env)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
             .with_label(app_key, ID)

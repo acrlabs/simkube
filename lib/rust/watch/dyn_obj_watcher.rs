@@ -16,9 +16,9 @@ use kube::runtime::watcher::{
     Event,
 };
 use kube::runtime::WatchStreamExt;
-use tracing::*;
 
 use super::KubeObjectStream;
+use crate::errors::*;
 use crate::k8s::{
     sanitize_obj,
     ApiSet,
@@ -70,7 +70,9 @@ impl DynObjWatcher {
 
             match res {
                 Ok(evt) => self.handle_obj_event(evt, ts),
-                Err(e) => error!("watcher received error on stream: {}", e),
+                Err(err) => {
+                    skerr!(err, "watcher received error on stream");
+                },
             }
         }
     }

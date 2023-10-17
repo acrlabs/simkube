@@ -27,9 +27,9 @@ pub async fn handler(
 ) -> Json<AdmissionReview<corev1::Pod>> {
     let req: AdmissionRequest<_> = match body.into_inner().try_into() {
         Ok(r) => r,
-        Err(e) => {
-            error!("could not parse request: {e}");
-            let resp = AdmissionResponse::invalid(e);
+        Err(err) => {
+            error!("could not parse request: {err:?}");
+            let resp = AdmissionResponse::invalid(err);
             return Json(into_pod_review(resp));
         },
     };
@@ -42,9 +42,9 @@ pub async fn handler(
                 info!("mutation successfully constructed");
                 r
             },
-            Err(e) => {
-                error!("could not perform mutation, blocking pod object: {e}");
-                AdmissionResponse::from(&req).deny(e)
+            Err(err) => {
+                error!("could not perform mutation, blocking pod object: {err:?}");
+                AdmissionResponse::from(&req).deny(err)
             },
         };
     }

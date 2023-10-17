@@ -7,10 +7,10 @@ use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::api::core::v1 as corev1;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
+use simkube::errors::*;
 use simkube::k8s::label_selector;
 use simkube::prelude::*;
 use tokio::time::Duration;
-use tracing::*;
 
 use super::objects::*;
 use super::*;
@@ -88,7 +88,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     Ok(Action::await_change())
 }
 
-pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, ReconcileError> {
+pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
     info!("got simulation object");
 
     let sim = sim.deref();
@@ -98,7 +98,7 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
     Ok(setup_driver(&ctx, sim, &root).await?)
 }
 
-pub(crate) fn error_policy(sim: Arc<Simulation>, error: &ReconcileError, _: Arc<SimulationContext>) -> Action {
-    error!("reconcile failed on simulation {}: {:?}", sim.namespaced_name(), error);
+pub(crate) fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, _: Arc<SimulationContext>) -> Action {
+    skerr!(err, "reconcile failed on simulation {}", sim.namespaced_name());
     Action::requeue(REQUEUE_ERROR_DURATION)
 }
