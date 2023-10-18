@@ -7,10 +7,6 @@ use super::*;
 use crate::k8s::KubeResourceExt;
 use crate::testutils::*;
 
-const EMPTY_OBJ_HASH: u64 = 15130871412783076140;
-const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
-const DEPLOYMENT_NAME: &str = "the-deployment";
-
 #[fixture]
 fn tracer() -> TraceStore {
     Default::default()
@@ -31,25 +27,25 @@ fn test_obj(#[default("obj")] name: &str) -> DynamicObject {
 
 #[fixture]
 fn owner_ref() -> metav1::OwnerReference {
-    metav1::OwnerReference { name: DEPLOYMENT_NAME.into(), ..Default::default() }
+    metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() }
 }
 
 #[rstest]
-fn test_lookup_pod_lifecycle_no_owner(tracer: TraceStore, test_pod: corev1::Pod) {
-    let res = tracer.lookup_pod_lifecycle(&test_pod, DEPLOYMENT_NAME, 0).unwrap();
+fn test_lookup_pod_lifecycle_no_owner(tracer: TraceStore) {
+    let res = tracer.lookup_pod_lifecycle(TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
 #[rstest]
-fn test_lookup_pod_lifecycle_no_hash(mut tracer: TraceStore, test_pod: corev1::Pod) {
-    tracer.index.insert(DEPLOYMENT_NAME.into(), 1234);
-    let res = tracer.lookup_pod_lifecycle(&test_pod, DEPLOYMENT_NAME, 0).unwrap();
+fn test_lookup_pod_lifecycle_no_hash(mut tracer: TraceStore) {
+    tracer.index.insert(TEST_DEPLOYMENT.into(), 1234);
+    let res = tracer.lookup_pod_lifecycle(TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
 #[rstest]
-fn test_lookup_pod_lifecycle(mut tracer: TraceStore, test_pod: corev1::Pod) {
-    let owner_ns_name = format!("{TEST_NAMESPACE}/{DEPLOYMENT_NAME}");
+fn test_lookup_pod_lifecycle(mut tracer: TraceStore) {
+    let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
     let pod_lifecycle = PodLifecycleData::Finished(1, 2);
 
     tracer.index.insert(owner_ns_name.clone(), 1234);
@@ -58,7 +54,7 @@ fn test_lookup_pod_lifecycle(mut tracer: TraceStore, test_pod: corev1::Pod) {
         HashMap::new(),
     );
 
-    let res = tracer.lookup_pod_lifecycle(&test_pod, &owner_ns_name, 0).unwrap();
+    let res = tracer.lookup_pod_lifecycle(&owner_ns_name, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, pod_lifecycle);
 }
 

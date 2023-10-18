@@ -178,21 +178,11 @@ impl TraceStorable for TraceStore {
         }
     }
 
-    fn lookup_pod_lifecycle(
-        &self,
-        pod: &corev1::Pod,
-        owner_ns_name: &str,
-        seq: usize,
-    ) -> anyhow::Result<PodLifecycleData> {
-        if !self.index.contains_key(owner_ns_name) {
-            return Ok(PodLifecycleData::Empty);
-        }
-
-        let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
-        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(&owner_ns_name, hash);
+    fn lookup_pod_lifecycle(&self, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData {
+        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(&owner_ns_name, pod_hash);
         match maybe_lifecycle_data {
-            Some(data) if seq < data.len() => Ok(data[seq].clone()),
-            _ => Ok(PodLifecycleData::Empty),
+            Some(data) => data[seq % data.len()].clone(),
+            _ => PodLifecycleData::Empty,
         }
     }
 
@@ -245,6 +235,10 @@ impl TraceStorable for TraceStore {
 
     fn config(&self) -> &TracerConfig {
         &self.config
+    }
+
+    fn has_obj(&self, ns_name: &str) -> bool {
+        self.index.contains_key(ns_name)
     }
 
     fn start_ts(&self) -> Option<i64> {
