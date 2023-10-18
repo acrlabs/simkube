@@ -38,44 +38,47 @@ jobs:
           path: .build/coverage/go-coverage.txt
   build-rust:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-directories: |
-            .build
-          shared-key: verify-rust
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Build
         run: ARTIFACTS="sk-ctrl sk-driver sk-tracer" make build
   lint-rust:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-directories: |
-            .build
-          shared-key: verify-rust
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Lint Rust code
         run: cargo clippy
   test-rust:
     runs-on: ubuntu-latest
+    env:
+      CARGO_INCREMENTAL: 0
+      SCCACHE_GHA_ENABLED: "true"
+      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - uses: Swatinem/rust-cache@v2
-        with:
-          cache-directories: |
-            .build
-          shared-key: verify-rust
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
       - name: Install grcov
         run: |
           curl -LO https://github.com/mozilla/grcov/releases/download/v0.8.18/grcov-x86_64-unknown-linux-gnu.tar.bz2
