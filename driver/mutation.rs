@@ -1,3 +1,6 @@
+use std::collections::HashMap;
+use std::sync::Mutex;
+
 use json_patch::{
     AddOperation,
     Patch,
@@ -18,12 +21,28 @@ use simkube::jsonutils;
 use simkube::prelude::*;
 use tracing::*;
 
-use super::*;
+use super::DriverContext;
+
+pub struct MutationData {
+    pod_counts: Mutex<HashMap<u64, usize>>,
+}
+
+impl MutationData {
+    pub fn new() -> MutationData {
+        MutationData { pod_counts: Mutex::new(HashMap::new()) }
+    }
+
+    pub fn count(&self, hash: u64) -> usize {
+        let mut pod_counts = self.pod_counts.lock().unwrap();
+        *pod_counts.entry(hash).and_modify(|e| *e += 1).or_default()
+    }
+}
 
 #[rocket::post("/", data = "<body>")]
 pub async fn handler(
     ctx: &rocket::State<DriverContext>,
     body: Json<AdmissionReview<corev1::Pod>>,
+    mut_data: &rocket::State<MutationData>,
 ) -> Json<AdmissionReview<corev1::Pod>> {
     let req: AdmissionRequest<_> = match body.into_inner().try_into() {
         Ok(r) => r,
@@ -37,7 +56,7 @@ pub async fn handler(
     let mut resp = AdmissionResponse::from(&req);
     if let Some(pod) = &req.object {
         info!("received mutation request for pod: {}", pod.namespaced_name());
-        resp = match mutate_pod(ctx, resp, pod).await {
+        resp = match mutate_pod(ctx, resp, pod, mut_data).await {
             Ok(r) => {
                 info!("mutation successfully constructed");
                 r
@@ -58,6 +77,7 @@ pub(super) async fn mutate_pod(
     ctx: &DriverContext,
     resp: AdmissionResponse,
     pod: &corev1::Pod,
+    mut_data: &MutationData,
 ) -> anyhow::Result<AdmissionResponse> {
     // enclose in a block so we release the mutex when we're done
     let owners = {
@@ -71,7 +91,7 @@ pub(super) async fn mutate_pod(
 
     let mut patches = vec![];
     add_simulation_labels(ctx, pod, &mut patches)?;
-    add_lifecycle_annotation(ctx, pod, &owners, &mut patches)?;
+    add_lifecycle_annotation(ctx, pod, &owners, mut_data, &mut patches)?;
     add_node_selector_tolerations(pod, &mut patches)?;
 
     Ok(resp.with_patch(Patch(patches))?)
@@ -93,12 +113,19 @@ fn add_lifecycle_annotation(
     ctx: &DriverContext,
     pod: &corev1::Pod,
     owners: &Vec<metav1::OwnerReference>,
+    mut_data: &MutationData,
     patches: &mut Vec<PatchOperation>,
 ) -> EmptyResult {
     if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
         for owner in owners {
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            let lifecycle = ctx.store.lookup_pod_lifecycle(pod, &owner_ns_name, 0)?;
+            if !ctx.store.has_obj(&owner_ns_name) {
+                continue;
+            }
+            let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
+            let seq = mut_data.count(hash);
+            info!("applying lifecycle annotations to {} at {hash}/{seq}", pod.namespaced_name());
+            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_ns_name, hash, seq);
             if let Some(patch) = lifecycle.to_annotation_patch() {
                 if pod.metadata.annotations.is_none() {
                     patches.push(PatchOperation::Add(AddOperation {

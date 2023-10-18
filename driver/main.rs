@@ -24,6 +24,7 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;
 
+use crate::mutation::MutationData;
 use crate::runner::TraceRunner;
 
 #[derive(Clone, Debug, Parser)]
@@ -87,6 +88,7 @@ async fn run(opts: Options) -> EmptyResult {
     };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![mutation::handler])
+        .manage(MutationData::new())
         .manage(ctx.clone());
 
     let server_task = tokio::spawn(server.launch());
