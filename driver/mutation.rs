@@ -3,8 +3,6 @@ use json_patch::{
     Patch,
     PatchOperation,
 };
-use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,

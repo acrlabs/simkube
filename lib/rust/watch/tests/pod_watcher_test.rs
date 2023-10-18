@@ -12,11 +12,7 @@ use mockall::predicate;
 use tracing_test::*;
 
 use super::*;
-use crate::k8s::{
-    KubeResourceExt,
-    OwnersCache,
-    PodLifecycleData,
-};
+use crate::k8s::OwnersCache;
 use crate::testutils::fake::make_fake_apiserver;
 use crate::testutils::*;
 

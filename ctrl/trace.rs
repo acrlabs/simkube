@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 use anyhow::anyhow;
-use k8s_openapi::api::core::v1 as corev1;
 use reqwest::Url;
+use simkube::prelude::*;
 
 const TRACE_VOLUME_NAME: &str = "trace-data";
 const TRACE_PATH: &str = "/trace-data";

@@ -8,8 +8,6 @@ use std::collections::{
     VecDeque,
 };
 
-use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde::{
     Deserialize,
@@ -22,9 +20,8 @@ use self::pod_owners_map::{
 };
 use self::trace_filter::filter_event;
 pub use self::trace_filter::TraceFilter;
-use crate::config::TracerConfig;
 use crate::errors::*;
-use crate::k8s::PodLifecycleData;
+use crate::prelude::*;
 
 #[derive(Debug)]
 enum TraceAction {

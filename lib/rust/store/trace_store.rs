@@ -10,12 +10,8 @@ use tracing::*;
 
 use super::*;
 use crate::jsonutils;
-use crate::k8s::{
-    build_deletable,
-    KubeResourceExt,
-    PodExt,
-    PodLifecycleData,
-};
+use crate::k8s::build_deletable;
+use crate::prelude::*;
 
 // The TraceStore object is an in-memory store of a cluster trace.  It keeps track of all the
 // configured Kubernetes objects, as well as lifecycle data for any pods that are owned by the

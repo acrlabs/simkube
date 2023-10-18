@@ -2,7 +2,6 @@ use std::env;
 
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
-use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use reqwest::Url;
 use simkube::k8s::{

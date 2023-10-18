@@ -2,7 +2,6 @@ use std::cmp::max;
 use std::time::Duration;
 
 use anyhow::anyhow;
-use k8s_openapi::api::core::v1 as corev1;
 use kube::api::{
     DynamicObject,
     Patch,
@@ -31,7 +30,7 @@ fn build_virtual_ns(ctx: &DriverContext, owner: &SimulationRoot, namespace: &str
         metadata: build_global_object_meta(namespace, &ctx.name, owner)?,
         ..Default::default()
     };
-    klabel_insert!(ns, VIRTUAL_LABEL_KEY = "true");
+    klabel_insert!(ns, VIRTUAL_LABEL_KEY => "true");
 
     Ok(ns)
 }
@@ -47,7 +46,7 @@ fn build_virtual_obj(
     let mut vobj = obj.clone();
     add_common_metadata(&ctx.name, owner, &mut vobj.metadata)?;
     vobj.metadata.namespace = Some(virtual_ns.into());
-    klabel_insert!(vobj, VIRTUAL_LABEL_KEY = "true");
+    klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
 
     jsonutils::patch_ext::add(
         &format!("{}/metadata", pod_spec_template_path),
