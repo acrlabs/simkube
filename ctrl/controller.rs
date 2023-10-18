@@ -39,7 +39,7 @@ async fn do_global_setup(ctx: &SimulationContext, sim: &Simulation) -> anyhow::R
     };
 
     if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
-        info!("creating mutating webhook configuration {} for {}", ctx.webhook_name, ctx.name);
+        info!("creating mutating webhook configuration {}", ctx.webhook_name);
         let obj = build_mutating_webhook(ctx, &root)?;
         webhook_api.create(&Default::default(), &obj).await?;
     };
@@ -86,9 +86,8 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     Ok(Action::await_change())
 }
 
+#[instrument(parent=None, skip_all, fields(simulation=sim.name_any()))]
 pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
-    info!("got simulation object");
-
     let sim = sim.deref();
     let ctx = ctx.new_with_sim(sim);
 

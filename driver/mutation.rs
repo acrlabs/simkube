@@ -39,6 +39,7 @@ impl MutationData {
 }
 
 #[rocket::post("/", data = "<body>")]
+#[instrument(parent=None, skip_all)]
 pub async fn handler(
     ctx: &rocket::State<DriverContext>,
     body: Json<AdmissionReview<corev1::Pod>>,
@@ -55,17 +56,10 @@ pub async fn handler(
 
     let mut resp = AdmissionResponse::from(&req);
     if let Some(pod) = &req.object {
-        info!("received mutation request for pod: {}", pod.namespaced_name());
-        resp = match mutate_pod(ctx, resp, pod, mut_data).await {
-            Ok(r) => {
-                info!("mutation successfully constructed");
-                r
-            },
-            Err(err) => {
-                error!("could not perform mutation, blocking pod object: {err:?}");
-                AdmissionResponse::from(&req).deny(err)
-            },
-        };
+        resp = mutate_pod(ctx, resp, pod, mut_data).await.unwrap_or_else(|err| {
+            error!("could not perform mutation, blocking pod object: {err:?}");
+            AdmissionResponse::from(&req).deny(err)
+        });
     }
 
     Json(into_pod_review(resp))
@@ -73,6 +67,7 @@ pub async fn handler(
 
 // TODO when we get the pod object, the final name hasn't been filled in yet; make sure this
 // doesn't cause any problems
+#[instrument(skip_all, fields(pod.namespaced_name=pod.namespaced_name()))]
 pub(super) async fn mutate_pod(
     ctx: &DriverContext,
     resp: AdmissionResponse,
@@ -86,6 +81,7 @@ pub(super) async fn mutate_pod(
     };
 
     if !owners.iter().any(|o| o.name == ctx.sim_root) {
+        info!("pod not owned by simulation, no mutation performed");
         return Ok(resp);
     }
 
@@ -122,11 +118,13 @@ fn add_lifecycle_annotation(
             if !ctx.store.has_obj(&owner_ns_name) {
                 continue;
             }
+
             let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
             let seq = mut_data.count(hash);
-            info!("applying lifecycle annotations to {} at {hash}/{seq}", pod.namespaced_name());
+
             let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_ns_name, hash, seq);
             if let Some(patch) = lifecycle.to_annotation_patch() {
+                info!("applying lifecycle annotations (hash={hash}, seq={seq})");
                 if pod.metadata.annotations.is_none() {
                     patches.push(PatchOperation::Add(AddOperation {
                         path: "/metadata/annotations".into(),
@@ -135,11 +133,12 @@ fn add_lifecycle_annotation(
                 }
                 patches.push(patch);
                 break;
+            } else {
+                warn!("no pod lifecycle data found");
             }
         }
     }
 
-    warn!("no pod lifecycle data found for {}", pod.namespaced_name());
     Ok(())
 }
 

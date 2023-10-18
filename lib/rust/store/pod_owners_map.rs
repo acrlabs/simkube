@@ -61,27 +61,6 @@ impl PodOwnersMap {
         self.index.contains_key(ns_name)
     }
 
-    pub(super) fn store_new_pod_lifecycle(
-        &mut self,
-        ns_name: &str,
-        owner_ns_name: &str,
-        hash: u64,
-        lifecycle_data: PodLifecycleData,
-    ) {
-        let idx = match self.m.entry(owner_ns_name.into()) {
-            Entry::Vacant(e) => {
-                e.insert([(hash, vec![lifecycle_data])].into());
-                0
-            },
-            Entry::Occupied(mut e) => {
-                let pod_sequence = e.get_mut().entry(hash).or_insert(vec![]);
-                pod_sequence.push(lifecycle_data);
-                pod_sequence.len() - 1
-            },
-        };
-        self.index.insert(ns_name.into(), (owner_ns_name.into(), hash, idx));
-    }
-
     pub(super) fn lifecycle_data_for<'a>(
         &'a self,
         owner_ns_name: &str,
@@ -90,7 +69,30 @@ impl PodOwnersMap {
         Some(self.m.get(owner_ns_name)?.get(&pod_hash)?)
     }
 
-    pub(super) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: PodLifecycleData) -> EmptyResult {
+    pub(super) fn store_new_pod_lifecycle(
+        &mut self,
+        ns_name: &str,
+        owner_ns_name: &str,
+        hash: u64,
+        lifecycle_data: &PodLifecycleData,
+    ) {
+        let idx = match self.m.entry(owner_ns_name.into()) {
+            Entry::Vacant(e) => {
+                e.insert([(hash, vec![lifecycle_data.clone()])].into());
+                0
+            },
+            Entry::Occupied(mut e) => {
+                let pod_sequence = e.get_mut().entry(hash).or_insert(vec![]);
+                pod_sequence.push(lifecycle_data.clone());
+                pod_sequence.len() - 1
+            },
+        };
+
+        info!("inserting pod {ns_name} owned by {owner_ns_name} with hash {hash}: {lifecycle_data:?}");
+        self.index.insert(ns_name.into(), (owner_ns_name.into(), hash, idx));
+    }
+
+    pub(super) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
         match self.index.get(ns_name) {
             None => bail!("pod {} not present in index", ns_name),
             Some((owner_ns_name, hash, sequence_idx)) => {
@@ -108,8 +110,9 @@ impl PodOwnersMap {
                     ns_name,
                     hash
                 ))?;
-                *pod_entry = lifecycle_data;
-                Ok(())
+
+                info!("updating pod {ns_name} owned by {owner_ns_name} with hash {hash}: {lifecycle_data:?}");
+                Ok(*pod_entry = lifecycle_data.clone())
             },
         }
     }

@@ -21,7 +21,7 @@ mock! {
             ns_name: &str,
             maybe_pod: Option<corev1::Pod>,
             owners: Vec<metav1::OwnerReference>,
-            lifecycle_data: PodLifecycleData,
+            lifecycle_data: &PodLifecycleData,
         ) -> EmptyResult;
         fn config(&self) -> &TracerConfig;
         fn has_obj(&self, ns_name: &str) -> bool;

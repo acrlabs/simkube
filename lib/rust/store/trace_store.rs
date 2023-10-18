@@ -194,7 +194,7 @@ impl TraceStorable for TraceStore {
         ns_name: &str,
         maybe_pod: Option<corev1::Pod>,
         owners: Vec<metav1::OwnerReference>,
-        lifecycle_data: PodLifecycleData,
+        lifecycle_data: &PodLifecycleData,
     ) -> EmptyResult {
         // If we've already stored data about this pod, we just update the existing entry
         // This assumes that the pod spec is immutable/can't change.  This is _largely_ true in

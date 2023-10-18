@@ -99,9 +99,8 @@ impl SimulationContext {
     }
 }
 
+#[instrument(ret, err)]
 async fn run(opts: Options) -> EmptyResult {
-    info!("Simulation controller starting");
-
     let client = kube::Client::try_default().await?;
     let sim_api = kube::Api::<Simulation>::all(client.clone());
 
@@ -109,18 +108,12 @@ async fn run(opts: Options) -> EmptyResult {
         .run(reconcile, error_policy, Arc::new(SimulationContext::new(client, opts)))
         .for_each(|_| future::ready(()));
 
-    tokio::select!(
-        _ = ctrl => info!("controller exited")
-    );
-
-    info!("shutting down...");
-    Ok(())
+    Ok(ctrl.await)
 }
 
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = Options::parse();
-    logging::setup(&args.verbosity)?;
-    run(args).await?;
-    Ok(())
+    logging::setup(&args.verbosity);
+    run(args).await
 }

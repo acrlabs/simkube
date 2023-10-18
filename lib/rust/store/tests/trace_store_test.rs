@@ -250,7 +250,7 @@ fn test_recreate_index_with_deleted_obj(mut tracer: TraceStore) {
 #[rstest]
 fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore, owner_ref: metav1::OwnerReference) {
     assert!(matches!(
-        tracer.record_pod_lifecycle("test/the-pod", None, vec![owner_ref], PodLifecycleData::Running(1)),
+        tracer.record_pod_lifecycle("test/the-pod", None, vec![owner_ref], &PodLifecycleData::Running(1)),
         Err(_)
     ));
 }
@@ -275,7 +275,7 @@ fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore, owner
         HashMap::from([(ns_name.clone(), (owner_ns_name.clone(), EMPTY_POD_SPEC_HASH, pod_seq_idx))]),
     );
     tracer
-        .record_pod_lifecycle(&ns_name, None, vec![owner_ref], new_lifecycle_data)
+        .record_pod_lifecycle(&ns_name, None, vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(
@@ -294,7 +294,7 @@ fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], new_lifecycle_data.clone())
+        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data.clone())
         .unwrap();
 
     let unused_hash = 0;
@@ -312,7 +312,7 @@ fn test_record_pod_lifecycle_with_new_pod_type(
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     tracer.index.insert(owner_ns_name.clone(), EMPTY_OBJ_HASH);
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], new_lifecycle_data.clone())
+        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data.clone())
         .unwrap();
 
     assert_eq!(
@@ -342,7 +342,7 @@ fn test_record_pod_lifecycle_with_new_pod_existing_hash(
     );
 
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], new_lifecycle_data)
+        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(
@@ -371,7 +371,7 @@ fn test_record_pod_lifecycle_with_existing_pod(
     );
 
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], new_lifecycle_data)
+        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(

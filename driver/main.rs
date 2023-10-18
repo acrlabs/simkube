@@ -9,6 +9,7 @@ use std::net::{
 use std::sync::Arc;
 use std::time::Duration;
 
+use anyhow::anyhow;
 use clap::Parser;
 use rocket::config::TlsConfig;
 use simkube::k8s::{
@@ -63,9 +64,8 @@ pub struct DriverContext {
     store: Arc<dyn TraceStorable + Send + Sync>,
 }
 
+#[instrument(ret, err)]
 async fn run(opts: Options) -> EmptyResult {
-    info!("Simulation driver starting");
-
     let client = kube::Client::try_default().await?;
 
     let trace_data = fs::read(opts.trace_path)?;
@@ -99,26 +99,21 @@ async fn run(opts: Options) -> EmptyResult {
     let runner = TraceRunner::new(ctx.clone()).await?;
 
     tokio::select! {
-        _ = server_task => warn!("server terminated"),
+        res = server_task => Err(anyhow!("server terminated: {res:?}")),
         res = tokio::spawn(runner.run()) => {
-            let flattened_res = match res {
+            match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),
-            };
-
-            info!("simulation runner completed: {flattened_res:?}");
+            }
         },
-    };
-
-    Ok(())
+    }
 }
 
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = Options::parse();
-    logging::setup(&args.verbosity)?;
-    run(args).await?;
-    Ok(())
+    logging::setup(&format!("{},rocket=warn", args.verbosity));
+    run(args).await
 }
 
 #[cfg(test)]

@@ -83,8 +83,8 @@ impl TraceRunner {
         Ok(TraceRunner { ctx, client, root })
     }
 
+    #[instrument(parent=None, skip_all, fields(simulation=self.ctx.name))]
     pub async fn run(self) -> EmptyResult {
-        info!("starting simulation {}", self.ctx.name);
         let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(self.client.clone());
         let mut apiset = ApiSet::new(self.client.clone());
         let mut sim_ts = self.ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
@@ -137,8 +137,6 @@ impl TraceRunner {
                 sleep(Duration::from_secs(sleep_duration as u64)).await;
             }
         }
-
-        info!("simulation complete!");
 
         Ok(())
     }
