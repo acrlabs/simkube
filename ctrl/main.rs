@@ -21,6 +21,7 @@ use crate::controller::{
     error_policy,
     reconcile,
 };
+use crate::objects::*;
 
 #[derive(Clone, Debug, Parser)]
 struct Options {

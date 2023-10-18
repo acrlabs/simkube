@@ -10,7 +10,7 @@ macro_rules! klabel {
 
 #[macro_export]
 macro_rules! klabel_insert {
-    ($obj:ident, $($key:tt=$val:tt),+$(,)?) => {
+    ($obj:ident, $($key:tt=>$val:tt),+$(,)?) => {
         $($obj.labels_mut().insert($key.to_string(), $val.to_string()));+
     };
 }

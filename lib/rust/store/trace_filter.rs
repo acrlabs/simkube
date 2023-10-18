@@ -1,9 +1,8 @@
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde::Deserialize;
 
 use super::TraceEvent;
-use crate::k8s::KubeResourceExt;
+use crate::prelude::*;
 
 // TODO: we also want to add "positive" selectors, e.g., only take objects in a particular
 // namespace or matching a particular label-selector.

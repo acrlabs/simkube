@@ -8,8 +8,6 @@ mod util;
 
 pub use apiset::*;
 pub use gvk::*;
-use k8s_openapi::api::core::v1 as corev1;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 pub use owners::OwnersCache;
 use serde::{
     Deserialize,
@@ -19,6 +17,7 @@ pub use util::*;
 
 use crate::errors::*;
 use crate::macros::partial_ord_eq_ref;
+use crate::prelude::*;
 
 const LAST_APPLIED_CONFIG_LABEL_KEY: &str = "kubectl.kubernetes.io/last-applied-configuration";
 const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revision";

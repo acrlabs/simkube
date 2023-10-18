@@ -13,8 +13,8 @@ use serde::{
     Serializer,
 };
 
-use super::*;
 use crate::errors::*;
+use crate::prelude::*;
 
 // GVK is a "newtype" wrapper around the metav1::GroupVersionKind object that lets me provide
 // custom serialization methods.  We also add some handy helper/conversion functions.

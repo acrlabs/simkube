@@ -4,7 +4,6 @@ use std::sync::Arc;
 use anyhow::bail;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
-use k8s_openapi::api::core::v1 as corev1;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use simkube::errors::*;
@@ -12,7 +11,6 @@ use simkube::k8s::label_selector;
 use simkube::prelude::*;
 use tokio::time::Duration;
 
-use super::objects::*;
 use super::*;
 
 const REQUEUE_DURATION: Duration = Duration::from_secs(5);

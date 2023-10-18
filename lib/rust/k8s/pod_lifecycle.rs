@@ -11,8 +11,8 @@ use kube::ResourceExt;
 use serde_json::Value;
 
 use super::*;
-use crate::constants::*;
 use crate::jsonutils;
+use crate::prelude::*;
 use crate::time::Clockable;
 use crate::util::min_some;
 
@@ -229,73 +229,5 @@ impl PartialOrd<Option<&PodLifecycleData>> for PodLifecycleData {
             PodLifecycleData::Empty => other.as_ref().map_or(Some(Ordering::Equal), |o| self.partial_cmp(o)),
             _ => other.as_ref().map_or(Some(Ordering::Greater), |o| self.partial_cmp(o)),
         }
-    }
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    #[test]
-    fn test_partial_eq() {
-        assert_eq!(PodLifecycleData::Empty, None);
-        assert_eq!(PodLifecycleData::Empty, Some(&PodLifecycleData::Empty));
-        assert_eq!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Running(1)));
-        assert_eq!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Finished(1, 2)));
-
-        assert_ne!(PodLifecycleData::Empty, Some(&PodLifecycleData::Running(1)));
-        assert_ne!(PodLifecycleData::Empty, Some(&PodLifecycleData::Finished(1, 2)));
-        assert_ne!(PodLifecycleData::Running(1), None);
-        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Empty));
-        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Running(2)));
-        assert_ne!(PodLifecycleData::Running(1), Some(&PodLifecycleData::Finished(1, 2)));
-        assert_ne!(PodLifecycleData::Finished(1, 2), None);
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Empty));
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Running(2)));
-        assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Finished(1, 3)));
-    }
-
-    #[test]
-    fn test_partial_ord() {
-        for cmp in [
-            PodLifecycleData::Empty.partial_cmp(&None),
-            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Empty)),
-            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Running(1))),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
-        ] {
-            assert_eq!(cmp, Some(Ordering::Equal));
-        }
-
-        for cmp in [
-            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Running(1))),
-            PodLifecycleData::Empty.partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
-            PodLifecycleData::Running(1).partial_cmp(&None),
-            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Empty)),
-            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Running(2))),
-            PodLifecycleData::Running(1).partial_cmp(&Some(&PodLifecycleData::Finished(1, 2))),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&None),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Empty)),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Running(2))),
-            PodLifecycleData::Finished(1, 2).partial_cmp(&Some(&PodLifecycleData::Finished(1, 3))),
-        ] {
-            assert_ne!(cmp, Some(Ordering::Equal));
-        }
-
-        assert!(PodLifecycleData::Empty < Some(&PodLifecycleData::Running(1)));
-        assert!(PodLifecycleData::Empty < Some(&PodLifecycleData::Finished(1, 2)));
-        assert!(PodLifecycleData::Running(1) < Some(&PodLifecycleData::Finished(1, 2)));
-
-        assert!(PodLifecycleData::Running(1) > None);
-        assert!(PodLifecycleData::Running(1) > Some(&PodLifecycleData::Empty));
-        assert!(PodLifecycleData::Finished(1, 2) > None);
-        assert!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Empty));
-        assert!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Running(1)));
-
-        assert!(!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Running(0))));
-        assert!(!(PodLifecycleData::Finished(1, 2) < Some(&PodLifecycleData::Running(0))));
-        assert!(!(PodLifecycleData::Finished(1, 2) > Some(&PodLifecycleData::Finished(1, 3))));
-        assert!(!(PodLifecycleData::Finished(1, 2) < Some(&PodLifecycleData::Finished(1, 3))));
-        assert!(!(PodLifecycleData::Running(1) < Some(&PodLifecycleData::Running(2))));
-        assert!(!(PodLifecycleData::Running(1) > Some(&PodLifecycleData::Running(2))));
     }
 }

@@ -21,7 +21,6 @@ use crate::errors::*;
 use crate::k8s::{
     ApiSet,
     OwnersCache,
-    PodLifecycleData,
 };
 use crate::prelude::*;
 use crate::store::{
