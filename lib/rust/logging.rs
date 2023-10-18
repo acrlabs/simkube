@@ -1,19 +1,12 @@
-use std::str::FromStr;
-
-use tracing::*;
 use tracing_subscriber::fmt::format::FmtSpan;
 
-use crate::errors::*;
-
-pub fn setup(verbosity: &str) -> EmptyResult {
-    let level = Level::from_str(verbosity)?;
+pub fn setup(env_filter: &str) {
     tracing_subscriber::fmt()
-        .with_max_level(level)
         .with_file(true)
         .with_line_number(true)
-        .with_span_events(FmtSpan::NEW | FmtSpan::CLOSE)
+        .with_span_events(FmtSpan::NEW)
         .with_target(false)
+        .with_env_filter(env_filter)
         .compact()
         .init();
-    Ok(())
 }

@@ -10,10 +10,10 @@ fn owners_map() -> PodOwnersMap {
 
 #[rstest]
 fn test_store_new_pod_lifecycle(mut owners_map: PodOwnersMap) {
-    owners_map.store_new_pod_lifecycle("podA", "deployment1", 1234, PodLifecycleData::Running(5));
-    owners_map.store_new_pod_lifecycle("podB", "deployment1", 1234, PodLifecycleData::Running(7));
-    owners_map.store_new_pod_lifecycle("podC", "deployment1", 5678, PodLifecycleData::Running(9));
-    owners_map.store_new_pod_lifecycle("podD", "deployment2", 5678, PodLifecycleData::Running(13));
+    owners_map.store_new_pod_lifecycle("podA", "deployment1", 1234, &PodLifecycleData::Running(5));
+    owners_map.store_new_pod_lifecycle("podB", "deployment1", 1234, &PodLifecycleData::Running(7));
+    owners_map.store_new_pod_lifecycle("podC", "deployment1", 5678, &PodLifecycleData::Running(9));
+    owners_map.store_new_pod_lifecycle("podD", "deployment2", 5678, &PodLifecycleData::Running(13));
     assert_eq!(
         owners_map.lifecycle_data_for("deployment1", 1234).unwrap(),
         &vec![PodLifecycleData::Running(5), PodLifecycleData::Running(7)]

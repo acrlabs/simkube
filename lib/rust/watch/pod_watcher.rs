@@ -150,7 +150,7 @@ impl PodWatcher {
         // PodLifecycleData::Empty < everything.
         if new_lifecycle_data > current_lifecycle_data {
             self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
-            self.store_pod_lifecycle_data(ns_name, Some(pod), new_lifecycle_data).await?;
+            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data).await?;
         } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
                 "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
@@ -190,15 +190,14 @@ impl PodWatcher {
             Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, self.clock.borrow())?,
         };
 
-        self.store_pod_lifecycle_data(ns_name, maybe_pod, new_lifecycle_data).await?;
-        Ok(())
+        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await
     }
 
     async fn store_pod_lifecycle_data(
         &mut self,
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
-        lifecycle_data: PodLifecycleData,
+        lifecycle_data: &PodLifecycleData,
     ) -> EmptyResult {
         // Before storing the lifecycle data, we need to compute the ownership chain so the store
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
@@ -210,21 +209,9 @@ impl PodWatcher {
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
-        info!(
-            "{} owned by {:?} is {:?}",
-            ns_name,
-            owners
-                .iter()
-                .map(|rf| format!("{}/{}", rf.kind, rf.name))
-                .collect::<Vec<String>>(),
-            lifecycle_data
-        );
-
         // We don't expect the trace store to panic, but if it does, we should panic here too
         let mut store = self.store.lock().unwrap();
-        store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)?;
-
-        Ok(())
+        store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)
     }
 }
 

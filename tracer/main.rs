@@ -3,6 +3,7 @@ use std::sync::{
     Mutex,
 };
 
+use anyhow::anyhow;
 use clap::Parser;
 use kube::Client;
 use rocket::serde::json::Json;
@@ -48,8 +49,8 @@ async fn export(req: Json<ExportRequest>, store: &rocket::State<Arc<Mutex<TraceS
         .map_err(|e| format!("{e:?}"))
 }
 
+#[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
-    info!("Reading tracer configuration from {}", &args.config_file);
     let config = TracerConfig::load(&args.config_file)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
@@ -65,18 +66,15 @@ async fn run(args: Options) -> EmptyResult {
         .manage(store.clone());
 
     tokio::select! {
-        _ = tokio::spawn(dyn_obj_watcher.start()) => warn!("object watcher terminated"),
-        _ = tokio::spawn(pod_watcher.start()) => warn!("pod watcher terminated"),
-        _ = tokio::spawn(server.launch()) => warn!("server terminated"),
-    };
-
-    Ok(())
+        res = tokio::spawn(dyn_obj_watcher.start()) => Err(anyhow!("object watcher terminated: {res:?}")),
+        res = tokio::spawn(pod_watcher.start()) => Err(anyhow!("pod watcher terminated: {res:?}")),
+        res = tokio::spawn(server.launch()) => Err(anyhow!("server terminated: {res:?}")),
+    }
 }
 
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = Options::parse();
-    logging::setup(&args.verbosity)?;
-    run(args).await?;
-    Ok(())
+    logging::setup(&args.verbosity);
+    run(args).await
 }
