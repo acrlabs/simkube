@@ -24,6 +24,7 @@ $(GO_ARTIFACTS):
 RUST_BUILD_IMAGE ?= rust:buster
 
 $(RUST_ARTIFACTS):
+	mkdir -p .build
 	docker run -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
 %-docker:
