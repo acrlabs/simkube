@@ -24,6 +24,9 @@ path = "hack/gencrd.rs"
 name = "simkube"
 path = "lib/rust/lib.rs"
 
+[profile.dev.package."*"]
+debug = false
+
 [dependencies]
 # These are actually dev dependencies of the testutils feature
 http = { version = "0.2.9", optional = true }

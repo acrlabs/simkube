@@ -55,16 +55,18 @@ impl PodLifecycleData {
 
         let pod_status = pod.status()?;
         if let Some(cstats) = pod_status.init_container_statuses.as_ref() {
-            for state in cstats.iter().filter_map(|s| s.state.as_ref()) {
-                earliest_start_ts = min_some(state.start_ts()?, earliest_start_ts);
-                latest_end_ts = max(latest_end_ts, state.end_ts()?);
+            for (container, state) in cstats.iter().filter_map(|s| Some((&s.name, s.state.as_ref()?))) {
+                let (start_ts, end_ts) = get_start_end_ts(pod, container, state);
+                earliest_start_ts = min_some(start_ts, earliest_start_ts);
+                latest_end_ts = max(latest_end_ts, end_ts);
             }
         }
 
         if let Some(cstats) = pod_status.container_statuses.as_ref() {
-            for state in cstats.iter().filter_map(|s| s.state.as_ref()) {
-                earliest_start_ts = min_some(state.start_ts()?, earliest_start_ts);
-                let end_ts = state.end_ts()?;
+            for (container, state) in cstats.iter().filter_map(|s| Some((&s.name, s.state.as_ref()?))) {
+                let (start_ts, end_ts) = get_start_end_ts(pod, container, state);
+                earliest_start_ts = min_some(start_ts, earliest_start_ts);
+
                 if end_ts.is_some() {
                     terminated_container_count += 1;
                 }
@@ -213,6 +215,18 @@ impl PartialOrd for PodLifecycleData {
     }
 }
 
+fn get_start_end_ts(pod: &corev1::Pod, container: &str, state: &corev1::ContainerState) -> (Option<i64>, Option<i64>) {
+    let start_ts = state.start_ts().unwrap_or_else(|err| {
+        warn!("could not find start_ts for container {container} in {}: {err:?}", pod.namespaced_name());
+        None
+    });
+    let end_ts = state.end_ts().unwrap_or_else(|err| {
+        warn!("could not find end_ts for container {container} in {}: {err:?}", pod.namespaced_name());
+        None
+    });
+
+    (start_ts, end_ts)
+}
 
 impl PartialEq<Option<&PodLifecycleData>> for PodLifecycleData {
     fn eq(&self, other: &Option<&PodLifecycleData>) -> bool {

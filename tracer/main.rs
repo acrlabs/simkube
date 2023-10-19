@@ -3,7 +3,6 @@ use std::sync::{
     Mutex,
 };
 
-use anyhow::anyhow;
 use clap::Parser;
 use kube::Client;
 use rocket::serde::json::Json;
@@ -66,9 +65,12 @@ async fn run(args: Options) -> EmptyResult {
         .manage(store.clone());
 
     tokio::select! {
-        res = tokio::spawn(dyn_obj_watcher.start()) => Err(anyhow!("object watcher terminated: {res:?}")),
-        res = tokio::spawn(pod_watcher.start()) => Err(anyhow!("pod watcher terminated: {res:?}")),
-        res = tokio::spawn(server.launch()) => Err(anyhow!("server terminated: {res:?}")),
+        res = tokio::spawn(dyn_obj_watcher.start()) => res.map_err(|e| e.into()),
+        res = tokio::spawn(pod_watcher.start()) => res.map_err(|e| e.into()),
+        res = tokio::spawn(server.launch()) => match res {
+            Ok(r) => r.map(|_| ()).map_err(|err| err.into()),
+            Err(err) => Err(err.into()),
+        },
     }
 }
 

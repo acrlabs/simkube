@@ -99,7 +99,7 @@ async fn run(opts: Options) -> EmptyResult {
     let runner = TraceRunner::new(ctx.clone()).await?;
 
     tokio::select! {
-        res = server_task => Err(anyhow!("server terminated: {res:?}")),
+        res = server_task => Err(anyhow!("server terminated: {res:#?}")),
         res = tokio::spawn(runner.run()) => {
             match res {
                 Ok(r) => r,

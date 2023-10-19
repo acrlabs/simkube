@@ -37,9 +37,14 @@ impl GVK {
 
     pub fn from_owner_ref(rf: &metav1::OwnerReference) -> anyhow::Result<GVK> {
         let parts: Vec<_> = rf.api_version.split('/').collect();
-        ensure!(parts.len() == 2, "invalid format for api_version: {}", rf.api_version);
 
-        Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], &rf.kind)))
+        if parts.len() == 1 {
+            Ok(GVK(GroupVersionKind::gvk("", parts[0], &rf.kind)))
+        } else if parts.len() == 2 {
+            Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], &rf.kind)))
+        } else {
+            bail!("invalid format for api_version: {}", rf.api_version);
+        }
     }
 }
 
