@@ -12,7 +12,8 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 	"k8s.io/client-go/kubernetes/fake"
 
-	testutil "simkube/lib/go/test/util"
+	"simkube/lib/go/k8s"
+	"simkube/lib/go/testutils"
 	"simkube/lib/go/util"
 )
 
@@ -26,9 +27,9 @@ const (
 
 //nolint:gochecknoglobals
 var (
-	testNodeGroupFullName = util.NamespacedName(testNodeGroupNamespace, testNodeGroupName)
+	testNodeGroupFullName = k8s.NamespacedName(testNodeGroupNamespace, testNodeGroupName)
 	testNodeGroup         = &protos.NodeGroup{Id: testNodeGroupFullName, MinSize: 0, MaxSize: 13}
-	testNodeProviderID    = util.ProviderID(testNodeName)
+	testNodeProviderID    = k8s.ProviderID(testNodeName)
 )
 
 type mockScaler struct {
@@ -123,7 +124,7 @@ func fakeCloudProvider(scalingClient *mockScaler) *SimkubeCloudProvider {
 				targetSize: int32(len(instances)),
 			},
 		},
-		logger: testutil.GetFakeLogger(),
+		logger: testutils.GetFakeLogger(),
 	}
 }
 

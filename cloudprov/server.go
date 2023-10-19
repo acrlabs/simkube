@@ -7,6 +7,8 @@ import (
 	log "github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
+
+	"simkube/lib/go/cloudprov"
 )
 
 const (
@@ -15,22 +17,21 @@ const (
 
 func Run(appLabel string) {
 	srv := grpc.NewServer()
-	logger := log.WithFields(log.Fields{"provider": providerName})
 
 	//nolint:gosec // this is fine.jpg
 	lis, err := net.Listen("tcp", address)
 	if err != nil {
-		logger.Fatalf("failed to listen: %s", err)
+		log.Fatalf("failed to listen: %s", err)
 	}
 
-	cp, err := NewCloudProvider(fmt.Sprintf("app=%s", appLabel))
+	cp, err := cloudprov.New(fmt.Sprintf("app=%s", appLabel))
 	if err != nil {
-		logger.Fatalf("could not create cloud provider: %s", err)
+		log.Fatalf("could not create cloud provider: %s", err)
 	}
 
 	// serve
 	protos.RegisterCloudProviderServer(srv, cp)
 	if err := srv.Serve(lis); err != nil {
-		logger.Fatalf("failed to serve: %v", err)
+		log.Fatalf("failed to serve: %v", err)
 	}
 }

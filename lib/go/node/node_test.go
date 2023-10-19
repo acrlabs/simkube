@@ -1,4 +1,4 @@
-package vnode
+package node
 
 import (
 	"testing"
@@ -8,11 +8,11 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/client-go/kubernetes/fake"
 
-	testutil "simkube/lib/go/test/util"
+	"simkube/lib/go/testutils"
 )
 
 const (
-	testSkelFile = "../tests/manifests/skeleton-node.yml"
+	testSkelFile = "../testutils/manifests/skeleton-node.yml"
 
 	expectedName = "testNode"
 	expectedArch = "arm64"
@@ -30,7 +30,7 @@ var (
 )
 
 func TestCreateNodeObject(t *testing.T) {
-	nlm := &NodeLifecycleManager{expectedName, fake.NewSimpleClientset(), testutil.GetFakeLogger()}
+	nlm := &LifecycleManager{expectedName, fake.NewSimpleClientset(), testutils.GetFakeLogger()}
 	n, err := nlm.CreateNodeObject(testSkelFile)
 
 	assert.Nil(t, err)

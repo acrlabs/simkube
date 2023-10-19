@@ -1,4 +1,4 @@
-package vnode
+package node
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"sigs.k8s.io/yaml"
 
+	"simkube/lib/go/k8s"
 	"simkube/lib/go/util"
 )
 
@@ -46,19 +47,27 @@ const (
 	defaultKubeVersion    = "v1.27.1"
 )
 
-type NodeLifecycleManagerI interface {
+type LifecycleManagerI interface {
 	CreateNodeObject(string) (*corev1.Node, error)
 	Run(context.Context, context.CancelCauseFunc, *corev1.Node)
 	DeleteNode(context.CancelFunc) error
 }
 
-type NodeLifecycleManager struct {
+type LifecycleManager struct {
 	nodeName  string
 	k8sClient kubernetes.Interface
 	logger    *log.Entry
 }
 
-func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*corev1.Node, error) {
+func NewLifecycleManager(nodeName string, k8sClient kubernetes.Interface) *LifecycleManager {
+	return &LifecycleManager{
+		nodeName:  nodeName,
+		k8sClient: k8sClient,
+		logger:    util.GetLogger(nodeName),
+	}
+}
+
+func (self *LifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*corev1.Node, error) {
 	node, err := parseSkeletonNode(nodeSkeletonFile)
 	if err != nil {
 		return nil, err
@@ -79,7 +88,7 @@ func (self *NodeLifecycleManager) CreateNodeObject(nodeSkeletonFile string) (*co
 	return node, nil
 }
 
-func (self *NodeLifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc, n *corev1.Node) {
+func (self *LifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc, n *corev1.Node) {
 	self.logger.Info("Starting node manager...")
 
 	leaseClient := self.k8sClient.CoordinationV1().Leases(corev1.NamespaceNodeLease)
@@ -102,7 +111,7 @@ func (self *NodeLifecycleManager) Run(ctx context.Context, cancel context.Cancel
 	self.logger.Info("Node manager running!")
 }
 
-func (self *NodeLifecycleManager) DeleteNode(stop context.CancelFunc) error {
+func (self *LifecycleManager) DeleteNode(stop context.CancelFunc) error {
 	stop()
 	if err := self.k8sClient.CoreV1().Nodes().Delete(
 		context.Background(),
@@ -131,7 +140,7 @@ func parseSkeletonNode(nodeSkeletonFile string) (*corev1.Node, error) {
 
 func setNodeNameAndID(nodeName string, node *corev1.Node) {
 	node.ObjectMeta.Name = nodeName
-	node.Spec.ProviderID = util.ProviderID(nodeName)
+	node.Spec.ProviderID = k8s.ProviderID(nodeName)
 }
 
 func setNodeStatus(node *corev1.Node) {

@@ -13,6 +13,9 @@ import (
 	vklogrus "github.com/virtual-kubelet/virtual-kubelet/log/logrus"
 	"k8s.io/client-go/kubernetes"
 
+	"simkube/lib/go/k8s"
+	"simkube/lib/go/node"
+	"simkube/lib/go/pod"
 	"simkube/lib/go/util"
 )
 
@@ -21,8 +24,8 @@ const podNameEnv = "POD_NAME"
 type Runner struct {
 	nodeName  string
 	k8sClient kubernetes.Interface
-	nlm       NodeLifecycleManagerI
-	plm       PodLifecycleManagerI
+	nlm       node.LifecycleManagerI
+	plm       pod.LifecycleManagerI
 	logger    *log.Entry
 }
 
@@ -32,14 +35,14 @@ func NewRunner() (*Runner, error) {
 		return nil, errors.New("could not determine pod name")
 	}
 
-	k8sClient, err := util.NewKubernetesClient()
+	k8sClient, err := k8s.NewClient()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize Kubernetes client: %w", err)
 	}
 
 	logger := util.GetLogger(nodeName)
-	nlm := &NodeLifecycleManager{nodeName, k8sClient, logger}
-	plm := NewPodLifecycleManager(nodeName, k8sClient)
+	nlm := node.NewLifecycleManager(nodeName, k8sClient)
+	plm := pod.NewLifecycleManager(nodeName, k8sClient)
 
 	return &Runner{nodeName, k8sClient, nlm, plm, logger}, nil
 }

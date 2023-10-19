@@ -14,6 +14,7 @@ import (
 	"k8s.io/autoscaler/cluster-autoscaler/cloudprovider/externalgrpc/protos"
 	"k8s.io/client-go/kubernetes"
 
+	"simkube/lib/go/k8s"
 	"simkube/lib/go/util"
 )
 
@@ -47,8 +48,8 @@ type SimkubeCloudProvider struct {
 	logger     *log.Entry
 }
 
-func NewCloudProvider(deploymentSelector string) (*SimkubeCloudProvider, error) {
-	k8sClient, err := util.NewKubernetesClient()
+func New(deploymentSelector string) (*SimkubeCloudProvider, error) {
+	k8sClient, err := k8s.NewClient()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize Kubernetes client: %w", err)
 	}
@@ -89,7 +90,7 @@ func (self *SimkubeCloudProvider) NodeGroupForNode(
 
 	if nodeGroupName, ok := req.Node.Labels[util.NodeGroupNameLabel]; ok {
 		if nodeGroupNamespace, ok := req.Node.Labels[util.NodeGroupNamespaceLabel]; ok {
-			fullName := util.NamespacedName(nodeGroupNamespace, nodeGroupName)
+			fullName := k8s.NamespacedName(nodeGroupNamespace, nodeGroupName)
 			if nodeGroup, ok := self.nodeGroups[fullName]; ok {
 				self.logger.Infof("found node group %s for node %s", nodeGroup.data.Id, req.Node.Name)
 				return &protos.NodeGroupForNodeResponse{NodeGroup: nodeGroup.data}, nil
@@ -158,7 +159,7 @@ func (self *SimkubeCloudProvider) NodeGroupIncreaseSize(
 	}
 
 	logger.Infof("increasing size: %d -> %d", ng.targetSize, ng.targetSize+req.Delta)
-	namespace, name := util.SplitNamespacedName(req.Id)
+	namespace, name := k8s.SplitNamespacedName(req.Id)
 	if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize+req.Delta); err != nil {
 		err = fmt.Errorf("could not scale node group: %w", err)
 		logger.Error(err)
@@ -188,9 +189,9 @@ func (self *SimkubeCloudProvider) NodeGroupDeleteNodes(
 	}
 
 	delta := int32(len(req.Nodes))
-	namespace, name := util.SplitNamespacedName(req.Id)
+	namespace, name := k8s.SplitNamespacedName(req.Id)
 	for _, nodeName := range nodeNames {
-		podName := util.NamespacedName(namespace, nodeName)
+		podName := k8s.NamespacedName(namespace, nodeName)
 		pod, err := self.k8sClient.CoreV1().Pods(namespace).Get(ctx, nodeName, metav1.GetOptions{})
 		if err != nil {
 			err = fmt.Errorf("could not get pod %s: %w", podName, err)
@@ -233,7 +234,7 @@ func (self *SimkubeCloudProvider) NodeGroupDecreaseTargetSize(
 		return nil, errorUnknownNodeGroup
 	}
 
-	namespace, name := util.SplitNamespacedName(req.Id)
+	namespace, name := k8s.SplitNamespacedName(req.Id)
 	if err := self.scalingClient.ScaleTo(ctx, namespace, name, ng.targetSize-req.Delta); err != nil {
 		err = fmt.Errorf("could not scale node group: %w", err)
 		logger.Error(err)
@@ -264,7 +265,7 @@ func (self *SimkubeCloudProvider) Refresh(
 
 	self.nodeGroups = make(map[string]*cachedNodeGroup, len(deployments.Items))
 	for _, d := range deployments.Items {
-		name := util.NamespacedNameFromObjectMeta(d.ObjectMeta)
+		name := k8s.NamespacedNameFromObjectMeta(d.ObjectMeta)
 
 		nodes, err := self.k8sClient.CoreV1().Nodes().List(
 			ctx,
