@@ -30,6 +30,8 @@ $(RUST_ARTIFACTS):
 %-docker:
 	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
+	objcopy --only-keep-debug $(BUILD_DIR)/$* $(BUILD_DIR)/$*.dbg
+	strip $(BUILD_DIR)/$*
 
 lint:
 	$(CARGO_HOME_ENV) cargo clippy
