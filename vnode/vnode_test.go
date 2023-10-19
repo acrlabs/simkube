@@ -10,7 +10,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	testutil "simkube/lib/go/test/util"
+	"simkube/lib/go/testutils"
 )
 
 type mockNodeLifecycleManager struct {
@@ -57,7 +57,7 @@ func TestRunInternalCleanShutdown(t *testing.T) {
 	plm := &mockPodLifecycleManager{}
 	plm.On("Run", mock.Anything, mock.Anything).Once().Return(nil)
 
-	runner := &Runner{"test-node", fake.NewSimpleClientset(), nlm, plm, testutil.GetFakeLogger()}
+	runner := &Runner{"test-node", fake.NewSimpleClientset(), nlm, plm, testutils.GetFakeLogger()}
 
 	go func() {
 		runner.Run("skel.yml")

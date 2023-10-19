@@ -1,4 +1,4 @@
-package vnode
+package pod
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"simkube/lib/go/k8s"
 	"simkube/lib/go/util"
 )
 
@@ -22,7 +23,7 @@ func newPodHandler(nodeName string) *podLifecycleHandler {
 }
 
 func (self *podLifecycleHandler) CreatePod(ctx context.Context, pod *corev1.Pod) error {
-	podName := util.NamespacedNameFromObjectMeta(pod.ObjectMeta)
+	podName := k8s.NamespacedNameFromObjectMeta(pod.ObjectMeta)
 	logger := util.GetLogger(self.nodeName, "podName", podName)
 	logger.Info("Creating pod")
 
@@ -69,7 +70,7 @@ func (self *podLifecycleHandler) CreatePod(ctx context.Context, pod *corev1.Pod)
 }
 
 func (self *podLifecycleHandler) UpdatePod(ctx context.Context, pod *corev1.Pod) error {
-	podName := util.NamespacedNameFromObjectMeta(pod.ObjectMeta)
+	podName := k8s.NamespacedNameFromObjectMeta(pod.ObjectMeta)
 	logger := util.GetLogger(self.nodeName, "podName", podName)
 	logger.Info("Updating pod")
 
@@ -77,7 +78,7 @@ func (self *podLifecycleHandler) UpdatePod(ctx context.Context, pod *corev1.Pod)
 }
 
 func (self *podLifecycleHandler) DeletePod(ctx context.Context, pod *corev1.Pod) error {
-	podName := util.NamespacedNameFromObjectMeta(pod.ObjectMeta)
+	podName := k8s.NamespacedNameFromObjectMeta(pod.ObjectMeta)
 	logger := util.GetLogger(self.nodeName, "podName", podName)
 	logger.Info("Deleting pod")
 
@@ -86,7 +87,7 @@ func (self *podLifecycleHandler) DeletePod(ctx context.Context, pod *corev1.Pod)
 }
 
 func (self *podLifecycleHandler) GetPod(ctx context.Context, namespace, name string) (*corev1.Pod, error) {
-	podName := util.NamespacedName(namespace, name)
+	podName := k8s.NamespacedName(namespace, name)
 	logger := util.GetLogger(self.nodeName, "podName", podName)
 	logger.Info("Getting pod")
 
@@ -99,7 +100,7 @@ func (self *podLifecycleHandler) GetPod(ctx context.Context, namespace, name str
 }
 
 func (self *podLifecycleHandler) GetPodStatus(ctx context.Context, namespace, name string) (*corev1.PodStatus, error) {
-	podName := util.NamespacedName(namespace, name)
+	podName := k8s.NamespacedName(namespace, name)
 	logger := util.GetLogger(self.nodeName, "podName", podName)
 	logger.Infof("Getting pod status")
 

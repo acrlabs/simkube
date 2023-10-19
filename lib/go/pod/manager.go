@@ -1,4 +1,4 @@
-package vnode
+package pod
 
 import (
 	"context"
@@ -25,20 +25,20 @@ const (
 	informerResyncPeriod = 30 * time.Second
 )
 
-type PodLifecycleManagerI interface {
+type LifecycleManagerI interface {
 	Run(context.Context, context.CancelCauseFunc)
 }
 
-type PodLifecycleManager struct {
+type LifecycleManager struct {
 	nodeName   string
 	k8sClient  kubernetes.Interface
 	podHandler node.PodLifecycleHandler
 	logger     *log.Entry
 }
 
-func NewPodLifecycleManager(nodeName string, k8sClient kubernetes.Interface) *PodLifecycleManager {
+func NewLifecycleManager(nodeName string, k8sClient kubernetes.Interface) *LifecycleManager {
 	podHandler := newPodHandler(nodeName)
-	return &PodLifecycleManager{
+	return &LifecycleManager{
 		nodeName:   nodeName,
 		k8sClient:  k8sClient,
 		podHandler: podHandler,
@@ -46,7 +46,7 @@ func NewPodLifecycleManager(nodeName string, k8sClient kubernetes.Interface) *Po
 	}
 }
 
-func (self *PodLifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc) {
+func (self *LifecycleManager) Run(ctx context.Context, cancel context.CancelCauseFunc) {
 	self.logger.Info("Starting pod manager...")
 
 	podCtrlConfig := self.makePodControllerConfig(ctx)
@@ -71,7 +71,7 @@ func (self *PodLifecycleManager) Run(ctx context.Context, cancel context.CancelC
 	self.logger.Info("Pod manager running!")
 }
 
-func (self *PodLifecycleManager) makePodControllerConfig(ctx context.Context) node.PodControllerConfig {
+func (self *LifecycleManager) makePodControllerConfig(ctx context.Context) node.PodControllerConfig {
 	podInformerFactory := informers.NewSharedInformerFactoryWithOptions(
 		self.k8sClient,
 		informerResyncPeriod,

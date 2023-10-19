@@ -1,4 +1,4 @@
-package util
+package k8s
 
 import (
 	"fmt"
@@ -9,7 +9,7 @@ import (
 	"k8s.io/client-go/rest"
 )
 
-func NewKubernetesClient() (*kubernetes.Clientset, error) {
+func NewClient() (*kubernetes.Clientset, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, fmt.Errorf("could not get client config: %w", err)
