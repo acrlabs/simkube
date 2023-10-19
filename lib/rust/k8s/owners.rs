@@ -36,7 +36,7 @@ impl OwnersCache {
         debug!("computing owner references for {ns_name}");
 
         if let Some(owners) = self.owners.get(&ns_name) {
-            debug!("found owners for {ns_name} in cache");
+            debug!("found owners {owners:?} for {ns_name} in cache");
             return Ok(owners.clone());
         }
 
@@ -56,6 +56,8 @@ impl OwnersCache {
         }
 
         self.owners.insert(ns_name.clone(), owners.clone());
+
+        debug!("computed owners {owners:?} for {ns_name}");
         Ok(owners)
     }
 

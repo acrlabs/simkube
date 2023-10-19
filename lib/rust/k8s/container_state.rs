@@ -8,12 +8,20 @@ use crate::prelude::*;
 impl StartEndTimeable for corev1::ContainerState {
     fn start_ts(&self) -> anyhow::Result<Option<i64>> {
         match self {
-            // TODO: saw a panic here once
             corev1::ContainerState { running: Some(r), terminated: None, waiting: None } => {
-                Ok(Some(r.started_at.as_ref().unwrap().0.timestamp()))
+                match r.started_at.as_ref() {
+                    Some(time) => Ok(Some(time.0.timestamp())),
+                    None => Err(KubernetesError::field_not_found("started_at")),
+                }
             },
             corev1::ContainerState { running: None, terminated: Some(t), waiting: None } => {
-                Ok(Some(t.started_at.as_ref().unwrap().0.timestamp()))
+                match t.started_at.as_ref() {
+                    Some(time) => Ok(Some(time.0.timestamp())),
+                    None => {
+                        warn!("{:?}", t.message);
+                        Err(KubernetesError::field_not_found("started_at"))
+                    },
+                }
             },
             corev1::ContainerState { running: None, terminated: None, waiting: Some(_) } => Ok(None),
             _ => Err(KubernetesError::malformed_container_state(self)),
@@ -24,7 +32,13 @@ impl StartEndTimeable for corev1::ContainerState {
         match self {
             corev1::ContainerState { running: Some(_), terminated: None, waiting: None } => Ok(None),
             corev1::ContainerState { running: None, terminated: Some(t), waiting: None } => {
-                Ok(Some(t.finished_at.as_ref().unwrap().0.timestamp()))
+                match t.finished_at.as_ref() {
+                    Some(time) => Ok(Some(time.0.timestamp())),
+                    None => {
+                        warn!("{:?}", t.message);
+                        Err(KubernetesError::field_not_found("finished_at"))
+                    },
+                }
             },
             corev1::ContainerState { running: None, terminated: None, waiting: Some(_) } => Ok(None),
             _ => Err(KubernetesError::malformed_container_state(self)),

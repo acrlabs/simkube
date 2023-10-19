@@ -29,6 +29,7 @@ class SKTracer(Chart):
             data={"tracer-config.yml": TRACER_CONFIG_YML}
         )
 
+        env = fire.EnvBuilder({"RUST_BACKTRACE": "1"})
         volumes = fire.VolumesBuilder().with_config_map(CONFIGMAP_NAME, "/config", cm)
 
         with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
@@ -41,7 +42,7 @@ class SKTracer(Chart):
                 "--server-port", f"{SERVER_PORT}",
                 "-c", volumes.get_path_to(CONFIGMAP_NAME),
             ],
-        ).with_ports(SERVER_PORT).with_volumes(volumes)
+        ).with_ports(SERVER_PORT).with_volumes(volumes).with_env(env)
 
         depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
             .with_label(app_key, ID)
