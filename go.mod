@@ -5,6 +5,7 @@ go 1.20
 replace simkube => ./
 
 require (
+	github.com/jonboulle/clockwork v0.4.0
 	github.com/samber/lo v1.38.1
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.7.0
