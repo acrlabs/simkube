@@ -59,7 +59,6 @@ impl TraceStore {
             events,
             index,
             pod_owners: PodOwnersMap::new_from_parts(lifecycle_data, HashMap::new()),
-            ..Default::default()
         })
     }
 
@@ -91,7 +90,7 @@ impl TraceStore {
                 break;
             }
 
-            if let Some(new_evt) = filter_event(&evt, filter) {
+            if let Some(new_evt) = filter_event(evt, filter) {
                 for obj in &new_evt.applied_objs {
                     let ns_name = obj.namespaced_name();
                     if new_evt.ts < start_ts {
@@ -165,7 +164,7 @@ impl TraceStorable for TraceStore {
         self.index.remove(&ns_name);
     }
 
-    fn update_all_objs(&mut self, objs: &Vec<DynamicObject>, ts: i64) {
+    fn update_all_objs(&mut self, objs: &[DynamicObject], ts: i64) {
         let mut old_index = take(&mut self.index);
         for obj in objs {
             let ns_name = obj.namespaced_name();
@@ -179,7 +178,7 @@ impl TraceStorable for TraceStore {
     }
 
     fn lookup_pod_lifecycle(&self, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData {
-        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(&owner_ns_name, pod_hash);
+        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(owner_ns_name, pod_hash);
         match maybe_lifecycle_data {
             Some(data) => data[seq % data.len()].clone(),
             _ => PodLifecycleData::Empty,
@@ -248,7 +247,7 @@ impl TraceStorable for TraceStore {
         }
     }
 
-    fn iter<'a>(&'a self) -> TraceIterator<'a> {
+    fn iter(&self) -> TraceIterator<'_> {
         TraceIterator { events: &self.events, idx: 0 }
     }
 }

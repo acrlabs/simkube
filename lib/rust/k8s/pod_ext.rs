@@ -33,12 +33,12 @@ impl PodExt for corev1::Pod {
 
         if let Some(containers) = spec.init_containers.as_mut() {
             for container in containers {
-                (*container).volume_mounts = Some(filter_volumes!(container.volume_mounts));
+                container.volume_mounts = Some(filter_volumes!(container.volume_mounts));
             }
         }
 
         for container in &mut spec.containers {
-            (*container).volume_mounts = Some(filter_volumes!(container.volume_mounts));
+            container.volume_mounts = Some(filter_volumes!(container.volume_mounts));
         }
 
         Ok(spec)

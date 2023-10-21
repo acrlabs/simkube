@@ -65,7 +65,7 @@ jobs:
       - name: Run sccache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Lint Rust code
-        run: cargo clippy
+        run: cargo clippy -- -Dwarnings
   test-rust:
     runs-on: ubuntu-latest
     env:

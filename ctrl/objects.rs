@@ -70,7 +70,6 @@ pub(super) fn build_mutating_webhook(
             }]),
             ..Default::default()
         }]),
-        ..Default::default()
     })
 }
 
@@ -96,7 +95,7 @@ pub(super) fn build_driver_job(
     cert_secret_name: &str,
     trace_path: &str,
 ) -> anyhow::Result<batchv1::Job> {
-    let trace_url = Url::parse(&trace_path)?;
+    let trace_url = Url::parse(trace_path)?;
     let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
