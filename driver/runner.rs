@@ -92,7 +92,7 @@ impl TraceRunner {
             // We're currently assuming that all tracked objects are namespace-scoped,
             // this will panic/fail if that is not true.
             for obj in &evt.applied_objs {
-                let gvk = GVK::from_dynamic_obj(&obj)?;
+                let gvk = GVK::from_dynamic_obj(obj)?;
                 let original_ns = obj.namespace().unwrap();
                 let virtual_ns = format!("{}-{}", self.ctx.virtual_ns_prefix, original_ns);
 

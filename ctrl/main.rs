@@ -108,7 +108,8 @@ async fn run(opts: Options) -> EmptyResult {
         .run(reconcile, error_policy, Arc::new(SimulationContext::new(client, opts)))
         .for_each(|_| future::ready(()));
 
-    Ok(ctrl.await)
+    ctrl.await;
+    Ok(())
 }
 
 #[tokio::main]

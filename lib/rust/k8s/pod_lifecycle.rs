@@ -93,9 +93,9 @@ impl PodLifecycleData {
     }
 
     pub fn start_ts(&self) -> Option<i64> {
-        match self {
-            &PodLifecycleData::Running(ts) => Some(ts),
-            &PodLifecycleData::Finished(ts, _) => Some(ts),
+        match *self {
+            PodLifecycleData::Running(ts) => Some(ts),
+            PodLifecycleData::Finished(ts, _) => Some(ts),
             _ => None,
         }
     }
@@ -104,9 +104,9 @@ impl PodLifecycleData {
         // If at least one of the pod's lifecycle events appears between the given time window, OR
         // if the pod is still running at the end of the given time window, it counts as
         // overlapping the time window.
-        match self {
-            &PodLifecycleData::Running(ts) => ts < end_ts,
-            &PodLifecycleData::Finished(s, e) => (start_ts <= s && s < end_ts) || (start_ts <= e && e < end_ts),
+        match *self {
+            PodLifecycleData::Running(ts) => ts < end_ts,
+            PodLifecycleData::Finished(s, e) => (start_ts <= s && s < end_ts) || (start_ts <= e && e < end_ts),
             _ => false,
         }
     }

@@ -35,8 +35,8 @@ err_impl! {JsonPatchError,
 }
 
 pub fn escape(path: &str) -> String {
-    let path = path.replace("~", "~0");
-    path.replace("/", "~1")
+    let path = path.replace('~', "~0");
+    path.replace('/', "~1")
 }
 
 pub fn add(path: &str, key: &str, value: &Value, obj: &mut Value, overwrite: bool) -> EmptyResult {

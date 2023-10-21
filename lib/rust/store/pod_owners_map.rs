@@ -66,7 +66,7 @@ impl PodOwnersMap {
         owner_ns_name: &str,
         pod_hash: u64,
     ) -> Option<&'a Vec<PodLifecycleData>> {
-        Some(self.m.get(owner_ns_name)?.get(&pod_hash)?)
+        self.m.get(owner_ns_name)?.get(&pod_hash)
     }
 
     pub(super) fn store_new_pod_lifecycle(
@@ -112,7 +112,8 @@ impl PodOwnersMap {
                 ))?;
 
                 info!("updating pod {ns_name} owned by {owner_ns_name} with hash {hash}: {lifecycle_data:?}");
-                Ok(*pod_entry = lifecycle_data.clone())
+                *pod_entry = lifecycle_data.clone();
+                Ok(())
             },
         }
     }

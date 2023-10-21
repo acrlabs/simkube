@@ -89,7 +89,7 @@ impl<'de> de::Visitor<'de> for GVKVisitor {
             return Err(E::custom(format!("invalid format for gvk: {value}")));
         }
 
-        let parts = vec![p1[0], p2[0], p2[1]];
+        let parts = [p1[0], p2[0], p2[1]];
         Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], parts[2])))
     }
 }
