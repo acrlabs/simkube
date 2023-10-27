@@ -19,7 +19,7 @@ RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
 include build/base.mk
 
 skctl:
-	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/cmd/
+	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/
 
 $(GO_ARTIFACTS):
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./$(subst sk-,,$(@))/cmd/
