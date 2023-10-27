@@ -11,7 +11,10 @@ use tracing::*;
 use super::*;
 use crate::api::v1::ExportFilters;
 use crate::jsonutils;
-use crate::k8s::build_deletable;
+use crate::k8s::{
+    build_deletable,
+    GVK,
+};
 use crate::prelude::*;
 
 // The TraceStore object is an in-memory store of a cluster trace.  It keeps track of all the
@@ -209,6 +212,11 @@ impl TraceStorable for TraceStore {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), rf.name);
                 if !self.index.contains_key(&owner_ns_name) {
+                    continue;
+                }
+
+                let gvk = GVK::from_owner_ref(rf)?;
+                if !self.config.track_lifecycle_for(&gvk) {
                     continue;
                 }
 

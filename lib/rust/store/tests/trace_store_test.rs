@@ -4,12 +4,23 @@ use serde_json::json;
 
 use super::*;
 use crate::api::v1::ExportFilters;
-use crate::k8s::KubeResourceExt;
+use crate::k8s::{
+    KubeResourceExt,
+    GVK,
+};
 use crate::testutils::*;
 
 #[fixture]
 fn tracer() -> TraceStore {
-    Default::default()
+    TraceStore::new(TracerConfig {
+        tracked_objects: HashMap::from([(
+            GVK::new("apps", "v1", "Deployment"),
+            TrackedObjectConfig {
+                track_lifecycle: true,
+                pod_spec_template_path: "/spec/template".into(),
+            },
+        )]),
+    })
 }
 
 #[fixture]
@@ -27,7 +38,12 @@ fn test_obj(#[default("obj")] name: &str) -> DynamicObject {
 
 #[fixture]
 fn owner_ref() -> metav1::OwnerReference {
-    metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() }
+    metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "Deployment".into(),
+        name: TEST_DEPLOYMENT.into(),
+        ..Default::default()
+    }
 }
 
 #[rstest]
@@ -302,23 +318,30 @@ fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(
 }
 
 #[rstest]
-fn test_record_pod_lifecycle_with_new_pod_type(
+#[case::track_lifecycle(true)]
+#[case::dont_track_lifecycle(false)]
+fn test_record_pod_lifecycle_with_new_pod_hash(
     mut tracer: TraceStore,
     test_pod: corev1::Pod,
     owner_ref: metav1::OwnerReference,
+    #[case] track_lifecycle: bool,
 ) {
     let ns_name = test_pod.namespaced_name();
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
+    let gvk = GVK::from_owner_ref(&owner_ref).unwrap();
+    tracer.config.tracked_objects.get_mut(&gvk).unwrap().track_lifecycle = track_lifecycle;
     tracer.index.insert(owner_ns_name.clone(), EMPTY_OBJ_HASH);
     tracer
         .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data.clone())
         .unwrap();
 
-    assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
-        Some(&vec![new_lifecycle_data])
-    );
+    let lifecycle_data = tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH);
+    if track_lifecycle {
+        assert_eq!(lifecycle_data, Some(&vec![new_lifecycle_data]));
+    } else {
+        assert_eq!(lifecycle_data, None);
+    }
 }
 
 #[rstest]
