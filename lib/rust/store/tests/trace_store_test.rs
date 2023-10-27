@@ -1,9 +1,9 @@
 use assertables::*;
-use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use serde_json::json;
 
 use super::*;
+use crate::api::v1::ExportFilters;
 use crate::k8s::KubeResourceExt;
 use crate::testutils::*;
 
@@ -72,7 +72,7 @@ fn test_collect_events_filtered(mut tracer: TraceStore) {
     let (events, index) = tracer.collect_events(
         1,
         10,
-        &TraceFilter {
+        &ExportFilters {
             excluded_namespaces: vec![TEST_NAMESPACE.into()],
             ..Default::default()
         },

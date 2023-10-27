@@ -6,13 +6,10 @@ use std::sync::{
 use clap::Parser;
 use kube::Client;
 use rocket::serde::json::Json;
-use serde::Deserialize;
+use simkube::api::v1::ExportRequest;
 use simkube::k8s::ApiSet;
 use simkube::prelude::*;
-use simkube::store::{
-    TraceFilter,
-    TraceStore,
-};
+use simkube::store::TraceStore;
 use simkube::watch::{
     DynObjWatcher,
     PodWatcher,
@@ -31,20 +28,13 @@ struct Options {
     verbosity: String,
 }
 
-#[derive(Deserialize, Debug)]
-struct ExportRequest {
-    start_ts: i64,
-    end_ts: i64,
-    filter: TraceFilter,
-}
-
 #[rocket::post("/export", data = "<req>")]
 async fn export(req: Json<ExportRequest>, store: &rocket::State<Arc<Mutex<TraceStore>>>) -> Result<Vec<u8>, String> {
     debug!("export called with {:?}", req);
     store
         .lock()
         .unwrap()
-        .export(req.start_ts, req.end_ts, &req.filter)
+        .export(req.start_ts, req.end_ts, &req.filters)
         .map_err(|e| format!("{e:?}"))
 }
 

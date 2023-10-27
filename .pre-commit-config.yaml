@@ -6,10 +6,12 @@ repos:
       - id: check-yaml
         args: ["--allow-multiple-documents"]
       - id: trailing-whitespace
-  - repo: https://github.com/golangci/golangci-lint
-    rev: v1.55.0
+  - repo: https://github.com/TekWizely/pre-commit-golang
+    rev: v1.0.0-rc.1
     hooks:
-      - id: golangci-lint-full
+      - id: go-fmt
+        args: ["-w"]
+      - id: golangci-lint-mod
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
@@ -27,6 +29,7 @@ repos:
     rev: v1.1
     hooks:
       - id: fmt
+        name: rust-fmt
         args: ['--', '--unstable-features']
   - repo: https://github.com/asottile/reorder-python-imports
     rev: v3.10.0

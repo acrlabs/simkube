@@ -9,6 +9,7 @@ use kube::ResourceExt;
 use tracing::*;
 
 use super::*;
+use crate::api::v1::ExportFilters;
 use crate::jsonutils;
 use crate::k8s::build_deletable;
 use crate::prelude::*;
@@ -25,7 +26,7 @@ impl TraceStore {
         TraceStore { config, ..Default::default() }
     }
 
-    pub fn export(&self, start_ts: i64, end_ts: i64, filter: &TraceFilter) -> anyhow::Result<Vec<u8>> {
+    pub fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs with filters: {filter:?}");
 
         // First, we collect all the events in our trace that match our configured filters.  This
@@ -62,7 +63,7 @@ impl TraceStore {
         })
     }
 
-    pub fn objs_at(&self, end_ts: i64, filter: &TraceFilter) -> HashSet<String> {
+    pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<String> {
         // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
         // keep the deleted objects around, so we set that parameter to `false`.
         let (_, index) = self.collect_events(0, end_ts, filter, false);
@@ -73,7 +74,7 @@ impl TraceStore {
         &self,
         start_ts: i64,
         end_ts: i64,
-        filter: &TraceFilter,
+        filter: &ExportFilters,
         keep_deleted: bool,
     ) -> (Vec<TraceEvent>, HashMap<String, u64>) {
         // TODO this is not a huge inefficiency but it is a little annoying to have

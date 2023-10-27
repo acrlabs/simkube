@@ -1,19 +1,10 @@
 use kube::api::DynamicObject;
-use serde::Deserialize;
 
 use super::TraceEvent;
+use crate::api::v1::ExportFilters;
 use crate::prelude::*;
 
-// TODO: we also want to add "positive" selectors, e.g., only take objects in a particular
-// namespace or matching a particular label-selector.
-#[derive(Default, Deserialize, Debug, Clone)]
-pub struct TraceFilter {
-    pub excluded_namespaces: Vec<String>,
-    pub excluded_labels: Vec<metav1::LabelSelector>,
-    pub exclude_daemonsets: bool,
-}
-
-pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
+pub fn filter_event(evt: &TraceEvent, f: &ExportFilters) -> Option<TraceEvent> {
     let new_evt = TraceEvent {
         ts: evt.ts,
         applied_objs: evt
@@ -37,7 +28,7 @@ pub fn filter_event(evt: &TraceEvent, f: &TraceFilter) -> Option<TraceEvent> {
     Some(new_evt)
 }
 
-fn obj_matches_filter(obj: &DynamicObject, f: &TraceFilter) -> bool {
+fn obj_matches_filter(obj: &DynamicObject, f: &ExportFilters) -> bool {
     obj.metadata
         .namespace
         .as_ref()
