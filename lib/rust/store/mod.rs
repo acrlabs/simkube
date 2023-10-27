@@ -19,7 +19,6 @@ use self::pod_owners_map::{
     PodOwnersMap,
 };
 use self::trace_filter::filter_event;
-pub use self::trace_filter::TraceFilter;
 use crate::errors::*;
 use crate::prelude::*;
 

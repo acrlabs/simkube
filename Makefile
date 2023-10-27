@@ -1,6 +1,6 @@
 GO_ARTIFACTS=sk-cloudprov sk-vnode
 RUST_ARTIFACTS=sk-ctrl sk-driver sk-tracer
-ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS)
+ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS) skctl
 
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 GO_COVER_FILE=$(COVERAGE_DIR)/go-coverage.txt
@@ -17,6 +17,9 @@ endif
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
 
 include build/base.mk
+
+skctl:
+	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/cmd/
 
 $(GO_ARTIFACTS):
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./$(subst sk-,,$(@))/cmd/
@@ -66,6 +69,7 @@ cover-rust:
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
 		--ignore '*/testutils/*' \
+		--ignore '*/rust/api/v1/*' \
 		--ignore '.build/cargo/*' \
 		--ignore 'hack/*' \
 		--excl-line '#\[derive' \

@@ -12,11 +12,9 @@ use kube::ResourceExt;
 use serde_json::json;
 use tracing_test::traced_test;
 
+use crate::api::v1::ExportFilters;
 use crate::macros::*;
-use crate::store::{
-    TraceFilter,
-    TraceStore,
-};
+use crate::store::TraceStore;
 use crate::testutils::{
     MockUtcClock,
     TEST_NAMESPACE,
@@ -141,7 +139,7 @@ async fn itest_export() {
     w.start().await;
 
     // Next export the data with the chosen filters
-    let filter = TraceFilter {
+    let filter = ExportFilters {
         excluded_namespaces: vec!["kube-system".into()],
         excluded_labels: vec![metav1::LabelSelector {
             match_labels: klabel!("foo" => "bar"),

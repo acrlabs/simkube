@@ -1,3 +1,4 @@
+pub mod api;
 mod config;
 mod constants;
 pub mod errors;

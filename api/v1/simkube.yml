@@ -1,0 +1,48 @@
+openapi: 3.1.0
+info:
+  title: SimKube API
+  version: "1"
+paths:
+  /export:
+    post:
+      summary: Export simulation data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              title: export_request
+              required:
+                - start_ts
+                - end_ts
+                - filters
+              properties:
+                start_ts:
+                  type: integer
+                  format: int64
+                end_ts:
+                  type: integer
+                  format: int64
+                # TODO - eventually want positive filters too
+                filters:
+                  type: object
+                  title: export_filters
+                  required:
+                    - excluded_namespaces
+                    - excluded_labels
+                    - exclude_daemonsets
+                  properties:
+                    excluded_namespaces:
+                      type: array
+                      items:
+                        type: string
+                    excluded_labels:
+                      type: array
+                      items:
+                        $ref: 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/v3/api__v1_openapi.json#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector'
+                    exclude_daemonsets:
+                      type: boolean
+      responses:
+        '200':
+          description: OK
