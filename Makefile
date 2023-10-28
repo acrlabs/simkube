@@ -1,6 +1,6 @@
 GO_ARTIFACTS=sk-cloudprov sk-vnode
 RUST_ARTIFACTS=sk-ctrl sk-driver sk-tracer
-ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS) skctl
+ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS)
 
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 GO_COVER_FILE=$(COVERAGE_DIR)/go-coverage.txt

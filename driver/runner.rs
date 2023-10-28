@@ -48,6 +48,7 @@ fn build_virtual_obj(
     vobj.metadata.namespace = Some(virtual_ns.into());
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
 
+    jsonutils::patch_ext::add(pod_spec_template_path, "metadata", &json!({}), &mut vobj.data, false)?;
     jsonutils::patch_ext::add(
         &format!("{}/metadata", pod_spec_template_path),
         "annotations",
