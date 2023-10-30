@@ -13,11 +13,11 @@ apiVersion: v1
 kind: Node
 status:
   allocatable:
-    cpu: "1"
-    memory: "1Gi"
+    cpu: "16"
+    memory: "32Gi"
   capacity:
-    cpu: "1"
-    memory: "1Gi"
+    cpu: "16"
+    memory: "32Gi"
 """
 CONFIGMAP_NAME = "node-skeleton"
 
