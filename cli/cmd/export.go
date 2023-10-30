@@ -36,7 +36,7 @@ func Export() *cobra.Command {
 	}
 	export.Flags().String(
 		startTimeFlag,
-		"-15m",
+		"-30m",
 		"start time; can be a relative duration or absolute (local) timestamp\n"+
 			"    in ISO-8601 extended format (YYYY-MM-DDThh:mm:ss).\n"+
 			"    durations are computed relative to the specified end time,\n"+
