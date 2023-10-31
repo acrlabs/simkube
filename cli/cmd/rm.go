@@ -12,24 +12,19 @@ import (
 	simkubev1 "simkube/lib/go/api/v1"
 )
 
-const (
-	runCmdName = "run"
+const rmCmdName = "rm"
 
-	driverNamespace = "simkube"
-	traceFile       = "file:///data/trace"
-)
-
-func Run(k8sClient client.Client) *cobra.Command {
+func Rm(k8sClient client.Client) *cobra.Command {
 	run := &cobra.Command{
-		Use:   runCmdName,
+		Use:   rmCmdName,
 		Short: "run a simulation",
-		Run:   func(cmd *cobra.Command, _ []string) { doRun(cmd, k8sClient) },
+		Run:   func(cmd *cobra.Command, _ []string) { doRm(cmd, k8sClient) },
 	}
 	run.Flags().String(simNameFlag, "", "the name of simulation to run")
 	return run
 }
 
-func doRun(cmd *cobra.Command, k8sClient client.Client) {
+func doRm(cmd *cobra.Command, k8sClient client.Client) {
 	// None of these error conditions should get hit, since they are all assigned default values?
 	// I'm not sure if there's a better way to do this or not.
 	simName, err := cmd.Flags().GetString(simNameFlag)
@@ -40,13 +35,9 @@ func doRun(cmd *cobra.Command, k8sClient client.Client) {
 
 	sim := simkubev1.Simulation{
 		ObjectMeta: metav1.ObjectMeta{Name: simName},
-		Spec: simkubev1.SimulationSpec{
-			DriverNamespace: driverNamespace,
-			Trace:           traceFile,
-		},
 	}
-	if err = k8sClient.Create(context.Background(), &sim); err != nil {
-		fmt.Printf("could not create simulation: %v\n", err)
+	if err = k8sClient.Delete(context.Background(), &sim); err != nil {
+		fmt.Printf("could not delete simulation: %v\n", err)
 		os.Exit(1)
 	}
 }
