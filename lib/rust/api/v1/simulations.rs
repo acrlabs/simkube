@@ -3,7 +3,10 @@
 // kopium version: 0.15.0
 
 use kube::CustomResource;
-use serde::{Serialize, Deserialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug)]
 #[kube(group = "simkube.io", version = "v1", kind = "Simulation", plural = "simulations")]
@@ -17,6 +20,4 @@ pub struct SimulationSpec {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-pub struct SimulationStatus {
-}
-
+pub struct SimulationStatus {}

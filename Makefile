@@ -81,3 +81,33 @@ crd:
 	controller-gen crd object paths=./lib/go/api/v1/... output:artifacts:config=./k8s/raw
 	kopium -f k8s/raw/simkube.io_simulationroots.yaml > lib/rust/api/v1/simulation_roots.rs
 	kopium -f k8s/raw/simkube.io_simulations.yaml > lib/rust/api/v1/simulations.rs
+
+.PHONY: api
+api:
+	openapi-generator generate -i api/v1/simkube.yml -g go -o generated-api
+	openapi-generator generate -i api/v1/simkube.yml -g rust --global-property models -o generated-api
+	cp generated-api/model_export_filters.go lib/go/api/v1/export_filters.go
+	cp generated-api/model_export_request.go lib/go/api/v1/export_request.go
+	cp generated-api/utils.go lib/go/api/v1/utils.go
+	cp generated-api/src/models/export_filters.rs lib/rust/api/v1/.
+	cp generated-api/src/models/export_request.rs lib/rust/api/v1/.
+	@echo ''
+	@echo '----------------------------------------------------------------------'
+	@echo 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!'
+	@echo '----------------------------------------------------------------------'
+	@echo 'At a minimum:'
+	@echo '1. In lib/go/api/v1/*, replace all the k8s-generated types with the'
+	@echo '   correct imports from the k8s api'
+	@echo '2. In lib/go/api/v1/*, change the package name from "openapi" to "v1"'
+	@echo '3. In lib/go/api/v1/*, make sure you annotate the generated objects'
+	@echo '   with "//+kubebuilder:object:generate=false" so that controller-gen'
+	@echo '   does not get confused.'
+	@echo '4. In lib/rust/api/v1/*, add "use super::*", and replace all the'
+	@echo '   k8s-generated types with the correct imports from k8s-openapi'
+	@echo '----------------------------------------------------------------------'
+	@echo 'CHECK THE DIFF CAREFULLY!!!'
+	@echo '----------------------------------------------------------------------'
+	@echo ''
+	@echo 'Eventually we would like to automate more of this, but it does not'
+	@echo 'happen right now.  :('
+	@echo ''
