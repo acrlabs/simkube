@@ -17,16 +17,7 @@ import (
 	"simkube/lib/go/util"
 )
 
-const (
-	exportCmdName = "export"
-
-	startTimeFlag          = "start-time"
-	endTimeFlag            = "end-time"
-	excludedNamespacesFlag = "excluded-namespaces"
-	excludedLabelsFlag     = "excluded-labels"
-	outputFlag             = "output"
-	tracerAddrFlag         = "tracer-addr"
-)
+const exportCmdName = "export"
 
 func Export() *cobra.Command {
 	export := &cobra.Command{
