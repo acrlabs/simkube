@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	subcmdName = "export"
+	exportCmdName = "export"
 
 	startTimeFlag          = "start-time"
 	endTimeFlag            = "end-time"
@@ -30,7 +30,7 @@ const (
 
 func Export() *cobra.Command {
 	export := &cobra.Command{
-		Use:   subcmdName,
+		Use:   exportCmdName,
 		Short: "export trace data",
 		Run:   doExport,
 	}

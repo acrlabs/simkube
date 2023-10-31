@@ -15,6 +15,5 @@ use serde::{
     kind = "SimulationRoot",
     plural = "simulationroots"
 )]
-#[kube(namespaced)]
 #[kube(schema = "disabled")]
 pub struct SimulationRootSpec {}
