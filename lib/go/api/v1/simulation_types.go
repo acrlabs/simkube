@@ -16,7 +16,7 @@ type SimulationStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
-//+kubebuilder:resource:shortName={simulation,sim}
+//+kubebuilder:resource:shortName={sim,sims,simulation,simulations},scope=Cluster
 
 // Simulation is the Schema for the simulations API
 type Simulation struct {
@@ -41,7 +41,7 @@ type SimulationRootSpec struct {
 }
 
 //+kubebuilder:object:root=true
-//+kubebuilder:resource:shortName={simroot}
+//+kubebuilder:resource:shortName={simroot,simroots},scope=Cluster
 
 // SimulationRoot is the (empty) custom resource we hang everything else off of
 type SimulationRoot struct {

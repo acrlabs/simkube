@@ -10,7 +10,6 @@ use serde::{
 
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug)]
 #[kube(group = "simkube.io", version = "v1", kind = "Simulation", plural = "simulations")]
-#[kube(namespaced)]
 #[kube(status = "SimulationStatus")]
 #[kube(schema = "disabled")]
 pub struct SimulationSpec {

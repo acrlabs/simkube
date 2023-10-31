@@ -12,10 +12,12 @@ spec:
     listKind: SimulationList
     plural: simulations
     shortNames:
-    - simulation
     - sim
+    - sims
+    - simulation
+    - simulations
     singular: simulation
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1
     schema:

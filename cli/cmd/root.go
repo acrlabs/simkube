@@ -18,5 +18,6 @@ func Root() *cobra.Command {
 
 	root.PersistentFlags().IntP(verbosityFlag, "v", 2, "log level output (higher is more verbose)")
 	root.AddCommand(Export())
+	root.AddCommand(Run())
 	return root
 }
