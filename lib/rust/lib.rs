@@ -11,35 +11,16 @@ pub mod time;
 pub mod util;
 pub mod watch;
 
-use kube::CustomResource;
-use schemars::JsonSchema;
-use serde::{
-    Deserialize,
-    Serialize,
-};
-
-// Our custom resources
-#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
-#[kube(group = "simkube.io", version = "v1alpha1", kind = "Simulation")]
-#[serde(rename_all = "camelCase")]
-pub struct SimulationSpec {
-    pub driver_namespace: String,
-    pub trace: String,
-}
-
-#[derive(CustomResource, Deserialize, Serialize, Clone, Debug, JsonSchema)]
-#[kube(group = "simkube.io", version = "v1alpha1", kind = "SimulationRoot")]
-pub struct SimulationRootSpec {}
-
 pub mod prelude {
     pub use k8s_openapi::api::core::v1 as corev1;
     pub use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 
-    pub use super::{
+    pub use crate::api::v1::{
         Simulation,
         SimulationRoot,
         SimulationRootSpec,
         SimulationSpec,
+        SimulationStatus,
     };
     pub use crate::config::*;
     pub use crate::constants::*;

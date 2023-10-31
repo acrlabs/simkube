@@ -17,6 +17,7 @@ require (
 	k8s.io/apimachinery v0.28.0-beta.0
 	k8s.io/autoscaler/cluster-autoscaler v0.0.0-20230727142408-66b56c545165
 	k8s.io/client-go v0.28.0-beta.0
+	sigs.k8s.io/controller-runtime v0.13.0
 	sigs.k8s.io/yaml v1.3.0
 	simkube v0.0.0-00010101000000-000000000000
 )

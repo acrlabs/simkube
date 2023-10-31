@@ -40,6 +40,8 @@ func PtrString(v string) *string { return &v }
 // PtrTime is helper routine that returns a pointer to given Time value.
 func PtrTime(v time.Time) *time.Time { return &v }
 
+//+kubebuilder:object:generate=false
+
 type NullableBool struct {
 	value *bool
 	isSet bool
@@ -75,6 +77,8 @@ func (v *NullableBool) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableInt struct {
 	value *int
@@ -112,6 +116,8 @@ func (v *NullableInt) UnmarshalJSON(src []byte) error {
 	return json.Unmarshal(src, &v.value)
 }
 
+//+kubebuilder:object:generate=false
+
 type NullableInt32 struct {
 	value *int32
 	isSet bool
@@ -147,6 +153,8 @@ func (v *NullableInt32) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableInt64 struct {
 	value *int64
@@ -184,6 +192,8 @@ func (v *NullableInt64) UnmarshalJSON(src []byte) error {
 	return json.Unmarshal(src, &v.value)
 }
 
+//+kubebuilder:object:generate=false
+
 type NullableFloat32 struct {
 	value *float32
 	isSet bool
@@ -219,6 +229,8 @@ func (v *NullableFloat32) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableFloat64 struct {
 	value *float64
@@ -256,6 +268,8 @@ func (v *NullableFloat64) UnmarshalJSON(src []byte) error {
 	return json.Unmarshal(src, &v.value)
 }
 
+//+kubebuilder:object:generate=false
+
 type NullableString struct {
 	value *string
 	isSet bool
@@ -291,6 +305,8 @@ func (v *NullableString) UnmarshalJSON(src []byte) error {
 	v.isSet = true
 	return json.Unmarshal(src, &v.value)
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableTime struct {
 	value *time.Time
@@ -341,6 +357,8 @@ func IsNil(i interface{}) bool {
 	}
 	return false
 }
+
+//+kubebuilder:object:generate=false
 
 type MappedNullable interface {
 	ToMap() (map[string]interface{}, error)

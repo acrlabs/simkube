@@ -17,6 +17,8 @@ import (
 // checks if the ExportRequest type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &ExportRequest{}
 
+//+kubebuilder:object:generate=false
+
 // ExportRequest struct for ExportRequest
 type ExportRequest struct {
 	StartTs int64         `json:"start_ts"`
@@ -131,6 +133,8 @@ func (o ExportRequest) ToMap() (map[string]interface{}, error) {
 	toSerialize["filters"] = o.Filters
 	return toSerialize, nil
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableExportRequest struct {
 	value *ExportRequest
