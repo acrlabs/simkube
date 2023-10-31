@@ -19,6 +19,8 @@ import (
 // checks if the ExportFilters type satisfies the MappedNullable interface at compile time
 var _ MappedNullable = &ExportFilters{}
 
+//+kubebuilder:object:generate=false
+
 // ExportFilters struct for ExportFilters
 type ExportFilters struct {
 	ExcludedNamespaces []string               `json:"excluded_namespaces"`
@@ -133,6 +135,8 @@ func (o ExportFilters) ToMap() (map[string]interface{}, error) {
 	toSerialize["exclude_daemonsets"] = o.ExcludeDaemonsets
 	return toSerialize, nil
 }
+
+//+kubebuilder:object:generate=false
 
 type NullableExportFilters struct {
 	value *ExportFilters

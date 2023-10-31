@@ -78,4 +78,6 @@ cover-rust:
 
 .PHONY: crd
 crd:
-	$(CARGO_HOME_ENV) cargo run --bin gencrd > k8s/raw/0000-crd.yml
+	controller-gen crd object paths=./lib/go/api/v1/... output:artifacts:config=./k8s/raw
+	kopium -f k8s/raw/simkube.io_simulationroots.yaml > lib/rust/api/v1/simulation_roots.rs
+	kopium -f k8s/raw/simkube.io_simulations.yaml > lib/rust/api/v1/simulations.rs
