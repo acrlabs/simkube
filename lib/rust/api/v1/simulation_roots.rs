@@ -3,12 +3,18 @@
 // kopium version: 0.15.0
 
 use kube::CustomResource;
-use serde::{Serialize, Deserialize};
+use serde::{
+    Deserialize,
+    Serialize,
+};
 
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug)]
-#[kube(group = "simkube.io", version = "v1", kind = "SimulationRoot", plural = "simulationroots")]
+#[kube(
+    group = "simkube.io",
+    version = "v1",
+    kind = "SimulationRoot",
+    plural = "simulationroots"
+)]
 #[kube(namespaced)]
 #[kube(schema = "disabled")]
-pub struct SimulationRootSpec {
-}
-
+pub struct SimulationRootSpec {}
