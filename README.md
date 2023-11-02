@@ -26,8 +26,11 @@ This package provides the following components:
 ### Prerequisites
 
 - Go >= 1.20
+- Rust >= 1.71 (needed if you want to build outside of Docker)
 - Docker
+- kubectl >= 1.27
 - Kubernetes >= 1.27
+- [CertManager](https://cert-manager.io) for setting up mutating webhook certificates
 
 ### Optional Prerequisites
 

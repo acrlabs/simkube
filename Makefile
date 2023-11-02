@@ -35,6 +35,7 @@ $(RUST_ARTIFACTS):
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
 lint:
+	$(CARGO_HOME_ENV) cargo +nightly fmt
 	$(CARGO_HOME_ENV) cargo clippy
 	golangci-lint run
 

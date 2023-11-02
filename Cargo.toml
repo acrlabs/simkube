@@ -16,10 +16,6 @@ path = "driver/main.rs"
 name = "sk-tracer"
 path = "tracer/main.rs"
 
-[[bin]]
-name = "gencrd"
-path = "hack/gencrd.rs"
-
 [lib]
 name = "simkube"
 path = "lib/rust/lib.rs"
