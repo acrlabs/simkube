@@ -2706,7 +2706,7 @@ checksum = "420acb44afdae038210c99e69aae24109f32f15500aa708e81d46c9f29d55fcf"
 
 [[package]]
 name = "simkube"
-version = "0.4.0"
+version = "0.7.0"
 dependencies = [
  "anyhow",
  "assertables",
