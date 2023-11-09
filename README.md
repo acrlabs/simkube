@@ -21,6 +21,10 @@ This package provides the following components:
 
 ![architecture diagram of SimKube](./docs/images/sk-overview.png)
 
+Watch a demo of SimKube:
+
+[![Watch the video](https://img.youtube.com/vi/Q1XpH1H4It8/hqdefault.jpg)](https://www.youtube.com/watch?v=Q1XpH1H4It8)
+
 ## Installation
 
 ### Prerequisites
@@ -46,8 +50,8 @@ supported tooling for doing so.
 
 ### Building
 
-To build all SimKube artifacts for the first time run: 
-- `git submodule init && git submodule update` 
+To build all SimKube artifacts for the first time run:
+- `git submodule init && git submodule update`
 - `make build` and `make skctl` from the root of this repository.
 
 For all subsequent builds of SimKube artifacts, run only `make build` and `make skctl` from the root of this repository.
