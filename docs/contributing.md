@@ -57,6 +57,12 @@ needs to be shared between multiple artifacts should go in either `lib/go` or `l
 
 ### Building the artifacts
 
+To build all SimKube artifacts for the first time run: 
+- `git submodule init && git submodule update` 
+- `make build` and `make skctl` from the root of this repository.
+
+For all subsequent builds of SimKube artifacts, run only `make build` and `make skctl` from the root of this repository.
+
 For all the components that run inside a Kubernetes cluster, you can simply run `make build`.  For minor technical
 reasons, the CLI utility (`skctl`) is built separately: `make skctl`.  All build artifacts are placed in the `.build`
 directory at the root of the repository.  If you just want to build a subset of the SimKube artifacts, you can set the
