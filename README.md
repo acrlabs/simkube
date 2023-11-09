@@ -46,9 +46,11 @@ supported tooling for doing so.
 
 ### Building
 
-To build all SimKube artifacts run: 
-- `git submodule init && git submodule update`
--  `make build` and `make skctl` from the root of this repository.
+To build all SimKube artifacts for the first time run: 
+- `git submodule init && git submodule update` 
+- `make build` and `make skctl` from the root of this repository.
+
+For all subsequent builds of SimKube artifacts, run only `make build` and `make skctl` from the root of this repository.
 
 ### Docker images
 
