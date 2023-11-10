@@ -85,9 +85,13 @@ Links to relevant documentation are below:
 
 ## Contributing
 
-We welcome any and all contributions to the SimKube project!  Please open a pull request.  We're still figuring out
-issue tracking, so for the time being if you found a bug or have a feature request, please start a
-[discussion](https://github.com/acrlabs/simkube/discussions).  This may change in the future.
+We welcome any and all contributions to the SimKube project!  Please open a pull request.
+
+If you have a feature request, please start a [discussion](https://github.com/acrlabs/simkube/discussions).  Members of
+the SimKube team will determine whether the feature should become planned work and how it will be prioritized.
+
+If you've found a bug or are working on a planned improvement, please [open an
+issue](https://github.com/acrlabs/simkube/issues)!
 
 ### Code of Conduct
 
@@ -99,6 +103,11 @@ Applied Computing Research Labs has a strict code of conduct we expect all contr
 SimKube is licensed under the [MIT License](./LICENSE).  Contributors to this project agree that they own the copyrights
 to all contributed material, and agree to license your contributions under the same terms.  This is "inbound=outbound",
 and is the [GitHub default](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service#6-contributions-under-repository-license).
+
+> [!WARNING]
+> Due to the uncertain nature of copyright and IP law, this repository does not accept contributions that have been all
+> or partially generated with GitHub Copilot or other LLM-based code generation tools.  Please disable any such tools
+> before authoring changes to this project.
 
 ### Contributor's Guide
 
