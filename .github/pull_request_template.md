@@ -1,5 +1,4 @@
-[ ] I certify that this PR does not contain any code that has been generated with GitHub Copilot or any other AI-based
-code generation tool, in accordance with this project's policies.
+- [ ] I certify that this PR does not contain any code that has been generated with GitHub Copilot or any other AI-based code generation tool, in accordance with this project's policies.
 
 ## Description
 Please describe what this PR does
