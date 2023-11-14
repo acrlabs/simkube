@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # SimKube Virtual Node
 
 The SimKube Virtual Node is build on top of [Virtual Kubelet](https://virtual-kubelet.io) to present a simulated/virtual
@@ -32,7 +37,7 @@ with a node skeleton file that contains all of the properties that node should h
 node object by running `kubectl get -o yaml node test-worker` and modifying accordingly.  Here is an example node
 skeleton that presents as a node with 32GB of RAM and 16 CPUs:
 
-```
+```yaml
 apiVersion: v1
 kind: Node
 status:

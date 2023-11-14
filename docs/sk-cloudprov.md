@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # SimKube Virtual Cloud Provider
 
 SimKube uses the Cluster Autoscaler

@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # SimKube Simulation Driver
 
 The SimKube driver is a job that is launched whenever a new simulation is started.  It reads all the contents of a
@@ -34,11 +39,11 @@ Kubernetes control plane whenever a new pod is created.  The mutation endpoint c
 of the simulated resources, and if so, adds the following mutations to the object to ensure that it is scheduled on the
 virtual cluster:
 
-```
+```yaml
 labels:
-  simkube.io/simulation=<simulation-name>
+  simkube.io/simulation: <simulation-name>
 annotations:
-  simkube.io/lifetime-seconds=<pod-lifetime> (if present in the trace)
+  simkube.io/lifetime-seconds: <pod-lifetime> (if present in the trace)
 spec:
   tolerations:
     - key: simkube.io/virtual-node

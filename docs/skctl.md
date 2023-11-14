@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # skctl
 
 `skctl` is the CLI for interacting with SimKube.  It's not required to use but it will make your life a lot easier.

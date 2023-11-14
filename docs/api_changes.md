@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # Making API Changes
 
 ## SimKube Custom Resource Definition changes

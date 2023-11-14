@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # SimKube Tracer
 
 The SimKube Tracer runs in a production Kubernetes cluster and watches all configured resources, as well as all pods
@@ -18,8 +23,7 @@ Options:
 
 ## Config File Format
 
-```
----
+```yaml
 trackedObjects:
   <gvk for object>:
     podSpecTemplatePath: /json/patch/path/to/pod/template/spec
@@ -29,8 +33,7 @@ trackedObjects:
 Here is an example config file that watchs both Deployments and VolcanoJobs from the [Volcano](https://volcano.sh/en/)
 Kubernetes scheduler:
 
-```
----
+```yaml
 trackedObjects:
   apps/v1.Deployment:
     podSpecTemplatePath: /spec/template
@@ -58,8 +61,9 @@ in the trace for use by the simulator.
 ## Exporting a trace
 
 A user can export a trace by making a post request to the `/export` endpoint and including a JSON object with the export
-configuration.  The API for this is defined in [`./api/v1/simkube.yml`](./api/v1/simkube.yml).  The response from the
-tracer will be a bytestream of the trace stored in [msgpack](https://msgpack.org) format, which is a JSON-like binary
+configuration.  The API for this is defined in
+[`api/v1/simkube.yml`](https://github.com/acrlabs/blob/master/api/v1/simkube.yml).  The response from the tracer will be
+a bytestream of the trace stored in [msgpack](https://msgpack.org) format, which is a JSON-like binary
 format.  You can inspect the contents of the trace with the `msgpack2json` utility from
 [msgpack-tools](https://github.com/ludocode/msgpack-tools):
 
@@ -80,9 +84,9 @@ The structure of the trace file is a 4-tuple of data:
 
 An entry in the timeseries array looks like this:
 
-```
+```yaml
 {
-    ts: <unix timestamp>
+    ts: <unix timestamp>,
     applied_objs: [array of Kubernetes object definitions],
     deleted_objs: [array of Kubernetes object definitions],
 }
@@ -91,7 +95,7 @@ An entry in the timeseries array looks like this:
 The "tracked object index" (the third entry in the trace) stores the namespaced name of the object along with a hash of
 the object contents.  The pod lifecycle data has the following format:
 
-```
+```yaml
 {
     <pod owner's namespaced name>: {
         <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
