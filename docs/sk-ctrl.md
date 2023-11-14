@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # SimKube Simulation Controller
 
 The Simulation Controller watches for new Simulation Custom Resources to be posted to the API server and then configures
@@ -35,7 +40,7 @@ The Simulation Controller does the following on receipt of a new Simulation:
 
 Here is an example Simulation object:
 
-```
+```yaml
 apiVersion: simkube.io/v1
 kind: Simulation
 metadata:

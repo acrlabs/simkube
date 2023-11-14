@@ -1,3 +1,8 @@
+---
+project: SimKube
+template: docs.html
+---
+
 # Contributing to SimKube
 
 ## Setting up your environment
@@ -49,16 +54,16 @@ The SimKube repo is organized as follows:
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
 needs to be shared between multiple artifacts should go in either `lib/go` or `lib/rust`.
 
-> [!NOTE]
-> If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
-> the [API changes](./api_changes.md) document first!
+!!! note
+    If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
+    the [API changes](./api_changes.md) document first!
 
 ## Building and Deploying
 
 ### Building the artifacts
 
-To build all SimKube artifacts for the first time run: 
-- `git submodule init && git submodule update` 
+To build all SimKube artifacts for the first time run:
+- `git submodule init && git submodule update`
 - `make build` and `make skctl` from the root of this repository.
 
 For all subsequent builds of SimKube artifacts, run only `make build` and `make skctl` from the root of this repository.
@@ -158,7 +163,7 @@ functions for writing tests.  Feel free to add more utilities in here if it woul
 Go tests live in `_test.go` files next to the source file they are testing.  Rust tests should in most cases be put into
 a separate submodule called `tests` and included with a
 
-```
+```rust
 #[cfg(test)]
 mod tests;
 ```
