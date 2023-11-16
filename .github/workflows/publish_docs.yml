@@ -1,6 +1,9 @@
 name: Publish Docs
 on:
   push:
+    paths:
+      - 'docs/**'
+      - 'README.md'
     branches:
       - 'master'
 jobs:
