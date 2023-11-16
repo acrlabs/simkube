@@ -1,9 +1,9 @@
----
+<!--
 project: SimKube
 description: |
   A collection of tools for saving and replaying running "traces" of a Kubernetes cluster in a simulated environment
 template: docs.html
----
+-->
 
 ![build status](https://github.com/acrlabs/simkube/actions/workflows/verify.yml/badge.svg)
 

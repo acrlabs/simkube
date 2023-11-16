@@ -1,7 +1,7 @@
----
+<!--
 project: SimKube
 template: docs.html
----
+-->
 
 # SimKube Virtual Cloud Provider
 
