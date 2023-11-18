@@ -12,7 +12,7 @@ template: docs.html
 In addition to the project prerequisites, you will need to have the following installed:
 
 - [pre-commit](https://pre-commit.com)
-- [golangci-lint](https://pre-commit.com)
+- [golangci-lint](https://golangci-lint.run/)
 - Nightly version of rustfmt
 
 ### Optional prerequisites
