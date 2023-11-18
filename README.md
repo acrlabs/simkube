@@ -104,10 +104,10 @@ this project agree that they own the copyrights to all contributed material, and
 under the same terms.  This is "inbound=outbound", and is the [GitHub
 default](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service#6-contributions-under-repository-license).
 
-!!! warning
-    Due to the uncertain nature of copyright and IP law, this repository does not accept contributions that have been all
-    or partially generated with GitHub Copilot or other LLM-based code generation tools.  Please disable any such tools
-    before authoring changes to this project.
+[!WARNING]
+> Due to the uncertain nature of copyright and IP law, this repository does not accept contributions that have been all
+or partially generated with GitHub Copilot or other LLM-based code generation tools.  Please disable any such tools
+before authoring changes to this project.
 
 ### Contributor's Guide
 
