@@ -54,9 +54,9 @@ The SimKube repo is organized as follows:
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
 needs to be shared between multiple artifacts should go in either `lib/go` or `lib/rust`.
 
-!!! note
-    If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
-    the [API changes](./api_changes.md) document first!
+> [!NOTE]
+> If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
+> the [API changes](./api_changes.md) document first!
 
 ## Building and Deploying
 
