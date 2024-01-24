@@ -1,13 +1,11 @@
 import os
 
 import fireconfig as fire
-from cdk8s import Chart
 from constructs import Construct
-from fireconfig import k8s
 from fireconfig.types import Capability
 from fireconfig.types import DownwardAPIField
 
-ID = "sk-vnode"
+NODE_YML_PATH = "node.yml"
 NODE_YML = """---
 apiVersion: v1
 kind: Node
@@ -22,41 +20,35 @@ status:
 CONFIGMAP_NAME = "node-skeleton"
 
 
-class SKVnode(Chart):
-    def __init__(self, scope: Construct, namespace: str):
-        super().__init__(scope, ID, disable_resource_name_hashes=True)
-
-        app_key = "app"
-
-        cm = k8s.KubeConfigMap(
-            self, "configmap",
-            metadata={"namespace": namespace},
-            data={"node.yml": NODE_YML}
-        )
-
-        volumes = fire.VolumesBuilder().with_config_map(CONFIGMAP_NAME, "/config", cm)
+class SKVnode(fire.AppPackage):
+    def __init__(self):
+        volumes = fire.VolumesBuilder().with_config_map(CONFIGMAP_NAME, "/config", {NODE_YML_PATH: NODE_YML})
         env = (fire.EnvBuilder()
             .with_field_ref("POD_NAME", DownwardAPIField.NAME)
             .with_field_ref("POD_NAMESPACE", DownwardAPIField.NAMESPACE)
         )
 
         try:
-            with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
+            with open(os.getenv('BUILD_DIR') + f'/{self.id}-image') as f:
                 image = f.read()
         except FileNotFoundError:
             image = 'PLACEHOLDER'
 
         container = fire.ContainerBuilder(
-            name=ID,
+            name=self.id,
             image=image,
-            args=["/sk-vnode", "--node-skeleton", volumes.get_path_to(CONFIGMAP_NAME)],
+            args=["/sk-vnode", "--node-skeleton", volumes.get_path_to_config_map(CONFIGMAP_NAME, NODE_YML_PATH)],
         ).with_env(env).with_volumes(volumes).with_security_context(Capability.DEBUG)
 
-        depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
-            .with_label(app_key, ID)
+        self._depl = (fire.DeploymentBuilder(app_label=self.id)
             .with_service_account_and_role_binding('cluster-admin', True)
             .with_containers(container)
             .with_node_selector("type", "kind-worker")
-            .with_dependencies(cm)
         )
-        depl.build(self)
+
+    def compile(self, chart: Construct):
+        self._depl.build(chart)
+
+    @property
+    def id(self) -> str:
+        return "sk-vnode"
