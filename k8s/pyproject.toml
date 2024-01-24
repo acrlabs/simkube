@@ -5,7 +5,7 @@ description = ""
 authors = ["David Morrison <drmorr@appliedcomputing.io>"]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.11"
 cdk8s = "^2.24.0"
 fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.2.2" }
 
