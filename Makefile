@@ -17,6 +17,7 @@ endif
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
 
 include build/base.mk
+include build/k8s.mk
 
 skctl:
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/
