@@ -19,10 +19,18 @@ class SKController(Chart):
             .with_field_ref("POD_SVC_ACCOUNT", DownwardAPIField.SERVICE_ACCOUNT_NAME)
         )
 
-        with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
-            image = f.read()
-        with open(os.getenv('BUILD_DIR') + '/sk-driver-image') as f:
-            driver_image = f.read()
+        try:
+            with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
+                image = f.read()
+        except FileNotFoundError:
+            image = 'PLACEHOLDER'
+
+        try:
+            with open(os.getenv('BUILD_DIR') + '/sk-driver-image') as f:
+                driver_image = f.read()
+        except FileNotFoundError:
+            driver_image = 'PLACEHOLDER'
+
         container = fire.ContainerBuilder(
             name=ID,
             image=image,

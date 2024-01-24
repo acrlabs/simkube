@@ -30,8 +30,12 @@ class SKTracer(Chart):
         env = fire.EnvBuilder({"RUST_BACKTRACE": "1"})
         volumes = fire.VolumesBuilder().with_config_map(CONFIGMAP_NAME, "/config", cm)
 
-        with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
-            image = f.read()
+        try:
+            with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
+                image = f.read()
+        except FileNotFoundError:
+            image = 'PLACEHOLDER'
+
         container = fire.ContainerBuilder(
             name=ID,
             image=image,

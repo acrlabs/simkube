@@ -20,8 +20,12 @@ class SKCloudProv(Chart):
     def __init__(self, scope: Construct, namespace: str):
         super().__init__(scope, CLOUDPROV_ID)
 
-        with open(os.getenv('BUILD_DIR') + f'/{CLOUDPROV_ID}-image') as f:
-            image = f.read()
+        try:
+            with open(os.getenv('BUILD_DIR') + f'/{CLOUDPROV_ID}-image') as f:
+                image = f.read()
+        except FileNotFoundError:
+            image = 'PLACEHOLDER'
+
         container = fire.ContainerBuilder(
             name=CLOUDPROV_ID,
             image=image,

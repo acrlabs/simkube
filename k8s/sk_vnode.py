@@ -40,8 +40,12 @@ class SKVnode(Chart):
             .with_field_ref("POD_NAMESPACE", DownwardAPIField.NAMESPACE)
         )
 
-        with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
-            image = f.read()
+        try:
+            with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
+                image = f.read()
+        except FileNotFoundError:
+            image = 'PLACEHOLDER'
+
         container = fire.ContainerBuilder(
             name=ID,
             image=image,
