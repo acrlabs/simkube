@@ -32,28 +32,19 @@ class SKCloudProv(Chart):
             args=["/sk-cloudprov"],
         ).with_ports(GRPC_PORT).with_security_context(Capability.DEBUG)
 
-        self._depl = (fire.DeploymentBuilder(namespace=namespace, selector={APP_KEY: CLOUDPROV_ID})
+        cloudprov_builder = (fire.DeploymentBuilder(namespace=namespace, selector={APP_KEY: CLOUDPROV_ID})
             .with_containers(container)
             .with_service()
             .with_service_account_and_role_binding("cluster-admin", True)
             .with_node_selector("type", "kind-worker")
         )
+        cloudprov_depl = cloudprov_builder.build(self)
 
-        self._depl.build(self)
-
-    def get_grpc_address(self) -> str:
-        return f'{self._depl.get_service_address()}:{GRPC_PORT}'
-
-
-class ClusterAutoscaler(Chart):
-    def __init__(self, scope: Construct, cloud_prov_address: str):
-        super().__init__(scope, AUTOSCALER_ID, disable_resource_name_hashes=True)
-
-        namespace = "kube-system"
+        cloud_prov_address = f'{cloudprov_builder.get_service_address()}:{GRPC_PORT}'
 
         cm = k8s.KubeConfigMap(
             self, "configmap",
-            metadata={"namespace": namespace},
+            metadata={"namespace": "kube-system"},
             data={"cluster-autoscaler-config.yml": CA_CONFIG_YML.format(cloud_prov_address)}
         )
 
@@ -71,10 +62,15 @@ class ClusterAutoscaler(Chart):
             ],
         ).with_volumes(volumes).with_security_context(Capability.DEBUG)
 
-        depl = (fire.DeploymentBuilder(namespace=namespace, selector={APP_KEY: AUTOSCALER_ID})
+        ca_depl = (fire.DeploymentBuilder(
+            namespace="kube-system",
+            selector={APP_KEY: AUTOSCALER_ID},
+            tag="cluster-autoscaler",
+        )
             .with_containers(container)
             .with_node_selector("type", "kind-control-plane")
             .with_toleration("node-role.kubernetes.io/control-plane", "", TaintEffect.NoSchedule)
             .with_service_account_and_role_binding("cluster-admin", True)
-        )
-        depl.build(self)
+        ).build(self)
+
+        ca_depl.add_dependency(cloudprov_depl)

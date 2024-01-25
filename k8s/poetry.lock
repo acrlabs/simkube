@@ -77,7 +77,7 @@ typeguard = ">=2.13.3,<2.14.0"
 
 [[package]]
 name = "fireconfig"
-version = "0.2.1"
+version = "0.2.2"
 description = "Configuration language for Kubernetes manifests"
 optional = false
 python-versions = "^3.11"
@@ -85,13 +85,13 @@ files = []
 develop = false
 
 [package.dependencies]
-cdk8s = "^2.24.0"
+cdk8s = "^2"
 
 [package.source]
 type = "git"
 url = "https://github.com/acrlabs/fireconfig"
-reference = "v0.2.2"
-resolved_reference = "57dbb8d7a4f0200f4525cb8335a0838258390e80"
+reference = "05fcd90"
+resolved_reference = "05fcd90276555a9f340249501366bed3d4fcdee1"
 
 [[package]]
 name = "importlib-resources"
@@ -250,4 +250,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "44320be280bac62e859a3f4beea777d7f9dc19860abf21cb588344e8d5f36e72"
+content-hash = "91c34411c9f9c80396e37ca6b64175712b01add59f551e88b88e5e19646212d2"
