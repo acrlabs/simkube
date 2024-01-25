@@ -24,7 +24,7 @@ CONFIGMAP_NAME = "node-skeleton"
 
 class SKVnode(Chart):
     def __init__(self, scope: Construct, namespace: str):
-        super().__init__(scope, ID)
+        super().__init__(scope, ID, disable_resource_name_hashes=True)
 
         app_key = "app"
 

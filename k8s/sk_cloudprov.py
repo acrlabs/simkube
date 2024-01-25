@@ -18,7 +18,7 @@ address: {}
 
 class SKCloudProv(Chart):
     def __init__(self, scope: Construct, namespace: str):
-        super().__init__(scope, CLOUDPROV_ID)
+        super().__init__(scope, CLOUDPROV_ID, disable_resource_name_hashes=True)
 
         try:
             with open(os.getenv('BUILD_DIR') + f'/{CLOUDPROV_ID}-image') as f:
@@ -47,7 +47,7 @@ class SKCloudProv(Chart):
 
 class ClusterAutoscaler(Chart):
     def __init__(self, scope: Construct, cloud_prov_address: str):
-        super().__init__(scope, AUTOSCALER_ID)
+        super().__init__(scope, AUTOSCALER_ID, disable_resource_name_hashes=True)
 
         namespace = "kube-system"
 
