@@ -1,0 +1,58 @@
+name: Comment on the PR
+
+on:
+  workflow_run:
+    workflows: ["Compute k8s plan"]
+    types:
+      - completed
+
+jobs:
+  pr-comment:
+    runs-on: ubuntu-latest
+    if: >
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: k8s-plan-artifacts
+          github-token: ${{ secrets.PR_COMMENT_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
+          path: k8s-plan-artifacts
+
+      - name: Get PR number
+        uses: mathiasvr/command-output@v2.0.0
+        id: pr
+        with:
+          run: cat k8s-plan-artifacts/PR
+
+      - name: Find previous comment ID
+        uses: peter-evans/find-comment@v2
+        id: fc
+        with:
+          token: ${{ secrets.PR_COMMENT_TOKEN }}
+          issue-number: ${{ steps.pr.outputs.stdout }}
+          body-includes: "<!-- 🔥config summary -->"
+
+      - name: Render Comment Template
+        run: |
+          echo "<!-- 🔥config summary -->" > fireconfig-comment.md
+          echo "## Kubernetes Object DAG" >> fireconfig-comment.md
+          cat k8s-plan-artifacts/dag.mermaid >> fireconfig-comment.md
+          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/new.png" width=10/> New object' >> fireconfig-comment.md
+          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/removed.png" width=10/> Deleted object' >> fireconfig-comment.md
+          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/changed.png" width=10/> Updated object' >> fireconfig-comment.md
+          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/pod_recreate.png" width=10/> Updated object (causes pod recreation)' >> fireconfig-comment.md
+          echo "## Detailed Diff" >> fireconfig-comment.md
+          cat k8s-plan-artifacts/k8s.df >> fireconfig-comment.md
+
+      - name: Comment on PR
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.PR_COMMENT_TOKEN }}
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          issue-number: ${{ steps.pr.outputs.stdout }}
+          body-path: fireconfig-comment.md
+          edit-mode: replace
