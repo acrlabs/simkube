@@ -1,0 +1,44 @@
+name: Update the PR Comment
+
+on:
+  #######################################################################################
+  # WARNING: DO NOT CHANGE THIS ACTION TO CHECK OUT OR EXECUTE ANY CODE!!!!!            #
+  #                                                                                     #
+  # This can allow an attacker to gain write access to code in the repository or read   #
+  # any repository secrets!  This should _only_ be used to update or add a PR comment.  #
+  #                                                                                     #
+  # See https://securitylab.github.com/research/github-actions-preventing-pwn-requests/ #
+  # for more details.                                                                   #
+  #######################################################################################
+  pull_request_target:
+    paths:
+      - 'k8s/**'
+
+jobs:
+  pr-comment:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Find previous comment ID
+        uses: peter-evans/find-comment@v3
+        id: fc
+        with:
+          token: ${{ secrets.PR_COMMENT_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          body-includes: "<!-- 🔥config summary -->"
+
+      - name: Render Comment Template
+        run: |
+          echo
+
+      - name: Comment on PR
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          token: ${{ secrets.PR_COMMENT_TOKEN }}
+          issue-number: ${{ github.event.pull_request.number }}
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          body: |
+            <!-- 🔥config summary -->
+            ## Updating Kubernetes DAG...
+            Please wait until the job has finished.
+          edit-mode: replace
