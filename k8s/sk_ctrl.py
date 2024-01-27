@@ -1,26 +1,19 @@
 import os
 
 import fireconfig as fire
-from cdk8s import Chart
 from constructs import Construct
 from fireconfig.types import Capability
 from fireconfig.types import DownwardAPIField
 
-ID = "sk-ctrl"
 
-
-class SKController(Chart):
-    def __init__(self, scope: Construct, namespace: str):
-        super().__init__(scope, ID, disable_resource_name_hashes=True)
-
-        app_key = "app"
-
+class SKController(fire.AppPackage):
+    def __init__(self):
         env = (fire.EnvBuilder({"RUST_BACKTRACE": "1"})
             .with_field_ref("POD_SVC_ACCOUNT", DownwardAPIField.SERVICE_ACCOUNT_NAME)
         )
 
         try:
-            with open(os.getenv('BUILD_DIR') + f'/{ID}-image') as f:
+            with open(os.getenv('BUILD_DIR') + f'/{self.id}-image') as f:
                 image = f.read()
         except FileNotFoundError:
             image = 'PLACEHOLDER'
@@ -32,7 +25,7 @@ class SKController(Chart):
             driver_image = 'PLACEHOLDER'
 
         container = fire.ContainerBuilder(
-            name=ID,
+            name=self.id,
             image=image,
             args=[
                 "/sk-ctrl",
@@ -42,10 +35,15 @@ class SKController(Chart):
             ],
         ).with_security_context(Capability.DEBUG).with_env(env)
 
-        depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
-            .with_label(app_key, ID)
+        self._depl = (fire.DeploymentBuilder(app_label=self.id)
             .with_service_account_and_role_binding('cluster-admin', True)
             .with_containers(container)
-            .with_node_selector("type", "kind-worker")
+            .with_node_selector("type", "kind-workerrrr")
         )
-        depl.build(self)
+
+    def compile(self, chart: Construct):
+        self._depl.build(chart)
+
+    @property
+    def id(self) -> str:
+        return "sk-ctrl"

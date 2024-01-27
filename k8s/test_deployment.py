@@ -1,24 +1,23 @@
 import fireconfig as fire
-from cdk8s import Chart
 from constructs import Construct
 
-ID = "test"
 
-
-class TestDeployment(Chart):
-    def __init__(self, scope: Construct, namespace: str):
-        super().__init__(scope, ID, disable_resource_name_hashes=True)
-
-        app_key = "app"
-
+class TestDeployment(fire.AppPackage):
+    def __init__(self):
         container = fire.ContainerBuilder(
             name="nginx",
             image="nginx:latest",
         ).with_resources(requests={"cpu": "1"})
 
-        depl = (fire.DeploymentBuilder(namespace=namespace, selector={app_key: ID})
+        self._depl = (fire.DeploymentBuilder(app_label=self.id)
             .with_containers(container)
             .with_toleration("simkube.io/virtual-node", "true")
             .with_node_selector("type", "virtual")
         )
-        depl.build(self)
+
+    def compile(self, chart: Construct):
+        self._depl.build(chart)
+
+    @property
+    def id(self) -> str:
+        return "test"
