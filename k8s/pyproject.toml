@@ -7,7 +7,7 @@ authors = ["David Morrison <drmorr@appliedcomputing.io>"]
 [tool.poetry.dependencies]
 python = "^3.11"
 cdk8s = "^2"
-fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.4.0" }
+fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.4.1" }
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1"

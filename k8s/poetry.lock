@@ -44,13 +44,13 @@ ujson = ["ujson (>=5.7.0)"]
 
 [[package]]
 name = "cdk8s"
-version = "2.68.30"
+version = "2.68.31"
 description = "This is the core library of Cloud Development Kit (CDK) for Kubernetes (cdk8s). cdk8s apps synthesize into standard Kubernetes manifests which can be applied to any Kubernetes cluster."
 optional = false
 python-versions = "~=3.8"
 files = [
-    {file = "cdk8s-2.68.30-py3-none-any.whl", hash = "sha256:3c7d3e420c20e33e1a83f8f8e216359acd5865be7347b4afedb771696ce79b0e"},
-    {file = "cdk8s-2.68.30.tar.gz", hash = "sha256:87d6806debf3c7d3aac54d80a4c578d75921b175f5ad389e0e27e47311b9d228"},
+    {file = "cdk8s-2.68.31-py3-none-any.whl", hash = "sha256:e791b17a2956f1adecff89b1f262ed877549ffc4dbe653f5d897ccff374eabed"},
+    {file = "cdk8s-2.68.31.tar.gz", hash = "sha256:abe023ccdd4ee9485abebd2176a24d7f06257391bbae5852e3d10f45261cb6bf"},
 ]
 
 [package.dependencies]
@@ -95,15 +95,15 @@ optimize = ["orjson"]
 
 [[package]]
 name = "fireconfig"
-version = "0.2.2"
+version = "0.4.0"
 description = "Configuration language for Kubernetes manifests"
 optional = false
-python-versions = "^3"
+python-versions = "^3.11"
 files = []
 develop = false
 
 [package.dependencies]
-cdk8s = "^2"
+cdk8s = "^2.68"
 deepdiff = "^6.7.1"
 pyyaml = "^6.0.1"
 simplejson = "^3.19.2"
@@ -111,8 +111,8 @@ simplejson = "^3.19.2"
 [package.source]
 type = "git"
 url = "https://github.com/acrlabs/fireconfig"
-reference = "e8c70b5"
-resolved_reference = "e8c70b5b0697bd0b3cf9423516775d945bfeeb79"
+reference = "v0.4.1"
+resolved_reference = "24770a8ed810d60e7bddcc7aea2f5368cf63b9d4"
 
 [[package]]
 name = "importlib-resources"
@@ -441,4 +441,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "3f0261ac73669d434916bcfec9613c90c2cb8a6f4035ce1ea500414f5f377562"
+content-hash = "3495ee075584e1569fb721d2e1ab46bbead99ac7f8b2870c669c75c0679f825d"

@@ -1,7 +1,6 @@
 package cloudprov
 
 import (
-	"fmt"
 	"net"
 
 	log "github.com/sirupsen/logrus"
@@ -24,7 +23,7 @@ func Run(appLabel string) {
 		log.Fatalf("failed to listen: %s", err)
 	}
 
-	cp, err := cloudprov.New(fmt.Sprintf("app=%s", appLabel))
+	cp, err := cloudprov.New(appLabel)
 	if err != nil {
 		log.Fatalf("could not create cloud provider: %s", err)
 	}
