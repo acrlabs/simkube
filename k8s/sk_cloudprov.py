@@ -25,7 +25,7 @@ def _make_cloud_provider():
     container = fire.ContainerBuilder(
         name=CLOUDPROV_ID,
         image=image,
-        args=["/sk-cloudprov"],
+        args=["/sk-cloudprov", "-A", "fireconfig.io/app=sk-vnode"],
     ).with_ports(GRPC_PORT).with_security_context(Capability.DEBUG)
 
     return (fire.DeploymentBuilder(app_label=CLOUDPROV_ID)

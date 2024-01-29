@@ -38,7 +38,7 @@ class SKController(fire.AppPackage):
         self._depl = (fire.DeploymentBuilder(app_label=self.id)
             .with_service_account_and_role_binding('cluster-admin', True)
             .with_containers(container)
-            .with_node_selector("type", "kind-workerrrr")
+            .with_node_selector("type", "kind-worker")
         )
 
     def compile(self, chart: Construct):
