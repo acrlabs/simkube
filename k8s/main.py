@@ -2,10 +2,8 @@
 import os
 
 import fireconfig as fire
-from sk_cloudprov import SKCloudProv
 from sk_ctrl import SKController
 from sk_tracer import SKTracer
-from sk_vnode import SKVnode
 from test_deployment import TestDeployment
 
 DAG_FILENAME = "dag.mermaid"
@@ -16,9 +14,7 @@ if __name__ == "__main__":
     dag_path = f"{os.getenv('BUILD_DIR')}/{DAG_FILENAME}"
     diff_path = f"{os.getenv('BUILD_DIR')}/{DIFF_FILENAME}"
     graph, diff = fire.compile({
-        "kube-system": [SKCloudProv()],
         "simkube": [
-            SKVnode(),
             SKTracer(),
             SKController(),
             TestDeployment(),
