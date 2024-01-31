@@ -152,7 +152,7 @@ fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOpera
     }));
     patches.push(PatchOperation::Add(AddOperation {
         path: "/spec/tolerations/-".into(),
-        value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "value": "true"}),
+        value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
     }));
 
     Ok(())

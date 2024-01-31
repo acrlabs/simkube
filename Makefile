@@ -1,6 +1,4 @@
-GO_ARTIFACTS=sk-cloudprov sk-vnode
-RUST_ARTIFACTS=sk-ctrl sk-driver sk-tracer
-ARTIFACTS ?= $(GO_ARTIFACTS) $(RUST_ARTIFACTS)
+ARTIFACTS=sk-ctrl sk-driver sk-tracer
 
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 GO_COVER_FILE=$(COVERAGE_DIR)/go-coverage.txt
@@ -21,9 +19,6 @@ include build/k8s.mk
 
 skctl:
 	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/
-
-$(GO_ARTIFACTS):
-	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/$@ ./$(subst sk-,,$(@))/cmd/
 
 RUST_BUILD_IMAGE ?= rust:buster
 

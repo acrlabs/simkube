@@ -1,5 +1,6 @@
 import fireconfig as fire
 from constructs import Construct
+from fireconfig.types import TaintEffect
 
 
 class TestDeployment(fire.AppPackage):
@@ -11,7 +12,7 @@ class TestDeployment(fire.AppPackage):
 
         self._depl = (fire.DeploymentBuilder(app_label=self.id)
             .with_containers(container)
-            .with_toleration("simkube.io/virtual-node", "true")
+            .with_toleration("kwok-provider", "true", TaintEffect.NoSchedule)
             .with_node_selector("type", "virtual")
         )
 
