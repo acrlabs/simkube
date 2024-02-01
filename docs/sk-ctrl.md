@@ -53,7 +53,7 @@ spec:
 The `SimulationSpec` contains two fields, the location of the trace file which we want to use for the simulation, and
 the namespace to launch the driver into.  Currently the only trace location supported is `file:///`, i.e., the trace
 file already has to be present on the driver node at the specified location.  In the future we will support downloading
-from an S3 bucket or other persistant storage.
+from an S3 bucket or other persistent storage.
 
 The Simulation CR is cluster-namespaced, because it must create SimulationRoots.
 

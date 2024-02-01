@@ -30,7 +30,7 @@ trackedObjects:
     trackLifecycle: true/false (optional)
 ```
 
-Here is an example config file that watchs both Deployments and VolcanoJobs from the [Volcano](https://volcano.sh/en/)
+Here is an example config file that watches both Deployments and VolcanoJobs from the [Volcano](https://volcano.sh/en/)
 Kubernetes scheduler:
 
 ```yaml
@@ -106,7 +106,7 @@ the object contents.  The pod lifecycle data has the following format:
 
 Because pods in the simulation will not have the same names as in the production trace, we can't use the pod name as a
 stable identifier to track lifecycles.  So instead, we index by the pod owner, and the hash of the pod object.  Because
-an owner can have pods with different characteristics (e.g., if a Deployment changes and creates a new replicaset, or if
+an owner can have pods with different characteristics (e.g., if a Deployment changes and creates a new ReplicaSet, or if
 there are multiple pod types specified in a VolcanoJob), we must track the lifecycles for these pods separately.  This
 is done by way of the hash of the PodSpec.
 
