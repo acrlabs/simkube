@@ -1,4 +1,5 @@
 mod args;
+mod crd;
 mod delete;
 mod export;
 mod run;
@@ -22,6 +23,9 @@ struct Options {
 
 #[derive(Subcommand)]
 enum Commands {
+    #[command(about = "print SimKube CRDs")]
+    Crd,
+
     #[command(about = "delete a simulation")]
     Delete(args::Delete),
 
@@ -37,6 +41,7 @@ async fn main() -> EmptyResult {
     let args = Options::parse();
 
     match &args.subcommand {
+        Commands::Crd => crd::cmd(),
         Commands::Export(args) => export::cmd(args).await,
         Commands::Delete(args) => delete::cmd(args).await,
         Commands::Run(args) => run::cmd(args).await,
