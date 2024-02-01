@@ -7,11 +7,10 @@ template: docs.html
 
 ## SimKube Custom Resource Definition changes
 
-The Simulation CRD is auto-generated from the Golang struct in `./lib/go/api/v1/simulation_types.go` using the
-[controller-gen](https://book.kubebuilder.io/reference/controller-gen.html) utility.  The resulting CRDs are stored in
-`./k8s/raw/`, and then Rust structs are generated from the resulting CRD using
-[kopium](https://github.com/kube-rs/kopium).  This _should_ all be done automagically by running `make crd`, but kopium
-is listed as unstable, so check the diff output carefully.
+The Simulation CRD is auto-generated from the Rust structs in `./src/api/v1/(simulations|simulation_roots).rs`
+If these structs change, you will need to regenerate the CRD yaml by running `make crd`; the resulting CRDs are stored
+in `./k8s/raw/`.  A pre-commit check as well as a GitHub action will complain if you have not updated the CRD yaml
+before committing.
 
 ## SimKube API changes
 
@@ -21,59 +20,12 @@ specification in `./api/v1/simkube.yml`.  I haven't _yet_ figured out how to wir
 from this file.  This process is currently quite manual.  The steps look something like the following:
 
 1. `make api`
-2. In `lib/go/api/v1/*.go`, replace all the k8s-generated types with the correct imports from the Kubernetes API (make
-   sure to do this not just in the model files but also in `utils.go`.
-3. In `lib/go/api/v1/*.go`, make sure to update the package name from `openapi` to `v1`.
-4. In `lib/go/api/v1/*.go`, annotate the generated objects with `//+kubebuilder:object:generate=false` to keep
-   `controller-gen` from trying to interpret these files as custom resource types.
-5. In `lib/rust/api/v1/*.rs`, add `use super::*` to the top of each generated file
-6. In `lib/rust/api/v1/*.rs`, replace all the k8s-generated types with the correct imports from `k8s-openapi`.
+2. In `src/api/v1/*.rs`, add `use super::*` to the top of each generated file
+3. In `src/api/v1/*.rs`, replace all the k8s-generated types with the correct imports from `k8s-openapi`.
 
 Once you've made all of these changes, you will need to check the diff quite carefully to ensure that nothing is broken.
 
-### Example modifications for generated Golang code
-
-This generated output:
-
-```go
-package openapi
-
-import (
-    "encoding/json"
-)
-
-// ExportFilters struct for ExportFilters
-type ExportFilters struct {
-    ExcludedNamespaces []string                       `json:"excludedNamespaces"`
-    ExcludedLabels []ExportFiltersExcludedLabelsInner `json:"excludedLabels"`
-    ExcludeDaemonsets bool                            `json:"excludeDaemonsets"`
-}
-
-...
-```
-
-should be transformed into:
-
-```go
-package v1
-
-import (
-    "encoding/json"
-
-    metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-)
-
-//+kubebuilder:object:generate=false
-
-// ExportFilters struct for ExportFilters
-type ExportFilters struct {
-    ExcludedNamespaces []string           `json:"excludedNamespaces"`
-    ExcludedLabels []metav1.LabelSelector `json:"excludedLabels"`
-    ExcludeDaemonsets bool                `json:"excludeDaemonsets"`
-}
-```
-
-### Example modifications for generated Rust code
+### Example modifications for generated code
 
 This generated output:
 

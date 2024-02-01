@@ -12,15 +12,11 @@ template: docs.html
 In addition to the project prerequisites, you will need to have the following installed:
 
 - [pre-commit](https://pre-commit.com)
-- [golangci-lint](https://golangci-lint.run/)
 - Nightly version of rustfmt
 
 ### Optional prerequisites
 
 - [grcov](https://github.com/mozilla/grcov) (if you want to generate coverage reports locally)
-- [controller-gen](https://book.kubebuilder.io/reference/controller-gen.html) (if you need to make changes to the
-  Simulation CRD)
-- [kopium](https://github.com/kube-rs/kopium) (if you need to make changes to the Simulation CRD)
 - [openapi-generator](https://openapi-generator.tech) (if you need to make changes to the SimKube API)
 - [delve](https://github.com/go-delve/delve) (for debugging Golang code)
 - [msgpack-tools](https://github.com/ludocode/msgpack-tools) (for inspecting the contents of exported trace files)
@@ -37,22 +33,18 @@ The SimKube repo is organized as follows:
 /<root>
     /api       - OpenAPI v3 definitions for the SimKube API
     /build     - build scripts and helper functions (git submodule)
-    /cli       - Golang code for the `skctl` CLI utility
-    /cloudprov - Golang code for the `sk-cloudprov` Cluster Autoscaler cloud provider
+    /cli       - Rust code for the `skctl` CLI utility
     /ctrl      - Rust code for the `sk-ctrl` Kubernetes controller
     /docs      - Documentation
     /driver    - Rust code for the `sk-driver` Simulation runner
     /images    - Dockerfiles for all components
     /k8s       - 🔥Config Python scripts for Kubernetes manifest generation
-    /lib
-        /go    - shared Golang code
-        /rust  - shared Rust code
+    /src       - shared library code
     /tracer    - Rust code for the `sk-tracer` Kubernetes object
-    /vnode     - Golang code for the Virtual-Kubelet-based virtual node
 ```
 
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
-needs to be shared between multiple artifacts should go in either `lib/go` or `lib/rust`.
+needs to be shared between multiple artifacts should go in either `src/`.
 
 > [!NOTE]
 > If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
@@ -64,23 +56,20 @@ needs to be shared between multiple artifacts should go in either `lib/go` or `l
 
 To build all SimKube artifacts for the first time run:
 - `git submodule init && git submodule update`
-- `make build` and `make skctl` from the root of this repository.
+- `make build` from the root of this repository.
 
-For all subsequent builds of SimKube artifacts, run only `make build` and `make skctl` from the root of this repository.
+For all subsequent builds of SimKube artifacts, run only `make build` from the root of this repository.
 
-For all the components that run inside a Kubernetes cluster, you can simply run `make build`.  For minor technical
-reasons, the CLI utility (`skctl`) is built separately: `make skctl`.  All build artifacts are placed in the `.build`
-directory at the root of the repository.  If you just want to build a subset of the SimKube artifacts, you can set the
-`ARTIFACTS` environment variable.  This will help limit compilation time if you are just working on a single or a few
-components:
+All build artifacts are placed in the `.build` directory at the root of the repository.  If you just want to build a
+subset of the SimKube artifacts, you can set the `ARTIFACTS` environment variable.  This will help limit compilation
+time if you are just working on a single or a few components:
 
 ```
 ARTIFACTS="sk-ctrl sk-driver" make build
 ```
 
-By default, the Rust artifacts (`sk-ctrl`, `sk-driver`, and `sk-tracer`) are built inside Docker containers.  All the
-intermediate compilation steps and the executables are saved in `.build/cargo`.  The Go artifacts (`skctl`,
-`sk-cloudprov`, and `sk-vnode`) are built locally on your machine.
+By default, all the artifacts are built inside Docker containers.  All the intermediate compilation steps and the
+executables are saved in `.build/cargo`.
 
 ### Building docker images
 
@@ -125,15 +114,14 @@ environment variables will be respected for the steps where they make sense.
 ### Testing your changes
 
 Tests are divided into "unit tests" and "integration tests".  The distinction between these is fuzzy.  To run all the
-tests, do `make test`.  If you'd just like to run the Golang tests, you can do `make test-go`, and if you just want to
-run the Rust unit tests, you can do `make test-rust`.  To run the Rust integration tests, do `make itest-rust`.
+tests, do `make test`.
 
 ### Linting your changes
 
-Code linting rules are defined in `./golangci.yml` and `.rustfmt.toml` for Go and Rust code, respectively.  We also use
-[clippy](https://doc.rust-lang.org/stable/clippy/usage.html) for additional Rust linting and checks.  We use a _nightly_
-version of rustfmt to take advantage of unstable formatting rules, so you will need to install a nightly toolchain here.
-(Note that all actual Rust code does not use any nightly features).  You can run all lints with `make lint`.
+Code linting rules are defined in `.rustfmt.toml`.  We also use [clippy](https://doc.rust-lang.org/stable/clippy/usage.html)
+ for additional Rust linting and checks.  We use a _nightly_ version of rustfmt to take advantage of unstable formatting
+rules, so you will need to install a nightly toolchain here.  (Note that all actual Rust code does not use any nightly
+features).  You can run all lints with `make lint`.
 
 ### Code coverage
 
@@ -145,8 +133,7 @@ Code coverage is checked whenever you open a PR using [CodeCov](https://about.co
 comment showing you coverage changes and provide a link to a dashboard with more detailed information about what is and
 is not covered.
 
-If you'd like to generate coverage reports locally, for Golang it is as simple as running `make cover-go`.  For Rust, it
-is a little more complicated:
+If you'd like to generate coverage reports locally, it is a little more complicated:
 
 ```
 WITH_COVERAGE=1 RUST_COVER_TYPE=markdown make test-rust cover-rust
@@ -157,11 +144,10 @@ builds.
 
 ### Writing new tests
 
-There is a suite of utility functions for tests in `lib/(go|rust)/testutils` that provide additional fixtures and helper
+There is a suite of utility functions for tests in `src/testutils` that provide additional fixtures and helper
 functions for writing tests.  Feel free to add more utilities in here if it would be helpful.
 
-Go tests live in `_test.go` files next to the source file they are testing.  Rust tests should in most cases be put into
-a separate submodule called `tests` and included with a
+Tests should in most cases be put into a separate submodule called `tests` and included with a
 
 ```rust
 #[cfg(test)]
@@ -170,8 +156,8 @@ mod tests;
 
 block at the bottom of the main module.
 
-In order to make `lib/rust/testutils` accessible outside the `lib/rust` crate, they are not included with
-`#[cfg(test)]`, but instead with an optional `testutils` feature.
+In order to make `src/testutils` accessible outside the `src/` crate, they are not included with `#[cfg(test)]`, but
+instead with an optional `testutils` feature.
 
 ## Making a PR
 

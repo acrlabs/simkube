@@ -46,8 +46,9 @@ annotations:
   simkube.io/lifetime-seconds: <pod-lifetime> (if present in the trace)
 spec:
   tolerations:
-    - key: simkube.io/virtual-node
-      value: true
+    - key: kwok-provider
+      operator: Exists
+      effect: NoSchedule
   nodeSelector:
     type: virtual
 ```
