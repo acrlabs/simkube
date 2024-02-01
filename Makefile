@@ -17,12 +17,9 @@ RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
 include build/base.mk
 include build/k8s.mk
 
-skctl:
-	CGO_ENABLED=0 go build -trimpath -o $(BUILD_DIR)/skctl ./cli/
-
 RUST_BUILD_IMAGE ?= rust:buster
 
-$(RUST_ARTIFACTS):
+$(ARTIFACTS) skctl:
 	mkdir -p .build
 	docker run -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
