@@ -1,47 +1,14 @@
 name: code verification
 on: [push]
+env:
+  CARGO_INCREMENTAL: 0
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
+  IN_CI: "true"
+
 jobs:
-  build-go:
+  build:
     runs-on: ubuntu-latest
-    steps:
-      - name: Check out repo and build scripts
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Install Golang
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: go.mod
-      - name: Build
-        run: ARTIFACTS="sk-vnode sk-cloudprov" make build
-  verify-go:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repo and build scripts
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Install Golang
-        uses: actions/setup-go@v4
-        with:
-          go-version-file: go.mod
-      - name: Lint Go code
-        uses: golangci/golangci-lint-action@v3
-        with:
-          version: v1.53
-      - name: Test
-        run: make test-go cover-go
-      - name: Upload coverage
-        uses: actions/upload-artifact@v3
-        with:
-          name: go-coverage
-          path: .build/coverage/go-coverage.txt
-  build-rust:
-    runs-on: ubuntu-latest
-    env:
-      CARGO_INCREMENTAL: 0
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
@@ -50,13 +17,16 @@ jobs:
       - name: Run sccache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Build
-        run: ARTIFACTS="sk-ctrl sk-driver sk-tracer" make build
-  lint-rust:
+        run: make build
+      - name: Regenerate CRDs
+        run: .build/skctl crd > k8s/raw/simkube.io_simulations.yml
+      - name: Check CRDs are clean
+        uses: CatChen/check-git-status-action@v1
+        with:
+          fail-if-not-clean: true
+
+  lint:
     runs-on: ubuntu-latest
-    env:
-      CARGO_INCREMENTAL: 0
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
@@ -64,14 +34,15 @@ jobs:
           submodules: recursive
       - name: Run sccache
         uses: mozilla-actions/sccache-action@v0.0.3
+      - name: rustfmt nightly
+        run: |
+          rustup toolchain install nightly-x86_64-unknown-linux-gnu
+          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
       - name: Lint Rust code
-        run: cargo clippy -- -Dwarnings
-  test-rust:
+        run: make lint
+
+  test:
     runs-on: ubuntu-latest
-    env:
-      CARGO_INCREMENTAL: 0
-      SCCACHE_GHA_ENABLED: "true"
-      RUSTC_WRAPPER: sccache
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3
@@ -87,19 +58,17 @@ jobs:
       - name: Add llvm-tools
         run: rustup component add llvm-tools-preview
       - name: Test
-        run: make test-rust itest-rust cover-rust
-        env:
-          WITH_COVERAGE: "true"
+        run: make test cover
       - name: Upload coverage
         uses: actions/upload-artifact@v3
         with:
           name: rust-coverage
           path: .build/coverage/rust-coverage.lcov
+
   check-coverage:
     runs-on: ubuntu-latest
     needs:
-      - verify-go
-      - test-rust
+      - test
     steps:
       - name: Check out repo and build scripts
         uses: actions/checkout@v3

@@ -6,12 +6,6 @@ repos:
       - id: check-yaml
         args: ["--allow-multiple-documents"]
       - id: trailing-whitespace
-  - repo: https://github.com/TekWizely/pre-commit-golang
-    rev: v1.0.0-rc.1
-    hooks:
-      - id: go-fmt
-        args: ["-w"]
-      - id: golangci-lint-mod
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
@@ -31,11 +25,21 @@ repos:
       - id: fmt
         name: rust-fmt
         args: ['--', '--unstable-features']
-  - repo: https://github.com/asottile/reorder-python-imports
-    rev: v3.10.0
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.2
     hooks:
-      - id: reorder-python-imports
+      - id: isort
+        args:
+          - --sl
   - repo: https://github.com/PyCQA/flake8
     rev: 6.0.0
     hooks:
       - id: flake8
+  - repo: local
+    hooks:
+      - id: check-crds
+        name: Check Generated CRDs
+        language: system
+        entry: bash -c 'make crd && git diff --quiet'
+        pass_filenames: false
+        files: 'lib/api/v1/.*'
