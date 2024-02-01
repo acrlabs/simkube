@@ -450,9 +450,9 @@ checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
 
 [[package]]
 name = "bytes"
-version = "1.4.0"
+version = "1.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "89b2fd2a0dcf38d7971e2194b6b6eebab45ae01067456a7fd93d5547a61b70be"
+checksum = "a2bd12c1caf447e69cd4528f47f94d203fd2582878ecb9e9465484c4148a8223"
 
 [[package]]
 name = "castaway"
@@ -1821,6 +1821,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "parse_datetime"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3bbf4e25b13841080e018a1e666358adfe5e39b6d353f986ca5091c210b586a1"
+dependencies = [
+ "chrono",
+ "regex",
+]
+
+[[package]]
 name = "paste"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2669,6 +2679,7 @@ dependencies = [
  "anyhow",
  "assertables",
  "async-recursion",
+ "bytes",
  "chrono",
  "clap",
  "futures",
@@ -2679,6 +2690,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "mockall",
+ "parse_datetime",
  "paste",
  "regex",
  "reqwest",

@@ -5,6 +5,10 @@ edition = "2021"
 resolver = "2"
 
 [[bin]]
+name = "skctl"
+path = "cli/main.rs"
+
+[[bin]]
 name = "sk-ctrl"
 path = "ctrl/main.rs"
 
@@ -18,7 +22,7 @@ path = "tracer/main.rs"
 
 [lib]
 name = "simkube"
-path = "lib/rust/lib.rs"
+path = "src/lib.rs"
 
 [profile.dev.package."*"]
 debug = false
@@ -32,11 +36,13 @@ rstest = { version = "0.18.2", optional = true }
 
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
+bytes = "1.5.0"
 chrono = "0.4.26"
-clap = { version = "4.3.21", features = ["derive"] }
+clap = { version = "4.3.21", features = ["cargo", "derive"] }
 futures = "0.3.28"
 json-patch = "1.2.0"
 k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
+parse_datetime = "0.5.0"
 paste = "1.0.14"
 regex = "1.10.2"
 reqwest = { version = "0.11.18", default-features = false, features = ["json", "rustls-tls"] }

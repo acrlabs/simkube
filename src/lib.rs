@@ -16,6 +16,8 @@ pub mod prelude {
     pub use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 
     pub use crate::api::v1::{
+        ExportFilters,
+        ExportRequest,
         Simulation,
         SimulationRoot,
         SimulationRootSpec,

@@ -8,7 +8,7 @@ use serde::{
     Serialize,
 };
 
-#[derive(CustomResource, Serialize, Deserialize, Clone, Debug)]
+#[derive(CustomResource, Serialize, Deserialize, Clone, Debug, Default)]
 #[kube(group = "simkube.io", version = "v1", kind = "Simulation", plural = "simulations")]
 #[kube(status = "SimulationStatus")]
 #[kube(schema = "disabled")]
