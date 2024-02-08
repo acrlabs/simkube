@@ -12,7 +12,10 @@ use mockall::predicate;
 use tracing_test::*;
 
 use super::*;
-use crate::k8s::OwnersCache;
+use crate::k8s::{
+    ApiSet,
+    OwnersCache,
+};
 use crate::testutils::fake::make_fake_apiserver;
 use crate::testutils::*;
 
@@ -50,11 +53,11 @@ fn make_pod_watcher(
         HashMap::new()
     };
 
-    let (_, apiset) = make_fake_apiserver();
+    let (_, client) = make_fake_apiserver();
     PodWatcher::new_from_parts(
         stream::empty().boxed(),
         stored_pods,
-        OwnersCache::new(apiset),
+        OwnersCache::new(ApiSet::new(client)),
         Arc::new(Mutex::new(store)),
         clock,
     )
@@ -293,7 +296,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         .returning(|_, _, _, _| Ok(()))
         .once();
 
-    let (_, apiset) = make_fake_apiserver();
+    let (_, client) = make_fake_apiserver();
     let owners = HashMap::from([
         (pod_names[0].clone(), vec![]),
         (pod_names[1].clone(), vec![]),
@@ -301,7 +304,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
         (pod_names[3].clone(), vec![]),
     ]);
 
-    let cache = OwnersCache::new_from_parts(apiset, owners);
+    let cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
     let mut pw =
         PodWatcher::new_from_parts(stream::empty().boxed(), pod_lifecycles, cache, Arc::new(Mutex::new(store)), clock);
 

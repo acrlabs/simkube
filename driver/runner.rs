@@ -18,8 +18,6 @@ use simkube::k8s::{
 };
 use simkube::macros::*;
 use simkube::prelude::*;
-use tokio::runtime::Handle;
-use tokio::task::block_in_place;
 use tokio::time::sleep;
 use tracing::*;
 
@@ -140,14 +138,5 @@ impl TraceRunner {
         }
 
         Ok(())
-    }
-}
-
-impl Drop for TraceRunner {
-    fn drop(&mut self) {
-        info!("cleaning up simulation {}", self.ctx.name);
-        let roots_api: kube::Api<SimulationRoot> = kube::Api::all(self.client.clone());
-        let _ =
-            block_in_place(|| Handle::current().block_on(roots_api.delete(&self.root.name_any(), &Default::default())));
     }
 }

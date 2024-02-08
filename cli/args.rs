@@ -1,5 +1,6 @@
 use clap::Args;
 use reqwest::Url;
+use simkube::prelude::*;
 use simkube::time;
 
 #[derive(Args)]
@@ -60,6 +61,20 @@ pub struct Run {
 
     #[arg(long_help = "namespace to launch sk-driver in", long, default_value = "simkube")]
     pub driver_namespace: String,
+
+    #[arg(
+        long_help = "namespace to launch monitoring utilities in",
+        long,
+        default_value = DEFAULT_MONITORING_NS,
+    )]
+    pub monitoring_namespace: String,
+
+    #[arg(
+        long_help = "service account with monitoring permissions",
+        long,
+        default_value = DEFAULT_PROM_SVC_ACCOUNT,
+    )]
+    pub prometheus_service_account: String,
 
     #[arg(
         long_help = "location of the trace file for sk-driver to read",

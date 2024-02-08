@@ -34,12 +34,19 @@ This package provides the following components:
 
 ### Prerequisites
 
+The following prereqs are required for all components:
+
 - Rust >= 1.71 (needed if you want to build outside of Docker)
 - Docker
 - kubectl >= 1.27
 - Kubernetes >= 1.27
+
+Additional prerequisites are necessary for your simulation cluster:
+
 - [KWOK](https://kwok.sigs.k8s.io) >= 0.4.0
 - [CertManager](https://cert-manager.io) for setting up mutating webhook certificates
+- [The Promtheus operator](https://github.com/prometheus-operator/prometheus-operator); we recommend configuring this
+  via the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) project
 
 ### Optional Prerequisites
 

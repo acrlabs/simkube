@@ -9,7 +9,6 @@ CARGO_TEST_PREFIX=$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-
 RUST_COVER_TYPE ?= lcov
 DOCKER_ARGS=
 else
-CARGO_TEST_PREFIX=$(CARGO_HOME_ENV)
 RUST_COVER_TYPE=markdown
 DOCKER_ARGS=-it
 endif
@@ -38,8 +37,8 @@ $(ARTIFACTS)::
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
 lint:
-	$(CARGO_HOME_ENV) cargo +nightly fmt
-	$(CARGO_HOME_ENV) cargo clippy
+	cargo +nightly fmt
+	cargo clippy
 
 test: test-unit test-int
 
@@ -47,7 +46,7 @@ test: test-unit test-int
 test-unit:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) $(patsubst %, --bin %, $(RUST_ARTIFACTS)) --lib -- --nocapture --skip itest
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) $(patsubst %, --bin %, $(ARTIFACTS) $(EXTRA_BUILD_ARTIFACTS)) --lib -- --nocapture --skip itest
 
 .PHONY: test-int
 test-int:
@@ -60,7 +59,7 @@ cover:
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
 		--ignore '*/testutils/*' \
-		--ignore '*/rust/api/v1/*' \
+		--ignore '*/src/api/v1/*' \
 		--ignore '.build/cargo/*' \
 		--ignore 'hack/*' \
 		--excl-line '#\[derive' \

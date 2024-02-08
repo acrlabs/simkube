@@ -30,7 +30,7 @@ fn ctx(
     #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>,
     #[default(MockTraceStore::new())] store: MockTraceStore,
 ) -> DriverContext {
-    let (_, apiset) = make_fake_apiserver();
+    let (_, client) = make_fake_apiserver();
     let mut owners = HashMap::new();
     owners.insert(test_pod.namespaced_name(), pod_owners);
 
@@ -38,7 +38,7 @@ fn ctx(
         name: TEST_SIM_NAME.into(),
         sim_root: TEST_SIM_ROOT_NAME.into(),
         virtual_ns_prefix: "virtual".into(),
-        owners_cache: Arc::new(Mutex::new(OwnersCache::new_from_parts(apiset, owners))),
+        owners_cache: Arc::new(Mutex::new(OwnersCache::new_from_parts(ApiSet::new(client), owners))),
         store: Arc::new(store),
     }
 }
