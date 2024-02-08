@@ -21,7 +21,11 @@ include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:buster
 
-$(ARTIFACTS) $(EXTRA_BUILD_ARTIFACTS)::
+$(EXTRA_BUILD_ARTIFACTS)::
+	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$@ --color=always
+	cp $(BUILD_DIR)/debug/$@ $(BUILD_DIR)/.
+
+$(ARTIFACTS)::
 	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
 %-docker:

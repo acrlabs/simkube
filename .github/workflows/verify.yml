@@ -7,6 +7,23 @@ env:
   IN_CI: "true"
 
 jobs:
+  skctl:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - name: Check out repo and build scripts
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Build skctl
+        run: make skctl
+      - name: Check version
+        run: .build/skctl --version
+
   build:
     runs-on: ubuntu-latest
     steps:
