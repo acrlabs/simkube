@@ -1,7 +1,9 @@
 FROM debian:buster-slim
 
 RUN apt-get update && apt-get install -y \
+    curl \
     dumb-init \
+    iputils-ping \
     rust-gdb
 
 COPY sk-ctrl /sk-ctrl

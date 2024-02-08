@@ -25,6 +25,12 @@ spec:
             properties:
               driverNamespace:
                 type: string
+              monitoringNamespace:
+                default: monitoring
+                type: string
+              prometheusServiceAccount:
+                default: prometheus-k8s
+                type: string
               trace:
                 type: string
             required:

@@ -4,9 +4,6 @@ use httpmock::{
     When,
 };
 use serde_json::json;
-use tracing::*;
-
-use crate::k8s::ApiSet;
 
 pub struct MockServerBuilder {
     server: MockServer,
@@ -14,7 +11,8 @@ pub struct MockServerBuilder {
 }
 
 fn print_req(req: &HttpMockRequest) -> bool {
-    info!("Received: {req:?}");
+    // Use println instead of info! so that this works outside of the lib crate
+    println!("Received: {req:?}");
     true
 }
 
@@ -49,7 +47,7 @@ impl MockServerBuilder {
     }
 }
 
-pub fn make_fake_apiserver() -> (MockServerBuilder, ApiSet) {
+pub fn make_fake_apiserver() -> (MockServerBuilder, kube::Client) {
     let builder = MockServerBuilder::new();
     let config = kube::Config {
         cluster_url: builder.url(),
@@ -65,7 +63,7 @@ pub fn make_fake_apiserver() -> (MockServerBuilder, ApiSet) {
     };
 
     let client = kube::Client::try_from(config).unwrap();
-    (builder, ApiSet::new(client))
+    (builder, client)
 }
 
 

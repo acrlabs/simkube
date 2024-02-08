@@ -107,7 +107,7 @@ pub(super) fn build_driver_job(
     Ok(batchv1::Job {
         metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, owner)?,
         spec: Some(batchv1::JobSpec {
-            backoff_limit: Some(1),
+            backoff_limit: Some(0),
             template: corev1::PodTemplateSpec {
                 spec: Some(corev1::PodSpec {
                     containers: vec![corev1::Container {
