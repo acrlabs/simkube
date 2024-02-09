@@ -1,5 +1,5 @@
-ARTIFACTS=sk-ctrl sk-driver sk-tracer
-EXTRA_BUILD_ARTIFACTS=skctl
+ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
+EXTRA_BUILD_ARTIFACTS ?= skctl
 
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 CARGO_HOME_ENV=CARGO_HOME=$(BUILD_DIR)/cargo
@@ -21,8 +21,13 @@ include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:buster
 
+# This is sorta subtle; the three "main" artifacts get built inside docker containers
+# to ensure that they are built against the right libs that they'll be running on in
+# the cluster.  So for those we share CARGO_HOME_ENV, which needs to be in $(BUILD_DIR)
+# so we have a known location for it.  This is _not_ built in a docker container so that
+# because it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
 $(EXTRA_BUILD_ARTIFACTS)::
-	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$@ --color=always
+	cargo build --target-dir=$(BUILD_DIR) --bin=$@ --color=always
 	cp $(BUILD_DIR)/debug/$@ $(BUILD_DIR)/.
 
 $(ARTIFACTS)::
