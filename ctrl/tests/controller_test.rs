@@ -42,7 +42,7 @@ async fn test_fetch_driver_status_no_driver(sim: Simulation, opts: Options) {
     });
     fake_apiserver.build();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
-    assert_eq!(DriverStatus::Waiting, fetch_driver_status(&ctx).await.unwrap());
+    assert_eq!(DriverState::Initializing, fetch_driver_status(&ctx).await.unwrap().0);
 }
 
 #[rstest]
@@ -55,7 +55,7 @@ async fn test_fetch_driver_status_driver_no_status(sim: Simulation, opts: Option
     });
     fake_apiserver.build();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
-    assert_eq!(DriverStatus::Running, fetch_driver_status(&ctx).await.unwrap());
+    assert_eq!(DriverState::Running, fetch_driver_status(&ctx).await.unwrap().0);
 }
 
 #[rstest]
@@ -72,7 +72,7 @@ async fn test_fetch_driver_status_driver_running(sim: Simulation, opts: Options)
     });
     fake_apiserver.build();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
-    assert_eq!(DriverStatus::Running, fetch_driver_status(&ctx).await.unwrap());
+    assert_eq!(DriverState::Running, fetch_driver_status(&ctx).await.unwrap().0);
 }
 
 #[rstest]
@@ -80,6 +80,7 @@ async fn test_fetch_driver_status_driver_running(sim: Simulation, opts: Options)
 #[case("Failed")]
 #[tokio::test]
 async fn test_fetch_driver_status_driver_finished(sim: Simulation, opts: Options, #[case] status: &'static str) {
+    let expected_state = if status == "Completed" { DriverState::Finished } else { DriverState::Failed };
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle(move |when, then| {
         when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/sk-testing-driver"));
@@ -91,5 +92,5 @@ async fn test_fetch_driver_status_driver_finished(sim: Simulation, opts: Options
     });
     fake_apiserver.build();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
-    assert_eq!(DriverStatus::Finished, fetch_driver_status(&ctx).await.unwrap());
+    assert_eq!(expected_state, fetch_driver_status(&ctx).await.unwrap().0);
 }
