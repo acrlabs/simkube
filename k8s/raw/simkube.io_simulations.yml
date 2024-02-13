@@ -15,7 +15,19 @@ spec:
     singular: simulation
   scope: Cluster
   versions:
-  - additionalPrinterColumns: []
+  - additionalPrinterColumns:
+    - description: simulation driver start time
+      jsonPath: .status.startTime
+      name: start time
+      type: string
+    - description: simulation driver end time
+      jsonPath: .status.endTime
+      name: end time
+      type: string
+    - description: simulation state
+      jsonPath: .status.state
+      name: state
+      type: string
     name: v1
     schema:
       openAPIV3Schema:
@@ -39,6 +51,18 @@ spec:
             type: object
           status:
             nullable: true
+            properties:
+              endTime:
+                format: date-time
+                nullable: true
+                type: string
+              startTime:
+                format: date-time
+                nullable: true
+                type: string
+              state:
+                nullable: true
+                type: string
             type: object
         required:
         - spec

@@ -1,3 +1,7 @@
+use chrono::{
+    DateTime,
+    Utc,
+};
 use kube::CustomResource;
 use schemars::JsonSchema;
 use serde::{
@@ -5,7 +9,7 @@ use serde::{
     Serialize,
 };
 
-use crate::constants::*;
+use crate::prelude::*;
 
 pub fn default_monitoring_ns() -> String {
     DEFAULT_MONITORING_NS.into()
@@ -19,6 +23,11 @@ pub fn default_prom_svc_acct() -> String {
 #[kube(group = "simkube.io", version = "v1", kind = "Simulation")]
 #[kube(shortname = "sim", shortname = "sims")]
 #[kube(status = "SimulationStatus")]
+#[kube(
+    printcolumn = r#"{"name":"start time", "type":"string", "description":"simulation driver start time", "jsonPath":".status.startTime"}"#,
+    printcolumn = r#"{"name":"end time", "type":"string", "description":"simulation driver end time", "jsonPath":".status.endTime"}"#,
+    printcolumn = r#"{"name":"state", "type":"string", "description":"simulation state", "jsonPath":".status.state"}"#
+)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationSpec {
     pub driver_namespace: String,
@@ -30,4 +39,9 @@ pub struct SimulationSpec {
 }
 
 #[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
-pub struct SimulationStatus {}
+#[serde(rename_all = "camelCase")]
+pub struct SimulationStatus {
+    pub start_time: Option<DateTime<Utc>>,
+    pub end_time: Option<DateTime<Utc>>,
+    pub state: Option<String>,
+}

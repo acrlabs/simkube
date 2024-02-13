@@ -1,11 +1,21 @@
 use std::ops::Deref;
 use std::sync::Arc;
 
-use anyhow::bail;
+use anyhow::{
+    anyhow,
+    bail,
+};
+use chrono::{
+    DateTime,
+    Utc,
+};
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
+use kube::api::Patch;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
+use serde::Serialize;
+use serde_json::json;
 use simkube::errors::*;
 use simkube::k8s::label_selector;
 use simkube::metrics::api::{
@@ -24,11 +34,12 @@ const REQUEUE_DURATION: Duration = Duration::from_secs(5);
 const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(300);
 const KSM_SVC_MON_NAME: &str = "kube-state-metrics-fine-grained";
 
-#[derive(Debug, Eq, PartialEq)]
-pub enum DriverStatus {
-    Waiting,
+#[derive(Debug, Eq, PartialEq, Serialize)]
+pub enum DriverState {
+    Initializing,
     Running,
     Finished,
+    Failed,
 }
 
 async fn setup_sim_root(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
@@ -43,24 +54,31 @@ async fn setup_sim_root(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Re
     }
 }
 
-pub(super) async fn fetch_driver_status(ctx: &SimulationContext) -> anyhow::Result<DriverStatus> {
+pub(super) async fn fetch_driver_status(
+    ctx: &SimulationContext,
+) -> anyhow::Result<(DriverState, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
     // TODO should check if there are any other simulations running and block/wait until
     // they're done before proceeding
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    let (mut state, mut start_time, mut end_time) = (DriverState::Initializing, None, None);
+
     if let Some(driver) = jobs_api.get_opt(&ctx.driver_name).await? {
-        if driver.status.is_some_and(|s| {
-            s.conditions
+        state = DriverState::Running;
+        if let Some(status) = driver.status {
+            start_time = status.start_time.map(|t| t.0);
+            if let Some(cond) = status
+                .conditions
                 .unwrap_or_default()
                 .iter()
-                .any(|cond| cond.type_ == "Completed" || cond.type_ == "Failed")
-        }) {
-            Ok(DriverStatus::Finished)
-        } else {
-            Ok(DriverStatus::Running)
+                .find(|cond| cond.type_ == "Completed" || cond.type_ == "Failed")
+            {
+                end_time = cond.last_transition_time.as_ref().map(|t| t.0);
+                state = if cond.type_ == "Completed" { DriverState::Finished } else { DriverState::Failed };
+            }
         }
-    } else {
-        Ok(DriverStatus::Waiting)
     }
+
+    Ok((state, start_time, end_time))
 }
 
 async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &SimulationRoot) -> anyhow::Result<Action> {
@@ -175,10 +193,27 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
     let ctx = ctx.with_sim(sim);
 
     let root = setup_sim_root(&ctx, sim).await?;
-    match fetch_driver_status(&ctx).await? {
-        DriverStatus::Waiting => setup_driver(&ctx, sim, &root).await.map_err(|e| e.into()),
-        DriverStatus::Running => Ok(Action::await_change()),
-        DriverStatus::Finished => {
+    let (driver_state, start_time, end_time) = fetch_driver_status(&ctx).await?;
+
+    let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());
+    sim_api
+        .patch_status(
+            &sim.name_any(),
+            &Default::default(),
+            &Patch::Merge(json!({
+            "status": {
+                "startTime": start_time,
+                "endTime": end_time,
+                "state": driver_state,
+            }})),
+        )
+        .await
+        .map_err(|e| anyhow!(e))?;
+
+    match driver_state {
+        DriverState::Initializing => setup_driver(&ctx, sim, &root).await.map_err(|e| e.into()),
+        DriverState::Running => Ok(Action::await_change()),
+        DriverState::Finished | DriverState::Failed => {
             cleanup(&ctx).await;
             Ok(Action::await_change())
         },
