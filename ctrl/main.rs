@@ -1,5 +1,6 @@
 mod cert_manager;
 mod controller;
+mod metrics;
 mod objects;
 mod trace;
 
@@ -69,6 +70,9 @@ err_impl! {SkControllerError,
     #[error("configmap {0} not found")]
     ConfigmapNotFound(String),
 
+    #[error("missing status field: {0}")]
+    MissingStatusField(String),
+
     #[error("namespace {0} not found")]
     NamespaceNotFound(String),
 }
@@ -84,6 +88,7 @@ struct SimulationContext {
     driver_name: String,
     driver_svc: String,
     prometheus_name: String,
+    prometheus_svc: String,
     webhook_name: String,
 }
 
@@ -98,6 +103,7 @@ impl SimulationContext {
             driver_name: String::new(),
             driver_svc: String::new(),
             prometheus_name: String::new(),
+            prometheus_svc: String::new(),
             webhook_name: String::new(),
         }
     }
@@ -109,7 +115,8 @@ impl SimulationContext {
         new.driver_name = format!("sk-{}-driver", new.name);
         new.driver_ns = sim.spec.driver_namespace.clone();
         new.driver_svc = format!("sk-{}-driver-svc", new.name);
-        new.prometheus_name = format!("sk-{}", new.name);
+        new.prometheus_name = format!("sk-{}-prom", new.name);
+        new.prometheus_svc = format!("sk-{}-prom-svc", new.name);
         new.webhook_name = format!("sk-{}-mutatepods", new.name);
 
         new

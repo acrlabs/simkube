@@ -6,6 +6,7 @@ pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "simkube.io/original-namespace";
 pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
+pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 
 // Taint/toleration key
 pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
