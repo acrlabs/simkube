@@ -21,13 +21,18 @@ use simkube::k8s::{
     split_namespaced_name,
 };
 use simkube::metrics::api::*;
-use simkube::metrics::export::export_metrics;
 use simkube::prelude::*;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 use tokio::time::Duration;
 
 use super::*;
+use crate::metrics::export::export_metrics;
+use crate::metrics::objects::{
+    build_ksm_service_monitor,
+    build_prometheus,
+    build_prometheus_service,
+};
 
 const REQUEUE_DURATION: Duration = Duration::from_secs(5);
 const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(30);
@@ -120,17 +125,25 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
         },
     }
 
+    let prom_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
+    if prom_svc_api.get_opt(&ctx.prometheus_svc).await?.is_none() {
+        info!("creating prometheus service {}", &ctx.prometheus_svc);
+        let obj = build_prometheus_service(&ctx.prometheus_svc, sim)?;
+        prom_svc_api.create(&Default::default(), &obj).await?;
+    }
+
     if !prom_ready {
         info!("waiting for prometheus to be ready");
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
 
+
     // Set up the webhook
-    let svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
-    if svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
+    let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    if driver_svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
         info!("creating driver service {}", &ctx.driver_svc);
         let obj = build_driver_service(ctx, root)?;
-        svc_api.create(&Default::default(), &obj).await?;
+        driver_svc_api.create(&Default::default(), &obj).await?;
     }
 
     if ctx.opts.use_cert_manager {
@@ -169,7 +182,6 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
 async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
     let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
-    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
 
     info!("cleaning up simulation {}", ctx.name);
     if let Err(e) = roots_api.delete(&ctx.root, &Default::default()).await {
@@ -179,10 +191,6 @@ async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     info!("cleaning up prometheus resources");
     if let Err(e) = svc_mon_api.delete(KSM_SVC_MON_NAME, &Default::default()).await {
         error!("Error cleaning up Prometheus service monitor configuration: {e:?}");
-    }
-
-    if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
-        error!("Error cleaning up Prometheus: {e:?}");
     }
 }
 
@@ -214,7 +222,7 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
         SimulationState::Initializing => setup_driver(&ctx, sim, &root).await.map_err(|e| e.into()),
         SimulationState::Running => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
-            export_metrics(ctx.client.clone(), sim).await?;
+            export_metrics(&ctx, sim).await?;
             cleanup(&ctx, sim).await;
             Ok(Action::await_change())
         },
