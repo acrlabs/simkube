@@ -8,8 +8,9 @@ pub async fn cmd(args: &args::Run) -> EmptyResult {
         &args.name,
         SimulationSpec {
             driver_namespace: args.driver_namespace.clone(),
-            monitoring_namespace: args.monitoring_namespace.clone(),
-            prometheus_service_account: args.prometheus_service_account.clone(),
+            metric_query_configmap: args.metric_query_configmap.clone(),
+            monitoring_namespace: Some(args.monitoring_namespace.clone()),
+            prometheus_service_account: Some(args.prometheus_service_account.clone()),
             trace: args.trace_file.clone(),
         },
     );

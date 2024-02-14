@@ -17,5 +17,6 @@ pub use simulation_roots::{
 pub use simulations::{
     Simulation,
     SimulationSpec,
+    SimulationState,
     SimulationStatus,
 };

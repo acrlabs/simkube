@@ -23,6 +23,7 @@ pub mod prelude {
         SimulationRoot,
         SimulationRootSpec,
         SimulationSpec,
+        SimulationState,
         SimulationStatus,
     };
     pub use crate::config::*;

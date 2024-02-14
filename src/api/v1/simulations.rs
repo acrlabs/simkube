@@ -11,12 +11,14 @@ use serde::{
 
 use crate::prelude::*;
 
-pub fn default_monitoring_ns() -> String {
-    DEFAULT_MONITORING_NS.into()
-}
-
-pub fn default_prom_svc_acct() -> String {
-    DEFAULT_PROM_SVC_ACCOUNT.into()
+#[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
+pub enum SimulationState {
+    Blocked,
+    Initializing,
+    Finished,
+    Failed,
+    Retrying,
+    Running,
 }
 
 #[derive(Clone, CustomResource, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -31,17 +33,30 @@ pub fn default_prom_svc_acct() -> String {
 #[serde(rename_all = "camelCase")]
 pub struct SimulationSpec {
     pub driver_namespace: String,
-    #[serde(default = "default_monitoring_ns")]
-    pub monitoring_namespace: String,
-    #[serde(default = "default_prom_svc_acct")]
-    pub prometheus_service_account: String,
+    pub metric_query_configmap: String,
+    pub monitoring_namespace: Option<String>,
+    pub prometheus_service_account: Option<String>,
     pub trace: String,
 }
 
-#[derive(Clone, Debug, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationStatus {
+    pub observed_generation: i64,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
-    pub state: Option<String>,
+    pub state: Option<SimulationState>,
+}
+
+impl Simulation {
+    pub fn monitoring_ns(&self) -> String {
+        self.spec.monitoring_namespace.clone().unwrap_or(DEFAULT_MONITORING_NS.into())
+    }
+
+    pub fn prom_svc_account(&self) -> String {
+        self.spec
+            .prometheus_service_account
+            .clone()
+            .unwrap_or(DEFAULT_PROM_SVC_ACCOUNT.into())
+    }
 }
