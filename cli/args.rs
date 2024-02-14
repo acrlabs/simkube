@@ -63,6 +63,13 @@ pub struct Run {
     pub driver_namespace: String,
 
     #[arg(
+        long_help = "namespaced name of configmap containing PromQL queries to execute at the end of the simulation",
+        long,
+        default_value = "simkube/queries"
+    )]
+    pub metric_query_configmap: String,
+
+    #[arg(
         long_help = "namespace to launch monitoring utilities in",
         long,
         default_value = DEFAULT_MONITORING_NS,

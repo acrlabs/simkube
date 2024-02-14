@@ -10,13 +10,18 @@ use clap::Parser;
 use futures::{
     future,
     StreamExt,
+    TryStreamExt,
 };
 use k8s_openapi::api::batch::v1 as batchv1;
 use kube::runtime::controller::Controller;
+use kube::runtime::{
+    reflector,
+    watcher,
+    WatchStreamExt,
+};
 use kube::ResourceExt;
+use simkube::errors::*;
 use simkube::prelude::*;
-use thiserror::Error;
-use tracing::*;
 
 use crate::controller::{
     error_policy,
@@ -60,6 +65,14 @@ impl Deref for AnyhowError {
     }
 }
 
+err_impl! {SkControllerError,
+    #[error("configmap {0} not found")]
+    ConfigmapNotFound(String),
+
+    #[error("namespace {0} not found")]
+    NamespaceNotFound(String),
+}
+
 #[derive(Clone)]
 struct SimulationContext {
     client: kube::Client,
@@ -70,7 +83,6 @@ struct SimulationContext {
     driver_ns: String,
     driver_name: String,
     driver_svc: String,
-    monitoring_ns: String,
     prometheus_name: String,
     webhook_name: String,
 }
@@ -85,7 +97,6 @@ impl SimulationContext {
             driver_ns: String::new(),
             driver_name: String::new(),
             driver_svc: String::new(),
-            monitoring_ns: String::new(),
             prometheus_name: String::new(),
             webhook_name: String::new(),
         }
@@ -98,7 +109,6 @@ impl SimulationContext {
         new.driver_name = format!("sk-{}-driver", new.name);
         new.driver_ns = sim.spec.driver_namespace.clone();
         new.driver_svc = format!("sk-{}-driver-svc", new.name);
-        new.monitoring_ns = sim.spec.monitoring_namespace.clone();
         new.prometheus_name = format!("sk-{}", new.name);
         new.webhook_name = format!("sk-{}-mutatepods", new.name);
 
@@ -112,7 +122,27 @@ async fn run(opts: Options) -> EmptyResult {
     let sim_api = kube::Api::<Simulation>::all(client.clone());
     let job_api = kube::Api::<batchv1::Job>::all(client.clone());
 
-    let ctrl = Controller::new(sim_api, Default::default())
+    let (reader, writer) = reflector::store();
+    let sim_stream = watcher(sim_api, Default::default())
+        .default_backoff()
+        .reflect(writer)
+        .applied_objects()
+        .try_filter(|evt| {
+            future::ready(
+                // Use the "observed generation" field to filter out status updates
+                //
+                // This conceivably could cause the controller to miss some things if somehow
+                // one or the other of the "default"/unwrap_or values gets injected in the
+                // wrong place.  Guess we'll see if that happens.
+                //
+                // I'm not using the predicate::generation filter because this causes the
+                // controller to miss events if I delete and recreate the same object.
+                evt.status.as_ref().unwrap_or(&Default::default()).observed_generation
+                    != evt.metadata.generation.unwrap_or(1),
+            )
+        });
+
+    let ctrl = Controller::for_stream(sim_stream, reader)
         .owns(job_api, Default::default())
         .run(reconcile, error_policy, Arc::new(SimulationContext::new(client, opts)))
         .for_each(|_| future::ready(()));

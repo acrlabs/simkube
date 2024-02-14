@@ -33,7 +33,7 @@ pub fn build_ksm_service_monitor(name: &str, sim: &Simulation) -> anyhow::Result
     //
     // with the interval and scrape_timeout changed.  We may need to
     // adjust this more in the future.
-    let mut metadata = build_object_meta(&sim.spec.monitoring_namespace, name, &sim.name_any(), sim)?;
+    let mut metadata = build_object_meta(&sim.monitoring_ns(), name, &sim.name_any(), sim)?;
     metadata
         .labels
         .get_or_insert(BTreeMap::new())
@@ -77,14 +77,14 @@ pub fn build_ksm_service_monitor(name: &str, sim: &Simulation) -> anyhow::Result
 
 pub fn build_prometheus(name: &str, svc_mon_selector: &str, sim: &Simulation) -> anyhow::Result<Prometheus> {
     Ok(Prometheus {
-        metadata: build_object_meta(&sim.spec.monitoring_namespace, name, &sim.name_any(), sim)?,
+        metadata: build_object_meta(&sim.monitoring_ns(), name, &sim.name_any(), sim)?,
         spec: PrometheusSpec {
             image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
             service_monitor_selector: Some(metav1::LabelSelector {
                 match_labels: Some(BTreeMap::from([(APP_KUBERNETES_IO_NAME_KEY.into(), svc_mon_selector.into())])),
                 ..Default::default()
             }),
-            service_account_name: Some(sim.spec.prometheus_service_account.clone()),
+            service_account_name: Some(sim.prom_svc_account()),
             version: Some(PROM_VERSION.into()),
             ..Default::default()
         },

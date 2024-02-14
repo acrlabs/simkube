@@ -37,16 +37,19 @@ spec:
             properties:
               driverNamespace:
                 type: string
+              metricQueryConfigmap:
+                type: string
               monitoringNamespace:
-                default: monitoring
+                nullable: true
                 type: string
               prometheusServiceAccount:
-                default: prometheus-k8s
+                nullable: true
                 type: string
               trace:
                 type: string
             required:
             - driverNamespace
+            - metricQueryConfigmap
             - trace
             type: object
           status:
@@ -56,13 +59,25 @@ spec:
                 format: date-time
                 nullable: true
                 type: string
+              observedGeneration:
+                format: int64
+                type: integer
               startTime:
                 format: date-time
                 nullable: true
                 type: string
               state:
+                enum:
+                - Blocked
+                - Initializing
+                - Finished
+                - Failed
+                - Retrying
+                - Running
                 nullable: true
                 type: string
+            required:
+            - observedGeneration
             type: object
         required:
         - spec
