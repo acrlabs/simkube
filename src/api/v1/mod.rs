@@ -16,6 +16,7 @@ pub use simulation_roots::{
 };
 pub use simulations::{
     Simulation,
+    SimulationMetricsConfig,
     SimulationSpec,
     SimulationState,
     SimulationStatus,

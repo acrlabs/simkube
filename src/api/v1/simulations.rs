@@ -9,6 +9,7 @@ use serde::{
     Serialize,
 };
 
+use crate::metrics::api::prometheus::PrometheusRemoteWrite;
 use crate::prelude::*;
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
@@ -19,6 +20,14 @@ pub enum SimulationState {
     Failed,
     Retrying,
     Running,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationMetricsConfig {
+    pub namespace: Option<String>,
+    pub service_account: Option<String>,
+    pub remote_write_configs: Vec<PrometheusRemoteWrite>,
 }
 
 #[derive(Clone, CustomResource, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -33,9 +42,7 @@ pub enum SimulationState {
 #[serde(rename_all = "camelCase")]
 pub struct SimulationSpec {
     pub driver_namespace: String,
-    pub metric_query_configmap: String,
-    pub monitoring_namespace: Option<String>,
-    pub prometheus_service_account: Option<String>,
+    pub metrics_config: Option<SimulationMetricsConfig>,
     pub trace: String,
 }
 
@@ -49,14 +56,17 @@ pub struct SimulationStatus {
 }
 
 impl Simulation {
-    pub fn monitoring_ns(&self) -> String {
-        self.spec.monitoring_namespace.clone().unwrap_or(DEFAULT_MONITORING_NS.into())
+    pub fn metrics_ns(&self) -> String {
+        match &self.spec.metrics_config {
+            Some(SimulationMetricsConfig { namespace: Some(ns), .. }) => ns.clone(),
+            _ => DEFAULT_METRICS_NS.into(),
+        }
     }
 
-    pub fn prom_svc_account(&self) -> String {
-        self.spec
-            .prometheus_service_account
-            .clone()
-            .unwrap_or(DEFAULT_PROM_SVC_ACCOUNT.into())
+    pub fn metrics_svc_account(&self) -> String {
+        match &self.spec.metrics_config {
+            Some(SimulationMetricsConfig { service_account: Some(sa), .. }) => sa.clone(),
+            _ => DEFAULT_METRICS_SVC_ACCOUNT.into(),
+        }
     }
 }

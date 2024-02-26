@@ -63,25 +63,18 @@ pub struct Run {
     pub driver_namespace: String,
 
     #[arg(
-        long_help = "namespaced name of configmap containing PromQL queries to execute at the end of the simulation",
-        long,
-        default_value = "simkube/queries"
-    )]
-    pub metric_query_configmap: String,
-
-    #[arg(
         long_help = "namespace to launch monitoring utilities in",
         long,
-        default_value = DEFAULT_MONITORING_NS,
+        default_value = DEFAULT_METRICS_NS,
     )]
-    pub monitoring_namespace: String,
+    pub metrics_namespace: String,
 
     #[arg(
         long_help = "service account with monitoring permissions",
         long,
-        default_value = DEFAULT_PROM_SVC_ACCOUNT,
+        default_value = DEFAULT_METRICS_SVC_ACCOUNT,
     )]
-    pub prometheus_service_account: String,
+    pub metrics_service_account: String,
 
     #[arg(
         long_help = "location of the trace file for sk-driver to read",
