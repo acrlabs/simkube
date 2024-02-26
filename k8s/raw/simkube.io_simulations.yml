@@ -37,19 +37,403 @@ spec:
             properties:
               driverNamespace:
                 type: string
-              metricQueryConfigmap:
-                type: string
-              monitoringNamespace:
+              metricsConfig:
                 nullable: true
-                type: string
-              prometheusServiceAccount:
-                nullable: true
-                type: string
+                properties:
+                  namespace:
+                    nullable: true
+                    type: string
+                  remoteWriteConfigs:
+                    items:
+                      properties:
+                        authorization:
+                          nullable: true
+                          properties:
+                            credentials:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            credentialsFile:
+                              nullable: true
+                              type: string
+                            type:
+                              nullable: true
+                              type: string
+                          type: object
+                        basicAuth:
+                          nullable: true
+                          properties:
+                            password:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            username:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                          type: object
+                        bearerToken:
+                          nullable: true
+                          type: string
+                        bearerTokenFile:
+                          nullable: true
+                          type: string
+                        headers:
+                          additionalProperties:
+                            type: string
+                          nullable: true
+                          type: object
+                        metadataConfig:
+                          nullable: true
+                          properties:
+                            send:
+                              nullable: true
+                              type: boolean
+                            sendInterval:
+                              nullable: true
+                              type: string
+                          type: object
+                        name:
+                          nullable: true
+                          type: string
+                        oauth2:
+                          nullable: true
+                          properties:
+                            clientId:
+                              properties:
+                                configMap:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                secret:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                              type: object
+                            clientSecret:
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            endpointParams:
+                              additionalProperties:
+                                type: string
+                              nullable: true
+                              type: object
+                            scopes:
+                              items:
+                                type: string
+                              nullable: true
+                              type: array
+                            tokenUrl:
+                              type: string
+                          required:
+                          - clientId
+                          - clientSecret
+                          - tokenUrl
+                          type: object
+                        proxyUrl:
+                          nullable: true
+                          type: string
+                        queueConfig:
+                          nullable: true
+                          properties:
+                            batchSendDeadline:
+                              nullable: true
+                              type: string
+                            capacity:
+                              format: int64
+                              nullable: true
+                              type: integer
+                            maxBackoff:
+                              nullable: true
+                              type: string
+                            maxRetries:
+                              format: int64
+                              nullable: true
+                              type: integer
+                            maxSamplesPerSend:
+                              format: int64
+                              nullable: true
+                              type: integer
+                            maxShards:
+                              format: int64
+                              nullable: true
+                              type: integer
+                            minBackoff:
+                              nullable: true
+                              type: string
+                            minShards:
+                              format: int64
+                              nullable: true
+                              type: integer
+                            retryOnRateLimit:
+                              nullable: true
+                              type: boolean
+                          type: object
+                        remoteTimeout:
+                          nullable: true
+                          type: string
+                        sendExemplars:
+                          nullable: true
+                          type: boolean
+                        sendNativeHistograms:
+                          nullable: true
+                          type: boolean
+                        sigv4:
+                          nullable: true
+                          properties:
+                            accessKey:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            profile:
+                              nullable: true
+                              type: string
+                            region:
+                              nullable: true
+                              type: string
+                            roleArn:
+                              nullable: true
+                              type: string
+                            secretKey:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                          type: object
+                        tlsConfig:
+                          nullable: true
+                          properties:
+                            ca:
+                              nullable: true
+                              properties:
+                                configMap:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                secret:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                              type: object
+                            caFile:
+                              nullable: true
+                              type: string
+                            cert:
+                              nullable: true
+                              properties:
+                                configMap:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                                secret:
+                                  nullable: true
+                                  properties:
+                                    key:
+                                      type: string
+                                    name:
+                                      nullable: true
+                                      type: string
+                                    optional:
+                                      nullable: true
+                                      type: boolean
+                                  required:
+                                  - key
+                                  type: object
+                              type: object
+                            certFile:
+                              nullable: true
+                              type: string
+                            insecureSkipVerify:
+                              nullable: true
+                              type: boolean
+                            keyFile:
+                              nullable: true
+                              type: string
+                            keySecret:
+                              nullable: true
+                              properties:
+                                key:
+                                  type: string
+                                name:
+                                  nullable: true
+                                  type: string
+                                optional:
+                                  nullable: true
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                            serverName:
+                              nullable: true
+                              type: string
+                          type: object
+                        url:
+                          type: string
+                        writeRelabelConfigs:
+                          items:
+                            properties:
+                              action:
+                                enum:
+                                - replace
+                                - keep
+                                - drop
+                                - hashmod
+                                - labelmap
+                                - labeldrop
+                                - labelkeep
+                                - lowercase
+                                - uppercase
+                                - keepequal
+                                - dropequal
+                                nullable: true
+                                type: string
+                              modulus:
+                                format: int64
+                                nullable: true
+                                type: integer
+                              regex:
+                                nullable: true
+                                type: string
+                              replacement:
+                                nullable: true
+                                type: string
+                              separator:
+                                nullable: true
+                                type: string
+                              sourceLabels:
+                                items:
+                                  type: string
+                                nullable: true
+                                type: array
+                              targetLabel:
+                                nullable: true
+                                type: string
+                            type: object
+                          nullable: true
+                          type: array
+                      required:
+                      - url
+                      type: object
+                    type: array
+                  serviceAccount:
+                    nullable: true
+                    type: string
+                required:
+                - remoteWriteConfigs
+                type: object
               trace:
                 type: string
             required:
             - driverNamespace
-            - metricQueryConfigmap
             - trace
             type: object
           status:

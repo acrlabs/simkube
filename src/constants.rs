@@ -12,8 +12,8 @@ pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
 
 // Defaults
-pub const DEFAULT_MONITORING_NS: &str = "monitoring";
-pub const DEFAULT_PROM_SVC_ACCOUNT: &str = "prometheus-k8s";
+pub const DEFAULT_METRICS_NS: &str = "monitoring";
+pub const DEFAULT_METRICS_SVC_ACCOUNT: &str = "prometheus-k8s";
 
 // Misc
 pub const METRIC_CONFIG_MAP_QUERY_KEY: &str = "queries";

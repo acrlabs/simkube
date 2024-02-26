@@ -20,6 +20,7 @@ pub mod prelude {
         ExportFilters,
         ExportRequest,
         Simulation,
+        SimulationMetricsConfig,
         SimulationRoot,
         SimulationRootSpec,
         SimulationSpec,

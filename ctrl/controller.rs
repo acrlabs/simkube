@@ -16,10 +16,7 @@ use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::errors::*;
-use simkube::k8s::{
-    label_selector,
-    split_namespaced_name,
-};
+use simkube::k8s::label_selector;
 use simkube::metrics::api::*;
 use simkube::prelude::*;
 use tokio::runtime::Handle;
@@ -27,7 +24,6 @@ use tokio::task::block_in_place;
 use tokio::time::Duration;
 
 use super::*;
-use crate::metrics::export::export_metrics;
 use crate::metrics::objects::{
     build_ksm_service_monitor,
     build_prometheus,
@@ -81,15 +77,9 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     info!("setting up simulation driver");
 
     // Validate the input before doing anything
-    let (cm_ns, cm_name) = split_namespaced_name(&sim.spec.metric_query_configmap);
-    let cm_api = kube::Api::<corev1::ConfigMap>::namespaced(ctx.client.clone(), &cm_ns);
     let ns_api = kube::Api::<corev1::Namespace>::all(ctx.client.clone());
-
-    if cm_api.get_opt(&cm_name).await?.is_none() {
-        bail!(SkControllerError::configmap_not_found(&sim.spec.metric_query_configmap));
-    }
-    if ns_api.get_opt(&sim.monitoring_ns()).await?.is_none() {
-        bail!(SkControllerError::namespace_not_found(&sim.monitoring_ns()));
+    if ns_api.get_opt(&sim.metrics_ns()).await?.is_none() {
+        bail!(SkControllerError::namespace_not_found(&sim.metrics_ns()));
     };
 
     // Create the namespaces
@@ -100,9 +90,9 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     };
 
     // Create the monitoring objects
-    let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
+    let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.metrics_ns());
     if svc_mon_api.get_opt(KSM_SVC_MON_NAME).await?.is_none() {
-        info!("creating Prometheus ServiceMonitor object {}/{}", sim.monitoring_ns(), KSM_SVC_MON_NAME);
+        info!("creating Prometheus ServiceMonitor object {}/{}", sim.metrics_ns(), KSM_SVC_MON_NAME);
         let obj = build_ksm_service_monitor(KSM_SVC_MON_NAME, sim)?;
         svc_mon_api.create(&Default::default(), &obj).await?;
     }
@@ -110,11 +100,11 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     // if async closures ever become a thing, you could simplify this logic with .unwrap_or_else;
     // you might be able to hack something currently with futures.then(...), but I couldn't figure
     // out a good way to do so.
-    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
+    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());
     let mut prom_ready = false;
     match prom_api.get_opt(&ctx.prometheus_name).await? {
         None => {
-            info!("creating Prometheus object {}/{}", sim.monitoring_ns(), ctx.prometheus_name);
+            info!("creating Prometheus object {}/{}", sim.metrics_ns(), ctx.prometheus_name);
             let obj = build_prometheus(&ctx.prometheus_name, KSM_SVC_MON_NAME, sim)?;
             prom_api.create(&Default::default(), &obj).await?;
         },
@@ -125,7 +115,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
         },
     }
 
-    let prom_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
+    let prom_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &sim.metrics_ns());
     if prom_svc_api.get_opt(&ctx.prometheus_svc).await?.is_none() {
         info!("creating prometheus service {}", &ctx.prometheus_svc);
         let obj = build_prometheus_service(&ctx.prometheus_svc, sim)?;
@@ -181,7 +171,8 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
 
 async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
-    let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.monitoring_ns());
+    let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.metrics_ns());
+    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());
 
     info!("cleaning up simulation {}", ctx.name);
     if let Err(e) = roots_api.delete(&ctx.root, &Default::default()).await {
@@ -191,6 +182,9 @@ async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     info!("cleaning up prometheus resources");
     if let Err(e) = svc_mon_api.delete(KSM_SVC_MON_NAME, &Default::default()).await {
         error!("Error cleaning up Prometheus service monitor configuration: {e:?}");
+    }
+    if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
+        error!("Error cleaning up Prometheus: {e:?}");
     }
 }
 
@@ -222,7 +216,6 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
         SimulationState::Initializing => setup_driver(&ctx, sim, &root).await.map_err(|e| e.into()),
         SimulationState::Running => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
-            export_metrics(&ctx, sim).await?;
             cleanup(&ctx, sim).await;
             Ok(Action::await_change())
         },

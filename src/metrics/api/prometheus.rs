@@ -11,6 +11,7 @@ use kube::CustomResource;
 use serde::{Serialize, Deserialize};
 use std::collections::BTreeMap;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+use schemars::JsonSchema;
 
 use crate::prelude::*;
 
@@ -2070,7 +2071,7 @@ pub struct PrometheusRemoteReadTlsConfigKeySecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWrite {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub authorization: Option<PrometheusRemoteWriteAuthorization>,
@@ -2107,7 +2108,7 @@ pub struct PrometheusRemoteWrite {
     pub write_relabel_configs: Option<Vec<PrometheusRemoteWriteWriteRelabelConfigs>>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteAuthorization {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub credentials: Option<PrometheusRemoteWriteAuthorizationCredentials>,
@@ -2117,7 +2118,7 @@ pub struct PrometheusRemoteWriteAuthorization {
     pub r#type: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteAuthorizationCredentials {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2126,7 +2127,7 @@ pub struct PrometheusRemoteWriteAuthorizationCredentials {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteBasicAuth {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub password: Option<PrometheusRemoteWriteBasicAuthPassword>,
@@ -2134,7 +2135,7 @@ pub struct PrometheusRemoteWriteBasicAuth {
     pub username: Option<PrometheusRemoteWriteBasicAuthUsername>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteBasicAuthPassword {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2143,7 +2144,7 @@ pub struct PrometheusRemoteWriteBasicAuthPassword {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteBasicAuthUsername {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2152,7 +2153,7 @@ pub struct PrometheusRemoteWriteBasicAuthUsername {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteMetadataConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub send: Option<bool>,
@@ -2160,7 +2161,7 @@ pub struct PrometheusRemoteWriteMetadataConfig {
     pub send_interval: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteOauth2 {
     #[serde(rename = "clientId")]
     pub client_id: PrometheusRemoteWriteOauth2ClientId,
@@ -2174,7 +2175,7 @@ pub struct PrometheusRemoteWriteOauth2 {
     pub token_url: String,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteOauth2ClientId {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "configMap")]
     pub config_map: Option<PrometheusRemoteWriteOauth2ClientIdConfigMap>,
@@ -2182,7 +2183,7 @@ pub struct PrometheusRemoteWriteOauth2ClientId {
     pub secret: Option<PrometheusRemoteWriteOauth2ClientIdSecret>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteOauth2ClientIdConfigMap {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2191,7 +2192,7 @@ pub struct PrometheusRemoteWriteOauth2ClientIdConfigMap {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteOauth2ClientIdSecret {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2200,7 +2201,7 @@ pub struct PrometheusRemoteWriteOauth2ClientIdSecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteOauth2ClientSecret {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2209,7 +2210,7 @@ pub struct PrometheusRemoteWriteOauth2ClientSecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteQueueConfig {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "batchSendDeadline")]
     pub batch_send_deadline: Option<String>,
@@ -2231,7 +2232,7 @@ pub struct PrometheusRemoteWriteQueueConfig {
     pub retry_on_rate_limit: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteSigv4 {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "accessKey")]
     pub access_key: Option<PrometheusRemoteWriteSigv4AccessKey>,
@@ -2245,7 +2246,7 @@ pub struct PrometheusRemoteWriteSigv4 {
     pub secret_key: Option<PrometheusRemoteWriteSigv4SecretKey>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteSigv4AccessKey {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2254,7 +2255,7 @@ pub struct PrometheusRemoteWriteSigv4AccessKey {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteSigv4SecretKey {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2263,7 +2264,7 @@ pub struct PrometheusRemoteWriteSigv4SecretKey {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub ca: Option<PrometheusRemoteWriteTlsConfigCa>,
@@ -2283,7 +2284,7 @@ pub struct PrometheusRemoteWriteTlsConfig {
     pub server_name: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCa {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "configMap")]
     pub config_map: Option<PrometheusRemoteWriteTlsConfigCaConfigMap>,
@@ -2291,7 +2292,7 @@ pub struct PrometheusRemoteWriteTlsConfigCa {
     pub secret: Option<PrometheusRemoteWriteTlsConfigCaSecret>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCaConfigMap {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2300,7 +2301,7 @@ pub struct PrometheusRemoteWriteTlsConfigCaConfigMap {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCaSecret {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2309,7 +2310,7 @@ pub struct PrometheusRemoteWriteTlsConfigCaSecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCert {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "configMap")]
     pub config_map: Option<PrometheusRemoteWriteTlsConfigCertConfigMap>,
@@ -2317,7 +2318,7 @@ pub struct PrometheusRemoteWriteTlsConfigCert {
     pub secret: Option<PrometheusRemoteWriteTlsConfigCertSecret>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCertConfigMap {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2326,7 +2327,7 @@ pub struct PrometheusRemoteWriteTlsConfigCertConfigMap {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigCertSecret {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2335,7 +2336,7 @@ pub struct PrometheusRemoteWriteTlsConfigCertSecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteTlsConfigKeySecret {
     pub key: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -2344,7 +2345,7 @@ pub struct PrometheusRemoteWriteTlsConfigKeySecret {
     pub optional: Option<bool>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug, Default)]
+#[derive(Serialize, Deserialize, Clone, Debug, Default, JsonSchema)]
 pub struct PrometheusRemoteWriteWriteRelabelConfigs {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub action: Option<PrometheusRemoteWriteWriteRelabelConfigsAction>,
@@ -2362,7 +2363,7 @@ pub struct PrometheusRemoteWriteWriteRelabelConfigs {
     pub target_label: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+#[derive(Serialize, Deserialize, Clone, Debug, JsonSchema)]
 pub enum PrometheusRemoteWriteWriteRelabelConfigsAction {
     #[serde(rename = "replace")]
     Replace,
