@@ -30,9 +30,9 @@ use crate::metrics::objects::{
     build_prometheus_service,
 };
 
-const REQUEUE_DURATION: Duration = Duration::from_secs(5);
+pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(5);
 const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(30);
-const KSM_SVC_MON_NAME: &str = "kube-state-metrics-fine-grained";
+pub(super) const KSM_SVC_MON_NAME: &str = "kube-state-metrics-fine-grained";
 
 async fn setup_sim_root(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
@@ -73,7 +73,11 @@ pub(super) async fn fetch_driver_status(
     Ok((state, start_time, end_time))
 }
 
-async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &SimulationRoot) -> anyhow::Result<Action> {
+pub(super) async fn setup_driver(
+    ctx: &SimulationContext,
+    sim: &Simulation,
+    root: &SimulationRoot,
+) -> anyhow::Result<Action> {
     info!("setting up simulation driver");
 
     // Validate the input before doing anything
@@ -169,7 +173,7 @@ async fn setup_driver(ctx: &SimulationContext, sim: &Simulation, root: &Simulati
     Ok(Action::await_change())
 }
 
-async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
+pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
     let svc_mon_api = kube::Api::<ServiceMonitor>::namespaced(ctx.client.clone(), &sim.metrics_ns());
     let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());

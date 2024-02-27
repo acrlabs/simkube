@@ -58,10 +58,10 @@ cover:
 		--ignore '/*' \
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
-		--ignore '*/testutils/*' \
-		--ignore '*/src/api/v1/*' \
-		--ignore '.build/cargo/*' \
-		--ignore 'hack/*' \
+		--ignore 'src/api/v1/*' \
+		--ignore 'src/metrics/api/*' \
+		--ignore 'src/testutils/*' \
+		--ignore '.build/*' \
 		--excl-line '#\[derive' \
 		--excl-start '#\[cfg\((test|feature = "testutils")'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
