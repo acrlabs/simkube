@@ -66,6 +66,11 @@ corresponding KWOK provider.  For the Kubernetes Cluster Autoscaler, a KWOK [clo
 is available, and for Karpenter, a basic [KWOK provider](https://github.com/kubernetes-sigs/karpenter/tree/main/kwok) is
 used.  Configuring these applications in your environment is beyond the scope of this documentation.
 
+If you intend to save metrics or data from a simulation, you will need to configure Prometheus with a [remote write
+endpoint](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).  One option here is
+the [prom2parquet writer](https://github.com/acrlabs/prom2parquet).  See [the docs](docs/sk-ctrl.md) for more
+information on how to set this up.
+
 ### Building
 
 To build all SimKube artifacts for the first time run:
