@@ -252,17 +252,20 @@ impl PodWatcher {
         owners_cache: OwnersCache,
         store: Arc<Mutex<dyn TraceStorable + Send>>,
         clock: Box<dyn Clockable + Send>,
-    ) -> PodWatcher {
-        let (tx, _): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-        PodWatcher {
-            pod_stream,
-            owned_pods,
-            owners_cache,
-            store,
-            clock,
-            is_ready: true,
-            ready_tx: tx,
-        }
+    ) -> (PodWatcher, Receiver<bool>) {
+        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+        (
+            PodWatcher {
+                pod_stream,
+                owned_pods,
+                owners_cache,
+                store,
+                clock,
+                is_ready: false,
+                ready_tx: tx,
+            },
+            rx,
+        )
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {

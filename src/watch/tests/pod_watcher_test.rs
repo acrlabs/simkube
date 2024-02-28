@@ -61,6 +61,7 @@ fn make_pod_watcher(
         Arc::new(Mutex::new(store)),
         clock,
     )
+    .0
 }
 
 #[rstest]
@@ -305,7 +306,7 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
     ]);
 
     let cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
-    let mut pw =
+    let (mut pw, rx) =
         PodWatcher::new_from_parts(stream::empty().boxed(), pod_lifecycles, cache, Arc::new(Mutex::new(store)), clock);
 
     let mut evt = Event::Restarted(vec![update_pod0, update_pod1]);
@@ -315,4 +316,5 @@ async fn test_handle_pod_event_restarted(mut clock: Box<MockUtcClock>) {
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[1]).unwrap(), PodLifecycleData::Running(START_TS));
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[2]), None); // pod2 should still be deleted from our index
     assert_eq!(pw.get_owned_pod_lifecycle(&pod_names[3]), None);
+    assert!(rx.try_recv().unwrap()); // don't block this recv
 }
