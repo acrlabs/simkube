@@ -36,7 +36,10 @@ impl TraceStore {
         // will return an index of objects that we collected, and we set the keep_deleted flag =
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
-        let (events, index) = self.collect_events(start_ts, end_ts, filter, true);
+        let (mut events, index) = self.collect_events(start_ts, end_ts, filter, true);
+
+        // Append a dummy event to the end to ensure that the trace spans the requested duration
+        events.push(TraceEvent { ts: end_ts, ..Default::default() });
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
