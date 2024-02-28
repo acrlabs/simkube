@@ -1,5 +1,10 @@
 use std::collections::HashMap;
+use std::sync::mpsc::{
+    Receiver,
+    Sender,
+};
 use std::sync::{
+    mpsc,
     Arc,
     Mutex,
 };
@@ -43,6 +48,9 @@ pub struct DynObjWatcher {
     clock: Box<dyn Clockable + Send>,
     obj_stream: SelectAll<KubeObjectStream>,
     store: Arc<Mutex<dyn TraceStorable + Send>>,
+
+    is_ready: bool,
+    ready_tx: Sender<bool>,
 }
 
 impl DynObjWatcher {
@@ -50,18 +58,26 @@ impl DynObjWatcher {
         store: Arc<Mutex<TraceStore>>,
         apiset: &mut ApiSet,
         tracked_objects: &HashMap<GVK, TrackedObjectConfig>,
-    ) -> anyhow::Result<DynObjWatcher> {
+    ) -> anyhow::Result<(DynObjWatcher, Receiver<bool>)> {
         let mut apis = vec![];
         for gvk in tracked_objects.keys() {
             let stream = build_stream_for_tracked_obj(apiset, gvk).await?;
             apis.push(stream);
         }
 
-        Ok(DynObjWatcher {
-            clock: Box::new(UtcClock),
-            obj_stream: select_all(apis),
-            store,
-        })
+        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+
+        Ok((
+            DynObjWatcher {
+                clock: Box::new(UtcClock),
+                obj_stream: select_all(apis),
+                store,
+
+                is_ready: false,
+                ready_tx: tx,
+            },
+            rx,
+        ))
     }
 
     pub async fn start(mut self) {
@@ -77,13 +93,27 @@ impl DynObjWatcher {
         }
     }
 
-    fn handle_obj_event(&self, evt: Event<DynamicObject>, ts: i64) {
+    fn handle_obj_event(&mut self, evt: Event<DynamicObject>, ts: i64) {
         // We don't expect the trace store to panic, but if it does we should panic here too
         let mut store = self.store.lock().unwrap();
         match evt {
             Event::Applied(obj) => store.create_or_update_obj(&obj, ts, None),
             Event::Deleted(obj) => store.delete_obj(&obj, ts),
-            Event::Restarted(objs) => store.update_all_objs(&objs, ts),
+            Event::Restarted(objs) => {
+                store.update_all_objs(&objs, ts);
+
+                // When the watcher first starts up it does a List call, which (internally) gets
+                // converted into a "Restarted" event that contains all of the listed objects.
+                // Once we've handled this event the first time, we know we have a complete view of
+                // the cluster at startup time.
+                if !self.is_ready {
+                    self.is_ready = true;
+
+                    // TODO probably don't want to unwrap this
+                    // unlike golang, sending is non-blocking
+                    self.ready_tx.send(true).unwrap();
+                }
+            },
         };
     }
 }
@@ -111,6 +141,13 @@ impl DynObjWatcher {
         store: Arc<Mutex<TraceStore>>,
         clock: Box<dyn Clockable + Send>,
     ) -> DynObjWatcher {
-        DynObjWatcher { obj_stream: select_all(vec![objs]), store, clock }
+        let (tx, _): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+        DynObjWatcher {
+            obj_stream: select_all(vec![objs]),
+            store,
+            clock,
+            is_ready: true,
+            ready_tx: tx,
+        }
     }
 }

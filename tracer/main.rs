@@ -46,8 +46,8 @@ async fn run(args: Options) -> EmptyResult {
     let mut apiset = ApiSet::new(client.clone());
 
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
-    let dyn_obj_watcher = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
-    let pod_watcher = PodWatcher::new(client, store.clone(), apiset);
+    let (dyn_obj_watcher, _) = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
+    let (pod_watcher, _) = PodWatcher::new(client, store.clone(), apiset);
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)

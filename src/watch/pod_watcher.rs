@@ -1,7 +1,12 @@
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::mem::take;
+use std::sync::mpsc::{
+    Receiver,
+    Sender,
+};
 use std::sync::{
+    mpsc,
     Arc,
     Mutex,
 };
@@ -54,6 +59,8 @@ pub struct PodWatcher {
     store: Arc<Mutex<dyn TraceStorable + Send>>,
 
     clock: Box<dyn Clockable + Send>,
+    is_ready: bool,
+    ready_tx: Sender<bool>,
 }
 
 impl PodWatcher {
@@ -63,18 +70,28 @@ impl PodWatcher {
     // DynamicObject watcher just needs to construct the relevant api clients once, when it creates
     // the watch streams, so it can yield when it's done.  If at some point in the future this
     // becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
-    pub fn new(client: kube::Client, store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> PodWatcher {
+    pub fn new(client: kube::Client, store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> (PodWatcher, Receiver<bool>) {
         let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
         let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
-        PodWatcher {
-            pod_stream,
-            store,
-            owned_pods: HashMap::new(),
-            owners_cache: OwnersCache::new(apiset),
-            clock: Box::new(UtcClock),
-        }
+        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+
+        (
+            PodWatcher {
+                pod_stream,
+
+                owned_pods: HashMap::new(),
+                owners_cache: OwnersCache::new(apiset),
+                store,
+
+                clock: Box::new(UtcClock),
+                is_ready: false,
+                ready_tx: tx,
+            },
+            rx,
+        )
     }
 
+    // This is not a reference because it needs to "own" itself when tokio spawns it
     pub async fn start(mut self) {
         while let Some(res) = self.pod_stream.next().await {
             match res {
@@ -133,6 +150,18 @@ impl PodWatcher {
                     if let Err(err) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone()).await {
                         skerr!(err, "(watcher restart) deleted pod {} lifecycle data could not be stored", ns_name);
                     }
+                }
+
+                // When the watcher first starts up it does a List call, which (internally) gets
+                // converted into a "Restarted" event that contains all of the listed objects.
+                // Once we've handled this event the first time, we know we have a complete view of
+                // the cluster at startup time.
+                if !self.is_ready {
+                    self.is_ready = true;
+
+                    // TODO probably don't want to unwrap this
+                    // unlike golang, sending is non-blocking
+                    self.ready_tx.send(true).unwrap();
                 }
             },
         };
@@ -224,7 +253,16 @@ impl PodWatcher {
         store: Arc<Mutex<dyn TraceStorable + Send>>,
         clock: Box<dyn Clockable + Send>,
     ) -> PodWatcher {
-        PodWatcher { pod_stream, owned_pods, owners_cache, store, clock }
+        let (tx, _): (Sender<bool>, Receiver<bool>) = mpsc::channel();
+        PodWatcher {
+            pod_stream,
+            owned_pods,
+            owners_cache,
+            store,
+            clock,
+            is_ready: true,
+            ready_tx: tx,
+        }
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {

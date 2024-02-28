@@ -83,3 +83,23 @@ pub struct Run {
     )]
     pub trace_file: String,
 }
+
+#[derive(Args)]
+pub struct Snapshot {
+    #[arg(long_help = "config file specifying resources to snapshot", long, short)]
+    pub config_file: String,
+
+    #[arg(
+        long_help = "namespaces to exclude from the snapshot",
+        long,
+        value_delimiter = ',',
+        default_value = "cert-manager,kube-system,local-path-storage,monitoring,simkube"
+    )]
+    pub excluded_namespaces: Vec<String>,
+
+    #[arg(long_help = "duration of the generated trace file", allow_hyphen_values = true)]
+    pub trace_duration: String,
+
+    #[arg(long_help = "location to save exported trace", long, default_value = "trace.out")]
+    pub output: String,
+}
