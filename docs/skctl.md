@@ -13,11 +13,12 @@ command-line app for running simulations with SimKube
 Usage: skctl <COMMAND>
 
 Commands:
-  crd     print SimKube CRDs
-  delete  delete a simulation
-  export  export simulation trace data
-  run     run a simulation
-  help    Print this message or the help of the given subcommand(s)
+  crd       print SimKube CRDs
+  delete    delete a simulation
+  export    export simulation trace data
+  run       run a simulation
+  snapshot  take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)
+  help      Print this message or the help of the given subcommand(s)
 
 Options:
   -h, --help     Print help
@@ -131,3 +132,39 @@ Options:
   -V, --version
           Print version
 ```
+
+## skctl snapshot
+
+```
+Usage: skctl snapshot [OPTIONS] --config-file <CONFIG_FILE> <TRACE_DURATION>
+
+Arguments:
+  <TRACE_DURATION>
+          duration of the generated trace file
+
+Options:
+  -c, --config-file <CONFIG_FILE>
+          config file specifying resources to snapshot
+
+      --excluded-namespaces <EXCLUDED_NAMESPACES>
+          namespaces to exclude from the snapshot
+
+          [default: cert-manager,kube-system,local-path-storage,monitoring,simkube]
+
+      --output <OUTPUT>
+          location to save exported trace
+
+          [default: trace.out]
+
+  -h, --help
+          Print help (see a summary with '-h')
+
+  -V, --version
+          Print version
+```
+
+Create a point-in-time snapshot of the configured objects that are currently running on a Kubernetes cluster.  Note
+that, unlike `skctl export`, the snapshot command _does not require `sk-tracer` to be running on the cluster!_  This
+means that you can pick an arbitrary starting point, create a trace file from there, and "let the simulation run to see
+what happens".  The snapshot command will try to read your local Kubernetes credentials from, e.g., `~/.kube/config`,
+and you will need read access to all namespaces on the cluster you're trying to snapshot.
