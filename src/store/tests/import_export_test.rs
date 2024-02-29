@@ -9,6 +9,7 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
+use rstest::rstest;
 use serde_json::json;
 use tracing_test::traced_test;
 
@@ -125,9 +126,12 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
     .boxed();
 }
 
+#[rstest]
+#[case::full_trace(None)]
+#[case::partial_trace(Some("10s".into()))]
 #[traced_test]
 #[tokio::test]
-async fn itest_export() {
+async fn itest_export(#[case] duration: Option<String>) {
     let clock = MockUtcClock::new(0);
 
     // Since we're just generating the results from the stream and not actually querying any
@@ -153,8 +157,9 @@ async fn itest_export() {
     match store.export(start_ts, end_ts, &filter) {
         Ok(data) => {
             // Confirm that the results match what we expect
-            let new_store = TraceStore::import(data, &None).unwrap();
-            let expected_pods = store.objs_at(end_ts, &filter);
+            let new_store = TraceStore::import(data, &duration).unwrap();
+            let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
+            let expected_pods = store.objs_at(import_end_ts, &filter);
             let actual_pods = new_store.objs_at(end_ts, &filter);
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);

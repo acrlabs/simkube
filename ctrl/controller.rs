@@ -199,6 +199,7 @@ pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
         }
     }
     if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
+        println!("{e:?}");
         if matches!(e, Api(ErrorResponse { code: 404, .. })) {
             warn!("prometheus object not found; maybe already cleaned up?");
         } else {
