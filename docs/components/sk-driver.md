@@ -14,7 +14,7 @@ selectors, and tolerations to ensure that the simulated pods end up on virtual n
 
 ```
 Usage: sk-driver [OPTIONS] --sim-name <SIM_NAME> --sim-root <SIM_ROOT> --virtual-ns-prefix <VIRTUAL_NS_PREFIX> \
-       --cert-path <CERT_PATH> --key-path <KEY_PATH> --trace-path <TRACE_PATH>
+    --cert-path <CERT_PATH> --key-path <KEY_PATH> --trace-mount-path <TRACE_MOUNT_PATH>
 
 Options:
       --sim-name <SIM_NAME>
@@ -23,7 +23,7 @@ Options:
       --admission-webhook-port <ADMISSION_WEBHOOK_PORT>  [default: 8888]
       --cert-path <CERT_PATH>
       --key-path <KEY_PATH>
-      --trace-path <TRACE_PATH>
+      --trace-mount-path <TRACE_MOUNT_PATH>
   -v, --verbosity <VERBOSITY>                            [default: info]
   -h, --help                                             Print help
 ```

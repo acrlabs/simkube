@@ -110,7 +110,11 @@ that isn't accepted or is parsed incorrectly, please [file an issue](https://git
 ```
 run a simulation
 
-Usage: skctl run [OPTIONS] --name <NAME>
+Usage: skctl run [OPTIONS] --name <NAME> [DURATION]
+
+Arguments:
+  [DURATION]
+          duration of the simulation
 
 Options:
       --name <NAME>
@@ -120,6 +124,16 @@ Options:
           namespace to launch sk-driver in
 
           [default: simkube]
+
+      --metrics-namespace <METRICS_NAMESPACE>
+          namespace to launch monitoring utilities in
+
+          [default: monitoring]
+
+      --metrics-service-account <METRICS_SERVICE_ACCOUNT>
+          service account with monitoring permissions
+
+          [default: prometheus-k8s]
 
       --trace-file <TRACE_FILE>
           location of the trace file for sk-driver to read
@@ -136,11 +150,9 @@ Options:
 ## skctl snapshot
 
 ```
-Usage: skctl snapshot [OPTIONS] --config-file <CONFIG_FILE> <TRACE_DURATION>
+take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)
 
-Arguments:
-  <TRACE_DURATION>
-          duration of the generated trace file
+Usage: skctl snapshot [OPTIONS] --config-file <CONFIG_FILE>
 
 Options:
   -c, --config-file <CONFIG_FILE>
