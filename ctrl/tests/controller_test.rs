@@ -332,3 +332,37 @@ async fn test_cleanup(sim: Simulation, opts: Options) {
     assert!(!logs_contain("ERROR"));
     fake_apiserver.assert();
 }
+
+// Copy-pasta-ing this because I can't get rstest cases and traced_test to play nicely with each
+// other :facepalm: :eyeroll:
+#[rstest]
+#[traced_test]
+#[tokio::test]
+async fn test_cleanup_not_found(sim: Simulation, opts: Options) {
+    let (mut fake_apiserver, client) = make_fake_apiserver();
+    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
+
+    let root = ctx.root.clone();
+    let prom = ctx.prometheus_name.clone();
+
+    fake_apiserver
+        .handle(move |when, then| {
+            when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
+            then.json_body(status_ok());
+        })
+        .handle(|when, then| {
+            when.path(format!(
+                "/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors/{KSM_SVC_MON_NAME}"
+            ));
+            then.status(404).json_body(status_not_found());
+        })
+        .handle(move |when, then| {
+            when.path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom}"));
+            then.status(404).json_body(status_not_found());
+        });
+    fake_apiserver.build();
+    cleanup(&ctx, &sim).await;
+
+    assert!(logs_contain("WARN"));
+    fake_apiserver.assert();
+}

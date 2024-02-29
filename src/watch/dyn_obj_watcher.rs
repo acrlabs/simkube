@@ -109,10 +109,9 @@ impl DynObjWatcher {
                 if !self.is_ready {
                     self.is_ready = true;
 
-                    // TODO probably don't want to unwrap this
                     // unlike golang, sending is non-blocking
                     if let Err(e) = self.ready_tx.send(true) {
-                        error!("failed to update ready status: {e:?}")
+                        error!("failed to update dynobjwatcher ready status: {e:?}")
                     }
                 }
             },
