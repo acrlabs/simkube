@@ -16,6 +16,11 @@ use crate::k8s::{
     GVK,
 };
 use crate::prelude::*;
+use crate::time::{
+    duration_to_ts_from,
+    Clockable,
+    UtcClock,
+};
 
 // The TraceStore object is an in-memory store of a cluster trace.  It keeps track of all the
 // configured Kubernetes objects, as well as lifecycle data for any pods that are owned by the
@@ -36,10 +41,7 @@ impl TraceStore {
         // will return an index of objects that we collected, and we set the keep_deleted flag =
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
-        let (mut events, index) = self.collect_events(start_ts, end_ts, filter, true);
-
-        // Append a dummy event to the end to ensure that the trace spans the requested duration
-        events.push(TraceEvent { ts: end_ts, ..Default::default() });
+        let (events, index) = self.collect_events(start_ts, end_ts, filter, true);
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
@@ -53,13 +55,23 @@ impl TraceStore {
     // Note that _importing_ data into a trace store is lossy -- we don't store (or import) all of
     // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
     // information to be able to run a simulation off the trace store.
-    pub fn import(data: Vec<u8>) -> anyhow::Result<TraceStore> {
-        let (config, events, index, lifecycle_data): (
+    pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
+        let (config, mut events, index, lifecycle_data): (
             TracerConfig,
             VecDeque<TraceEvent>,
             HashMap<String, u64>,
             HashMap<String, PodLifecyclesMap>,
         ) = rmp_serde::from_slice(&data)?;
+
+        if let Some(trace_duration_str) = maybe_duration {
+            let trace_start_ts = events
+                .front()
+                .unwrap_or(&TraceEvent { ts: UtcClock.now(), ..Default::default() })
+                .ts;
+            let trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
+            events.retain(|evt| evt.ts < trace_end_ts);
+            events.push_back(TraceEvent { ts: trace_end_ts, ..Default::default() });
+        }
 
         Ok(TraceStore {
             config,

@@ -43,7 +43,8 @@ pub struct SimulationMetricsConfig {
 pub struct SimulationSpec {
     pub driver_namespace: String,
     pub metrics_config: Option<SimulationMetricsConfig>,
-    pub trace: String,
+    pub duration: Option<String>,
+    pub trace_path: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]

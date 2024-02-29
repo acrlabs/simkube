@@ -142,7 +142,7 @@ fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mou
         format!("{cert_mount_path}/tls.crt"),
         "--key-path".into(),
         format!("{cert_mount_path}/tls.key"),
-        "--trace-path".into(),
+        "--trace-mount-path".into(),
         trace_mount_path,
         "--virtual-ns-prefix".into(),
         "virtual".into(),

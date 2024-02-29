@@ -13,7 +13,8 @@ pub async fn cmd(args: &args::Run) -> EmptyResult {
                 service_account: Some(args.metrics_service_account.clone()),
                 ..Default::default()
             }),
-            trace: args.trace_file.clone(),
+            duration: args.duration.clone(),
+            trace_path: args.trace_file.clone(),
         },
     );
     let client = kube::Client::try_default().await?;

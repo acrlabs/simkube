@@ -21,7 +21,7 @@ fn sim() -> Simulation {
         },
         spec: SimulationSpec {
             driver_namespace: TEST_NAMESPACE.into(),
-            trace: "file:///foo/bar".into(),
+            trace_path: "file:///foo/bar".into(),
             ..Default::default()
         },
         status: Default::default(),
@@ -104,11 +104,15 @@ async fn test_fetch_driver_status_driver_running(sim: Simulation, opts: Options)
 }
 
 #[rstest]
-#[case("Completed")]
-#[case("Failed")]
+#[case::complete(JOB_STATUS_CONDITION_COMPLETE)]
+#[case::failed(JOB_STATUS_CONDITION_FAILED)]
 #[tokio::test]
 async fn test_fetch_driver_status_driver_finished(sim: Simulation, opts: Options, #[case] status: &'static str) {
-    let expected_state = if status == "Completed" { SimulationState::Finished } else { SimulationState::Failed };
+    let expected_state = if status == JOB_STATUS_CONDITION_COMPLETE {
+        SimulationState::Finished
+    } else {
+        SimulationState::Failed
+    };
 
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
@@ -221,7 +225,7 @@ async fn test_setup_driver_wait_prom(sim: Simulation, root: SimulationRoot, opts
     let prom_svc_obj = build_prometheus_service(&ctx.prometheus_svc, &sim).unwrap();
     let driver_svc_obj = build_driver_service(&ctx, &root).unwrap();
     let webhook_obj = build_mutating_webhook(&ctx, &root).unwrap();
-    let driver_obj = build_driver_job(&ctx, &sim, "".into(), &sim.spec.trace.clone()).unwrap();
+    let driver_obj = build_driver_job(&ctx, &sim, "".into(), &sim.spec.trace_path.clone()).unwrap();
 
     fake_apiserver
         .handle(|when, then| {

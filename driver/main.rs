@@ -48,8 +48,11 @@ struct Options {
     #[arg(long)]
     key_path: String,
 
+    // This must be passed in as an arg instead of read from the simulation spec
+    // because the location the trace is mounted in the pod will be different than
+    // the location specified in the spec
     #[arg(long)]
-    trace_path: String,
+    trace_mount_path: String,
 
     #[arg(short, long, default_value = "info")]
     verbosity: String,
@@ -67,10 +70,13 @@ pub struct DriverContext {
 #[instrument(ret, err)]
 async fn run(opts: Options) -> EmptyResult {
     let client = kube::Client::try_default().await?;
+    let sim_api: kube::Api<Simulation> = kube::Api::all(client.clone());
+    let sim = sim_api.get(&opts.sim_name).await?;
 
-    let trace_data = fs::read(opts.trace_path)?;
+    let trace_data = fs::read(opts.trace_mount_path)?;
+    let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
+
     let apiset = ApiSet::new(client.clone());
-    let store = Arc::new(TraceStore::import(trace_data)?);
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
     let ctx = DriverContext {
         name: opts.sim_name.clone(),

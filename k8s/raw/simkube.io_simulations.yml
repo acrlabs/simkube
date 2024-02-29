@@ -37,6 +37,9 @@ spec:
             properties:
               driverNamespace:
                 type: string
+              duration:
+                nullable: true
+                type: string
               metricsConfig:
                 nullable: true
                 properties:
@@ -430,11 +433,11 @@ spec:
                 required:
                 - remoteWriteConfigs
                 type: object
-              trace:
+              tracePath:
                 type: string
             required:
             - driverNamespace
-            - trace
+            - tracePath
             type: object
           status:
             nullable: true
