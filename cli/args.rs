@@ -1,7 +1,7 @@
 use clap::Args;
 use reqwest::Url;
 use simkube::prelude::*;
-use simkube::time;
+use simkube::time::duration_to_ts;
 
 #[derive(Args)]
 pub struct Delete {
@@ -17,7 +17,7 @@ pub struct Export {
                          to the specified end time, _not_ the current time",
         long,
         default_value = "-30m",
-        value_parser = time::parse,
+        value_parser = duration_to_ts,
         allow_hyphen_values = true,
     )]
     pub start_time: i64,
@@ -26,7 +26,7 @@ pub struct Export {
         long_help = "end time; can be a relative or absolute timestamp",
         long,
         default_value = "now",
-        value_parser = time::parse,
+        value_parser = duration_to_ts,
         allow_hyphen_values = true,
     )]
     pub end_time: i64,
@@ -82,6 +82,9 @@ pub struct Run {
         default_value = "file:///data/trace"
     )]
     pub trace_file: String,
+
+    #[arg(long_help = "duration of the simulation", allow_hyphen_values = true)]
+    pub duration: Option<String>,
 }
 
 #[derive(Args)]
@@ -96,9 +99,6 @@ pub struct Snapshot {
         default_value = "cert-manager,kube-system,local-path-storage,monitoring,simkube"
     )]
     pub excluded_namespaces: Vec<String>,
-
-    #[arg(long_help = "duration of the generated trace file", allow_hyphen_values = true)]
-    pub trace_duration: String,
 
     #[arg(long_help = "location to save exported trace", long, default_value = "trace.out")]
     pub output: String,

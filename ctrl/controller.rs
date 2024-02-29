@@ -12,7 +12,9 @@ use chrono::{
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use kube::api::Patch;
+use kube::error::ErrorResponse;
 use kube::runtime::controller::Action;
+use kube::Error::Api;
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::errors::*;
@@ -33,6 +35,8 @@ use crate::metrics::objects::{
 pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(5);
 const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(30);
 pub(super) const KSM_SVC_MON_NAME: &str = "kube-state-metrics-fine-grained";
+pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
+pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
 async fn setup_sim_root(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
@@ -58,14 +62,17 @@ pub(super) async fn fetch_driver_status(
         state = SimulationState::Running;
         if let Some(status) = driver.status {
             start_time = status.start_time.map(|t| t.0);
-            if let Some(cond) = status
-                .conditions
-                .unwrap_or_default()
-                .iter()
-                .find(|cond| cond.type_ == "Completed" || cond.type_ == "Failed")
+            if let Some(cond) =
+                status.conditions.unwrap_or_default().iter().find(|cond| {
+                    cond.type_ == JOB_STATUS_CONDITION_COMPLETE || cond.type_ == JOB_STATUS_CONDITION_FAILED
+                })
             {
                 end_time = cond.last_transition_time.as_ref().map(|t| t.0);
-                state = if cond.type_ == "Completed" { SimulationState::Finished } else { SimulationState::Failed };
+                state = if cond.type_ == JOB_STATUS_CONDITION_COMPLETE {
+                    SimulationState::Finished
+                } else {
+                    SimulationState::Failed
+                };
             }
         }
     }
@@ -166,7 +173,7 @@ pub(super) async fn setup_driver(
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
-        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, &sim.spec.trace)?;
+        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, &sim.spec.trace_path)?;
         jobs_api.create(&Default::default(), &obj).await?;
     }
 
@@ -185,10 +192,18 @@ pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
 
     info!("cleaning up prometheus resources");
     if let Err(e) = svc_mon_api.delete(KSM_SVC_MON_NAME, &Default::default()).await {
-        error!("Error cleaning up Prometheus service monitor configuration: {e:?}");
+        if matches!(e, Api(ErrorResponse { code: 404, .. })) {
+            warn!("prometheus service monitor configuration not found; maybe already cleaned up?");
+        } else {
+            error!("Error cleaning up Prometheus service monitor configuration: {e:?}");
+        }
     }
     if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
-        error!("Error cleaning up Prometheus: {e:?}");
+        if matches!(e, Api(ErrorResponse { code: 404, .. })) {
+            warn!("prometheus object not found; maybe already cleaned up?");
+        } else {
+            error!("Error cleaning up Prometheus: {e:?}");
+        }
     }
 }
 

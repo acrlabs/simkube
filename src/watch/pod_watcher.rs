@@ -159,9 +159,10 @@ impl PodWatcher {
                 if !self.is_ready {
                     self.is_ready = true;
 
-                    // TODO probably don't want to unwrap this
                     // unlike golang, sending is non-blocking
-                    self.ready_tx.send(true).unwrap();
+                    if let Err(e) = self.ready_tx.send(true) {
+                        error!("failed to update podwatcher ready status: {e:?}")
+                    }
                 }
             },
         };
