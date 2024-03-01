@@ -32,7 +32,7 @@ This package provides the following components:
 
 ## Documentation
 
-Full [documentation for SimKube](https://appliedcomputing.io/docs/simkube/index.html) is available on Applied
+Full [documentation for SimKube](https://appliedcomputing.io/simkube/index.html) is available on Applied
 Computing's website.  Here are some quick links to select topics:
 
 - [Installation](https://appliedcomputing.io/simkube/docs/intro/installation.html)
