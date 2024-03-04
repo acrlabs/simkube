@@ -138,7 +138,6 @@ pub(super) async fn setup_driver(
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
 
-
     // Set up the webhook
     let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if driver_svc_api.get_opt(&ctx.driver_svc).await?.is_none() {

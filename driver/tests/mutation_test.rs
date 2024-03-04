@@ -18,9 +18,6 @@ use kube::core::{
 use kube::ResourceExt;
 use mockall::predicate;
 use rocket::serde::json::Json;
-use simkube::testutils::fake::make_fake_apiserver;
-use simkube::testutils::*;
-use tracing_test::traced_test;
 
 use super::*;
 

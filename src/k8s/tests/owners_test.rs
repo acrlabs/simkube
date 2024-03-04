@@ -2,11 +2,8 @@ use std::collections::HashMap;
 
 use kube::ResourceExt;
 use serde_json::json;
-use tracing_test::traced_test;
 
 use super::*;
-use crate::testutils::fake::*;
-use crate::testutils::*;
 
 #[rstest]
 #[traced_test]

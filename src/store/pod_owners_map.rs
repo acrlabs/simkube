@@ -41,7 +41,7 @@ use crate::k8s::PodLifecycleData;
 // structure?  Then we could just sort by start_ts in the simulation driver if we wanted them in
 // order.  I am not sure if there's any actual improvements to be had here, though.
 
-pub(super) type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
+pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
 #[derive(Default)]
 pub(super) struct PodOwnersMap {

@@ -41,10 +41,9 @@ impl MockServerBuilder {
         self
     }
 
-    pub fn handle_not_found(&mut self, path: &str) -> &mut Self {
-        let local_path = path.to_string();
+    pub fn handle_not_found(&mut self, path: String) -> &mut Self {
         self.handle(move |when, then| {
-            when.method(GET).path(&local_path);
+            when.path(&path);
             then.status(404).json_body(status_not_found());
         })
     }

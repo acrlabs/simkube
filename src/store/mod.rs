@@ -14,10 +14,7 @@ use serde::{
     Serialize,
 };
 
-use self::pod_owners_map::{
-    PodLifecyclesMap,
-    PodOwnersMap,
-};
+use self::pod_owners_map::PodOwnersMap;
 use self::trace_filter::filter_event;
 use crate::errors::*;
 use crate::prelude::*;
@@ -65,6 +62,8 @@ pub struct TraceStore {
     pod_owners: PodOwnersMap,
     index: HashMap<String, u64>,
 }
+
+pub use pod_owners_map::PodLifecyclesMap;
 
 #[cfg(test)]
 mod tests;
