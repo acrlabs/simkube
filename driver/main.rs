@@ -102,7 +102,7 @@ async fn run(opts: Options) -> EmptyResult {
     // Give the mutation handler a bit of time to come online before starting the sim
     sleep(Duration::from_secs(5)).await;
 
-    let runner = TraceRunner::new(ctx.clone()).await?;
+    let runner = TraceRunner::new(client, ctx.clone()).await?;
 
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),

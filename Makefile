@@ -40,17 +40,17 @@ lint:
 	cargo +nightly fmt
 	cargo clippy
 
-test: test-unit test-int
+test: unit itest
 
-.PHONY: test-unit
-test-unit:
+.PHONY: unit
+unit:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) $(patsubst %, --bin %, $(ARTIFACTS) $(EXTRA_BUILD_ARTIFACTS)) --lib -- --nocapture --skip itest
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) -- --nocapture --skip itest
 
-.PHONY: test-int
-test-int:
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils itest --lib -- --nocapture
+.PHONY: itest
+itest:
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils itest -- --nocapture
 
 cover:
 	grcov . --binary-path $(BUILD_DIR)/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \

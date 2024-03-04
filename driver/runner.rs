@@ -23,7 +23,11 @@ use tracing::*;
 
 use super::*;
 
-fn build_virtual_ns(ctx: &DriverContext, owner: &SimulationRoot, namespace: &str) -> anyhow::Result<corev1::Namespace> {
+pub(super) fn build_virtual_ns(
+    ctx: &DriverContext,
+    owner: &SimulationRoot,
+    namespace: &str,
+) -> anyhow::Result<corev1::Namespace> {
     let mut ns = corev1::Namespace {
         metadata: build_global_object_meta(namespace, &ctx.name, owner)?,
         ..Default::default()
@@ -33,7 +37,7 @@ fn build_virtual_ns(ctx: &DriverContext, owner: &SimulationRoot, namespace: &str
     Ok(ns)
 }
 
-fn build_virtual_obj(
+pub(super) fn build_virtual_obj(
     ctx: &DriverContext,
     owner: &SimulationRoot,
     original_ns: &str,
@@ -69,25 +73,29 @@ fn build_virtual_obj(
 
 pub struct TraceRunner {
     ctx: DriverContext,
-    client: kube::Client,
     root: SimulationRoot,
+
+    ns_api: kube::Api<corev1::Namespace>,
+    apiset: ApiSet,
 }
 
 impl TraceRunner {
-    pub async fn new(ctx: DriverContext) -> anyhow::Result<TraceRunner> {
-        let client = kube::Client::try_default().await?;
+    pub async fn new(client: kube::Client, ctx: DriverContext) -> anyhow::Result<TraceRunner> {
         let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
         let root = roots_api.get(&ctx.sim_root).await?;
 
-        Ok(TraceRunner { ctx, client, root })
+        Ok(TraceRunner {
+            ctx,
+            root,
+            ns_api: kube::Api::all(client.clone()),
+            apiset: ApiSet::new(client.clone()),
+        })
     }
 
     #[instrument(parent=None, skip_all, fields(simulation=self.ctx.name))]
-    pub async fn run(self) -> EmptyResult {
-        let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(self.client.clone());
-        let mut apiset = ApiSet::new(self.client.clone());
+    pub async fn run(mut self) -> EmptyResult {
         let mut sim_ts = self.ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
-        for (evt, next_ts) in self.ctx.store.iter() {
+        for (evt, maybe_next_ts) in self.ctx.store.iter() {
             // We're currently assuming that all tracked objects are namespace-scoped,
             // this will panic/fail if that is not true.
             for obj in &evt.applied_objs {
@@ -95,10 +103,10 @@ impl TraceRunner {
                 let original_ns = obj.namespace().unwrap();
                 let virtual_ns = format!("{}-{}", self.ctx.virtual_ns_prefix, original_ns);
 
-                if ns_api.get_opt(&virtual_ns).await?.is_none() {
+                if self.ns_api.get_opt(&virtual_ns).await?.is_none() {
                     info!("creating virtual namespace: {virtual_ns}");
                     let vns = build_virtual_ns(&self.ctx, &self.root, &virtual_ns)?;
-                    ns_api.create(&Default::default(), &vns).await?;
+                    self.ns_api.create(&Default::default(), &vns).await?;
                 }
 
                 let pod_spec_template_path = self
@@ -111,7 +119,7 @@ impl TraceRunner {
                     build_virtual_obj(&self.ctx, &self.root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
                 info!("applying object {}", vobj.namespaced_name());
-                apiset
+                self.apiset
                     .namespaced_api_for(&gvk, virtual_ns)
                     .await?
                     .patch(&vobj.name_any(), &PatchParams::apply("simkube"), &Patch::Apply(&vobj))
@@ -122,17 +130,20 @@ impl TraceRunner {
                 info!("deleting object {}", obj.namespaced_name());
                 let gvk = GVK::from_dynamic_obj(obj)?;
                 let virtual_ns = format!("{}-{}", self.ctx.virtual_ns_prefix, obj.namespace().unwrap());
-                apiset
+                self.apiset
                     .namespaced_api_for(&gvk, virtual_ns)
                     .await?
                     .delete(&obj.name_any(), &Default::default())
                     .await?;
             }
 
-            if let Some(ts) = next_ts {
-                let sleep_duration = max(0, ts - sim_ts);
-                sim_ts = ts;
+            if let Some(next_ts) = maybe_next_ts {
+                let sleep_duration = max(0, next_ts - sim_ts);
+
                 info!("next event happens in {sleep_duration} seconds, sleeping");
+                debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
+
+                sim_ts = next_ts;
                 sleep(Duration::from_secs(sleep_duration as u64)).await;
             }
         }

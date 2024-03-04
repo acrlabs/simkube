@@ -265,10 +265,7 @@ impl TraceStorable for TraceStore {
     }
 
     fn start_ts(&self) -> Option<i64> {
-        match self.iter().next() {
-            Some((_, Some(ts))) => Some(ts),
-            _ => None,
-        }
+        self.events.front().map(|evt| evt.ts)
     }
 
     fn iter(&self) -> TraceIterator<'_> {

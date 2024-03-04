@@ -9,15 +9,12 @@ use futures::{
     StreamExt,
 };
 use mockall::predicate;
-use tracing_test::*;
 
 use super::*;
 use crate::k8s::{
     ApiSet,
     OwnersCache,
 };
-use crate::testutils::fake::make_fake_apiserver;
-use crate::testutils::*;
 
 const START_TS: i64 = 1234;
 const END_TS: i64 = 5678;

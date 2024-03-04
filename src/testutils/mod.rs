@@ -11,6 +11,12 @@ pub const TEST_SIM_NAME: &str = "test-sim";
 pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
 
 pub use clock::MockUtcClock;
+pub use fake::{
+    apps_v1_discovery,
+    make_fake_apiserver,
+    status_not_found,
+    status_ok,
+};
 pub use pods::test_pod;
 use rstest::*;
 pub use store::MockTraceStore;

@@ -9,24 +9,19 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
-use rstest::rstest;
 use serde_json::json;
-use tracing_test::traced_test;
 
+use super::*;
 use crate::api::v1::ExportFilters;
 use crate::macros::*;
 use crate::store::TraceStore;
-use crate::testutils::{
-    MockUtcClock,
-    TEST_NAMESPACE,
-};
 use crate::watch::{
     DynObjWatcher,
     KubeObjectStream,
 };
 
 fn test_pod(idx: i64) -> DynamicObject {
-    return DynamicObject {
+    DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some(TEST_NAMESPACE.into()),
             name: Some(format!("pod{idx}").into()),
@@ -34,7 +29,7 @@ fn test_pod(idx: i64) -> DynamicObject {
         },
         types: None,
         data: json!({"spec": {}}),
-    };
+    }
 }
 
 fn test_daemonset_pod(idx: i64) -> DynamicObject {
@@ -52,7 +47,7 @@ fn test_daemonset_pod(idx: i64) -> DynamicObject {
 // This is a little subtle because the event that we're returning at state (ts_i, id) does not
 // actually _happen_ until time ts_{i+1}.
 fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
-    return stream::unfold((-1, 0), move |state| {
+    stream::unfold((-1, 0), move |state| {
         let mut c = clock.clone();
         async move {
             match state {
@@ -123,7 +118,7 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
             }
         }
     })
-    .boxed();
+    .boxed()
 }
 
 #[rstest]
