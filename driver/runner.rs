@@ -67,6 +67,13 @@ pub(super) fn build_virtual_obj(
     )?;
     jsonutils::patch_ext::remove("", "status", &mut vobj.data)?;
 
+    // We remove all container ports from the pod specification just before applying, because it is
+    // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
+    // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no
+    // reason to expose the ports.  We do this here because we still want the ports to be a part of
+    // the podspec when we're computing its hash, i.e., changes to the container ports will still
+    // result in changes to the pod in the trace/simulation
+    jsonutils::patch_ext::remove(&format!("{}/spec/containers/*", pod_spec_template_path), "ports", &mut vobj.data)?;
 
     Ok(vobj)
 }

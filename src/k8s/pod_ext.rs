@@ -39,6 +39,18 @@ impl PodExt for corev1::Pod {
 
         for container in &mut spec.containers {
             container.volume_mounts = Some(filter_volumes!(container.volume_mounts));
+
+            // We strip ports when running the simulation (see note in driver/mutation.rs)
+            // so we also need to strip them when computing the pod hash
+            //
+            // A reasonable question might be, why don't we just strip the ports when we collect
+            // the trace?  My current hypothesis is that saving as much data as possible during
+            // the trace, and then allowing the things processing the trace to do whatever they
+            // need with it is a "better" option, but it results in us having to modify things
+            // in two places at once, which could cause problems in the future.
+            //
+            // TODO is it possible to write a test to check for this somehow?
+            container.ports = None
         }
 
         Ok(spec)
