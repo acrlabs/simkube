@@ -86,7 +86,11 @@ kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 nodes:
   - role: control-plane
+    labels:
+      type: kind-control-plane
   - role: worker
+    labels:
+      type: kind-worker
     extraMounts:
       - hostPath: /tmp/kind-node-data
         containerPath: /data
@@ -150,11 +154,32 @@ spec:
 
 ## Deploying SimKube
 
-### Installing `sk-tracer`
+### Generating Kubernetes Manifests
+
+SimKube currently uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests.  You can
+generate the required manifests for all SimKube components by running `make k8s` from the root of this repository.
+
+> [!NOTE]
+> 🔥Config uses [cdk8s](https://cdk8s.io) internally, which (unfortunately) runs a NodeJS subprocess.  If you don't have
+> NodeJS and/or Poetry installed, you can generate the manifests inside a Docker container (thanks
+> [@vsoch](https://github.com/vsoch)!):<br>
+>
+> `> docker run -it --entrypoint bash -v $PWD/:/code node:bookworm`<br>
+> `> apt-get update && apt-get install -y python3-poetry`<br>
+> `> make k8s`<br>
+
+<br>
+
+> [!WARNING]
+> The generated manifests are fairly primitive right now and you may need to customize them in order to get them to
+> install in your environment.  We also don't (currently) have any Helm charts available, but we'd welcome a
+> contribution!  (See this [GitHub issue](https://github.com/acrlabs/simkube/issues/97))
+
+### Running `sk-tracer`
 
 The SimKube tracer runs in a real cluster and collects data about changes to objects in that cluster.  You can configure
-what objects it watches via a config file.  Here is an example config file you can use to watch changes to Deployments, Jobs,
-and StatefulSets:
+what objects it watches via a config file.  Here is an example config file you can use to watch changes to Deployments,
+Jobs, and StatefulSets:
 
 ```yaml
 trackedObjects:
@@ -176,6 +201,13 @@ trackedObjects:
 as well as pods.  For example, if you use the above configuration, you will need the following RBAC policy attached to
 the service account used by `sk-tracer`:
 
+To install `sk-tracer` into your cluster, run
+
+```
+> kubectl apply -f .build/manifests/0000-global.k8s.yaml
+> kubectl apply -f .build/manifests/0001-sk-tracer.k8s.yaml
+```
+
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -193,21 +225,7 @@ rules:
   verbs: ["get", "watch", "list"]
 ```
 
-SimKube currently uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests.  You can
-generate the required manifests for all SimKube components by running `make k8s` from the root of this repository.  To
-install `sk-tracer` into your cluster, run
-
-```
-> kubectl apply -f .build/manifests/0000-global.k8s.yaml
-> kubectl apply -f .build/manifests/0001-sk-tracer.k8s.yaml
-```
-
-> [!WARNING]
-> The generated manifests are fairly primitive right now and you may need to customize them in order to get them to
-> install in your environment.  We also don't (currently) have any Helm charts available, but we'd welcome a
-> contribution!  (See this [GitHub issue](https://github.com/acrlabs/simkube/issues/97))
-
-### Installing `sk-ctrl`
+### Running `sk-ctrl`
 
 The SimKube controller just needs the SimKube custom resources installed in the target environment, and needs no other
 configuration.  After running `make k8s`, run the following commands to install everything:
