@@ -27,6 +27,11 @@ pub enum SimulationState {
 pub struct SimulationMetricsConfig {
     pub namespace: Option<String>,
     pub service_account: Option<String>,
+    pub prometheus_shards: Option<i32>,
+    pub pod_monitor_names: Option<Vec<String>>,
+    pub pod_monitor_namespaces: Option<Vec<String>>,
+    pub service_monitor_names: Option<Vec<String>>,
+    pub service_monitor_namespaces: Option<Vec<String>>,
     pub remote_write_configs: Vec<PrometheusRemoteWrite>,
 }
 

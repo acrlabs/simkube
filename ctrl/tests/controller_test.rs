@@ -7,7 +7,7 @@ use simkube::metrics::api::*;
 
 use super::controller::*;
 use super::*;
-use crate::metrics::objects::*;
+use crate::objects::*;
 
 #[fixture]
 fn sim() -> Simulation {
@@ -20,6 +20,7 @@ fn sim() -> Simulation {
         spec: SimulationSpec {
             driver_namespace: TEST_NAMESPACE.into(),
             trace_path: "file:///foo/bar".into(),
+            metrics_config: Some(Default::default()),
             ..Default::default()
         },
         status: Default::default(),
@@ -158,11 +159,8 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
 
     let driver_ns = ctx.driver_ns.clone();
     let prom_name = ctx.prometheus_name.clone();
-    let prom_svc_name = ctx.prometheus_svc.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &sim).unwrap();
-    let service_monitor_obj = build_ksm_service_monitor(KSM_SVC_MON_NAME, &sim).unwrap();
-    let prom_obj = build_prometheus(&ctx.prometheus_name, KSM_SVC_MON_NAME, &sim).unwrap();
-    let prom_svc_obj = build_prometheus_service(&ctx.prometheus_svc, &sim).unwrap();
+    let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap()).unwrap();
 
     fake_apiserver
         .handle(|when, then| {
@@ -176,24 +174,11 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
             when.method(POST).path("/api/v1/namespaces");
             then.json_body_obj(&driver_ns_obj);
         })
-        .handle_not_found(format!(
-            "/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors/{KSM_SVC_MON_NAME}"
-        ))
-        .handle(move |when, then| {
-            when.method(POST)
-                .path("/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors");
-            then.json_body_obj(&service_monitor_obj);
-        })
         .handle_not_found(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"))
         .handle(move |when, then| {
             when.method(POST)
                 .path("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses");
             then.json_body_obj(&prom_obj);
-        })
-        .handle_not_found(format!("/api/v1/namespaces/monitoring/services/{prom_svc_name}"))
-        .handle(move |when, then| {
-            when.method(POST).path("/api/v1/namespaces/monitoring/services");
-            then.json_body_obj(&prom_svc_obj);
         })
         .build();
     assert_eq!(setup_driver(&ctx, &sim, &root).await.unwrap(), Action::requeue(REQUEUE_DURATION));
@@ -201,26 +186,29 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
 }
 
 #[rstest]
-#[case(true)]
-#[case(false)]
+#[case::ready(true, false)]
+#[case::not_ready(false, false)]
+#[case::disabled(true, true)]
 #[traced_test]
 #[tokio::test]
-async fn test_setup_driver_wait_prom(sim: Simulation, root: SimulationRoot, opts: Options, #[case] ready: bool) {
+async fn test_setup_driver_wait_prom(
+    mut sim: Simulation,
+    root: SimulationRoot,
+    opts: Options,
+    #[case] ready: bool,
+    #[case] disabled: bool,
+) {
     env::set_var("POD_SVC_ACCOUNT", "asdf");
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
 
     let driver_ns = ctx.driver_ns.clone();
     let prom_name = ctx.prometheus_name.clone();
-    let prom_svc_name = ctx.prometheus_svc.clone();
     let driver_svc_name = ctx.driver_svc.clone();
     let webhook_name = ctx.webhook_name.clone();
     let driver_name = ctx.driver_name.clone();
 
     let driver_ns_obj = build_driver_namespace(&ctx, &sim).unwrap();
-    let service_monitor_obj = build_ksm_service_monitor(KSM_SVC_MON_NAME, &sim).unwrap();
-    let prom_obj = build_prometheus(&ctx.prometheus_name, KSM_SVC_MON_NAME, &sim).unwrap();
-    let prom_svc_obj = build_prometheus_service(&ctx.prometheus_svc, &sim).unwrap();
     let driver_svc_obj = build_driver_service(&ctx, &root).unwrap();
     let webhook_obj = build_mutating_webhook(&ctx, &root).unwrap();
     let driver_obj = build_driver_job(&ctx, &sim, "".into(), &sim.spec.trace_path.clone()).unwrap();
@@ -235,14 +223,13 @@ async fn test_setup_driver_wait_prom(sim: Simulation, root: SimulationRoot, opts
         .handle(move |when, then| {
             when.method(GET).path(format!("/api/v1/namespaces/{driver_ns}"));
             then.json_body_obj(&driver_ns_obj);
-        })
-        .handle(move |when, then| {
-            when.method(GET).path(format!(
-                "/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors/{KSM_SVC_MON_NAME}"
-            ));
-            then.json_body_obj(&service_monitor_obj);
-        })
-        .handle(move |when, then| {
+        });
+
+    if disabled {
+        sim.spec.metrics_config = None;
+    } else {
+        let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap()).unwrap();
+        fake_apiserver.handle(move |when, then| {
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));
             let mut prom_obj = prom_obj.clone();
@@ -250,12 +237,8 @@ async fn test_setup_driver_wait_prom(sim: Simulation, root: SimulationRoot, opts
                 prom_obj.status = Some(PrometheusStatus { available_replicas: 1, ..Default::default() });
             }
             then.json_body_obj(&prom_obj);
-        })
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/api/v1/namespaces/monitoring/services/{prom_svc_name}"));
-            then.json_body_obj(&prom_svc_obj);
         });
+    }
 
     if ready {
         fake_apiserver
@@ -314,12 +297,6 @@ async fn test_cleanup(sim: Simulation, opts: Options) {
             when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
             then.json_body(status_ok());
         })
-        .handle(|when, then| {
-            when.path(format!(
-                "/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors/{KSM_SVC_MON_NAME}"
-            ));
-            then.json_body(status_ok());
-        })
         .handle(move |when, then| {
             when.path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom}"));
             then.json_body(status_ok());
@@ -348,9 +325,6 @@ async fn test_cleanup_not_found(sim: Simulation, opts: Options) {
             when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
             then.json_body(status_ok());
         })
-        .handle_not_found(format!(
-            "/apis/monitoring.coreos.com/v1/namespaces/monitoring/servicemonitors/{KSM_SVC_MON_NAME}"
-        ))
         .handle_not_found(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom}"))
         .build();
     cleanup(&ctx, &sim).await;

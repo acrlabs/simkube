@@ -1,4 +1,3 @@
-mod args;
 mod crd;
 mod delete;
 mod export;
@@ -28,16 +27,16 @@ enum Commands {
     Crd,
 
     #[command(about = "delete a simulation")]
-    Delete(args::Delete),
+    Delete(delete::Args),
 
     #[command(about = "export simulation trace data")]
-    Export(args::Export),
+    Export(export::Args),
 
     #[command(about = "run a simulation")]
-    Run(args::Run),
+    Run(run::Args),
 
     #[command(about = "take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)")]
-    Snapshot(args::Snapshot),
+    Snapshot(snapshot::Args),
 }
 
 #[tokio::main]

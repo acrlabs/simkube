@@ -3,12 +3,20 @@ use std::env;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+use kube::ResourceExt;
 use reqwest::Url;
 use simkube::k8s::{
+    build_containment_label_selector,
     build_global_object_meta,
     build_object_meta,
 };
 use simkube::macros::*;
+use simkube::metrics::api::prometheus::{
+    Prometheus,
+    PrometheusPodMetadata,
+    PrometheusRemoteWriteWriteRelabelConfigs as WriteRelabelConfigs,
+    PrometheusSpec,
+};
 use simkube::prelude::*;
 use simkube::store::storage;
 
@@ -16,6 +24,10 @@ use super::cert_manager::DRIVER_CERT_NAME;
 use super::trace::get_local_trace_volume;
 use crate::SimulationContext;
 
+const METRICS_NAME_LABEL: &str = "__name__";
+const SIMKUBE_META_LABEL: &str = "simkube_meta";
+const PROM_VERSION: &str = "2.44.0";
+const PROM_COMPONENT_LABEL: &str = "prometheus";
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
 const DRIVER_CERT_VOLUME: &str = "driver-cert";
 
@@ -30,6 +42,75 @@ pub(super) fn build_driver_namespace(ctx: &SimulationContext, owner: &Simulation
     Ok(corev1::Namespace {
         metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner)?,
         ..Default::default()
+    })
+}
+
+pub(super) fn build_prometheus(
+    name: &str,
+    sim: &Simulation,
+    mc: &SimulationMetricsConfig,
+) -> anyhow::Result<Prometheus> {
+    // Configure the remote write endpoints; these _can_ be overridden by the user but set up some
+    // sane defaults so they don't have to.
+    let mut rw_cfgs = mc.remote_write_configs.clone();
+    for cfg in rw_cfgs.iter_mut() {
+        cfg.send_exemplars.get_or_insert(false);
+        cfg.send_native_histograms.get_or_insert(false);
+        cfg.remote_timeout.get_or_insert("30s".into());
+
+        // Every metric we write should have the simkube_meta label on it for easy filtering
+        cfg.write_relabel_configs.get_or_insert(vec![]).push(WriteRelabelConfigs {
+            source_labels: Some(vec![METRICS_NAME_LABEL.into()]), // match every metric
+            target_label: Some(SIMKUBE_META_LABEL.into()),
+            replacement: Some(sim.name_any()),
+            ..Default::default()
+        });
+    }
+
+
+    let shards = mc.prometheus_shards.or(Some(1));
+    let pod_monitor_namespace_selector =
+        Some(mc.pod_monitor_namespaces.clone().map_or(Default::default(), |name| {
+            build_containment_label_selector(KUBERNETES_IO_METADATA_NAME_KEY, name)
+        }));
+    let pod_monitor_selector = Some(
+        mc.pod_monitor_names
+            .clone()
+            .map_or(Default::default(), |name| build_containment_label_selector(APP_KUBERNETES_IO_NAME_KEY, name)),
+    );
+    let service_monitor_namespace_selector =
+        Some(mc.service_monitor_namespaces.clone().map_or(Default::default(), |name| {
+            build_containment_label_selector(KUBERNETES_IO_METADATA_NAME_KEY, name)
+        }));
+    let service_monitor_selector = Some(
+        mc.service_monitor_names
+            .clone()
+            .map_or(Default::default(), |name| build_containment_label_selector(APP_KUBERNETES_IO_NAME_KEY, name)),
+    );
+
+    Ok(Prometheus {
+        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), sim)?,
+        spec: PrometheusSpec {
+            image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
+            pod_metadata: Some(PrometheusPodMetadata {
+                labels: klabel!(
+                    SIMULATION_LABEL_KEY => sim.name_any(),
+                    APP_KUBERNETES_IO_COMPONENT_KEY => PROM_COMPONENT_LABEL,
+                ),
+                ..Default::default()
+            }),
+            external_labels: klabel!(PROM2PARQUET_PREFIX_KEY => sim.name_any()),
+            shards,
+            pod_monitor_namespace_selector,
+            pod_monitor_selector,
+            service_monitor_namespace_selector,
+            service_monitor_selector,
+            remote_write: Some(rw_cfgs),
+            service_account_name: Some(sim.metrics_svc_account()),
+            version: Some(PROM_VERSION.into()),
+            ..Default::default()
+        },
+        status: Default::default(),
     })
 }
 
@@ -136,25 +217,6 @@ pub(super) fn build_driver_job(
     })
 }
 
-fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mount_path: String) -> Vec<String> {
-    vec![
-        "--cert-path".into(),
-        format!("{cert_mount_path}/tls.crt"),
-        "--key-path".into(),
-        format!("{cert_mount_path}/tls.key"),
-        "--trace-mount-path".into(),
-        trace_mount_path,
-        "--virtual-ns-prefix".into(),
-        "virtual".into(),
-        "--sim-root".into(),
-        ctx.root.clone(),
-        "--sim-name".into(),
-        ctx.name.clone(),
-        "--verbosity".into(),
-        ctx.opts.verbosity.clone(),
-    ]
-}
-
 fn build_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, corev1::Volume, String) {
     (
         corev1::VolumeMount {
@@ -173,4 +235,23 @@ fn build_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, co
         },
         "/etc/ssl/".into(),
     )
+}
+
+fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mount_path: String) -> Vec<String> {
+    vec![
+        "--cert-path".into(),
+        format!("{cert_mount_path}/tls.crt"),
+        "--key-path".into(),
+        format!("{cert_mount_path}/tls.key"),
+        "--trace-mount-path".into(),
+        trace_mount_path,
+        "--virtual-ns-prefix".into(),
+        "virtual".into(),
+        "--sim-root".into(),
+        ctx.root.clone(),
+        "--sim-name".into(),
+        ctx.name.clone(),
+        "--verbosity".into(),
+        ctx.opts.verbosity.clone(),
+    ]
 }

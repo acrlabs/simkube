@@ -46,6 +46,20 @@ spec:
                   namespace:
                     nullable: true
                     type: string
+                  podMonitorNames:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
+                  podMonitorNamespaces:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
+                  prometheusShards:
+                    format: int32
+                    nullable: true
+                    type: integer
                   remoteWriteConfigs:
                     items:
                       properties:
@@ -430,6 +444,16 @@ spec:
                   serviceAccount:
                     nullable: true
                     type: string
+                  serviceMonitorNames:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
+                  serviceMonitorNamespaces:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                 required:
                 - remoteWriteConfigs
                 type: object

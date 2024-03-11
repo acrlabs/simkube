@@ -14,9 +14,24 @@ use simkube::watch::{
     PodWatcher,
 };
 
-use crate::args;
+#[derive(clap::Args)]
+pub struct Args {
+    #[arg(long_help = "config file specifying resources to snapshot", long, short)]
+    pub config_file: String,
 
-pub async fn cmd(args: &args::Snapshot) -> EmptyResult {
+    #[arg(
+        long,
+        long_help = "namespaces to exclude from the snapshot",
+        value_delimiter = ',',
+        default_value = "cert-manager,kube-system,local-path-storage,monitoring,simkube"
+    )]
+    pub excluded_namespaces: Vec<String>,
+
+    #[arg(long, long_help = "location to save exported trace", default_value = "trace.out")]
+    pub output: String,
+}
+
+pub async fn cmd(args: &Args) -> EmptyResult {
     println!("Reading config from {}...", args.config_file);
     let config = TracerConfig::load(&args.config_file)?;
 
