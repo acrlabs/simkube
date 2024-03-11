@@ -1,8 +1,12 @@
 use simkube::prelude::*;
 
-use crate::args;
+#[derive(clap::Args)]
+pub struct Args {
+    #[arg(short, long, long_help = "name of the simulation to delete")]
+    pub name: String,
+}
 
-pub async fn cmd(args: &args::Delete) -> EmptyResult {
+pub async fn cmd(args: &Args) -> EmptyResult {
     println!("deleting simulation {}...", args.name);
     let client = kube::Client::try_default().await?;
     let sim_api = kube::Api::<Simulation>::all(client.clone());

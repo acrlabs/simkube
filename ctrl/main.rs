@@ -1,6 +1,5 @@
 mod cert_manager;
 mod controller;
-mod metrics;
 mod objects;
 mod trace;
 
@@ -28,7 +27,6 @@ use crate::controller::{
     error_policy,
     reconcile,
 };
-use crate::objects::*;
 
 #[derive(Clone, Debug, Parser)]
 struct Options {
