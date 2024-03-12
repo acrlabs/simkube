@@ -1,0 +1,15 @@
+apiVersion: simkube.io/v1
+kind: Simulation
+metadata:
+  name: testing
+spec:
+  driverNamespace: simkube
+  metricsConfig:
+    podMonitorNamespaces:
+      - monitoring-hd
+    serviceMonitorNamespaces:
+      - monitoring-hd
+    remoteWriteConfigs:
+      - url: http://prom2parquet-svc.monitoring:1234/receive
+  tracePath: file:///data/trace
+  duration: "+10m"

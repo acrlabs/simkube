@@ -47,8 +47,8 @@ delete a simulation
 Usage: skctl delete --name <NAME>
 
 Options:
-      --name <NAME>
-          name of the simulation to run
+  -n, --name <NAME>
+          name of the simulation to delete
 
   -h, --help
           Print help (see a summary with '-h')
@@ -67,8 +67,8 @@ Usage: skctl export [OPTIONS]
 Options:
       --start-time <START_TIME>
           trace export start timestamp; can be a relative duration
-                or absolute timestamp; durations are computed relative
-                to the specified end time, _not_ the current time
+          or absolute timestamp; durations are computed relative
+          to the specified end time, _not_ the current time
 
           [default: -30m]
 
@@ -117,13 +117,22 @@ Arguments:
           duration of the simulation
 
 Options:
-      --name <NAME>
+  -n, --name <NAME>
           name of the simulation to run
+
+      --trace-file <TRACE_FILE>
+          location of the trace file for sk-driver to read
+
+          [default: file:///data/trace]
 
       --driver-namespace <DRIVER_NAMESPACE>
           namespace to launch sk-driver in
 
           [default: simkube]
+
+Metrics:
+      --disable-metrics
+          don't spawn Prometheus pod before running sim
 
       --metrics-namespace <METRICS_NAMESPACE>
           namespace to launch monitoring utilities in
@@ -135,11 +144,31 @@ Options:
 
           [default: prometheus-k8s]
 
-      --trace-file <TRACE_FILE>
-          location of the trace file for sk-driver to read
+      --metrics-pod-monitor-namespaces <METRICS_POD_MONITOR_NAMESPACES>
+          comma-separated list of namespaces containing pod monitor configs
 
-          [default: file:///data/trace]
+          [default: monitoring-hd]
 
+      --metrics-pod-monitor-names <METRICS_POD_MONITOR_NAMES>
+          comma-separated list of pod monitor config names
+          (if empty, uses all pod monitor configs in metrics_pod_monitor_namespaces)
+
+      --metrics-service-monitor-namespaces <METRICS_SERVICE_MONITOR_NAMESPACES>
+          comma-separated list of namespaces containing service monitor configs
+
+          [default: monitoring-hd]
+
+      --metrics-service-monitor-names <METRICS_SERVICE_MONITOR_NAMES>
+          comma-separated list of service monitor config names
+          (if empty, uses all pod monitor configs in metrics_service_monitor_namespaces)
+
+      --prometheus-shards <PROMETHEUS_SHARDS>
+          number of prometheus shards to run
+
+      --remote-write-endpoint <REMOTE_WRITE_ENDPOINT>
+          address for remote write endpoint
+
+Help:
   -h, --help
           Print help (see a summary with '-h')
 
@@ -180,3 +209,6 @@ that, unlike `skctl export`, the snapshot command _does not require `sk-tracer` 
 means that you can pick an arbitrary starting point, create a trace file from there, and "let the simulation run to see
 what happens".  The snapshot command will try to read your local Kubernetes credentials from, e.g., `~/.kube/config`,
 and you will need read access to all namespaces on the cluster you're trying to snapshot.
+
+The config file format is the same as for [sk-tracer](sk-tracer.md); there is an example in the [examples
+folder](https://github.com/acrlabs/simkube/examples/tracer_config.yml).

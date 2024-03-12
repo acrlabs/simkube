@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  labels:
+    app.kubernetes.io/name: karpenter-hd
+  name: karpenter-hd
+  namespace: monitoring-hd
+spec:
+  podMetricsEndpoints:
+  - honorLabels: true
+    interval: 1s
+    port: http-metrics
+    scrapeTimeout: 1s
+    tlsConfig:
+      insecureSkipVerify: true
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: karpenter
