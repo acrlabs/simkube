@@ -11,7 +11,7 @@ This guide will walk you through installing the various SimKube components
 
 The following prereqs are required for all components:
 
-- Rust >= 1.71 (needed if you want to build outside of Docker)
+- Rust >= 1.71
 - Docker
 - kubectl >= 1.27
 - Kubernetes >= 1.27
@@ -20,8 +20,6 @@ Additional prerequisites are necessary for your simulation cluster:
 
 - [KWOK](https://kwok.sigs.k8s.io) >= 0.4.0
 - [CertManager](https://cert-manager.io) for setting up mutating webhook certificates
-- [The Promtheus operator](https://github.com/prometheus-operator/prometheus-operator); we recommend configuring this
-  via the [kube-prometheus](https://github.com/prometheus-operator/kube-prometheus) project
 
 ### Optional Prerequisites
 
@@ -31,6 +29,7 @@ following additional dependencies:
 
 - Python 3.10
 - Python Poetry (https://python-poetry.org/docs/)
+- NodeJS
 
 Additionally, if you want to run SimKube on a local development cluster, [kind](https://kind.sigs.k8s.io) >= 0.19 is the
 supported tooling for doing so.
@@ -40,11 +39,6 @@ or [Karpenter](https://karpenter.sh).  You will need to install and configure th
 corresponding KWOK provider.  For the Kubernetes Cluster Autoscaler, a KWOK [cloud provider](https://github.com/kubernetes/autoscaler/tree/master/cluster-autoscaler/cloudprovider/kwok)
 is available, and for Karpenter, a basic [KWOK provider](https://github.com/kubernetes-sigs/karpenter/tree/main/kwok) is
 used.  See [Autoscaling](../adv/autoscaling.md) for more information on configuring these tools.
-
-If you intend to save metrics or data from a simulation, you will need to configure Prometheus with a [remote write
-endpoint](https://prometheus.io/docs/prometheus/latest/configuration/configuration/#remote_write).  One option here is
-the [prom2parquet writer](https://github.com/acrlabs/prom2parquet).  See [Metrics Collection](../adv/metrics.md) for more
-information on how to set this up.
 
 ## Building SimKube
 

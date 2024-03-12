@@ -1,0 +1,4 @@
+---
+trackedObjects:
+  apps/v1.Deployment:
+    podSpecTemplatePath: /spec/template

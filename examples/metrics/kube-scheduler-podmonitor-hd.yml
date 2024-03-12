@@ -1,0 +1,22 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: kube-scheduler-hd
+  namespace: monitoring-hd
+  labels:
+    app.kubernetes.io/name: kube-scheduler-hd
+spec:
+  podMetricsEndpoints:
+  - targetPort: 10259
+    scheme: https
+    interval: 1s
+    scrapeTimeout: 1s
+    tlsConfig:
+      insecureSkipVerify: true
+  jobLabel: app.kubernetes.io/name
+  namespaceSelector:
+    matchNames:
+    - kube-system
+  selector:
+    matchLabels:
+      component: kube-scheduler
