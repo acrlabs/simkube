@@ -211,4 +211,4 @@ what happens".  The snapshot command will try to read your local Kubernetes cred
 and you will need read access to all namespaces on the cluster you're trying to snapshot.
 
 The config file format is the same as for [sk-tracer](sk-tracer.md); there is an example in the [examples
-folder](https://github.com/acrlabs/simkube/examples/tracer_config.yml).
+folder](https://github.com/acrlabs/simkube/blob/master/examples/tracer_config.yml).

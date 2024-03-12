@@ -43,7 +43,7 @@ user carefully read the [Prometheus operator documentation](https://prometheus-o
  for more details.  However, a basic recommendation is that you place your monitor resources in a separate namespace
 that is not watched by your default Prometheus install, so you do not overwhelm its storage (SimKube defaults to
 `monitoring-hd` for this namespace).  A set of example Pod- and ServiceMonitor configurations is given in the
-[examples](https://github.com/acrlabs/simkube/examples/metrics) of the SimKube repository.
+[examples](https://github.com/acrlabs/simkube/tree/master/examples/metrics) of the SimKube repository.
 
 Once you have set up your monitoring resources, you can point the Prometheus pod to them via the `metricsConfig` section
 of your Simulation spec:
@@ -76,7 +76,7 @@ shards can make metrics collection more accurate at the expense of requiring mor
 The Prometheus pod(s) launched by SimKube will be torn down at the end of the simulation, which means the data needs to
 be persisted somewhere for long-term storage and analysis.  SimKube will configure Prometheus to save the data to any
 remote write endpoints you like, via the `remoteWriteConfigs` section of the Simulation metrics config spec.  The format
-for these config is given in the [Prometheus operator API](https://prometheus-operator.dev/docs/user-guides/getting-started/).
+for this config is given in the [Prometheus operator API](https://prometheus-operator.dev/docs/operator/api/#monitoring.coreos.com/v1.RemoteWriteSpec).
 
 As above, configuring your remote write endpoints is beyond the scope of this document; however, one option is the
 [prom2parquet](https://github.com/acrlabs/prom2parquet) writer, which will save all your endpoints to S3 in the Parquet
@@ -185,7 +185,7 @@ forwarding to inspect the Prometheus pod:
 
 ```
 > export SIM_NAME=testing
-> skctl run -n ${SIM_NAME} +1h
+> skctl run -n ${} +1h
 > kubectl port-forward -n monitoring prometheus-sk-${SIM_NAME}-prom 9090
 ```
 
