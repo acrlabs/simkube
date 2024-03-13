@@ -39,12 +39,12 @@ The SimKube repo is organized as follows:
     /driver    - Rust code for the `sk-driver` Simulation runner
     /images    - Dockerfiles for all components
     /k8s       - 🔥Config Python scripts for Kubernetes manifest generation
-    /src       - shared library code
+    /lib       - shared library code
     /tracer    - Rust code for the `sk-tracer` Kubernetes object
 ```
 
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
-needs to be shared between multiple artifacts should go in either `src/`.
+needs to be shared between multiple artifacts should go in either `lib/`.
 
 > [!NOTE]
 > If you are planning to make changes to the API (either the Custom Resource Definition or the SimKube API), please read
@@ -144,7 +144,7 @@ builds.
 
 ### Writing new tests
 
-There is a suite of utility functions for tests in `src/testutils` that provide additional fixtures and helper
+There is a suite of utility functions for tests in `lib/testutils` that provide additional fixtures and helper
 functions for writing tests.  Feel free to add more utilities in here if it would be helpful.
 
 Tests should in most cases be put into a separate submodule called `tests` and included with a
@@ -156,7 +156,7 @@ mod tests;
 
 block at the bottom of the main module.
 
-In order to make `src/testutils` accessible outside the `src/` crate, they are not included with `#[cfg(test)]`, but
+In order to make `lib/testutils` accessible outside the `lib/` crate, they are not included with `#[cfg(test)]`, but
 instead with an optional `testutils` feature.
 
 ## Making a PR

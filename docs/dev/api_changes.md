@@ -7,7 +7,7 @@ template: docs.html
 
 ## SimKube Custom Resource Definition changes
 
-The Simulation CRD is auto-generated from the Rust structs in `./src/api/v1/(simulations|simulation_roots).rs`
+The Simulation CRD is auto-generated from the Rust structs in `./lib/api/v1/(simulations|simulation_roots).rs`
 If these structs change, you will need to regenerate the CRD yaml by running `make crd`; the resulting CRDs are stored
 in `./k8s/raw/`.  A pre-commit check as well as a GitHub action will complain if you have not updated the CRD yaml
 before committing.
@@ -20,8 +20,8 @@ specification in `./api/v1/simkube.yml`.  I haven't _yet_ figured out how to wir
 from this file.  This process is currently quite manual.  The steps look something like the following:
 
 1. `make api`
-2. In `src/api/v1/*.rs`, add `use super::*` to the top of each generated file
-3. In `src/api/v1/*.rs`, replace all the k8s-generated types with the correct imports from `k8s-openapi`.
+2. In `lib/api/v1/*.rs`, add `use super::*` to the top of each generated file
+3. In `lib/api/v1/*.rs`, replace all the k8s-generated types with the correct imports from `k8s-openapi`.
 
 Once you've made all of these changes, you will need to check the diff quite carefully to ensure that nothing is broken.
 
