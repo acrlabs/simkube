@@ -58,9 +58,9 @@ cover:
 		--ignore '/*' \
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
-		--ignore 'src/api/v1/*' \
-		--ignore 'src/metrics/api/*' \
-		--ignore 'src/testutils/*' \
+		--ignore 'lib/api/v1/*' \
+		--ignore 'lib/metrics/api/*' \
+		--ignore 'lib/testutils/*' \
 		--ignore '.build/*' \
 		--excl-line '#\[derive' \
 		--excl-start '#\[cfg\((test|feature = "testutils")'

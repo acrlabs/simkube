@@ -22,7 +22,7 @@ path = "tracer/main.rs"
 
 [lib]
 name = "simkube"
-path = "src/lib.rs"
+path = "lib/lib.rs"
 
 [profile.dev.package."*"]
 debug = false
