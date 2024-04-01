@@ -73,10 +73,14 @@ fn api_resource() -> ApiResource {
     }
 }
 
-pub(super) async fn create_certificate_if_not_present(ctx: &SimulationContext, owner: &SimulationRoot) -> EmptyResult {
+pub(super) async fn create_certificate_if_not_present(
+    ctx: &SimulationContext,
+    metaroot: &SimulationRoot,
+) -> EmptyResult {
     let cert_api =
         kube::Api::<PartialCertificate>::namespaced_with(ctx.client.clone(), &ctx.driver_ns, &api_resource());
 
+    let owner = metaroot;
     if cert_api.get_opt(DRIVER_CERT_NAME).await?.is_none() {
         info!(
             "creating cert-manager certificate {} using issuer {}",

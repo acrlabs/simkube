@@ -211,7 +211,7 @@ async fn test_setup_driver_wait_prom(
     let driver_ns_obj = build_driver_namespace(&ctx, &sim).unwrap();
     let driver_svc_obj = build_driver_service(&ctx, &root).unwrap();
     let webhook_obj = build_mutating_webhook(&ctx, &root).unwrap();
-    let driver_obj = build_driver_job(&ctx, &sim, "".into(), &sim.spec.trace_path.clone()).unwrap();
+    let driver_obj = build_driver_job(&ctx, &sim, "".into()).unwrap();
 
     fake_apiserver
         .handle(|when, then| {
@@ -289,7 +289,7 @@ async fn test_cleanup(sim: Simulation, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
 
-    let root = ctx.root.clone();
+    let root = ctx.metaroot_name.clone();
     let prom = ctx.prometheus_name.clone();
 
     fake_apiserver
@@ -317,7 +317,7 @@ async fn test_cleanup_not_found(sim: Simulation, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
 
-    let root = ctx.root.clone();
+    let root = ctx.metaroot_name.clone();
     let prom = ctx.prometheus_name.clone();
 
     fake_apiserver

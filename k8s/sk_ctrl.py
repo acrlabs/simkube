@@ -5,11 +5,13 @@ from constructs import Construct
 from fireconfig.types import Capability
 from fireconfig.types import DownwardAPIField
 
+POD_SVC_ACCOUNT_ENV_VAR = "POD_SVC_ACCOUNT"
+
 
 class SKController(fire.AppPackage):
     def __init__(self):
         env = (fire.EnvBuilder({"RUST_BACKTRACE": "1"})
-            .with_field_ref("POD_SVC_ACCOUNT", DownwardAPIField.SERVICE_ACCOUNT_NAME)
+            .with_field_ref(POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME)
         )
 
         try:

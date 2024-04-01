@@ -20,6 +20,7 @@ use kube::runtime::controller::Action;
 use kube::Error::Api;
 use kube::ResourceExt;
 use serde_json::json;
+use simkube::api::v1::build_simulation_root;
 use simkube::errors::*;
 use simkube::metrics::api::*;
 use simkube::prelude::*;
@@ -35,15 +36,15 @@ const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(30);
 pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
 pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
-async fn setup_sim_root(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
+async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
-    match roots_api.get_opt(&ctx.root).await? {
+    match roots_api.get_opt(&ctx.metaroot_name).await? {
         None => {
-            info!("creating SimulationRoot");
-            let root = build_simulation_root(ctx, sim)?;
-            roots_api.create(&Default::default(), &root).await.map_err(|e| e.into())
+            info!("creating Simulation MetaRoot");
+            let metaroot = build_simulation_root(&ctx.metaroot_name, sim)?;
+            roots_api.create(&Default::default(), &metaroot).await.map_err(|e| e.into())
         },
-        Some(root) => Ok(root),
+        Some(metaroot) => Ok(metaroot),
     }
 }
 
@@ -80,7 +81,7 @@ pub(super) async fn fetch_driver_status(
 pub(super) async fn setup_driver(
     ctx: &SimulationContext,
     sim: &Simulation,
-    root: &SimulationRoot,
+    metaroot: &SimulationRoot,
 ) -> anyhow::Result<Action> {
     info!("setting up simulation driver");
 
@@ -129,12 +130,12 @@ pub(super) async fn setup_driver(
     let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if driver_svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
         info!("creating driver service {}", &ctx.driver_svc);
-        let obj = build_driver_service(ctx, root)?;
+        let obj = build_driver_service(ctx, metaroot)?;
         driver_svc_api.create(&Default::default(), &obj).await?;
     }
 
     if ctx.opts.use_cert_manager {
-        cert_manager::create_certificate_if_not_present(ctx, root).await?;
+        cert_manager::create_certificate_if_not_present(ctx, metaroot).await?;
     }
 
     let secrets_api = kube::Api::<corev1::Secret>::namespaced(ctx.client.clone(), &ctx.driver_ns);
@@ -156,7 +157,7 @@ pub(super) async fn setup_driver(
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
     if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
-        let obj = build_mutating_webhook(ctx, root)?;
+        let obj = build_mutating_webhook(ctx, metaroot)?;
         webhook_api.create(&Default::default(), &obj).await?;
     };
 
@@ -164,7 +165,7 @@ pub(super) async fn setup_driver(
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
-        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, &sim.spec.trace_path)?;
+        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name)?;
         jobs_api.create(&Default::default(), &obj).await?;
     }
 
@@ -176,7 +177,7 @@ pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());
 
     info!("cleaning up simulation {}", ctx.name);
-    if let Err(e) = roots_api.delete(&ctx.root, &Default::default()).await {
+    if let Err(e) = roots_api.delete(&ctx.metaroot_name, &Default::default()).await {
         error!("Error cleaning up simulation: {e:?}");
     }
 
@@ -195,7 +196,7 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
     let sim = sim.deref();
     let ctx = ctx.with_sim(sim);
 
-    let root = setup_sim_root(&ctx, sim).await?;
+    let root = setup_sim_metaroot(&ctx, sim).await?;
     let (driver_state, start_time, end_time) = fetch_driver_status(&ctx).await?;
 
     let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());

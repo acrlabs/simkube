@@ -11,6 +11,7 @@ use serde::{
     Serialize,
 };
 pub use simulation_roots::{
+    build_simulation_root,
     SimulationRoot,
     SimulationRootSpec,
 };

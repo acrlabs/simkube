@@ -81,7 +81,7 @@ struct SimulationContext {
     opts: Options,
 
     name: String,
-    root: String,
+    metaroot_name: String,
     driver_ns: String,
     driver_name: String,
     driver_svc: String,
@@ -96,7 +96,7 @@ impl SimulationContext {
             client,
             opts,
             name: String::new(),
-            root: String::new(),
+            metaroot_name: String::new(),
             driver_ns: String::new(),
             driver_name: String::new(),
             driver_svc: String::new(),
@@ -109,7 +109,7 @@ impl SimulationContext {
     fn with_sim(self: Arc<Self>, sim: &Simulation) -> Self {
         let mut new = (*self).clone();
         new.name = sim.name_any();
-        new.root = format!("sk-{}-root", new.name);
+        new.metaroot_name = format!("sk-{}-metaroot", new.name);
         new.driver_name = format!("sk-{}-driver", new.name);
         new.driver_ns = sim.spec.driver_namespace.clone();
         new.driver_svc = format!("sk-{}-driver-svc", new.name);
