@@ -19,6 +19,7 @@ use kube::ResourceExt;
 use mockall::predicate;
 use rocket::serde::json::Json;
 
+use super::helpers::build_driver_context;
 use super::*;
 
 #[fixture]
@@ -30,14 +31,8 @@ fn ctx(
     let (_, client) = make_fake_apiserver();
     let mut owners = HashMap::new();
     owners.insert(test_pod.namespaced_name(), pod_owners);
-
-    DriverContext {
-        name: TEST_SIM_NAME.into(),
-        sim_root: TEST_SIM_ROOT_NAME.into(),
-        virtual_ns_prefix: "virtual".into(),
-        owners_cache: Arc::new(Mutex::new(OwnersCache::new_from_parts(ApiSet::new(client), owners))),
-        store: Arc::new(store),
-    }
+    let cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
+    build_driver_context(Arc::new(Mutex::new(cache)), Arc::new(store))
 }
 
 #[fixture]
@@ -96,7 +91,7 @@ async fn test_handler_invalid_review(ctx: DriverContext) {
 #[tokio::test]
 async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: AdmissionReview<corev1::Pod>) {
     let owner = metav1::OwnerReference {
-        name: TEST_SIM_ROOT_NAME.into(),
+        name: TEST_DRIVER_ROOT_NAME.into(),
         ..Default::default()
     };
     let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
@@ -125,7 +120,7 @@ async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionRespo
         .annotations_mut()
         .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
     let root = metav1::OwnerReference {
-        name: TEST_SIM_ROOT_NAME.into(),
+        name: TEST_DRIVER_ROOT_NAME.into(),
         ..Default::default()
     };
     let depl = metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() };

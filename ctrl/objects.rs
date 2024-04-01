@@ -31,14 +31,8 @@ const PROM_COMPONENT_LABEL: &str = "prometheus";
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
 const DRIVER_CERT_VOLUME: &str = "driver-cert";
 
-pub(super) fn build_simulation_root(ctx: &SimulationContext, owner: &Simulation) -> anyhow::Result<SimulationRoot> {
-    Ok(SimulationRoot {
-        metadata: build_global_object_meta(&ctx.root, &ctx.name, owner)?,
-        spec: SimulationRootSpec {},
-    })
-}
-
-pub(super) fn build_driver_namespace(ctx: &SimulationContext, owner: &Simulation) -> anyhow::Result<corev1::Namespace> {
+pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<corev1::Namespace> {
+    let owner = sim;
     Ok(corev1::Namespace {
         metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner)?,
         ..Default::default()
@@ -88,8 +82,9 @@ pub(super) fn build_prometheus(
             .map_or(Default::default(), |name| build_containment_label_selector(APP_KUBERNETES_IO_NAME_KEY, name)),
     );
 
+    let owner = sim;
     Ok(Prometheus {
-        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), sim)?,
+        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), owner)?,
         spec: PrometheusSpec {
             image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
             pod_metadata: Some(PrometheusPodMetadata {
@@ -116,8 +111,9 @@ pub(super) fn build_prometheus(
 
 pub(super) fn build_mutating_webhook(
     ctx: &SimulationContext,
-    owner: &SimulationRoot,
+    metaroot: &SimulationRoot,
 ) -> anyhow::Result<admissionv1::MutatingWebhookConfiguration> {
+    let owner = metaroot;
     let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner)?;
     if ctx.opts.use_cert_manager {
         metadata
@@ -154,7 +150,11 @@ pub(super) fn build_mutating_webhook(
     })
 }
 
-pub(super) fn build_driver_service(ctx: &SimulationContext, owner: &SimulationRoot) -> anyhow::Result<corev1::Service> {
+pub(super) fn build_driver_service(
+    ctx: &SimulationContext,
+    metaroot: &SimulationRoot,
+) -> anyhow::Result<corev1::Service> {
+    let owner = metaroot;
     Ok(corev1::Service {
         metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_svc, &ctx.name, owner)?,
         spec: Some(corev1::ServiceSpec {
@@ -172,21 +172,20 @@ pub(super) fn build_driver_service(ctx: &SimulationContext, owner: &SimulationRo
 
 pub(super) fn build_driver_job(
     ctx: &SimulationContext,
-    owner: &Simulation,
+    sim: &Simulation,
     cert_secret_name: &str,
-    trace_path: &str,
 ) -> anyhow::Result<batchv1::Job> {
-    let trace_url = Url::parse(trace_path)?;
+    let trace_url = Url::parse(&sim.spec.trace_path)?;
     let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
     };
     let (cert_vm, cert_volume, cert_mount_path) = build_certificate_volumes(cert_secret_name);
 
-    let service_account = Some(env::var("POD_SVC_ACCOUNT")?);
+    let service_account = Some(env::var(POD_SVC_ACCOUNT_ENV_VAR)?);
 
     Ok(batchv1::Job {
-        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, owner)?,
+        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, sim)?,
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(0),
             template: corev1::PodTemplateSpec {
@@ -196,11 +195,24 @@ pub(super) fn build_driver_job(
                         command: Some(vec!["/sk-driver".into()]),
                         args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path)),
                         image: Some(ctx.opts.driver_image.clone()),
-                        env: Some(vec![corev1::EnvVar {
-                            name: "RUST_BACKTRACE".into(),
-                            value: Some("1".into()),
-                            ..Default::default()
-                        }]),
+                        env: Some(vec![
+                            corev1::EnvVar {
+                                name: "RUST_BACKTRACE".into(),
+                                value: Some("1".into()),
+                                ..Default::default()
+                            },
+                            corev1::EnvVar {
+                                name: DRIVER_NAME_ENV_VAR.into(),
+                                value_from: Some(corev1::EnvVarSource {
+                                    field_ref: Some(corev1::ObjectFieldSelector {
+                                        field_path: "metadata.name".into(),
+                                        ..Default::default()
+                                    }),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                        ]),
                         volume_mounts: Some(vec![trace_vm, cert_vm]),
                         ..Default::default()
                     }],
@@ -211,6 +223,8 @@ pub(super) fn build_driver_job(
                 }),
                 ..Default::default()
             },
+            parallelism: Some(1),
+            completions: sim.spec.repetitions,
             ..Default::default()
         }),
         ..Default::default()
@@ -247,8 +261,6 @@ fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mou
         trace_mount_path,
         "--virtual-ns-prefix".into(),
         "virtual".into(),
-        "--sim-root".into(),
-        ctx.root.clone(),
         "--sim-name".into(),
         ctx.name.clone(),
         "--verbosity".into(),

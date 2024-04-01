@@ -16,7 +16,7 @@ use simkube::watch::{
 
 #[derive(clap::Args)]
 pub struct Args {
-    #[arg(long_help = "config file specifying resources to snapshot", long, short)]
+    #[arg(short, long, long_help = "config file specifying resources to snapshot")]
     pub config_file: String,
 
     #[arg(
@@ -27,7 +27,12 @@ pub struct Args {
     )]
     pub excluded_namespaces: Vec<String>,
 
-    #[arg(long, long_help = "location to save exported trace", default_value = "trace.out")]
+    #[arg(
+        short,
+        long,
+        long_help = "location to save exported trace",
+        default_value = "trace.out"
+    )]
     pub output: String,
 }
 

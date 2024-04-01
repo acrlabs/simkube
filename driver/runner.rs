@@ -9,6 +9,7 @@ use kube::api::{
 };
 use kube::ResourceExt;
 use serde_json::json;
+use simkube::api::v1::build_simulation_root;
 use simkube::jsonutils;
 use simkube::k8s::{
     add_common_metadata,
@@ -25,9 +26,10 @@ use super::*;
 
 pub(super) fn build_virtual_ns(
     ctx: &DriverContext,
-    owner: &SimulationRoot,
+    root: &SimulationRoot,
     namespace: &str,
 ) -> anyhow::Result<corev1::Namespace> {
+    let owner = root;
     let mut ns = corev1::Namespace {
         metadata: build_global_object_meta(namespace, &ctx.name, owner)?,
         ..Default::default()
@@ -39,12 +41,13 @@ pub(super) fn build_virtual_ns(
 
 pub(super) fn build_virtual_obj(
     ctx: &DriverContext,
-    owner: &SimulationRoot,
+    root: &SimulationRoot,
     original_ns: &str,
     virtual_ns: &str,
     obj: &DynamicObject,
     pod_spec_template_path: &str,
 ) -> anyhow::Result<DynamicObject> {
+    let owner = root;
     let mut vobj = obj.clone();
     add_common_metadata(&ctx.name, owner, &mut vobj.metadata)?;
     vobj.metadata.namespace = Some(virtual_ns.into());
@@ -79,51 +82,51 @@ pub(super) fn build_virtual_obj(
 }
 
 pub struct TraceRunner {
-    ctx: DriverContext,
-    root: SimulationRoot,
-
+    roots_api: kube::Api<SimulationRoot>,
     ns_api: kube::Api<corev1::Namespace>,
     apiset: ApiSet,
 }
 
 impl TraceRunner {
-    pub async fn new(client: kube::Client, ctx: DriverContext) -> anyhow::Result<TraceRunner> {
-        let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-        let root = roots_api.get(&ctx.sim_root).await?;
-
+    pub async fn new(client: kube::Client) -> anyhow::Result<TraceRunner> {
         Ok(TraceRunner {
-            ctx,
-            root,
+            roots_api: kube::Api::all(client.clone()),
             ns_api: kube::Api::all(client.clone()),
             apiset: ApiSet::new(client.clone()),
         })
     }
 
-    #[instrument(parent=None, skip_all, fields(simulation=self.ctx.name))]
-    pub async fn run(mut self) -> EmptyResult {
-        let mut sim_ts = self.ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
-        for (evt, maybe_next_ts) in self.ctx.store.iter() {
+    #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
+    pub async fn run(mut self, ctx: DriverContext) -> EmptyResult {
+        let root_obj = if let Some(root) = self.roots_api.get_opt(&ctx.root_name).await? {
+            warn!("Driver root {} already exists; continuing...", ctx.root_name);
+            root
+        } else {
+            let root_obj = build_simulation_root(&ctx.root_name, &ctx.sim)?;
+            self.roots_api.create(&Default::default(), &root_obj).await?
+        };
+
+        let mut sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
+        for (evt, maybe_next_ts) in ctx.store.iter() {
             // We're currently assuming that all tracked objects are namespace-scoped,
             // this will panic/fail if that is not true.
             for obj in &evt.applied_objs {
                 let gvk = GVK::from_dynamic_obj(obj)?;
                 let original_ns = obj.namespace().unwrap();
-                let virtual_ns = format!("{}-{}", self.ctx.virtual_ns_prefix, original_ns);
+                let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, original_ns);
 
                 if self.ns_api.get_opt(&virtual_ns).await?.is_none() {
                     info!("creating virtual namespace: {virtual_ns}");
-                    let vns = build_virtual_ns(&self.ctx, &self.root, &virtual_ns)?;
+                    let vns = build_virtual_ns(&ctx, &root_obj, &virtual_ns)?;
                     self.ns_api.create(&Default::default(), &vns).await?;
                 }
 
-                let pod_spec_template_path = self
-                    .ctx
+                let pod_spec_template_path = ctx
                     .store
                     .config()
                     .pod_spec_template_path(&gvk)
                     .ok_or(anyhow!("unknown simulated object: {:?}", gvk))?;
-                let vobj =
-                    build_virtual_obj(&self.ctx, &self.root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
+                let vobj = build_virtual_obj(&ctx, &root_obj, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
                 info!("applying object {}", vobj.namespaced_name());
                 self.apiset
@@ -136,7 +139,7 @@ impl TraceRunner {
             for obj in &evt.deleted_objs {
                 info!("deleting object {}", obj.namespaced_name());
                 let gvk = GVK::from_dynamic_obj(obj)?;
-                let virtual_ns = format!("{}-{}", self.ctx.virtual_ns_prefix, obj.namespace().unwrap());
+                let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
                 self.apiset
                     .namespaced_api_for(&gvk, virtual_ns)
                     .await?
@@ -153,6 +156,10 @@ impl TraceRunner {
                 sim_ts = next_ts;
                 sleep(Duration::from_secs(sleep_duration as u64)).await;
             }
+        }
+
+        if let Err(e) = self.roots_api.delete(&ctx.root_name, &Default::default()).await {
+            error!("could not delete driver root {}: {e}", ctx.root_name);
         }
 
         Ok(())

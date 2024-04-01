@@ -1,13 +1,16 @@
 mod mutation;
 mod runner;
 
-use std::fs;
 use std::net::{
     IpAddr,
     Ipv4Addr,
 };
 use std::sync::Arc;
 use std::time::Duration;
+use std::{
+    env,
+    fs,
+};
 
 use anyhow::anyhow;
 use clap::Parser;
@@ -34,9 +37,6 @@ struct Options {
     sim_name: String,
 
     #[arg(long)]
-    sim_root: String,
-
-    #[arg(long)]
     virtual_ns_prefix: String,
 
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
@@ -61,7 +61,8 @@ struct Options {
 #[derive(Clone)]
 pub struct DriverContext {
     name: String,
-    sim_root: String,
+    root_name: String,
+    sim: Simulation,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
     store: Arc<dyn TraceStorable + Send + Sync>,
@@ -69,9 +70,13 @@ pub struct DriverContext {
 
 #[instrument(ret, err)]
 async fn run(opts: Options) -> EmptyResult {
+    let name = env::var(DRIVER_NAME_ENV_VAR)?;
+
     let client = kube::Client::try_default().await?;
     let sim_api: kube::Api<Simulation> = kube::Api::all(client.clone());
     let sim = sim_api.get(&opts.sim_name).await?;
+
+    let root_name = format!("{name}-root");
 
     let trace_data = fs::read(opts.trace_mount_path)?;
     let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
@@ -79,8 +84,9 @@ async fn run(opts: Options) -> EmptyResult {
     let apiset = ApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
     let ctx = DriverContext {
-        name: opts.sim_name.clone(),
-        sim_root: opts.sim_root.clone(),
+        name,
+        root_name,
+        sim,
         virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
         owners_cache,
         store,
@@ -102,11 +108,11 @@ async fn run(opts: Options) -> EmptyResult {
     // Give the mutation handler a bit of time to come online before starting the sim
     sleep(Duration::from_secs(5)).await;
 
-    let runner = TraceRunner::new(client, ctx.clone()).await?;
+    let runner = TraceRunner::new(client).await?;
 
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),
-        res = tokio::spawn(runner.run()) => {
+        res = tokio::spawn(runner.run(ctx.clone())) => {
             match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),

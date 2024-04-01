@@ -15,6 +15,10 @@ pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
 // Taint/toleration key
 pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
 
+// Env vars
+pub const POD_SVC_ACCOUNT_ENV_VAR: &str = "POD_SVC_ACCOUNT";
+pub const DRIVER_NAME_ENV_VAR: &str = "DRIVER_NAME";
+
 // Defaults
 pub const DEFAULT_METRICS_NS: &str = "monitoring";
 pub const DEFAULT_METRICS_SVC_ACCOUNT: &str = "prometheus-k8s";

@@ -4,11 +4,23 @@ use simkube::prelude::*;
 #[derive(clap::Args)]
 #[command(disable_help_flag = true, disable_version_flag = true)]
 pub struct Args {
+    #[arg(long_help = "duration of the simulation", allow_hyphen_values = true)]
+    pub duration: Option<String>,
+
     #[arg(short, long, long_help = "name of the simulation to run")]
     pub name: String,
 
     #[arg(
+        short = 'N',
         long,
+        long_help = "number of repetitions of the simulation to run",
+        default_value = "1"
+    )]
+    pub repetitions: i32,
+
+    #[arg(
+        long,
+        short = 'f',
         long_help = "location of the trace file for sk-driver to read",
         default_value = "file:///data/trace"
     )]
@@ -16,9 +28,6 @@ pub struct Args {
 
     #[arg(long, long_help = "namespace to launch sk-driver in", default_value = "simkube")]
     pub driver_namespace: String,
-
-    #[arg(long_help = "duration of the simulation", allow_hyphen_values = true)]
-    pub duration: Option<String>,
 
     #[arg(
         long,
@@ -116,8 +125,9 @@ pub async fn cmd(args: &Args) -> EmptyResult {
         &args.name,
         SimulationSpec {
             driver_namespace: args.driver_namespace.clone(),
-            metrics_config,
             duration: args.duration.clone(),
+            metrics_config,
+            repetitions: Some(args.repetitions),
             trace_path: args.trace_file.clone(),
         },
     );

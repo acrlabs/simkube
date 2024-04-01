@@ -13,6 +13,7 @@ use simkube::time::duration_to_ts;
 #[derive(clap::Args)]
 pub struct Args {
     #[arg(
+        short,
         long,
         long_help = "trace export start timestamp; can be a relative duration\n\
              or absolute timestamp; durations are computed relative\n\
@@ -24,6 +25,7 @@ pub struct Args {
     pub start_time: i64,
 
     #[arg(
+        short = 't',
         long,
         long_help = "end time; can be a relative or absolute timestamp",
         default_value = "now",
@@ -48,6 +50,7 @@ pub struct Args {
     pub tracer_address: String,
 
     #[arg(
+        short,
         long,
         long_help = "location to save exported trace",
         default_value = "file:///tmp/kind-node-data"

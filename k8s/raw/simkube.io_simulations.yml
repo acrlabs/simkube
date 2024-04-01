@@ -457,6 +457,10 @@ spec:
                 required:
                 - remoteWriteConfigs
                 type: object
+              repetitions:
+                format: int32
+                nullable: true
+                type: integer
               tracePath:
                 type: string
             required:

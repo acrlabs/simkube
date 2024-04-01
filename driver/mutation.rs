@@ -80,7 +80,7 @@ pub(super) async fn mutate_pod(
         owners_cache.compute_owner_chain(pod).await?
     };
 
-    if !owners.iter().any(|o| o.name == ctx.sim_root) {
+    if !owners.iter().any(|o| o.name == ctx.root_name) {
         info!("pod not owned by simulation, no mutation performed");
         return Ok(resp);
     }

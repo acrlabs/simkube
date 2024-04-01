@@ -49,6 +49,7 @@ pub struct SimulationSpec {
     pub driver_namespace: String,
     pub metrics_config: Option<SimulationMetricsConfig>,
     pub duration: Option<String>,
+    pub repetitions: Option<i32>,
     pub trace_path: String,
 }
 
