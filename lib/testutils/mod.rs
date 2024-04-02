@@ -12,6 +12,7 @@ pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
 pub const TEST_DRIVER_NAME: &str = "sk-test-driver-12345";
 pub const TEST_DRIVER_ROOT_NAME: &str = "sk-test-driver-12345-root";
 pub const TEST_VIRT_NS_PREFIX: &str = "virt-test";
+pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
 
 pub use clock::MockUtcClock;
 pub use fake::{

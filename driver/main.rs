@@ -28,12 +28,15 @@ use tokio::sync::Mutex;
 use tokio::time::sleep;
 
 use crate::mutation::MutationData;
-use crate::runner::TraceRunner;
+use crate::runner::run_trace;
 
 #[derive(Clone, Debug, Parser)]
 struct Options {
     #[arg(long)]
     sim_name: String,
+
+    #[arg(long)]
+    controller_ns: String,
 
     #[arg(long)]
     virtual_ns_prefix: String,
@@ -62,6 +65,7 @@ pub struct DriverContext {
     name: String,
     root_name: String,
     sim: Simulation,
+    ctrl_ns: String,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
     store: Arc<dyn TraceStorable + Send + Sync>,
@@ -86,6 +90,7 @@ async fn run(opts: Options) -> EmptyResult {
         name,
         root_name,
         sim,
+        ctrl_ns: opts.controller_ns.clone(),
         virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
         owners_cache,
         store,
@@ -107,11 +112,9 @@ async fn run(opts: Options) -> EmptyResult {
     // Give the mutation handler a bit of time to come online before starting the sim
     sleep(Duration::from_secs(5)).await;
 
-    let runner = TraceRunner::new(client).await?;
-
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),
-        res = tokio::spawn(runner.run(ctx.clone())) => {
+        res = tokio::spawn(run_trace(ctx.clone(), client)) => {
             match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),

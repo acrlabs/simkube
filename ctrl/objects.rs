@@ -167,6 +167,7 @@ pub(super) fn build_driver_job(
     ctx: &SimulationContext,
     sim: &Simulation,
     cert_secret_name: &str,
+    ctrl_ns: &str,
 ) -> anyhow::Result<batchv1::Job> {
     let trace_url = Url::parse(&sim.spec.trace_path)?;
     let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
@@ -186,7 +187,7 @@ pub(super) fn build_driver_job(
                     containers: vec![corev1::Container {
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
-                        args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path)),
+                        args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path, ctrl_ns.into())),
                         image: Some(ctx.opts.driver_image.clone()),
                         env: Some(vec![
                             corev1::EnvVar {
@@ -244,7 +245,12 @@ fn build_certificate_volumes(cert_secret_name: &str) -> (corev1::VolumeMount, co
     )
 }
 
-fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mount_path: String) -> Vec<String> {
+fn build_driver_args(
+    ctx: &SimulationContext,
+    cert_mount_path: String,
+    trace_mount_path: String,
+    ctrl_ns: String,
+) -> Vec<String> {
     vec![
         "--cert-path".into(),
         format!("{cert_mount_path}/tls.crt"),
@@ -258,5 +264,7 @@ fn build_driver_args(ctx: &SimulationContext, cert_mount_path: String, trace_mou
         ctx.name.clone(),
         "--verbosity".into(),
         ctx.opts.verbosity.clone(),
+        "--controller-ns".into(),
+        ctrl_ns,
     ]
 }

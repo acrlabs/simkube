@@ -268,6 +268,10 @@ impl TraceStorable for TraceStore {
         self.events.front().map(|evt| evt.ts)
     }
 
+    fn end_ts(&self) -> Option<i64> {
+        self.events.back().map(|evt| evt.ts)
+    }
+
     fn iter(&self) -> TraceIterator<'_> {
         TraceIterator { events: &self.events, idx: 0 }
     }

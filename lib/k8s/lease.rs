@@ -1,14 +1,15 @@
+use anyhow::bail;
 use chrono::{
     DateTime,
     Utc,
 };
 use k8s_openapi::api::coordination::v1 as coordinationv1;
+use kube::api::Patch;
 use kube::ResourceExt;
+use serde_json::json;
 
 use crate::k8s::build_object_meta;
 use crate::prelude::*;
-
-const SK_LEASE_NAME: &str = "sk-lease";
 
 pub enum LeaseState {
     Unknown,
@@ -41,7 +42,7 @@ fn compute_remaining_lease_time(
         .map(|microtime| microtime.0.timestamp())
         .unwrap_or(now_ts);
     let sleep_time = renew_time + duration_seconds - now_ts;
-    if sleep_time < 0 {
+    if sleep_time <= 0 {
         warn!("exceeded the lease time but something hasn't released it; trying again");
         return RETRY_DELAY_SECONDS;
     }
@@ -74,11 +75,12 @@ pub async fn try_claim_lease(
                 renew_time: maybe_renew_time,
                 ..
             }) => {
+                // If we already own the lease, do nothing; mark it as claimed and move on
                 if sim.name_any() == *holder {
                     lease_state = LeaseState::Claimed;
                     return;
                 }
-                info!("Another simulation is currently running: {holder}");
+                info!("another simulation is currently running: {holder}");
                 let sleep_time = compute_remaining_lease_time(maybe_duration_seconds, maybe_renew_time, clock.now_ts());
                 lease_state = LeaseState::WaitingForClaim(sleep_time);
             },
@@ -97,4 +99,34 @@ pub async fn try_claim_lease(
         },
         l => l,
     })
+}
+
+pub async fn try_update_lease(
+    client: kube::Client,
+    sim: &Simulation,
+    lease_ns: &str,
+    lease_duration: i64,
+    clock: &(dyn Clockable + Send + Sync),
+) -> EmptyResult {
+    let lease_api = kube::Api::<coordinationv1::Lease>::namespaced(client.clone(), lease_ns);
+    match lease_api.get(SK_LEASE_NAME).await?.spec {
+        Some(coordinationv1::LeaseSpec { holder_identity: Some(holder), .. }) if holder != sim.name_any() => {
+            bail!("lease not owned by current sim: {holder} != {}", sim.name_any())
+        },
+        _ => (),
+    }
+
+    lease_api
+        .patch(
+            SK_LEASE_NAME,
+            &Default::default(),
+            &Patch::Merge(json!({
+                "spec": {
+                    "leaseDurationSeconds": lease_duration,
+                    "renewTime": metav1::MicroTime(clock.now()),
+                },
+            })),
+        )
+        .await?;
+    Ok(())
 }
