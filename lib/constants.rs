@@ -22,6 +22,7 @@ pub const POD_SVC_ACCOUNT_ENV_VAR: &str = "POD_SVC_ACCOUNT";
 pub const DEFAULT_METRICS_NS: &str = "monitoring";
 pub const DEFAULT_METRICS_SVC_ACCOUNT: &str = "prometheus-k8s";
 pub const DRIVER_ADMISSION_WEBHOOK_PORT: &str = "8888";
+pub const SK_LEASE_NAME: &str = "sk-lease";
 
 // Timing
 pub const RETRY_DELAY_SECONDS: i64 = 5;

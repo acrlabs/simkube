@@ -10,8 +10,6 @@ use super::controller::*;
 use super::*;
 use crate::objects::*;
 
-const CTRL_NAMESPACE: &str = "ctrl-ns";
-
 #[fixture]
 fn sim() -> Simulation {
     Simulation {
@@ -144,7 +142,7 @@ async fn test_setup_driver_no_ns(sim: Simulation, root: SimulationRoot, opts: Op
         .build();
 
     assert!(matches!(
-        setup_driver(&ctx, &sim, &root, CTRL_NAMESPACE)
+        setup_driver(&ctx, &sim, &root, TEST_CTRL_NAMESPACE)
             .await
             .unwrap_err()
             .downcast::<SkControllerError>()
@@ -160,7 +158,7 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&sim);
 
-    let lease_obj = build_lease(&sim, &root, CTRL_NAMESPACE, UtcClock.now());
+    let lease_obj = build_lease(&sim, &root, TEST_CTRL_NAMESPACE, UtcClock.now());
     let driver_ns = ctx.driver_ns.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &sim);
@@ -175,7 +173,7 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
         })
         .handle(move |when, then| {
             when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{CTRL_NAMESPACE}/leases/sk-lease"));
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
             then.json_body_obj(&lease_obj);
         })
         .handle_not_found(format!("/api/v1/namespaces/{driver_ns}"))
@@ -190,7 +188,10 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
             then.json_body_obj(&prom_obj);
         })
         .build();
-    assert_eq!(setup_driver(&ctx, &sim, &root, CTRL_NAMESPACE).await.unwrap(), Action::requeue(REQUEUE_DURATION));
+    assert_eq!(
+        setup_driver(&ctx, &sim, &root, TEST_CTRL_NAMESPACE).await.unwrap(),
+        Action::requeue(REQUEUE_DURATION)
+    );
     fake_apiserver.assert();
 }
 
@@ -217,11 +218,11 @@ async fn test_setup_driver_wait_prom(
     let webhook_name = ctx.webhook_name.clone();
     let driver_name = ctx.driver_name.clone();
 
-    let lease_obj = build_lease(&sim, &root, CTRL_NAMESPACE, UtcClock.now());
+    let lease_obj = build_lease(&sim, &root, TEST_CTRL_NAMESPACE, UtcClock.now());
     let driver_ns_obj = build_driver_namespace(&ctx, &sim);
     let driver_svc_obj = build_driver_service(&ctx, &root);
     let webhook_obj = build_mutating_webhook(&ctx, &root);
-    let driver_obj = build_driver_job(&ctx, &sim, "".into()).unwrap();
+    let driver_obj = build_driver_job(&ctx, &sim, "".into(), TEST_CTRL_NAMESPACE).unwrap();
 
     fake_apiserver
         .handle(|when, then| {
@@ -232,7 +233,7 @@ async fn test_setup_driver_wait_prom(
         })
         .handle(move |when, then| {
             when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{CTRL_NAMESPACE}/leases/sk-lease"));
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
             then.json_body_obj(&lease_obj);
         })
         .handle(move |when, then| {
@@ -287,7 +288,7 @@ async fn test_setup_driver_wait_prom(
             });
     }
     fake_apiserver.build();
-    let res = setup_driver(&ctx, &sim, &root, CTRL_NAMESPACE).await.unwrap();
+    let res = setup_driver(&ctx, &sim, &root, TEST_CTRL_NAMESPACE).await.unwrap();
     if ready {
         assert_eq!(res, Action::await_change());
     } else {

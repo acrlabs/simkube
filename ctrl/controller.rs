@@ -95,18 +95,21 @@ pub(super) async fn setup_driver(
         bail!(SkControllerError::namespace_not_found(&sim.metrics_ns()));
     };
 
+    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, &UtcClock).await? {
+        LeaseState::Claimed => (),
+        LeaseState::WaitingForClaim(t) => {
+            info!("sleeping for {t} seconds");
+            return Ok(Action::requeue(Duration::from_secs(t as u64)));
+        },
+        LeaseState::Unknown => bail!("unknown lease state"),
+    }
+
     // Create the namespaces
     if ns_api.get_opt(&ctx.driver_ns).await?.is_none() {
         info!("creating driver namespace {}", ctx.driver_ns);
         let obj = build_driver_namespace(ctx, sim);
         ns_api.create(&Default::default(), &obj).await?;
     };
-
-    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, &UtcClock).await? {
-        LeaseState::Claimed => (),
-        LeaseState::WaitingForClaim(t) => return Ok(Action::requeue(Duration::from_secs(t as u64))),
-        LeaseState::Unknown => bail!("unknown lease state"),
-    }
 
     // Set up the metrics collector
     let mut prom_ready = false;
@@ -176,7 +179,7 @@ pub(super) async fn setup_driver(
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
-        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name)?;
+        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, ctrl_ns)?;
         jobs_api.create(&Default::default(), &obj).await?;
     }
 

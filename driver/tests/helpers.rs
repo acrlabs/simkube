@@ -45,6 +45,7 @@ pub fn build_driver_context(
         name: TEST_DRIVER_NAME.into(),
         root_name: TEST_DRIVER_ROOT_NAME.into(),
         sim: Simulation::new(TEST_SIM_NAME, Default::default()),
+        ctrl_ns: TEST_CTRL_NAMESPACE.into(),
         virtual_ns_prefix: TEST_VIRT_NS_PREFIX.into(),
         owners_cache,
         store,

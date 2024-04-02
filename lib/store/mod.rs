@@ -52,6 +52,7 @@ pub trait TraceStorable {
     fn config(&self) -> &TracerConfig;
     fn has_obj(&self, ns_name: &str) -> bool;
     fn start_ts(&self) -> Option<i64>;
+    fn end_ts(&self) -> Option<i64>;
     fn iter(&self) -> TraceIterator<'_>;
 }
 
