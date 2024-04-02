@@ -1,6 +1,7 @@
 mod apiset;
 mod container_state;
 mod gvk;
+mod lease;
 mod owners;
 mod pod_ext;
 mod pod_lifecycle;
@@ -8,6 +9,7 @@ mod util;
 
 pub use apiset::*;
 pub use gvk::*;
+pub use lease::*;
 pub use owners::OwnersCache;
 use serde::{
     Deserialize,
