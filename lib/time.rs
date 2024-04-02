@@ -12,13 +12,18 @@ use parse_datetime::{
 // instead of just relying on whatever the current time actually is.
 
 pub trait Clockable {
-    fn now(&self) -> i64;
+    fn now(&self) -> DateTime<Utc>;
+    fn now_ts(&self) -> i64;
 }
 
 pub struct UtcClock;
 
 impl Clockable for UtcClock {
-    fn now(&self) -> i64 {
+    fn now(&self) -> DateTime<Utc> {
+        Utc::now()
+    }
+
+    fn now_ts(&self) -> i64 {
         Utc::now().timestamp()
     }
 }

@@ -31,19 +31,15 @@ const PROM_COMPONENT_LABEL: &str = "prometheus";
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
 const DRIVER_CERT_VOLUME: &str = "driver-cert";
 
-pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<corev1::Namespace> {
+pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
     let owner = sim;
-    Ok(corev1::Namespace {
-        metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner)?,
+    corev1::Namespace {
+        metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner),
         ..Default::default()
-    })
+    }
 }
 
-pub(super) fn build_prometheus(
-    name: &str,
-    sim: &Simulation,
-    mc: &SimulationMetricsConfig,
-) -> anyhow::Result<Prometheus> {
+pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetricsConfig) -> Prometheus {
     // Configure the remote write endpoints; these _can_ be overridden by the user but set up some
     // sane defaults so they don't have to.
     let mut rw_cfgs = mc.remote_write_configs.clone();
@@ -83,8 +79,8 @@ pub(super) fn build_prometheus(
     );
 
     let owner = sim;
-    Ok(Prometheus {
-        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), owner)?,
+    Prometheus {
+        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), owner),
         spec: PrometheusSpec {
             image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
             pod_metadata: Some(PrometheusPodMetadata {
@@ -106,15 +102,15 @@ pub(super) fn build_prometheus(
             ..Default::default()
         },
         status: Default::default(),
-    })
+    }
 }
 
 pub(super) fn build_mutating_webhook(
     ctx: &SimulationContext,
     metaroot: &SimulationRoot,
-) -> anyhow::Result<admissionv1::MutatingWebhookConfiguration> {
+) -> admissionv1::MutatingWebhookConfiguration {
     let owner = metaroot;
-    let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner)?;
+    let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner);
     if ctx.opts.use_cert_manager {
         metadata
             .annotations
@@ -122,7 +118,7 @@ pub(super) fn build_mutating_webhook(
             .insert("cert-manager.io/inject-ca-from".into(), format!("{}/{}", ctx.driver_ns, DRIVER_CERT_NAME));
     }
 
-    Ok(admissionv1::MutatingWebhookConfiguration {
+    admissionv1::MutatingWebhookConfiguration {
         metadata,
         webhooks: Some(vec![admissionv1::MutatingWebhook {
             admission_review_versions: vec!["v1".into()],
@@ -147,16 +143,13 @@ pub(super) fn build_mutating_webhook(
             }]),
             ..Default::default()
         }]),
-    })
+    }
 }
 
-pub(super) fn build_driver_service(
-    ctx: &SimulationContext,
-    metaroot: &SimulationRoot,
-) -> anyhow::Result<corev1::Service> {
+pub(super) fn build_driver_service(ctx: &SimulationContext, metaroot: &SimulationRoot) -> corev1::Service {
     let owner = metaroot;
-    Ok(corev1::Service {
-        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_svc, &ctx.name, owner)?,
+    corev1::Service {
+        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_svc, &ctx.name, owner),
         spec: Some(corev1::ServiceSpec {
             ports: Some(vec![corev1::ServicePort {
                 port: ctx.opts.driver_port,
@@ -167,7 +160,7 @@ pub(super) fn build_driver_service(
             ..Default::default()
         }),
         ..Default::default()
-    })
+    }
 }
 
 pub(super) fn build_driver_job(
@@ -185,7 +178,7 @@ pub(super) fn build_driver_job(
     let service_account = Some(env::var(POD_SVC_ACCOUNT_ENV_VAR)?);
 
     Ok(batchv1::Job {
-        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, sim)?,
+        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, sim),
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(0),
             template: corev1::PodTemplateSpec {

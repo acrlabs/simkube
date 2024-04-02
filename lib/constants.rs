@@ -1,5 +1,3 @@
-pub const DRIVER_ADMISSION_WEBHOOK_PORT: &str = "8888";
-
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
@@ -16,12 +14,15 @@ pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
 pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
 
 // Env vars
-pub const POD_SVC_ACCOUNT_ENV_VAR: &str = "POD_SVC_ACCOUNT";
+pub const CTRL_NS_ENV_VAR: &str = "CTRL_NAMESPACE";
 pub const DRIVER_NAME_ENV_VAR: &str = "DRIVER_NAME";
+pub const POD_SVC_ACCOUNT_ENV_VAR: &str = "POD_SVC_ACCOUNT";
 
 // Defaults
 pub const DEFAULT_METRICS_NS: &str = "monitoring";
 pub const DEFAULT_METRICS_SVC_ACCOUNT: &str = "prometheus-k8s";
+pub const DRIVER_ADMISSION_WEBHOOK_PORT: &str = "8888";
 
-// Misc
-pub const METRIC_CONFIG_MAP_QUERY_KEY: &str = "queries";
+// Timing
+pub const RETRY_DELAY_SECONDS: i64 = 5;
+pub const ERROR_RETRY_DELAY_SECONDS: i64 = 30;

@@ -95,6 +95,7 @@ impl SimulationContext {
         SimulationContext {
             client,
             opts,
+
             name: String::new(),
             metaroot_name: String::new(),
             driver_ns: String::new(),

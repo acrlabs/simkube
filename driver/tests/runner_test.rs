@@ -30,7 +30,7 @@ async fn itest_run(#[case] has_start_marker: bool) {
         },
         spec: SimulationRootSpec {},
     };
-    let virt_ns = build_virtual_ns(&ctx, &root.clone(), TEST_NS_NAME).unwrap();
+    let virt_ns = build_virtual_ns(&ctx, &root.clone(), TEST_NS_NAME);
 
     fake_apiserver
         .handle(move |when, then| {

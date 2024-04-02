@@ -117,7 +117,7 @@ impl PodLifecycleData {
         clock: &(dyn Clockable + Send),
     ) -> anyhow::Result<PodLifecycleData> {
         let new_lifecycle_data = PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty);
-        let now = clock.now();
+        let now = clock.now_ts();
 
         match new_lifecycle_data {
             PodLifecycleData::Finished(..) => Ok(new_lifecycle_data),

@@ -16,10 +16,10 @@ use crate::k8s::build_global_object_meta;
 #[kube(shortname = "simroot", shortname = "simroots")]
 pub struct SimulationRootSpec {}
 
-pub fn build_simulation_root(name: &str, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
+pub fn build_simulation_root(name: &str, sim: &Simulation) -> SimulationRoot {
     let owner = sim;
-    Ok(SimulationRoot {
-        metadata: build_global_object_meta(name, &sim.name_any(), owner)?,
+    SimulationRoot {
+        metadata: build_global_object_meta(name, &sim.name_any(), owner),
         spec: SimulationRootSpec {},
-    })
+    }
 }

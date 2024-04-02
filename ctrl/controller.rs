@@ -31,8 +31,8 @@ use tokio::time::Duration;
 use crate::objects::*;
 use crate::*;
 
-pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(5);
-const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(30);
+pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS as u64);
+const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS as u64);
 pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
 pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
@@ -41,7 +41,7 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
     match roots_api.get_opt(&ctx.metaroot_name).await? {
         None => {
             info!("creating Simulation MetaRoot");
-            let metaroot = build_simulation_root(&ctx.metaroot_name, sim)?;
+            let metaroot = build_simulation_root(&ctx.metaroot_name, sim);
             roots_api.create(&Default::default(), &metaroot).await.map_err(|e| e.into())
         },
         Some(metaroot) => Ok(metaroot),
@@ -94,10 +94,11 @@ pub(super) async fn setup_driver(
     // Create the namespaces
     if ns_api.get_opt(&ctx.driver_ns).await?.is_none() {
         info!("creating driver namespace {}", ctx.driver_ns);
-        let obj = build_driver_namespace(ctx, sim)?;
+        let obj = build_driver_namespace(ctx, sim);
         ns_api.create(&Default::default(), &obj).await?;
     };
 
+    // Set up the metrics collector
     let mut prom_ready = false;
     match &sim.spec.metrics_config {
         Some(mc) => {
@@ -108,7 +109,7 @@ pub(super) async fn setup_driver(
             match prom_api.get_opt(&ctx.prometheus_name).await? {
                 None => {
                     info!("creating Prometheus object {}/{}", sim.metrics_ns(), ctx.prometheus_name);
-                    let obj = build_prometheus(&ctx.prometheus_name, sim, mc)?;
+                    let obj = build_prometheus(&ctx.prometheus_name, sim, mc);
                     prom_api.create(&Default::default(), &obj).await?;
                 },
                 Some(prom) => {
@@ -130,7 +131,7 @@ pub(super) async fn setup_driver(
     let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     if driver_svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
         info!("creating driver service {}", &ctx.driver_svc);
-        let obj = build_driver_service(ctx, metaroot)?;
+        let obj = build_driver_service(ctx, metaroot);
         driver_svc_api.create(&Default::default(), &obj).await?;
     }
 
@@ -157,7 +158,7 @@ pub(super) async fn setup_driver(
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
     if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
-        let obj = build_mutating_webhook(ctx, metaroot)?;
+        let obj = build_mutating_webhook(ctx, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
     };
 

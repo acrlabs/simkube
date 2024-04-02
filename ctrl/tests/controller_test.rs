@@ -159,8 +159,8 @@ async fn test_setup_driver_create_prom(sim: Simulation, root: SimulationRoot, op
 
     let driver_ns = ctx.driver_ns.clone();
     let prom_name = ctx.prometheus_name.clone();
-    let driver_ns_obj = build_driver_namespace(&ctx, &sim).unwrap();
-    let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap()).unwrap();
+    let driver_ns_obj = build_driver_namespace(&ctx, &sim);
+    let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap());
 
     fake_apiserver
         .handle(|when, then| {
@@ -208,9 +208,9 @@ async fn test_setup_driver_wait_prom(
     let webhook_name = ctx.webhook_name.clone();
     let driver_name = ctx.driver_name.clone();
 
-    let driver_ns_obj = build_driver_namespace(&ctx, &sim).unwrap();
-    let driver_svc_obj = build_driver_service(&ctx, &root).unwrap();
-    let webhook_obj = build_mutating_webhook(&ctx, &root).unwrap();
+    let driver_ns_obj = build_driver_namespace(&ctx, &sim);
+    let driver_svc_obj = build_driver_service(&ctx, &root);
+    let webhook_obj = build_mutating_webhook(&ctx, &root);
     let driver_obj = build_driver_job(&ctx, &sim, "".into()).unwrap();
 
     fake_apiserver
@@ -228,7 +228,7 @@ async fn test_setup_driver_wait_prom(
     if disabled {
         sim.spec.metrics_config = None;
     } else {
-        let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap()).unwrap();
+        let prom_obj = build_prometheus(&ctx.prometheus_name, &sim, &sim.spec.metrics_config.clone().unwrap());
         fake_apiserver.handle(move |when, then| {
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));

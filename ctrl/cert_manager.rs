@@ -10,7 +10,6 @@ use serde::{
 use simkube::k8s::build_object_meta;
 use simkube::macros::*;
 use simkube::prelude::*;
-use tracing::*;
 
 use super::*;
 
@@ -87,7 +86,7 @@ pub(super) async fn create_certificate_if_not_present(
             DRIVER_CERT_NAME, ctx.opts.cert_manager_issuer,
         );
         let obj = PartialCertificate {
-            metadata: build_object_meta(&ctx.driver_ns, DRIVER_CERT_NAME, &ctx.name, owner)?,
+            metadata: build_object_meta(&ctx.driver_ns, DRIVER_CERT_NAME, &ctx.name, owner),
             spec: PartialCertificateSpec {
                 secret_name: DRIVER_CERT_NAME.into(),
                 secret_template: Some(CertificateSecretTemplate {

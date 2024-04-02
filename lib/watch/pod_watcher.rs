@@ -215,7 +215,7 @@ impl PodWatcher {
             None => {
                 // We never store "empty" data so this unwrap should always succeed
                 let start_ts = current_lifecycle_data.start_ts().unwrap();
-                PodLifecycleData::Finished(start_ts, self.clock.now())
+                PodLifecycleData::Finished(start_ts, self.clock.now_ts())
             },
             Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, self.clock.borrow())?,
         };

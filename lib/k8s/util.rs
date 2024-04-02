@@ -12,7 +12,7 @@ use super::*;
 use crate::errors::*;
 use crate::prelude::*;
 
-pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta) -> EmptyResult
+pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta)
 where
     K: Resource<DynamicType = ()>,
 {
@@ -24,10 +24,11 @@ where
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),
-        uid: owner.uid().ok_or(KubernetesError::field_not_found("uid"))?,
+        // Kubernetes "should" always set this and I'm tired of all the
+        // error propogation trying to check for this induces
+        uid: owner.uid().unwrap(),
         ..Default::default()
     });
-    Ok(())
 }
 
 pub fn build_deletable(ns_name: &str) -> DynamicObject {
@@ -54,19 +55,14 @@ pub fn build_containment_label_selector(key: &str, labels: Vec<String>) -> metav
     }
 }
 
-pub fn build_global_object_meta<K>(name: &str, sim_name: &str, owner: &K) -> anyhow::Result<metav1::ObjectMeta>
+pub fn build_global_object_meta<K>(name: &str, sim_name: &str, owner: &K) -> metav1::ObjectMeta
 where
     K: Resource<DynamicType = ()>,
 {
     build_object_meta_helper(None, name, sim_name, owner)
 }
 
-pub fn build_object_meta<K>(
-    namespace: &str,
-    name: &str,
-    sim_name: &str,
-    owner: &K,
-) -> anyhow::Result<metav1::ObjectMeta>
+pub fn build_object_meta<K>(namespace: &str, name: &str, sim_name: &str, owner: &K) -> metav1::ObjectMeta
 where
     K: Resource<DynamicType = ()>,
 {
@@ -126,12 +122,7 @@ impl<T: Resource> KubeResourceExt for T {
     }
 }
 
-fn build_object_meta_helper<K>(
-    namespace: Option<String>,
-    name: &str,
-    sim_name: &str,
-    owner: &K,
-) -> anyhow::Result<metav1::ObjectMeta>
+fn build_object_meta_helper<K>(namespace: Option<String>, name: &str, sim_name: &str, owner: &K) -> metav1::ObjectMeta
 where
     K: Resource<DynamicType = ()>,
 {
@@ -141,8 +132,8 @@ where
         ..Default::default()
     };
 
-    add_common_metadata(sim_name, owner, &mut meta)?;
-    Ok(meta)
+    add_common_metadata(sim_name, owner, &mut meta);
+    meta
 }
 
 // The meanings of these operators is explained here:
