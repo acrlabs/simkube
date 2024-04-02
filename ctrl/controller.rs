@@ -1,3 +1,4 @@
+use std::env;
 use std::ops::Deref;
 use std::sync::Arc;
 
@@ -22,6 +23,10 @@ use kube::ResourceExt;
 use serde_json::json;
 use simkube::api::v1::build_simulation_root;
 use simkube::errors::*;
+use simkube::k8s::{
+    try_claim_lease,
+    LeaseState,
+};
 use simkube::metrics::api::*;
 use simkube::prelude::*;
 use tokio::runtime::Handle;
@@ -51,8 +56,6 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
 pub(super) async fn fetch_driver_status(
     ctx: &SimulationContext,
 ) -> anyhow::Result<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
-    // TODO should check if there are any other simulations running and block/wait until
-    // they're done before proceeding
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
     let (mut state, mut start_time, mut end_time) = (SimulationState::Initializing, None, None);
 
@@ -82,6 +85,7 @@ pub(super) async fn setup_driver(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
+    ctrl_ns: &str,
 ) -> anyhow::Result<Action> {
     info!("setting up simulation driver");
 
@@ -97,6 +101,12 @@ pub(super) async fn setup_driver(
         let obj = build_driver_namespace(ctx, sim);
         ns_api.create(&Default::default(), &obj).await?;
     };
+
+    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, &UtcClock).await? {
+        LeaseState::Claimed => (),
+        LeaseState::WaitingForClaim(t) => return Ok(Action::requeue(Duration::from_secs(t as u64))),
+        LeaseState::Unknown => bail!("unknown lease state"),
+    }
 
     // Set up the metrics collector
     let mut prom_ready = false;
@@ -216,8 +226,9 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
         .await
         .map_err(|e| anyhow!(e))?;
 
+    let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
     match driver_state {
-        SimulationState::Initializing => setup_driver(&ctx, sim, &root).await.map_err(|e| e.into()),
+        SimulationState::Initializing => setup_driver(&ctx, sim, &root, &ctrl_ns).await.map_err(|e| e.into()),
         SimulationState::Running => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
             cleanup(&ctx, sim).await;

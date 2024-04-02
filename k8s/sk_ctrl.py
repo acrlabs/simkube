@@ -5,13 +5,16 @@ from constructs import Construct
 from fireconfig.types import Capability
 from fireconfig.types import DownwardAPIField
 
+# TODO - sync these from lib/constants.rs
 POD_SVC_ACCOUNT_ENV_VAR = "POD_SVC_ACCOUNT"
+CTRL_NS_ENV_VAR = "CTRL_NAMESPACE"
 
 
 class SKController(fire.AppPackage):
     def __init__(self):
         env = (fire.EnvBuilder({"RUST_BACKTRACE": "1"})
             .with_field_ref(POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME)
+            .with_field_ref(CTRL_NS_ENV_VAR, DownwardAPIField.NAMESPACE)
         )
 
         try:
