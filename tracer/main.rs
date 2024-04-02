@@ -14,7 +14,6 @@ use simkube::watch::{
     DynObjWatcher,
     PodWatcher,
 };
-use tracing::*;
 
 #[derive(Parser, Debug)]
 struct Options {

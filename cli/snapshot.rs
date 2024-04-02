@@ -5,7 +5,6 @@ use std::sync::{
     Mutex,
 };
 
-use chrono::Utc;
 use simkube::k8s::ApiSet;
 use simkube::prelude::*;
 use simkube::store::TraceStore;
@@ -67,7 +66,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     println!("Exporting snapshot data from store...");
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![], true);
-    let start_ts = Utc::now().timestamp();
+    let start_ts = UtcClock.now_ts();
     let end_ts = start_ts + 1;
     let data = store.lock().unwrap().export(start_ts, end_ts, &filters)?;
 

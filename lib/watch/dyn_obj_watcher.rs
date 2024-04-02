@@ -82,7 +82,7 @@ impl DynObjWatcher {
 
     pub async fn start(mut self) {
         while let Some(res) = self.obj_stream.next().await {
-            let ts = self.clock.now();
+            let ts = self.clock.now_ts();
 
             match res {
                 Ok(evt) => self.handle_obj_event(evt, ts),

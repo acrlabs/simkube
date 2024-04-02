@@ -4,6 +4,11 @@ use std::sync::atomic::{
 };
 use std::sync::Arc;
 
+use chrono::{
+    DateTime,
+    Utc,
+};
+
 use crate::time::Clockable;
 
 #[derive(Clone)]
@@ -28,7 +33,11 @@ impl MockUtcClock {
 }
 
 impl Clockable for MockUtcClock {
-    fn now(&self) -> i64 {
+    fn now(&self) -> DateTime<Utc> {
+        return DateTime::from_timestamp(self.now_ts(), 0).unwrap();
+    }
+
+    fn now_ts(&self) -> i64 {
         return self.now.load(Ordering::Relaxed);
     }
 }

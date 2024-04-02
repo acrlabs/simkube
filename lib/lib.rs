@@ -15,6 +15,7 @@ pub mod watch;
 pub mod prelude {
     pub use k8s_openapi::api::core::v1 as corev1;
     pub use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+    pub use tracing::*;
 
     pub use crate::api::v1::{
         ExportFilters,
@@ -36,6 +37,10 @@ pub mod prelude {
         PodLifecycleData,
     };
     pub use crate::logging;
+    pub use crate::time::{
+        Clockable,
+        UtcClock,
+    };
 }
 
 #[cfg(feature = "testutils")]

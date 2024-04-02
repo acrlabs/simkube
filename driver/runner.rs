@@ -20,23 +20,18 @@ use simkube::k8s::{
 use simkube::macros::*;
 use simkube::prelude::*;
 use tokio::time::sleep;
-use tracing::*;
 
 use super::*;
 
-pub(super) fn build_virtual_ns(
-    ctx: &DriverContext,
-    root: &SimulationRoot,
-    namespace: &str,
-) -> anyhow::Result<corev1::Namespace> {
+pub(super) fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, namespace: &str) -> corev1::Namespace {
     let owner = root;
     let mut ns = corev1::Namespace {
-        metadata: build_global_object_meta(namespace, &ctx.name, owner)?,
+        metadata: build_global_object_meta(namespace, &ctx.name, owner),
         ..Default::default()
     };
     klabel_insert!(ns, VIRTUAL_LABEL_KEY => "true");
 
-    Ok(ns)
+    ns
 }
 
 pub(super) fn build_virtual_obj(
@@ -49,7 +44,7 @@ pub(super) fn build_virtual_obj(
 ) -> anyhow::Result<DynamicObject> {
     let owner = root;
     let mut vobj = obj.clone();
-    add_common_metadata(&ctx.name, owner, &mut vobj.metadata)?;
+    add_common_metadata(&ctx.name, owner, &mut vobj.metadata);
     vobj.metadata.namespace = Some(virtual_ns.into());
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
 
@@ -102,7 +97,7 @@ impl TraceRunner {
             warn!("Driver root {} already exists; continuing...", ctx.root_name);
             root
         } else {
-            let root_obj = build_simulation_root(&ctx.root_name, &ctx.sim)?;
+            let root_obj = build_simulation_root(&ctx.root_name, &ctx.sim);
             self.roots_api.create(&Default::default(), &root_obj).await?
         };
 
@@ -117,7 +112,7 @@ impl TraceRunner {
 
                 if self.ns_api.get_opt(&virtual_ns).await?.is_none() {
                     info!("creating virtual namespace: {virtual_ns}");
-                    let vns = build_virtual_ns(&ctx, &root_obj, &virtual_ns)?;
+                    let vns = build_virtual_ns(&ctx, &root_obj, &virtual_ns);
                     self.ns_api.create(&Default::default(), &vns).await?;
                 }
 

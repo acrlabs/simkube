@@ -66,7 +66,7 @@ impl TraceStore {
         if let Some(trace_duration_str) = maybe_duration {
             let trace_start_ts = events
                 .front()
-                .unwrap_or(&TraceEvent { ts: UtcClock.now(), ..Default::default() })
+                .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
                 .ts;
             let trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
             events.retain(|evt| evt.ts < trace_end_ts);

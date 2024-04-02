@@ -11,7 +11,6 @@ pub use regex::{
     RegexBuilder,
 };
 pub use thiserror::Error;
-pub use tracing::*;
 
 pub type EmptyResult = anyhow::Result<()>;
 

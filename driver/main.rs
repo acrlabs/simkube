@@ -26,7 +26,6 @@ use simkube::store::{
 };
 use tokio::sync::Mutex;
 use tokio::time::sleep;
-use tracing::*;
 
 use crate::mutation::MutationData;
 use crate::runner::TraceRunner;
