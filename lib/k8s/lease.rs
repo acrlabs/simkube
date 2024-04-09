@@ -1,4 +1,3 @@
-use anyhow::bail;
 use chrono::{
     DateTime,
     Utc,
@@ -8,9 +7,13 @@ use kube::api::Patch;
 use kube::ResourceExt;
 use serde_json::json;
 
-use crate::k8s::build_object_meta;
+use crate::k8s::{
+    build_object_meta,
+    KubernetesError,
+};
 use crate::prelude::*;
 
+#[derive(Debug, Eq, PartialEq)]
 pub enum LeaseState {
     Unknown,
     Claimed,
@@ -31,30 +34,12 @@ pub fn build_lease(sim: &Simulation, metaroot: &SimulationRoot, ns: &str, now: D
     }
 }
 
-fn compute_remaining_lease_time(
-    maybe_duration_seconds: &Option<i32>,
-    maybe_renew_time: &Option<metav1::MicroTime>,
-    now_ts: i64,
-) -> i64 {
-    let duration_seconds = maybe_duration_seconds.map_or(0, |secs| secs as i64) + RETRY_DELAY_SECONDS;
-    let renew_time = maybe_renew_time
-        .clone()
-        .map(|microtime| microtime.0.timestamp())
-        .unwrap_or(now_ts);
-    let sleep_time = renew_time + duration_seconds - now_ts;
-    if sleep_time <= 0 {
-        warn!("exceeded the lease time but something hasn't released it; trying again");
-        return RETRY_DELAY_SECONDS;
-    }
-    sleep_time
-}
-
 pub async fn try_claim_lease(
     client: kube::Client,
     sim: &Simulation,
     metaroot: &SimulationRoot,
     lease_ns: &str,
-    clock: &(dyn Clockable + Send + Sync),
+    clock: Box<dyn Clockable + Send>,
 ) -> anyhow::Result<LeaseState> {
     // Try to claim the lease -- leases are namespaced, so we create the lease in the same
     // namespace as the controller.  You could hypothetically work around this by running two
@@ -106,12 +91,12 @@ pub async fn try_update_lease(
     sim: &Simulation,
     lease_ns: &str,
     lease_duration: i64,
-    clock: &(dyn Clockable + Send + Sync),
+    clock: Box<dyn Clockable + Send>,
 ) -> EmptyResult {
     let lease_api = kube::Api::<coordinationv1::Lease>::namespaced(client.clone(), lease_ns);
     match lease_api.get(SK_LEASE_NAME).await?.spec {
         Some(coordinationv1::LeaseSpec { holder_identity: Some(holder), .. }) if holder != sim.name_any() => {
-            bail!("lease not owned by current sim: {holder} != {}", sim.name_any())
+            return Err(KubernetesError::lease_held_by_other(&holder));
         },
         _ => (),
     }
@@ -129,4 +114,22 @@ pub async fn try_update_lease(
         )
         .await?;
     Ok(())
+}
+
+pub(super) fn compute_remaining_lease_time(
+    maybe_duration_seconds: &Option<i32>,
+    maybe_renew_time: &Option<metav1::MicroTime>,
+    now_ts: i64,
+) -> i64 {
+    let duration_seconds = maybe_duration_seconds.map_or(0, |secs| secs as i64) + RETRY_DELAY_SECONDS;
+    let renew_time = maybe_renew_time
+        .clone()
+        .map(|microtime| microtime.0.timestamp())
+        .unwrap_or(now_ts);
+    let sleep_time = renew_time + duration_seconds - now_ts;
+    if sleep_time <= 0 {
+        warn!("exceeded the lease time but something hasn't released it; trying again");
+        return RETRY_DELAY_SECONDS;
+    }
+    sleep_time
 }

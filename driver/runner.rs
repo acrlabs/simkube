@@ -95,7 +95,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
     let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
     let sim_duration = sim_end_ts - sim_ts;
 
-    try_update_lease(client.clone(), &ctx.sim, &ctx.ctrl_ns, sim_duration, &UtcClock).await?;
+    try_update_lease(client.clone(), &ctx.sim, &ctx.ctrl_ns, sim_duration, Box::new(UtcClock)).await?;
 
     for (evt, maybe_next_ts) in ctx.store.iter() {
         // We're currently assuming that all tracked objects are namespace-scoped,

@@ -28,6 +28,9 @@ err_impl! {KubernetesError,
     #[error("field not found in struct: {0}")]
     FieldNotFound(String),
 
+    #[error("lease has different owner: {0}")]
+    LeaseHeldByOther(String),
+
     #[error("malformed container status: {0:?}")]
     MalformedContainerState(corev1::ContainerState),
 

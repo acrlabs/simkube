@@ -1,6 +1,7 @@
 pub mod clock;
 pub mod fake;
 pub mod pods;
+pub mod sim;
 pub mod store;
 
 pub const EMPTY_OBJ_HASH: u64 = 15130871412783076140;
@@ -23,4 +24,8 @@ pub use fake::{
 };
 pub use pods::test_pod;
 use rstest::*;
+pub use sim::{
+    test_sim,
+    test_sim_root,
+};
 pub use store::MockTraceStore;
