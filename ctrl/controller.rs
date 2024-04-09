@@ -18,7 +18,6 @@ use kube::api::{
 };
 use kube::error::ErrorResponse;
 use kube::runtime::controller::Action;
-use kube::Error::Api;
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::api::v1::build_simulation_root;
@@ -95,7 +94,7 @@ pub(super) async fn setup_driver(
         bail!(SkControllerError::namespace_not_found(&sim.metrics_ns()));
     };
 
-    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, &UtcClock).await? {
+    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, Box::new(UtcClock)).await? {
         LeaseState::Claimed => (),
         LeaseState::WaitingForClaim(t) => {
             info!("sleeping for {t} seconds");
@@ -197,7 +196,7 @@ pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
 
     info!("cleaning up prometheus resources");
     if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
-        if matches!(e, Api(ErrorResponse { code: 404, .. })) {
+        if matches!(e, kube::Error::Api(ErrorResponse { code: 404, .. })) {
             warn!("prometheus object not found; maybe already cleaned up?");
         } else {
             error!("Error cleaning up Prometheus: {e:?}");
