@@ -1,7 +1,4 @@
 [tool.poetry]
-name = "manifests"
-version = "0.1.0"
-description = ""
 authors = ["David Morrison <drmorr@appliedcomputing.io>"]
 package-mode = false
 
