@@ -20,6 +20,7 @@ use simkube::k8s::{
     OwnersCache,
 };
 use simkube::prelude::*;
+use simkube::sim::hooks;
 use simkube::store::{
     TraceStorable,
     TraceStore,
@@ -112,6 +113,7 @@ async fn run(opts: Options) -> EmptyResult {
     // Give the mutation handler a bit of time to come online before starting the sim
     sleep(Duration::from_secs(5)).await;
 
+    hooks::execute(&ctx.sim, hooks::Type::PreRun).await?;
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),
         res = tokio::spawn(run_trace(ctx.clone(), client)) => {
@@ -120,7 +122,9 @@ async fn run(opts: Options) -> EmptyResult {
                 Err(err) => Err(err.into()),
             }
         },
-    }
+    }?;
+    hooks::execute(&ctx.sim, hooks::Type::PostRun).await?;
+    Ok(())
 }
 
 #[tokio::main]

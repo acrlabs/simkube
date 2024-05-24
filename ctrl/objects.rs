@@ -18,6 +18,7 @@ use simkube::metrics::api::prometheus::{
     PrometheusSpec,
 };
 use simkube::prelude::*;
+use simkube::sim::*;
 use simkube::store::storage;
 
 use super::cert_manager::DRIVER_CERT_NAME;
@@ -80,7 +81,7 @@ pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetr
 
     let owner = sim;
     Prometheus {
-        metadata: build_object_meta(&sim.metrics_ns(), name, &sim.name_any(), owner),
+        metadata: build_object_meta(&metrics_ns(sim), name, &sim.name_any(), owner),
         spec: PrometheusSpec {
             image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
             pod_metadata: Some(PrometheusPodMetadata {
@@ -97,7 +98,7 @@ pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetr
             service_monitor_namespace_selector,
             service_monitor_selector,
             remote_write: Some(rw_cfgs),
-            service_account_name: Some(sim.metrics_svc_account()),
+            service_account_name: Some(metrics_svc_account(sim)),
             version: Some(PROM_VERSION.into()),
             ..Default::default()
         },

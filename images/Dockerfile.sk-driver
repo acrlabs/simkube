@@ -1,8 +1,15 @@
 FROM debian:buster-slim
 
+ARG K8S_VERSION=v1.29.5
+
 RUN apt-get update && apt-get install -y \
+    curl \
     dumb-init \
+    jq \
     rust-gdb
+
+RUN curl -L "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl" -o /usr/bin/kubectl
+RUN chmod +x /usr/bin/kubectl
 
 COPY sk-driver /sk-driver
 

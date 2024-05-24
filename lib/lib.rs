@@ -7,6 +7,7 @@ pub mod k8s;
 pub mod logging;
 pub mod macros;
 pub mod metrics;
+pub mod sim;
 pub mod store;
 pub mod time;
 pub mod util;

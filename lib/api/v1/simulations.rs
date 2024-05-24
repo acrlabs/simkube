@@ -10,7 +10,6 @@ use serde::{
 };
 
 use crate::metrics::api::prometheus::PrometheusRemoteWrite;
-use crate::prelude::*;
 
 #[derive(Clone, Debug, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 pub enum SimulationState {
@@ -35,6 +34,23 @@ pub struct SimulationMetricsConfig {
     pub remote_write_configs: Vec<PrometheusRemoteWrite>,
 }
 
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationHook {
+    pub cmd: String,
+    pub args: Vec<String>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationHooksConfig {
+    pub pre_start_hooks: Option<Vec<SimulationHook>>,
+    pub pre_run_hooks: Option<Vec<SimulationHook>>,
+    pub post_run_hooks: Option<Vec<SimulationHook>>,
+    pub post_stop_hooks: Option<Vec<SimulationHook>>,
+}
+
 #[derive(Clone, CustomResource, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[kube(group = "simkube.io", version = "v1", kind = "Simulation")]
 #[kube(shortname = "sim", shortname = "sims")]
@@ -51,6 +67,7 @@ pub struct SimulationSpec {
     pub duration: Option<String>,
     pub repetitions: Option<i32>,
     pub trace_path: String,
+    pub hooks: Option<SimulationHooksConfig>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -60,20 +77,4 @@ pub struct SimulationStatus {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub state: Option<SimulationState>,
-}
-
-impl Simulation {
-    pub fn metrics_ns(&self) -> String {
-        match &self.spec.metrics_config {
-            Some(SimulationMetricsConfig { namespace: Some(ns), .. }) => ns.clone(),
-            _ => DEFAULT_METRICS_NS.into(),
-        }
-    }
-
-    pub fn metrics_svc_account(&self) -> String {
-        match &self.spec.metrics_config {
-            Some(SimulationMetricsConfig { service_account: Some(sa), .. }) => sa.clone(),
-            _ => DEFAULT_METRICS_SVC_ACCOUNT.into(),
-        }
-    }
 }

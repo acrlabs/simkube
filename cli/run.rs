@@ -129,6 +129,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             metrics_config,
             repetitions: Some(args.repetitions),
             trace_path: args.trace_file.clone(),
+            hooks: None,
         },
     );
     let client = kube::Client::try_default().await?;
