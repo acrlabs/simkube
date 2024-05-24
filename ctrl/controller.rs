@@ -28,6 +28,10 @@ use simkube::k8s::{
 };
 use simkube::metrics::api::*;
 use simkube::prelude::*;
+use simkube::sim::{
+    hooks,
+    metrics_ns,
+};
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 use tokio::time::Duration;
@@ -90,8 +94,9 @@ pub(super) async fn setup_driver(
 
     // Validate the input before doing anything
     let ns_api = kube::Api::<corev1::Namespace>::all(ctx.client.clone());
-    if ns_api.get_opt(&sim.metrics_ns()).await?.is_none() {
-        bail!(SkControllerError::namespace_not_found(&sim.metrics_ns()));
+    let metrics_ns = metrics_ns(sim);
+    if ns_api.get_opt(&metrics_ns).await?.is_none() {
+        bail!(SkControllerError::namespace_not_found(&metrics_ns));
     };
 
     match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, Box::new(UtcClock)).await? {
@@ -117,10 +122,10 @@ pub(super) async fn setup_driver(
             // if async closures ever become a thing, you could simplify this logic with .unwrap_or_else;
             // you might be able to hack something currently with futures.then(...), but I couldn't figure
             // out a good way to do so.
-            let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());
+            let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &metrics_ns);
             match prom_api.get_opt(&ctx.prometheus_name).await? {
                 None => {
-                    info!("creating Prometheus object {}/{}", sim.metrics_ns(), ctx.prometheus_name);
+                    info!("creating Prometheus object {}/{}", metrics_ns, ctx.prometheus_name);
                     let obj = build_prometheus(&ctx.prometheus_name, sim, mc);
                     prom_api.create(&Default::default(), &obj).await?;
                 },
@@ -187,7 +192,7 @@ pub(super) async fn setup_driver(
 
 pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
-    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &sim.metrics_ns());
+    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &metrics_ns(sim));
 
     info!("cleaning up simulation {}", ctx.name);
     if let Err(e) = roots_api.delete(&ctx.metaroot_name, &Default::default()).await {
@@ -230,10 +235,14 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
 
     let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
     match driver_state {
-        SimulationState::Initializing => setup_driver(&ctx, sim, &root, &ctrl_ns).await.map_err(|e| e.into()),
+        SimulationState::Initializing => {
+            hooks::execute(sim, hooks::Type::PreStart).await?;
+            setup_driver(&ctx, sim, &root, &ctrl_ns).await.map_err(|e| e.into())
+        },
         SimulationState::Running => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
             cleanup(&ctx, sim).await;
+            hooks::execute(sim, hooks::Type::PostStop).await?;
             Ok(Action::await_change())
         },
         _ => unimplemented!(),

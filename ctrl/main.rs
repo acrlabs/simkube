@@ -112,7 +112,7 @@ impl SimulationContext {
         new.name = sim.name_any();
         new.metaroot_name = format!("sk-{}-metaroot", new.name);
         new.driver_name = format!("sk-{}-driver", new.name);
-        new.driver_ns = sim.spec.driver_namespace.clone();
+        new.driver_ns.clone_from(&sim.spec.driver_namespace);
         new.driver_svc = format!("sk-{}-driver-svc", new.name);
         new.prometheus_name = format!("sk-{}-prom", new.name);
         new.prometheus_svc = format!("sk-{}-prom-svc", new.name);

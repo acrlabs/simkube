@@ -40,6 +40,70 @@ spec:
               duration:
                 nullable: true
                 type: string
+              hooks:
+                nullable: true
+                properties:
+                  postRunHooks:
+                    items:
+                      properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
+                        cmd:
+                          type: string
+                      required:
+                      - args
+                      - cmd
+                      type: object
+                    nullable: true
+                    type: array
+                  postStopHooks:
+                    items:
+                      properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
+                        cmd:
+                          type: string
+                      required:
+                      - args
+                      - cmd
+                      type: object
+                    nullable: true
+                    type: array
+                  preRunHooks:
+                    items:
+                      properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
+                        cmd:
+                          type: string
+                      required:
+                      - args
+                      - cmd
+                      type: object
+                    nullable: true
+                    type: array
+                  preStartHooks:
+                    items:
+                      properties:
+                        args:
+                          items:
+                            type: string
+                          type: array
+                        cmd:
+                          type: string
+                      required:
+                      - args
+                      - cmd
+                      type: object
+                    nullable: true
+                    type: array
+                type: object
               metricsConfig:
                 nullable: true
                 properties:
