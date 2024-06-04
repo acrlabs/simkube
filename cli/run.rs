@@ -1,6 +1,9 @@
 use std::fs;
 
-use simkube::api::v1::SimulationHooksConfig;
+use simkube::api::v1::{
+    SimulationDriverConfig,
+    SimulationHooksConfig,
+};
 use simkube::metrics::api::prometheus::PrometheusRemoteWrite;
 use simkube::prelude::*;
 
@@ -27,12 +30,29 @@ pub struct Args {
     pub repetitions: i32,
 
     #[arg(
+        short = 'I',
+        long,
+        long_help = "name of the docker image to use for sk-driver",
+        help_heading = "Driver"
+    )]
+    pub driver_image: String,
+
+    #[arg(
+        long,
+        long_help = "admission webhook port for sk-driver",
+        default_value = DRIVER_ADMISSION_WEBHOOK_PORT,
+        help_heading = "Driver",
+    )]
+    pub driver_port: i32,
+
+    #[arg(
         short = 'f',
         long,
         long_help = "location of the trace file for sk-driver to read",
-        default_value = "file:///data/trace"
+        default_value = "file:///data/trace",
+        help_heading = "Driver"
     )]
-    pub trace_file: String,
+    pub trace_path: String,
 
     #[arg(long, long_help = "namespace to launch sk-driver in", default_value = "simkube")]
     pub driver_namespace: String,
@@ -145,11 +165,15 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let sim = Simulation::new(
         &args.name,
         SimulationSpec {
-            driver_namespace: args.driver_namespace.clone(),
+            driver: SimulationDriverConfig {
+                namespace: args.driver_namespace.clone(),
+                image: args.driver_image.clone(),
+                port: args.driver_port,
+                trace_path: args.trace_path.clone(),
+            },
             duration: args.duration.clone(),
-            metrics_config,
+            metrics: metrics_config,
             repetitions: Some(args.repetitions),
-            trace_path: args.trace_file.clone(),
             hooks,
         },
     );

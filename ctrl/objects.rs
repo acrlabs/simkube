@@ -35,7 +35,7 @@ const DRIVER_CERT_VOLUME: &str = "driver-cert";
 pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
     let owner = sim;
     corev1::Namespace {
-        metadata: build_global_object_meta(&ctx.driver_ns, &ctx.name, owner),
+        metadata: build_global_object_meta(&sim.spec.driver.namespace, &ctx.name, owner),
         ..Default::default()
     }
 }
@@ -108,15 +108,16 @@ pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetr
 
 pub(super) fn build_mutating_webhook(
     ctx: &SimulationContext,
+    sim: &Simulation,
     metaroot: &SimulationRoot,
 ) -> admissionv1::MutatingWebhookConfiguration {
     let owner = metaroot;
     let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner);
     if ctx.opts.use_cert_manager {
-        metadata
-            .annotations
-            .get_or_insert(BTreeMap::new())
-            .insert("cert-manager.io/inject-ca-from".into(), format!("{}/{}", ctx.driver_ns, DRIVER_CERT_NAME));
+        metadata.annotations.get_or_insert(BTreeMap::new()).insert(
+            "cert-manager.io/inject-ca-from".into(),
+            format!("{}/{}", sim.spec.driver.namespace, DRIVER_CERT_NAME),
+        );
     }
 
     admissionv1::MutatingWebhookConfiguration {
@@ -125,9 +126,9 @@ pub(super) fn build_mutating_webhook(
             admission_review_versions: vec!["v1".into()],
             client_config: admissionv1::WebhookClientConfig {
                 service: Some(admissionv1::ServiceReference {
-                    namespace: ctx.driver_ns.clone(),
+                    namespace: sim.spec.driver.namespace.clone(),
                     name: ctx.driver_svc.clone(),
-                    port: Some(ctx.opts.driver_port),
+                    port: Some(sim.spec.driver.port),
                     ..Default::default()
                 }),
                 ..Default::default()
@@ -147,14 +148,18 @@ pub(super) fn build_mutating_webhook(
     }
 }
 
-pub(super) fn build_driver_service(ctx: &SimulationContext, metaroot: &SimulationRoot) -> corev1::Service {
+pub(super) fn build_driver_service(
+    ctx: &SimulationContext,
+    sim: &Simulation,
+    metaroot: &SimulationRoot,
+) -> corev1::Service {
     let owner = metaroot;
     corev1::Service {
-        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_svc, &ctx.name, owner),
+        metadata: build_object_meta(&sim.spec.driver.namespace, &ctx.driver_svc, &ctx.name, owner),
         spec: Some(corev1::ServiceSpec {
             ports: Some(vec![corev1::ServicePort {
-                port: ctx.opts.driver_port,
-                target_port: Some(IntOrString::Int(ctx.opts.driver_port)),
+                port: sim.spec.driver.port,
+                target_port: Some(IntOrString::Int(sim.spec.driver.port)),
                 ..Default::default()
             }]),
             selector: klabel!("job-name" => ctx.driver_name),
@@ -170,7 +175,7 @@ pub(super) fn build_driver_job(
     cert_secret_name: &str,
     ctrl_ns: &str,
 ) -> anyhow::Result<batchv1::Job> {
-    let trace_url = Url::parse(&sim.spec.trace_path)?;
+    let trace_url = Url::parse(&sim.spec.driver.trace_path)?;
     let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
         storage::Scheme::AmazonS3 => todo!(),
         storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
@@ -180,7 +185,7 @@ pub(super) fn build_driver_job(
     let service_account = Some(env::var(POD_SVC_ACCOUNT_ENV_VAR)?);
 
     Ok(batchv1::Job {
-        metadata: build_object_meta(&ctx.driver_ns, &ctx.driver_name, &ctx.name, sim),
+        metadata: build_object_meta(&sim.spec.driver.namespace, &ctx.driver_name, &ctx.name, sim),
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(0),
             template: corev1::PodTemplateSpec {
@@ -189,7 +194,7 @@ pub(super) fn build_driver_job(
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
                         args: Some(build_driver_args(ctx, cert_mount_path, trace_mount_path, ctrl_ns.into())),
-                        image: Some(ctx.opts.driver_image.clone()),
+                        image: Some(sim.spec.driver.image.clone()),
                         env: Some(vec![
                             corev1::EnvVar {
                                 name: "RUST_BACKTRACE".into(),

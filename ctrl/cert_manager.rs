@@ -74,10 +74,14 @@ fn api_resource() -> ApiResource {
 
 pub(super) async fn create_certificate_if_not_present(
     ctx: &SimulationContext,
+    sim: &Simulation,
     metaroot: &SimulationRoot,
 ) -> EmptyResult {
-    let cert_api =
-        kube::Api::<PartialCertificate>::namespaced_with(ctx.client.clone(), &ctx.driver_ns, &api_resource());
+    let cert_api = kube::Api::<PartialCertificate>::namespaced_with(
+        ctx.client.clone(),
+        &sim.spec.driver.namespace,
+        &api_resource(),
+    );
 
     let owner = metaroot;
     if cert_api.get_opt(DRIVER_CERT_NAME).await?.is_none() {
@@ -86,7 +90,7 @@ pub(super) async fn create_certificate_if_not_present(
             DRIVER_CERT_NAME, ctx.opts.cert_manager_issuer,
         );
         let obj = PartialCertificate {
-            metadata: build_object_meta(&ctx.driver_ns, DRIVER_CERT_NAME, &ctx.name, owner),
+            metadata: build_object_meta(&sim.spec.driver.namespace, DRIVER_CERT_NAME, &ctx.name, owner),
             spec: PartialCertificateSpec {
                 secret_name: DRIVER_CERT_NAME.into(),
                 secret_template: Some(CertificateSecretTemplate {
@@ -98,7 +102,7 @@ pub(super) async fn create_certificate_if_not_present(
                     kind: Some("ClusterIssuer".into()),
                     ..Default::default()
                 },
-                dns_names: Some(vec![format!("{}.{}.svc", ctx.driver_svc, ctx.driver_ns)]),
+                dns_names: Some(vec![format!("{}.{}.svc", ctx.driver_svc, sim.spec.driver.namespace)]),
             },
             status: None,
             types: Some(TypeMeta {

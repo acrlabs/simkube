@@ -36,8 +36,24 @@ spec:
           spec:
             additionalProperties: false
             properties:
-              driverNamespace:
-                type: string
+              driver:
+                additionalProperties: false
+                properties:
+                  image:
+                    type: string
+                  namespace:
+                    type: string
+                  port:
+                    format: int32
+                    type: integer
+                  tracePath:
+                    type: string
+                required:
+                - image
+                - namespace
+                - port
+                - tracePath
+                type: object
               duration:
                 nullable: true
                 type: string
@@ -110,7 +126,7 @@ spec:
                     nullable: true
                     type: array
                 type: object
-              metricsConfig:
+              metrics:
                 additionalProperties: false
                 nullable: true
                 properties:
@@ -532,11 +548,8 @@ spec:
                 format: int32
                 nullable: true
                 type: integer
-              tracePath:
-                type: string
             required:
-            - driverNamespace
-            - tracePath
+            - driver
             type: object
           status:
             nullable: true

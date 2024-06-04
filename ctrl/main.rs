@@ -30,12 +30,6 @@ use crate::controller::{
 
 #[derive(Clone, Debug, Parser)]
 struct Options {
-    #[arg(long)]
-    driver_image: String,
-
-    #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
-    driver_port: i32,
-
     // TODO: should support non-cert-manager for configuring certs as well
     #[arg(long)]
     use_cert_manager: bool,
@@ -82,7 +76,6 @@ struct SimulationContext {
 
     name: String,
     metaroot_name: String,
-    driver_ns: String,
     driver_name: String,
     driver_svc: String,
     prometheus_name: String,
@@ -98,7 +91,6 @@ impl SimulationContext {
 
             name: String::new(),
             metaroot_name: String::new(),
-            driver_ns: String::new(),
             driver_name: String::new(),
             driver_svc: String::new(),
             prometheus_name: String::new(),
@@ -112,7 +104,6 @@ impl SimulationContext {
         new.name = sim.name_any();
         new.metaroot_name = format!("sk-{}-metaroot", new.name);
         new.driver_name = format!("sk-{}-driver", new.name);
-        new.driver_ns.clone_from(&sim.spec.driver_namespace);
         new.driver_svc = format!("sk-{}-driver-svc", new.name);
         new.prometheus_name = format!("sk-{}-prom", new.name);
         new.prometheus_svc = format!("sk-{}-prom-svc", new.name);
