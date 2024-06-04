@@ -13,8 +13,6 @@ use crate::objects::*;
 #[fixture]
 fn opts() -> Options {
     Options {
-        driver_image: "driver:latest".into(),
-        driver_port: 1234,
         use_cert_manager: false,
         cert_manager_issuer: "".into(),
         verbosity: "info".into(),
@@ -31,7 +29,7 @@ async fn test_fetch_driver_status_no_driver(test_sim: Simulation, opts: Options)
     fake_apiserver
         .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
         .build();
-    assert_eq!(SimulationState::Initializing, fetch_driver_status(&ctx).await.unwrap().0);
+    assert_eq!(SimulationState::Initializing, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
     fake_apiserver.assert();
 }
 
@@ -48,7 +46,7 @@ async fn test_fetch_driver_status_driver_no_status(test_sim: Simulation, opts: O
             then.json_body(json!({}));
         })
         .build();
-    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx).await.unwrap().0);
+    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
     fake_apiserver.assert();
 }
 
@@ -69,7 +67,7 @@ async fn test_fetch_driver_status_driver_running(test_sim: Simulation, opts: Opt
             }));
         })
         .build();
-    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx).await.unwrap().0);
+    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
     fake_apiserver.assert();
 }
 
@@ -98,7 +96,7 @@ async fn test_fetch_driver_status_driver_finished(test_sim: Simulation, opts: Op
             }));
         })
         .build();
-    assert_eq!(expected_state, fetch_driver_status(&ctx).await.unwrap().0);
+    assert_eq!(expected_state, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
     fake_apiserver.assert();
 }
 
@@ -171,10 +169,10 @@ async fn test_setup_driver_create_prom(test_sim: Simulation, test_sim_root: Simu
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
-    let driver_ns = ctx.driver_ns.clone();
+    let driver_ns = test_sim.spec.driver.namespace.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
-    let prom_obj = build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics_config.clone().unwrap());
+    let prom_obj = build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics.clone().unwrap());
 
     fake_apiserver
         .handle(|when, then| {
@@ -226,7 +224,7 @@ async fn test_setup_driver_wait_prom(
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
-    let driver_ns = ctx.driver_ns.clone();
+    let driver_ns = test_sim.spec.driver.namespace.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_svc_name = ctx.driver_svc.clone();
     let webhook_name = ctx.webhook_name.clone();
@@ -234,8 +232,8 @@ async fn test_setup_driver_wait_prom(
 
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
-    let driver_svc_obj = build_driver_service(&ctx, &test_sim_root);
-    let webhook_obj = build_mutating_webhook(&ctx, &test_sim_root);
+    let driver_svc_obj = build_driver_service(&ctx, &test_sim, &test_sim_root);
+    let webhook_obj = build_mutating_webhook(&ctx, &test_sim, &test_sim_root);
     let driver_obj = build_driver_job(&ctx, &test_sim, "".into(), TEST_CTRL_NAMESPACE).unwrap();
 
     fake_apiserver
@@ -256,10 +254,9 @@ async fn test_setup_driver_wait_prom(
         });
 
     if disabled {
-        test_sim.spec.metrics_config = None;
+        test_sim.spec.metrics = None;
     } else {
-        let prom_obj =
-            build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics_config.clone().unwrap());
+        let prom_obj = build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics.clone().unwrap());
         fake_apiserver.handle(move |when, then| {
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));

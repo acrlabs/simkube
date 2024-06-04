@@ -23,6 +23,15 @@ pub enum SimulationState {
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct SimulationDriverConfig {
+    pub namespace: String,
+    pub image: String,
+    pub trace_path: String,
+    pub port: i32,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationMetricsConfig {
     pub namespace: Option<String>,
     pub service_account: Option<String>,
@@ -33,7 +42,6 @@ pub struct SimulationMetricsConfig {
     pub service_monitor_namespaces: Option<Vec<String>>,
     pub remote_write_configs: Vec<PrometheusRemoteWrite>,
 }
-
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -62,11 +70,13 @@ pub struct SimulationHooksConfig {
 )]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationSpec {
-    pub driver_namespace: String,
-    pub metrics_config: Option<SimulationMetricsConfig>,
+    // Required fields
+    pub driver: SimulationDriverConfig,
+
+    // Optional fields
+    pub metrics: Option<SimulationMetricsConfig>,
     pub duration: Option<String>,
     pub repetitions: Option<i32>,
-    pub trace_path: String,
     pub hooks: Option<SimulationHooksConfig>,
 }
 

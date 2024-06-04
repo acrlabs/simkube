@@ -1,5 +1,6 @@
 use super::*;
 use crate::api::v1::{
+    SimulationDriverConfig,
     SimulationHook,
     SimulationHooksConfig,
 };
@@ -14,9 +15,13 @@ pub fn test_sim() -> Simulation {
             ..Default::default()
         },
         spec: SimulationSpec {
-            driver_namespace: TEST_NAMESPACE.into(),
-            trace_path: "file:///foo/bar".into(),
-            metrics_config: Some(Default::default()),
+            driver: SimulationDriverConfig {
+                namespace: TEST_NAMESPACE.into(),
+                image: "docker.foo:1234/sk-driver:latest".into(),
+                port: 9876,
+                trace_path: "file:///foo/bar".into(),
+            },
+            metrics: Some(Default::default()),
             hooks: Some(SimulationHooksConfig {
                 pre_start_hooks: Some(vec![SimulationHook { cmd: "echo".into(), args: vec!["foo".into()] }]),
                 pre_run_hooks: Some(vec![SimulationHook {

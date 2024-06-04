@@ -58,8 +58,9 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
 
 pub(super) async fn fetch_driver_status(
     ctx: &SimulationContext,
+    sim: &Simulation,
 ) -> anyhow::Result<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
-    let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     let (mut state, mut start_time, mut end_time) = (SimulationState::Initializing, None, None);
 
     if let Some(driver) = jobs_api.get_opt(&ctx.driver_name).await? {
@@ -109,15 +110,15 @@ pub(super) async fn setup_driver(
     }
 
     // Create the namespaces
-    if ns_api.get_opt(&ctx.driver_ns).await?.is_none() {
-        info!("creating driver namespace {}", ctx.driver_ns);
+    if ns_api.get_opt(&sim.spec.driver.namespace).await?.is_none() {
+        info!("creating driver namespace {}", sim.spec.driver.namespace);
         let obj = build_driver_namespace(ctx, sim);
         ns_api.create(&Default::default(), &obj).await?;
     };
 
     // Set up the metrics collector
     let mut prom_ready = false;
-    match &sim.spec.metrics_config {
+    match &sim.spec.metrics {
         Some(mc) => {
             // if async closures ever become a thing, you could simplify this logic with .unwrap_or_else;
             // you might be able to hack something currently with futures.then(...), but I couldn't figure
@@ -145,18 +146,18 @@ pub(super) async fn setup_driver(
     }
 
     // Set up the webhook
-    let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    let driver_svc_api = kube::Api::<corev1::Service>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     if driver_svc_api.get_opt(&ctx.driver_svc).await?.is_none() {
         info!("creating driver service {}", &ctx.driver_svc);
-        let obj = build_driver_service(ctx, metaroot);
+        let obj = build_driver_service(ctx, sim, metaroot);
         driver_svc_api.create(&Default::default(), &obj).await?;
     }
 
     if ctx.opts.use_cert_manager {
-        cert_manager::create_certificate_if_not_present(ctx, metaroot).await?;
+        cert_manager::create_certificate_if_not_present(ctx, sim, metaroot).await?;
     }
 
-    let secrets_api = kube::Api::<corev1::Secret>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    let secrets_api = kube::Api::<corev1::Secret>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     let secrets = secrets_api
         .list(&ListParams {
             label_selector: Some(format!("{SIMULATION_LABEL_KEY}={}", ctx.name)),
@@ -175,12 +176,12 @@ pub(super) async fn setup_driver(
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
     if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
-        let obj = build_mutating_webhook(ctx, metaroot);
+        let obj = build_mutating_webhook(ctx, sim, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
     };
 
     // Create the actual driver
-    let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &ctx.driver_ns);
+    let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
         let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, ctrl_ns)?;
@@ -215,7 +216,7 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
     let ctx = ctx.with_sim(sim);
 
     let root = setup_sim_metaroot(&ctx, sim).await?;
-    let (driver_state, start_time, end_time) = fetch_driver_status(&ctx).await?;
+    let (driver_state, start_time, end_time) = fetch_driver_status(&ctx, sim).await?;
 
     let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());
     sim_api
