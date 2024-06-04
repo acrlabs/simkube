@@ -2,7 +2,7 @@ use simkube::prelude::*;
 
 #[derive(clap::Args)]
 pub struct Args {
-    #[arg(short, long, long_help = "name of the simulation to delete")]
+    #[arg(long_help = "name of the simulation to delete")]
     pub name: String,
 }
 

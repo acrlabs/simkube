@@ -123,8 +123,7 @@ async fn run(opts: Options) -> EmptyResult {
             }
         },
     }?;
-    hooks::execute(&ctx.sim, hooks::Type::PostRun).await?;
-    Ok(())
+    hooks::execute(&ctx.sim, hooks::Type::PostRun).await
 }
 
 #[tokio::main]

@@ -1,14 +1,22 @@
+use std::fs;
+
+use simkube::api::v1::SimulationHooksConfig;
 use simkube::metrics::api::prometheus::PrometheusRemoteWrite;
 use simkube::prelude::*;
 
 #[derive(clap::Args)]
 #[command(disable_help_flag = true, disable_version_flag = true)]
 pub struct Args {
-    #[arg(long_help = "duration of the simulation", allow_hyphen_values = true)]
-    pub duration: Option<String>,
-
-    #[arg(short, long, long_help = "name of the simulation to run")]
+    #[arg(long_help = "name of the simulation to run")]
     pub name: String,
+
+    #[arg(
+        short = 'D',
+        long,
+        long_help = "duration of the simulation",
+        allow_hyphen_values = true
+    )]
+    pub duration: Option<String>,
 
     #[arg(
         short = 'N',
@@ -19,8 +27,8 @@ pub struct Args {
     pub repetitions: i32,
 
     #[arg(
-        long,
         short = 'f',
+        long,
         long_help = "location of the trace file for sk-driver to read",
         default_value = "file:///data/trace"
     )]
@@ -28,6 +36,9 @@ pub struct Args {
 
     #[arg(long, long_help = "namespace to launch sk-driver in", default_value = "simkube")]
     pub driver_namespace: String,
+
+    #[arg(long, long_help = "name of file with simulation hooks")]
+    pub hooks: Option<String>,
 
     #[arg(
         long,
@@ -91,7 +102,12 @@ pub struct Args {
     #[arg(long, long_help = "number of prometheus shards to run", help_heading = "Metrics")]
     pub prometheus_shards: Option<i32>,
 
-    #[arg(long, long_help = "address for remote write endpoint", help_heading = "Metrics")]
+    #[arg(
+        long,
+        long_help = "address for remote write endpoint",
+        default_value = "http://prom2parquet-svc:1234/receive",
+        help_heading = "Metrics"
+    )]
     pub remote_write_endpoint: Option<String>,
 
     // We override help and version here so that it shows up in its own help group at the bottom
@@ -121,6 +137,11 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             .map_or(vec![], |url| vec![PrometheusRemoteWrite { url, ..Default::default() }]),
     });
 
+    let mut hooks: Option<SimulationHooksConfig> = None;
+    if let Some(f) = args.hooks.as_ref() {
+        hooks = serde_yaml::from_slice(&fs::read(f)?)?;
+    }
+
     let sim = Simulation::new(
         &args.name,
         SimulationSpec {
@@ -129,7 +150,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             metrics_config,
             repetitions: Some(args.repetitions),
             trace_path: args.trace_file.clone(),
-            hooks: None,
+            hooks,
         },
     );
     let client = kube::Client::try_default().await?;
