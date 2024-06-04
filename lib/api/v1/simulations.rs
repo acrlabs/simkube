@@ -22,7 +22,7 @@ pub enum SimulationState {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationMetricsConfig {
     pub namespace: Option<String>,
     pub service_account: Option<String>,
@@ -36,14 +36,14 @@ pub struct SimulationMetricsConfig {
 
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationHook {
     pub cmd: String,
     pub args: Vec<String>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationHooksConfig {
     pub pre_start_hooks: Option<Vec<SimulationHook>>,
     pub pre_run_hooks: Option<Vec<SimulationHook>>,
@@ -60,7 +60,7 @@ pub struct SimulationHooksConfig {
     printcolumn = r#"{"name":"end time", "type":"string", "description":"simulation driver end time", "jsonPath":".status.endTime"}"#,
     printcolumn = r#"{"name":"state", "type":"string", "description":"simulation state", "jsonPath":".status.state"}"#
 )]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SimulationSpec {
     pub driver_namespace: String,
     pub metrics_config: Option<SimulationMetricsConfig>,

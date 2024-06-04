@@ -34,6 +34,7 @@ spec:
         description: Auto-generated derived type for SimulationSpec via `CustomResource`
         properties:
           spec:
+            additionalProperties: false
             properties:
               driverNamespace:
                 type: string
@@ -41,10 +42,12 @@ spec:
                 nullable: true
                 type: string
               hooks:
+                additionalProperties: false
                 nullable: true
                 properties:
                   postRunHooks:
                     items:
+                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -60,6 +63,7 @@ spec:
                     type: array
                   postStopHooks:
                     items:
+                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -75,6 +79,7 @@ spec:
                     type: array
                   preRunHooks:
                     items:
+                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -90,6 +95,7 @@ spec:
                     type: array
                   preStartHooks:
                     items:
+                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -105,6 +111,7 @@ spec:
                     type: array
                 type: object
               metricsConfig:
+                additionalProperties: false
                 nullable: true
                 properties:
                   namespace:

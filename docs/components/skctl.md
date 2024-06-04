@@ -44,12 +44,13 @@ Generate all of the necessary CustomResourceDefinitions for SimKube.
 ```
 delete a simulation
 
-Usage: skctl delete --name <NAME>
+Usage: skctl delete <NAME>
 
-Options:
-  -n, --name <NAME>
+Arguments:
+  <NAME>
           name of the simulation to delete
 
+Options:
   -h, --help
           Print help (see a summary with '-h')
 
@@ -110,17 +111,22 @@ that isn't accepted or is parsed incorrectly, please [file an issue](https://git
 ```
 run a simulation
 
-Usage: skctl run [OPTIONS] --name <NAME> [DURATION]
+Usage: skctl run [OPTIONS] <NAME>
 
 Arguments:
-  [DURATION]
-          duration of the simulation
-
-Options:
-  -n, --name <NAME>
+  <NAME>
           name of the simulation to run
 
-      --trace-file <TRACE_FILE>
+Options:
+  -D, --duration <DURATION>
+          duration of the simulation
+
+  -N, --repetitions <REPETITIONS>
+          number of repetitions of the simulation to run
+
+          [default: 1]
+
+  -f, --trace-file <TRACE_FILE>
           location of the trace file for sk-driver to read
 
           [default: file:///data/trace]
@@ -129,6 +135,9 @@ Options:
           namespace to launch sk-driver in
 
           [default: simkube]
+
+      --hooks <HOOKS>
+          name of file with simulation hooks
 
 Metrics:
       --disable-metrics
@@ -168,12 +177,15 @@ Metrics:
       --remote-write-endpoint <REMOTE_WRITE_ENDPOINT>
           address for remote write endpoint
 
+          [default: http://prom2parquet-svc:1234/receive]
+
 Help:
   -h, --help
           Print help (see a summary with '-h')
 
   -V, --version
           Print version
+
 ```
 
 ## skctl snapshot

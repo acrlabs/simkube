@@ -1,0 +1,4 @@
+---
+preRunHooks:
+  - cmd: echo
+    args: ["foo"]
