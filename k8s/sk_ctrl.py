@@ -23,18 +23,11 @@ class SKController(fire.AppPackage):
         except FileNotFoundError:
             image = 'PLACEHOLDER'
 
-        try:
-            with open(os.getenv('BUILD_DIR') + '/sk-driver-image') as f:
-                driver_image = f.read()
-        except FileNotFoundError:
-            driver_image = 'PLACEHOLDER'
-
         container = fire.ContainerBuilder(
             name=self.id,
             image=image,
             args=[
                 "/sk-ctrl",
-                "--driver-image", driver_image,
                 "--use-cert-manager",
                 "--cert-manager-issuer", "selfsigned",
             ],

@@ -1,11 +1,17 @@
 FROM debian:buster-slim
 
+ARG K8S_VERSION=v1.29.5
+
 RUN apt-get update && apt-get install -y \
     curl \
     dumb-init \
-    iputils-ping \
+    jq \
     rust-gdb
 
+RUN curl -L "https://dl.k8s.io/release/${K8S_VERSION}/bin/linux/amd64/kubectl" -o /usr/bin/kubectl
+RUN chmod +x /usr/bin/kubectl
+
+COPY metrics-cfg/ /metrics-cfg/
 COPY sk-ctrl /sk-ctrl
 
 ENTRYPOINT ["/usr/bin/dumb-init", "--"]

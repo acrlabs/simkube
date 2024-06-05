@@ -34,10 +34,8 @@ spec:
         description: Auto-generated derived type for SimulationSpec via `CustomResource`
         properties:
           spec:
-            additionalProperties: false
             properties:
               driver:
-                additionalProperties: false
                 properties:
                   image:
                     type: string
@@ -58,12 +56,10 @@ spec:
                 nullable: true
                 type: string
               hooks:
-                additionalProperties: false
                 nullable: true
                 properties:
                   postRunHooks:
                     items:
-                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -71,6 +67,12 @@ spec:
                           type: array
                         cmd:
                           type: string
+                        ignoreFailure:
+                          nullable: true
+                          type: boolean
+                        sendSim:
+                          nullable: true
+                          type: boolean
                       required:
                       - args
                       - cmd
@@ -79,7 +81,6 @@ spec:
                     type: array
                   postStopHooks:
                     items:
-                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -87,6 +88,12 @@ spec:
                           type: array
                         cmd:
                           type: string
+                        ignoreFailure:
+                          nullable: true
+                          type: boolean
+                        sendSim:
+                          nullable: true
+                          type: boolean
                       required:
                       - args
                       - cmd
@@ -95,7 +102,6 @@ spec:
                     type: array
                   preRunHooks:
                     items:
-                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -103,6 +109,12 @@ spec:
                           type: array
                         cmd:
                           type: string
+                        ignoreFailure:
+                          nullable: true
+                          type: boolean
+                        sendSim:
+                          nullable: true
+                          type: boolean
                       required:
                       - args
                       - cmd
@@ -111,7 +123,6 @@ spec:
                     type: array
                   preStartHooks:
                     items:
-                      additionalProperties: false
                       properties:
                         args:
                           items:
@@ -119,6 +130,12 @@ spec:
                           type: array
                         cmd:
                           type: string
+                        ignoreFailure:
+                          nullable: true
+                          type: boolean
+                        sendSim:
+                          nullable: true
+                          type: boolean
                       required:
                       - args
                       - cmd
@@ -127,7 +144,6 @@ spec:
                     type: array
                 type: object
               metrics:
-                additionalProperties: false
                 nullable: true
                 properties:
                   namespace:

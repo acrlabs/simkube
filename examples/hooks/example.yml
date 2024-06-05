@@ -1,4 +1,17 @@
 ---
-preRunHooks:
+# Pre-start hooks execute before any simulation setup occurs
+preStartHooks:
   - cmd: echo
     args: ["foo"]
+# Pre-run hooks execute after setup but before the driver begins
+preRunHooks:
+  - cmd: echo
+    args: ["bar"]
+# Post-run hooks execute after the driver stops but before simulation cleanup
+postRunHooks:
+  - cmd: echo
+    args: ["baz"]
+# Post-stop hooks execute after all other simulation cleanup steps
+postStopHooks:
+  - cmd: echo
+    args: ["baz"]

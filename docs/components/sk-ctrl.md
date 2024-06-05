@@ -13,11 +13,9 @@ actually perform the Simulation.
 ## Usage
 
 ```
-Usage: sk-ctrl [OPTIONS] --driver-image <DRIVER_IMAGE>
+Usage: sk-ctrl [OPTIONS]
 
 Options:
-      --driver-image <DRIVER_IMAGE>
-      --driver-port <DRIVER_PORT>                  [default: 8888]
       --use-cert-manager
       --cert-manager-issuer <CERT_MANAGER_ISSUER>  [default: ]
   -v, --verbosity <VERBOSITY>                      [default: info]

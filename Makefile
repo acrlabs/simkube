@@ -32,6 +32,9 @@ $(EXTRA_BUILD_ARTIFACTS)::
 $(ARTIFACTS)::
 	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
+pre-image:
+	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
+
 %-docker:
 	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.

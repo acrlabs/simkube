@@ -40,18 +40,22 @@ pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
                 .args(hook.args.clone())
                 .stdin(Stdio::piped())
                 .stdout(Stdio::piped())
+                .stderr(Stdio::piped())
                 .spawn()?;
-            {
-                // This is in its own block so that stdin gets closed after we write to it
-                // (it will close the socket when it drops out of scope)
+            if let Some(true) = hook.send_sim {
                 let mut stdin = BufWriter::new(child.stdin.take().ok_or(anyhow!("could not take stdin"))?);
                 stdin.write_all(&serde_json::to_vec(sim)?).await?;
                 stdin.flush().await?;
             }
             let output = child.wait_with_output().await?;
             info!("Hook output: {:?}", output);
-            if !output.status.success() {
-                bail!("hook failed");
+            match hook.ignore_failure {
+                Some(true) => (),
+                _ => {
+                    if !output.status.success() {
+                        bail!("hook failed");
+                    }
+                },
             }
         }
         info!("Done executing {:?} hooks", type_);
