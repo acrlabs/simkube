@@ -111,7 +111,7 @@ that isn't accepted or is parsed incorrectly, please [file an issue](https://git
 ```
 run a simulation
 
-Usage: skctl run [OPTIONS] <NAME>
+Usage: skctl run [OPTIONS] --driver-image <DRIVER_IMAGE> <NAME>
 
 Arguments:
   <NAME>
@@ -126,11 +126,6 @@ Options:
 
           [default: 1]
 
-  -f, --trace-file <TRACE_FILE>
-          location of the trace file for sk-driver to read
-
-          [default: file:///data/trace]
-
       --driver-namespace <DRIVER_NAMESPACE>
           namespace to launch sk-driver in
 
@@ -138,6 +133,20 @@ Options:
 
       --hooks <HOOKS>
           name of file with simulation hooks
+
+Driver:
+  -I, --driver-image <DRIVER_IMAGE>
+          name of the docker image to use for sk-driver
+
+      --driver-port <DRIVER_PORT>
+          admission webhook port for sk-driver
+
+          [default: 8888]
+
+  -f, --trace-path <TRACE_PATH>
+          location of the trace file for sk-driver to read
+
+          [default: file:///data/trace]
 
 Metrics:
       --disable-metrics
@@ -185,7 +194,6 @@ Help:
 
   -V, --version
           Print version
-
 ```
 
 ## skctl snapshot

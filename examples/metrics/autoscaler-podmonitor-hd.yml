@@ -1,9 +1,10 @@
+---
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
   labels:
-    app.kubernetes.io/name: karpenter-hd
-  name: karpenter-hd
+    app.kubernetes.io/name: autoscaler-hd
+  name: autoscaler-hd
   namespace: monitoring-hd
 spec:
   podMetricsEndpoints:
@@ -19,4 +20,4 @@ spec:
     - kube-system
   selector:
     matchLabels:
-      app.kubernetes.io/name: karpenter
+      app.kubernetes.io/component: autoscaler
