@@ -10,7 +10,7 @@ RUST_COVER_TYPE ?= lcov
 DOCKER_ARGS=
 else
 RUST_COVER_TYPE=markdown
-DOCKER_ARGS=-it
+DOCKER_ARGS=-it --init
 endif
 
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
