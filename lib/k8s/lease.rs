@@ -121,7 +121,7 @@ pub(super) fn compute_remaining_lease_time(
     maybe_renew_time: &Option<metav1::MicroTime>,
     now_ts: i64,
 ) -> i64 {
-    let duration_seconds = maybe_duration_seconds.map_or(0, |secs| secs as i64) + RETRY_DELAY_SECONDS;
+    let duration_seconds = maybe_duration_seconds.map_or(0, |secs| secs as i64) + RETRY_DELAY_SECONDS as i64;
     let renew_time = maybe_renew_time
         .clone()
         .map(|microtime| microtime.0.timestamp())
@@ -129,7 +129,7 @@ pub(super) fn compute_remaining_lease_time(
     let sleep_time = renew_time + duration_seconds - now_ts;
     if sleep_time <= 0 {
         warn!("exceeded the lease time but something hasn't released it; trying again");
-        return RETRY_DELAY_SECONDS;
+        return RETRY_DELAY_SECONDS as i64;
     }
     sleep_time
 }

@@ -25,5 +25,5 @@ pub const DRIVER_ADMISSION_WEBHOOK_PORT: &str = "8888";
 pub const SK_LEASE_NAME: &str = "sk-lease";
 
 // Timing
-pub const RETRY_DELAY_SECONDS: i64 = 5;
-pub const ERROR_RETRY_DELAY_SECONDS: i64 = 30;
+pub const RETRY_DELAY_SECONDS: u64 = 5;
+pub const ERROR_RETRY_DELAY_SECONDS: u64 = 30;

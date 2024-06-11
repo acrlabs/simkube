@@ -24,6 +24,14 @@ where
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),
+
+        // if the delete propagation policy is set to foreground, this will block
+        // the owner from being deleted until this object is deleted
+        // (note _both_ must be set, otherwise it doesn't work)
+        //
+        // https://kubernetes.io/docs/concepts/architecture/garbage-collection/#foreground-deletion
+        block_owner_deletion: Some(true),
+
         // Kubernetes "should" always set this and I'm tired of all the
         // error propogation trying to check for this induces
         uid: owner.uid().unwrap(),

@@ -187,11 +187,11 @@ async fn test_try_update_lease(test_sim: Simulation, test_sim_root: SimulationRo
 }
 
 #[rstest]
-#[case::no_data(None, None, RETRY_DELAY_SECONDS)]
-#[case::no_renew_time(Some(TEST_LEASE_DURATION), None, TEST_LEASE_DURATION + RETRY_DELAY_SECONDS)]
-#[case::no_duration_seconds(None, Some(13), 13 + RETRY_DELAY_SECONDS - NOW)]
-#[case::valid(Some(TEST_LEASE_DURATION), Some(13), 23 + RETRY_DELAY_SECONDS - NOW)]
-#[case::negative(Some(5), Some(2), RETRY_DELAY_SECONDS)]
+#[case::no_data(None, None, RETRY_DELAY_SECONDS as i64)]
+#[case::no_renew_time(Some(TEST_LEASE_DURATION), None, TEST_LEASE_DURATION + RETRY_DELAY_SECONDS as i64)]
+#[case::no_duration_seconds(None, Some(13), 13 + RETRY_DELAY_SECONDS as i64 - NOW)]
+#[case::valid(Some(TEST_LEASE_DURATION), Some(13), 23 + RETRY_DELAY_SECONDS as i64 - NOW)]
+#[case::negative(Some(5), Some(2), RETRY_DELAY_SECONDS as i64)]
 fn test_compute_remaining_lease_time_no_data(
     #[case] maybe_duration_seconds_64: Option<i64>,
     #[case] maybe_renew_ts: Option<i64>,
