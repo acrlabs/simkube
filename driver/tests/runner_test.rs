@@ -5,10 +5,88 @@ use super::helpers::{
     build_driver_context,
     build_trace_data,
 };
-use super::runner::build_virtual_ns;
+use super::runner::{
+    build_virtual_ns,
+    cleanup_trace,
+};
 use super::*;
 
+// Must match the namespace in tests/data/trace.json
 const TEST_NS_NAME: &str = "default";
+
+#[rstest]
+#[tokio::test]
+async fn test_cleanup_trace_error() {
+    let (mut fake_apiserver, client) = make_fake_apiserver();
+    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
+    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+
+    let store = Arc::new(TraceStore::new(Default::default()));
+    let ctx = build_driver_context(cache, store);
+
+    let clock = MockUtcClock::new(0);
+
+    fake_apiserver
+        .handle(|when, then| {
+            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+                .method(DELETE);
+            then.status(500);
+        })
+        .build();
+    let res = cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
+        .await
+        .unwrap_err()
+        .downcast::<SkDriverError>()
+        .unwrap();
+    assert!(matches!(res, SkDriverError::CleanupFailed(..)));
+    fake_apiserver.assert();
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_cleanup_trace_timeout() {
+    let (fake_apiserver, client) = make_fake_apiserver();
+    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
+    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+
+    let store = Arc::new(TraceStore::new(Default::default()));
+    let ctx = build_driver_context(cache, store);
+
+    let clock = MockUtcClock::new(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
+
+    let res = cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
+        .await
+        .unwrap_err()
+        .downcast::<SkDriverError>()
+        .unwrap();
+    assert!(matches!(res, SkDriverError::CleanupTimeout(..)));
+    fake_apiserver.assert();
+}
+
+#[rstest]
+#[tokio::test]
+async fn test_cleanup_trace() {
+    let (mut fake_apiserver, client) = make_fake_apiserver();
+    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
+    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+
+    let store = Arc::new(TraceStore::new(Default::default()));
+    let ctx = build_driver_context(cache, store);
+
+    let clock = MockUtcClock::new(0);
+
+    fake_apiserver
+        .handle(|when, then| {
+            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+                .method(DELETE);
+            then.json_body(status_ok());
+        })
+        .build();
+    cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
+        .await
+        .unwrap();
+    fake_apiserver.assert();
+}
 
 #[rstest]
 #[case::has_start_marker(true)]

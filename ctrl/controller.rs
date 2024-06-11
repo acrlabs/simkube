@@ -39,8 +39,8 @@ use tokio::time::Duration;
 use crate::objects::*;
 use crate::*;
 
-pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS as u64);
-const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS as u64);
+pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS);
+const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
 pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
 pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 

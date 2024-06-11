@@ -1,15 +1,22 @@
 use std::cmp::max;
 use std::time::Duration;
 
-use anyhow::anyhow;
+use anyhow::{
+    anyhow,
+    bail,
+};
+use either::Either;
 use kube::api::{
+    DeleteParams,
     DynamicObject,
     Patch,
     PatchParams,
+    PropagationPolicy,
 };
 use kube::ResourceExt;
 use serde_json::json;
 use simkube::api::v1::build_simulation_root;
+use simkube::errors::*;
 use simkube::jsonutils;
 use simkube::k8s::{
     add_common_metadata,
@@ -23,6 +30,16 @@ use simkube::prelude::*;
 use tokio::time::sleep;
 
 use super::*;
+
+pub(super) const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
+
+err_impl! {SkDriverError,
+    #[error("could not delete simulation root {0}")]
+    CleanupFailed(String),
+
+    #[error("timed out deleting simulation root {0}")]
+    CleanupTimeout(String),
+}
 
 pub(super) fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, namespace: &str) -> corev1::Namespace {
     let owner = root;
@@ -148,9 +165,49 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         }
     }
 
-    if let Err(e) = roots_api.delete(&ctx.root_name, &Default::default()).await {
-        error!("could not delete driver root {}: {e}", ctx.root_name);
-    }
+    let clock = Box::new(UtcClock);
+    let timeout = clock.now_ts() + DRIVER_CLEANUP_TIMEOUT_SECONDS;
+    cleanup_trace(&ctx, roots_api, Box::new(UtcClock), timeout).await
+}
 
+pub(super) async fn cleanup_trace(
+    ctx: &DriverContext,
+    roots_api: kube::Api<SimulationRoot>,
+    clock: Box<dyn Clockable + Send>,
+    timeout: i64,
+) -> EmptyResult {
+    info!("Cleaning up simulation objects...");
+
+    let mut cleanup_done = false;
+    while clock.now_ts() < timeout {
+        // delete returns an "either" object; left contains the object being deleted,
+        // and right contains a status code indicating the delete is finished.
+        match roots_api
+            .delete(
+                &ctx.root_name,
+                &DeleteParams {
+                    propagation_policy: Some(PropagationPolicy::Foreground),
+                    ..Default::default()
+                },
+            )
+            .await
+        {
+            // In the situation where we delete, wait five seconds, and then everything's cleaned
+            // up, the second delete call will return not found, which is not an error in this case
+            Ok(Either::Right(_)) | Err(kube::Error::Api(kube::core::ErrorResponse { code: 404, .. })) => {
+                cleanup_done = true;
+                break;
+            },
+            Err(e) => {
+                error!("delete failed: {e}");
+                bail!(SkDriverError::cleanup_failed(&ctx.root_name));
+            },
+            _ => sleep(Duration::from_secs(RETRY_DELAY_SECONDS)).await,
+        }
+    }
+    if !cleanup_done {
+        bail!(SkDriverError::cleanup_timeout(&ctx.root_name));
+    }
+    info!("All objects deleted!");
     Ok(())
 }
