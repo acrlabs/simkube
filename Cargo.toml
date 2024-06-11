@@ -42,7 +42,8 @@ clap = { version = "4.3.21", features = ["cargo", "derive"] }
 futures = "0.3.28"
 json-patch = "1.2.0"
 k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
-parse_datetime = "0.5.0"
+# remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
+parse_datetime = { git = "https://github.com/drmorr0/parse_datetime", rev = "748d15b" }
 paste = "1.0.14"
 prometheus-http-query = "0.8.2"
 regex = "1.10.2"

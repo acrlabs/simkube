@@ -35,7 +35,7 @@ impl TraceStore {
     }
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
-        info!("Exporting objs with filters: {filter:?}");
+        info!("Exporting objs between {start_ts} and {end_ts} with filters: {filter:?}");
 
         // First, we collect all the events in our trace that match our configured filters.  This
         // will return an index of objects that we collected, and we set the keep_deleted flag =
@@ -48,7 +48,7 @@ impl TraceStore {
         let lifecycle_data = self.pod_owners.filter(start_ts, end_ts, &index);
         let data = rmp_serde::to_vec_named(&(&self.config, &events, &index, &lifecycle_data))?;
 
-        info!("Exported {} events.", events.len());
+        info!("Exported {} events", events.len());
         Ok(data)
     }
 
@@ -63,16 +63,23 @@ impl TraceStore {
             HashMap<String, PodLifecyclesMap>,
         ) = rmp_serde::from_slice(&data)?;
 
+        let trace_start_ts = events
+            .front()
+            .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
+            .ts;
+        let mut trace_end_ts = events
+            .back()
+            .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
+            .ts;
         if let Some(trace_duration_str) = maybe_duration {
-            let trace_start_ts = events
-                .front()
-                .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
-                .ts;
-            let trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
+            trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
             events.retain(|evt| evt.ts < trace_end_ts);
+
+            // Add an empty event to the very end to make sure the driver doesn't shut down early
             events.push_back(TraceEvent { ts: trace_end_ts, ..Default::default() });
         }
 
+        info!("Imported {} events between {trace_start_ts} and {trace_end_ts}", events.len());
         Ok(TraceStore {
             config,
             events,
