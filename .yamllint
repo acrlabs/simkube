@@ -1,0 +1,10 @@
+---
+extends: default
+
+ignore:
+  - examples/metrics
+  - k8s/raw/simkube.io_simulations.yml
+
+rules:
+  line-length:
+    max: 120

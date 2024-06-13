@@ -1,6 +1,7 @@
+---
 name: Comment on the PR
 
-on:
+on:  # yamllint disable-line rule:truthy
   workflow_run:
     workflows: ["Compute k8s plan"]
     types:
@@ -12,7 +13,8 @@ jobs:
     if: >
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
-
+    env:
+      ASSETS_URL: "https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets"
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -41,10 +43,11 @@ jobs:
           echo "<!-- 🔥config summary -->" > fireconfig-comment.md
           echo "## Kubernetes Object DAG" >> fireconfig-comment.md
           cat k8s-plan-artifacts/dag.mermaid >> fireconfig-comment.md
-          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/new.png" width=10/> New object' >> fireconfig-comment.md
-          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/removed.png" width=10/> Deleted object' >> fireconfig-comment.md
-          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/changed.png" width=10/> Updated object' >> fireconfig-comment.md
-          echo '<img src="https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets/pod_recreate.png" width=10/> Updated object (causes pod recreation)' >> fireconfig-comment.md
+          echo '<img src="${ASSETS_URL}/new.png" width=10/> New object' >> fireconfig-comment.md
+          echo '<img src="${ASSETS_URL}/removed.png" width=10/> Deleted object' >> fireconfig-comment.md
+          echo '<img src="${ASSETS_URL}/changed.png" width=10/> Updated object' >> fireconfig-comment.md
+          echo '<img src="${ASSETS_URL}/pod_recreate.png" width=10/> Updated object (causes pod recreation)' \
+            >> fireconfig-comment.md
           echo "## Detailed Diff" >> fireconfig-comment.md
           cat k8s-plan-artifacts/k8s.df >> fireconfig-comment.md
 

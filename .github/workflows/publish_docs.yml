@@ -1,5 +1,6 @@
+---
 name: Publish Docs
-on:
+on:  # yamllint disable-line rule:truthy
   push:
     paths:
       - 'docs/**'

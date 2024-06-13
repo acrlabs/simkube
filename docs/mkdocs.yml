@@ -3,17 +3,17 @@ nav:
   - Home: README.md
   - FAQ: docs/faq.md
   - Getting Started:
-    - Concepts: docs/intro/concepts.md
-    - Installation: docs/intro/installation.md
-    - Running a Simulation: docs/intro/running.md
+      - Concepts: docs/intro/concepts.md
+      - Installation: docs/intro/installation.md
+      - Running a Simulation: docs/intro/running.md
   - Advanced:
-    - Autoscaling: docs/adv/autoscaling.md
-    - Collecting Metrics: docs/adv/metrics.md
+      - Autoscaling: docs/adv/autoscaling.md
+      - Collecting Metrics: docs/adv/metrics.md
   - Components:
-    - sk-ctrl: docs/components/sk-ctrl.md
-    - sk-driver: docs/components/sk-driver.md
-    - sk-tracer: docs/components/sk-tracer.md
-    - skctl: docs/components/skctl.md
+      - sk-ctrl: docs/components/sk-ctrl.md
+      - sk-driver: docs/components/sk-driver.md
+      - sk-tracer: docs/components/sk-tracer.md
+      - skctl: docs/components/skctl.md
   - Contributing:
-    - Developer's Guide: docs/dev/contributing.md
-    - API changes: docs/dev/api_changes.md
+      - Developer's Guide: docs/dev/contributing.md
+      - API changes: docs/dev/api_changes.md

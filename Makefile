@@ -39,10 +39,6 @@ pre-image:
 	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
-lint:
-	cargo +nightly fmt
-	cargo clippy
-
 test: unit itest
 
 .PHONY: unit
