@@ -1,5 +1,6 @@
+---
 name: code verification
-on: [push]
+on: [push]  # yamllint disable-line rule:truthy
 env:
   CARGO_INCREMENTAL: 0
   SCCACHE_GHA_ENABLED: "true"
@@ -55,7 +56,9 @@ jobs:
         run: |
           rustup toolchain install nightly-x86_64-unknown-linux-gnu
           rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
-      - name: Lint Rust code
+      - name: Run pre-commit
+        uses: pre-commit/action@v3.0.1
+      - name: Format Rust code
         run: make lint
 
   test:

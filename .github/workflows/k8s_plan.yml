@@ -1,6 +1,7 @@
+---
 name: Compute k8s plan
 
-on:
+on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
       - 'k8s/**'

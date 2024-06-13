@@ -1,6 +1,7 @@
+---
 name: Update the PR Comment
 
-on:
+on:  # yamllint disable-line rule:truthy
   #######################################################################################
   # WARNING: DO NOT CHANGE THIS ACTION TO CHECK OUT OR EXECUTE ANY CODE!!!!!            #
   #                                                                                     #
