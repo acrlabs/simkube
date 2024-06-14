@@ -1,0 +1,27 @@
+---
+name: Publish Docker Image to Quay.io
+
+on:  # yamllint disable-line rule:truthy
+  release:
+    types: [published]
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Run sccache
+        uses: mozilla-actions/sccache-action@v0.0.3
+      - name: Build
+        run: make build
+      - name: Login to Quay.io
+        run: >
+          echo "${{ secrets.QUAY_IO_PASSWORD }}" |
+          docker login quay.io -u "${{ secrets.QUAY_IO_USERNAME }}" --password-stdin
+      - name: Build and push Docker image
+        run: DOCKER_REGISTRY=quay.io/appliedcomputing make image
+      - name: Logout from Quay.io
+        run: docker logout quay.io
