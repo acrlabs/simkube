@@ -4,19 +4,26 @@ name: Publish Docker Image to Quay.io
 on:  # yamllint disable-line rule:truthy
   release:
     types: [published]
+env:
+  CARGO_INCREMENTAL: 0
+  SCCACHE_GHA_ENABLED: "true"
+  RUSTC_WRAPPER: sccache
+  IN_CI: "true"
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
+      - name: Fetch tags
+        run: git fetch --tags
       - name: Run sccache
         uses: mozilla-actions/sccache-action@v0.0.3
       - name: Build
-        run: make build
+        run: EXTRA_BUILD_ARTIFACTS= make build
       - name: Login to Quay.io
         run: >
           echo "${{ secrets.QUAY_IO_PASSWORD }}" |
