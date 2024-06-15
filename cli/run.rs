@@ -1,11 +1,14 @@
 use std::fs;
 
+use clap::crate_version;
 use simkube::api::v1::{
     SimulationDriverConfig,
     SimulationHooksConfig,
 };
 use simkube::metrics::api::prometheus::PrometheusRemoteWrite;
 use simkube::prelude::*;
+
+const DRIVER_IMAGE: &str = "quay.io/appliedcomputing/sk-driver";
 
 #[derive(clap::Args)]
 #[command(disable_help_flag = true, disable_version_flag = true)]
@@ -33,6 +36,7 @@ pub struct Args {
         short = 'I',
         long,
         long_help = "name of the docker image to use for sk-driver",
+        default_value = format!("{DRIVER_IMAGE}:v{}", crate_version!()),
         help_heading = "Driver"
     )]
     pub driver_image: String,

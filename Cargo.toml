@@ -38,7 +38,7 @@ anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
 bytes = "1.5.0"
 chrono = "0.4.26"
-clap = { version = "4.3.21", features = ["cargo", "derive"] }
+clap = { version = "4.3.21", features = ["cargo", "derive", "string"] }
 either = "1.12.0"
 futures = "0.3.28"
 json-patch = "1.2.0"
