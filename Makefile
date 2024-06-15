@@ -65,6 +65,17 @@ cover:
 		--excl-start '#\[cfg\((test|feature = "testutils")'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
 
+.PHONY: release-patch release-minor release-major
+release-patch release-minor release-major:
+	make _release -e VERSION=$(subst release-,,$@)
+
+.PHONY: _release
+_release:
+	cargo set-version --bump $(VERSION)
+	VERSION=`cargo read-manifest | jq -r .version` && \
+		git commit -a -m "Release version v$$VERSION" && \
+		git tag v$$VERSION
+
 .PHONY: crd
 crd: skctl
 	$(BUILD_DIR)/skctl crd > k8s/raw/simkube.io_simulations.yml
