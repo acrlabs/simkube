@@ -13,3 +13,17 @@ mypy = "^1"
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+line-length = 120
+preview = true
+
+[tool.ruff.lint]
+ignore = ["PLR2004", "PLR0913", "PLR0917"]
+select = ["E", "F", "I", "W", "PL"]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
