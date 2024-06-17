@@ -1,9 +1,10 @@
 #!/usr/bin/env python
-import os
 import argparse
+import os
 import typing as T
 
 import fireconfig as fire
+
 from sk_ctrl import SkCtrl
 from sk_tracer import SkTracer
 
@@ -33,15 +34,12 @@ def setup_args() -> argparse.Namespace:
 
 def get_images(to_build: T.List, kustomize: bool, build_dir: str) -> T.List[str]:
     if kustomize:
-        return [
-            f"{QUAY_IO_PREFIX}/{app.id()}:v{os.getenv('APP_VERSION')}"
-            for app in to_build
-        ]
+        return [f"{QUAY_IO_PREFIX}/{app.id()}:v{os.getenv('APP_VERSION')}" for app in to_build]
 
     images = []
     for app in to_build:
         try:
-            with open(build_dir + f"/{app.id()}-image") as f:
+            with open(build_dir + f"/{app.id()}-image", encoding="utf-8") as f:
                 image = f.read()
         except FileNotFoundError:
             image = "PLACEHOLDER"
@@ -68,13 +66,13 @@ def main():
     )
 
     if args.kustomize:
-        with open(kustomization_path, "w") as f:
+        with open(kustomization_path, "w", encoding="utf-8") as f:
             f.write(KUSTOMIZATION_YML)
     else:
-        with open(dag_path, "w") as f:
+        with open(dag_path, "w", encoding="utf-8") as f:
             f.write(graph)
 
-        with open(diff_path, "w") as f:
+        with open(diff_path, "w", encoding="utf-8") as f:
             f.write(diff)
 
 

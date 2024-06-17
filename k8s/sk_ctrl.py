@@ -12,9 +12,7 @@ class SkCtrl(fire.AppPackage):
     def __init__(self, image: str, debug: bool):
         env = (
             fire.EnvBuilder({"RUST_BACKTRACE": "1"})
-            .with_field_ref(
-                POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME
-            )
+            .with_field_ref(POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME)
             .with_field_ref(CTRL_NS_ENV_VAR, DownwardAPIField.NAMESPACE)
         )
 
