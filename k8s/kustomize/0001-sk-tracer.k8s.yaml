@@ -1,0 +1,89 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sk-tracer-svc
+  namespace: simkube
+spec:
+  ports:
+    - port: 7777
+      targetPort: 7777
+  selector:
+    app.kubernetes.io/name: sk-tracer
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: sk-tracer-sa
+  namespace: simkube
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: sk-tracer-crb
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: sk-tracer-sa
+    namespace: simkube
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: sk-tracer-tracer-config
+  namespace: simkube
+data:
+  tracer-config.yml: |
+    ---
+    trackedObjects:
+      apps/v1.Deployment:
+        podSpecTemplatePath: /spec/template
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app.kubernetes.io/name: sk-tracer
+  name: sk-tracer-depl
+  namespace: simkube
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: sk-tracer
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: sk-tracer
+    spec:
+      containers:
+        - args:
+            - /sk-tracer
+            - --server-port
+            - "7777"
+            - -c
+            - /config/tracer-config.yml
+          env:
+            - name: RUST_BACKTRACE
+              value: "1"
+            - name: POD_OWNER
+              value: sk-tracer-depl
+          image: quay.io/appliedcomputing/sk-tracer:v0.10.0
+          name: sk-tracer
+          ports:
+            - containerPort: 7777
+          volumeMounts:
+            - mountPath: /config
+              name: tracer-config
+      nodeSelector:
+        type: kind-worker
+      serviceAccountName: sk-tracer-sa
+      volumes:
+        - configMap:
+            items:
+              - key: tracer-config.yml
+                path: tracer-config.yml
+            name: sk-tracer-tracer-config
+          name: tracer-config

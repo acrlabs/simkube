@@ -14,6 +14,8 @@ DOCKER_ARGS=-it --init
 endif
 
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
+APP_VERSION_CMD=cargo read-manifest | jq -r .version
+APP_VERSION=$(shell $(APP_VERSION_CMD))
 
 include build/base.mk
 include build/k8s.mk
@@ -67,18 +69,17 @@ cover:
 
 .PHONY: release-patch release-minor release-major
 release-patch release-minor release-major:
-	make _release -e VERSION=$(subst release-,,$@)
-
-.PHONY: _release
-_release:
-	cargo set-version --bump $(VERSION)
-	VERSION=`cargo read-manifest | jq -r .version` && \
-		git commit -a -m "Release version v$$VERSION" && \
-		git tag v$$VERSION
+	cargo set-version --bump $(subst release-,,$@)
+	make kustomize
+	NEW_APP_VERSION=`$(APP_VERSION_CMD)` && \
+		git commit -a -m "Release version v$$NEW_APP_VERSION" && \
+		git tag v$$NEW_APP_VERSION
 
 .PHONY: crd
 crd: skctl
 	$(BUILD_DIR)/skctl crd > k8s/raw/simkube.io_simulations.yml
+
+pre-k8s:: crd
 
 .PHONY: api
 api:

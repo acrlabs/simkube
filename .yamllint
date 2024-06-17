@@ -4,6 +4,7 @@ extends: default
 ignore:
   - examples/metrics
   - k8s/raw/simkube.io_simulations.yml
+  - k8s/kustomize
 
 rules:
   line-length:
