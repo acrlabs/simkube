@@ -43,10 +43,10 @@ jobs:
           echo "<!-- 🔥config summary -->" > fireconfig-comment.md
           echo "## Kubernetes Object DAG" >> fireconfig-comment.md
           cat k8s-plan-artifacts/dag.mermaid >> fireconfig-comment.md
-          echo '<img src="${ASSETS_URL}/new.png" width=10/> New object' >> fireconfig-comment.md
-          echo '<img src="${ASSETS_URL}/removed.png" width=10/> Deleted object' >> fireconfig-comment.md
-          echo '<img src="${ASSETS_URL}/changed.png" width=10/> Updated object' >> fireconfig-comment.md
-          echo '<img src="${ASSETS_URL}/pod_recreate.png" width=10/> Updated object (causes pod recreation)' \
+          echo "<img src=\"${ASSETS_URL}/new.png\" width=10/> New object" >> fireconfig-comment.md
+          echo "<img src=\"${ASSETS_URL}/removed.png\" width=10/> Deleted object" >> fireconfig-comment.md
+          echo "<img src=\"${ASSETS_URL}/changed.png\" width=10/> Updated object" >> fireconfig-comment.md
+          echo "<img src=\"${ASSETS_URL}/pod_recreate.png\" width=10/> Updated object (causes pod recreation)" \
             >> fireconfig-comment.md
           echo "## Detailed Diff" >> fireconfig-comment.md
           cat k8s-plan-artifacts/k8s.df >> fireconfig-comment.md
