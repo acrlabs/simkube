@@ -53,6 +53,9 @@ unit:
 itest:
 	$(CARGO_TEST_PREFIX) cargo test --features=testutils itest -- --nocapture --test-threads=1
 
+lint:
+	pre-commit run --all
+
 cover:
 	grcov . --binary-path $(BUILD_DIR)/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
 		--ignore '../*' \
