@@ -30,6 +30,10 @@ This package provides the following components:
 
 [![Watch the video](https://img.youtube.com/vi/Q1XpH1H4It8/hqdefault.jpg)](https://www.youtube.com/watch?v=Q1XpH1H4It8)
 
+## Installation
+
+`kubectl apply -k k8s/kustomize`
+
 ## Documentation
 
 Full [documentation for SimKube](https://appliedcomputing.io/simkube/index.html) is available on Applied

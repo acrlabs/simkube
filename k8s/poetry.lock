@@ -95,7 +95,7 @@ optimize = ["orjson"]
 
 [[package]]
 name = "fireconfig"
-version = "0.5.1"
+version = "0.5.3"
 description = "Configuration language for Kubernetes manifests"
 optional = false
 python-versions = "^3.10"
@@ -107,12 +107,13 @@ cdk8s = "^2.68"
 deepdiff = "^6.7.1"
 pyyaml = "^6.0.1"
 simplejson = "^3.19.2"
+stringcase = "^1.2.0"
 
 [package.source]
 type = "git"
 url = "https://github.com/acrlabs/fireconfig"
-reference = "v0.5.2"
-resolved_reference = "7f45b24a0159d2ef67691cc62db12f9da139cc1e"
+reference = "v0.5.3"
+resolved_reference = "7b9ca82a2b8e8016768ae42ddcd151d472d398af"
 
 [[package]]
 name = "importlib-resources"
@@ -413,6 +414,16 @@ files = [
 ]
 
 [[package]]
+name = "stringcase"
+version = "1.2.0"
+description = "String case converter."
+optional = false
+python-versions = "*"
+files = [
+    {file = "stringcase-1.2.0.tar.gz", hash = "sha256:48a06980661908efe8d9d34eab2b6c13aefa2163b3ced26972902e3bdfd87008"},
+]
+
+[[package]]
 name = "typeguard"
 version = "2.13.3"
 description = "Run-time type checker for Python"
@@ -441,4 +452,4 @@ files = [
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "6e66b5e150fd4dfe3b04edeb40a80ac08f1f128ada4714332137d06a0c812346"
+content-hash = "8e32d1979a4e8cf288b0496ecbc5c96e45695ef9dfc80920ceaf4d32d174c479"

@@ -29,21 +29,21 @@ repos:
       - id: fmt
         name: rust-fmt
         args: ['--', '--unstable-features']
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.2
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.4.1
     hooks:
-      - id: isort
-        args:
-          - --sl
-  - repo: https://github.com/PyCQA/flake8
-    rev: 6.0.0
+      - id: mypy
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.2
     hooks:
-      - id: flake8
+      - id: ruff
+        args: ["--fix"]
+      - id: ruff-format
   - repo: local
     hooks:
-      - id: check-crds
-        name: Check Generated CRDs
+      - id: check-k8s
+        name: Check Generated K8s YAML
         language: system
-        entry: bash -c 'make crd && git diff --quiet'
+        entry: bash -c 'make kustomize && git diff --quiet'
         pass_filenames: false
-        files: 'lib/api/v1/.*'
+        files: 'lib/api/v1/.*|k8s/.*|Cargo.toml'

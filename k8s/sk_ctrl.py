@@ -1,5 +1,3 @@
-import os
-
 import fireconfig as fire
 from constructs import Construct
 from fireconfig.types import Capability
@@ -10,38 +8,35 @@ POD_SVC_ACCOUNT_ENV_VAR = "POD_SVC_ACCOUNT"
 CTRL_NS_ENV_VAR = "CTRL_NAMESPACE"
 
 
-class SKController(fire.AppPackage):
-    def __init__(self):
-        env = (fire.EnvBuilder({"RUST_BACKTRACE": "1"})
-            .with_field_ref(POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME)
+class SkCtrl(fire.AppPackage):
+    def __init__(self, image: str, debug: bool):
+        env = (
+            fire.EnvBuilder({"RUST_BACKTRACE": "1"})
+            .with_field_ref(
+                POD_SVC_ACCOUNT_ENV_VAR, DownwardAPIField.SERVICE_ACCOUNT_NAME
+            )
             .with_field_ref(CTRL_NS_ENV_VAR, DownwardAPIField.NAMESPACE)
         )
 
-        try:
-            with open(os.getenv('BUILD_DIR') + f'/{self.id}-image') as f:
-                image = f.read()
-        except FileNotFoundError:
-            image = 'PLACEHOLDER'
-
         container = fire.ContainerBuilder(
-            name=self.id,
+            name=self.id(),
             image=image,
             args=[
                 "/sk-ctrl",
                 "--use-cert-manager",
-                "--cert-manager-issuer", "selfsigned",
+                "--cert-manager-issuer",
+                "selfsigned",
             ],
-        ).with_security_context(Capability.DEBUG).with_env(env)
+        ).with_env(env)
+        if debug:
+            container = container.with_security_context(Capability.DEBUG)
 
-        self._depl = (fire.DeploymentBuilder(app_label=self.id)
-            .with_service_account_and_role_binding('cluster-admin', True)
+        self._depl = (
+            fire.DeploymentBuilder(app_label=self.id())
+            .with_service_account_and_role_binding("cluster-admin", True)
             .with_containers(container)
             .with_node_selector("type", "kind-worker")
         )
 
     def compile(self, chart: Construct):
-        self._depl.build(chart)
-
-    @property
-    def id(self) -> str:
-        return "sk-ctrl"
+        self._depl.build(chart)  # type: ignore
