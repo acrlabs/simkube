@@ -14,11 +14,18 @@ In addition to the project prerequisites, you will need to have the following in
 - [pre-commit](https://pre-commit.com)
 - Nightly version of rustfmt
 
+SimKube uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests from definitions located
+in `./k8s/`.  If you want to make changes to the generated Kubernetes manifests, you will need to install the
+following additional dependencies:
+
+- Python 3.11
+- Python Poetry (https://python-poetry.org/docs/)
+- NodeJS
+
 ### Optional prerequisites
 
 - [grcov](https://github.com/mozilla/grcov) (if you want to generate coverage reports locally)
 - [openapi-generator](https://openapi-generator.tech) (if you need to make changes to the SimKube API)
-- [delve](https://github.com/go-delve/delve) (for debugging Golang code)
 - [msgpack-tools](https://github.com/ludocode/msgpack-tools) (for inspecting the contents of exported trace files)
 
 ### Setup
@@ -119,7 +126,7 @@ tests, do `make test`.
 ### Linting your changes
 
 Code linting rules are defined in `.rustfmt.toml`.  We also use [clippy](https://doc.rust-lang.org/stable/clippy/usage.html)
- for additional Rust linting and checks.  We use a _nightly_ version of rustfmt to take advantage of unstable formatting
+for additional Rust linting and checks.  We use a _nightly_ version of rustfmt to take advantage of unstable formatting
 rules, so you will need to install a nightly toolchain here.  (Note that all actual Rust code does not use any nightly
 features).  You can run all lints with `make lint`.
 

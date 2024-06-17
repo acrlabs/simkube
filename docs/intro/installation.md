@@ -23,16 +23,8 @@ Additional prerequisites are necessary for your simulation cluster:
 
 ### Optional Prerequisites
 
-SimKube uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests from definitions located
-in `./k8s/`.  If you want to use this mechanism for generating Kubernetes manifests, you will need to install the
-following additional dependencies:
-
-- Python 3.10
-- Python Poetry (https://python-poetry.org/docs/)
-- NodeJS
-
-Additionally, if you want to run SimKube on a local development cluster, [kind](https://kind.sigs.k8s.io) >= 0.19 is the
-supported tooling for doing so.
+If you want to run SimKube on a local development cluster, [kind](https://kind.sigs.k8s.io) >= 0.19 is the supported
+tooling for doing so.
 
 If you want to test autoscaling, SimKube currently supports either the [Kubernetes Cluster Autoscaler](https://github.com/kubernetes/autoscaler)
 or [Karpenter](https://karpenter.sh).  You will need to install and configure these applications to use the
@@ -40,7 +32,21 @@ corresponding KWOK provider.  For the Kubernetes Cluster Autoscaler, a KWOK [clo
 is available, and for Karpenter, a basic [KWOK provider](https://github.com/kubernetes-sigs/karpenter/tree/main/kwok) is
 used.  See [Autoscaling](../adv/autoscaling.md) for more information on configuring these tools.
 
-## Building SimKube
+## Installation using hosted quay.io images and kustomize
+
+SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcomputing); the easiest way to install and
+run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
+YAML files in `k8s/kustomize`:
+
+```
+kubectl apply -k k8s/kustomize
+```
+
+## Installation from source
+
+If you instead want to build and install SimKube from source, you can follow these steps:
+
+### Building SimKube
 
 To build all SimKube artifacts for the first time run:
 
@@ -52,6 +58,10 @@ For all subsequent builds of SimKube artifacts, run only `make build` from the r
 ### Docker images
 
 To build and push Docker images for all the artifacts, run `DOCKER_REGISTRY=path_to_your_registry:5000 make image`
+
+### Running the artifacts:
+
+To run the artifacts using the images you built in the previous step, run `make run`.
 
 ### Cleaning up
 
@@ -146,30 +156,11 @@ spec:
 > kubectl apply -f self-signed.yml
 ```
 
-## Deploying SimKube
+## Customizing SimKube
 
-### Generating Kubernetes Manifests
+The following section describes some options for customizing the behaviour of your SimKube installation
 
-SimKube currently uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests.  You can
-generate the required manifests for all SimKube components by running `make k8s` from the root of this repository.
-
-> [!NOTE]
-> 🔥Config uses [cdk8s](https://cdk8s.io) internally, which (unfortunately) runs a NodeJS subprocess.  If you don't have
-> NodeJS and/or Poetry installed, you can generate the manifests inside a Docker container (thanks
-> [@vsoch](https://github.com/vsoch)!):<br>
->
-> `> docker run -it --entrypoint bash -v $PWD/:/code node:bookworm`<br>
-> `> apt-get update && apt-get install -y python3-poetry`<br>
-> `> make k8s`<br>
-
-<br>
-
-> [!WARNING]
-> The generated manifests are fairly primitive right now and you may need to customize them in order to get them to
-> install in your environment.  We also don't (currently) have any Helm charts available, but we'd welcome a
-> contribution!  (See this [GitHub issue](https://github.com/acrlabs/simkube/issues/97))
-
-### Running `sk-tracer`
+### Configuration `sk-tracer`
 
 The SimKube tracer runs in a real cluster and collects data about changes to objects in that cluster.  You can configure
 what objects it watches via a config file.  Here is an example config file you can use to watch changes to Deployments,
@@ -195,13 +186,6 @@ trackedObjects:
 as well as pods.  For example, if you use the above configuration, you will need the following RBAC policy attached to
 the service account used by `sk-tracer`:
 
-To install `sk-tracer` into your cluster, run
-
-```
-> kubectl apply -f .build/manifests/0000-global.k8s.yaml
-> kubectl apply -f .build/manifests/0001-sk-tracer.k8s.yaml
-```
-
 ```yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -219,16 +203,10 @@ rules:
   verbs: ["get", "watch", "list"]
 ```
 
-### Running `sk-ctrl`
+### Configuring `sk-ctrl`
 
 The SimKube controller just needs the SimKube custom resources installed in the target environment, and needs no other
-configuration.  After running `make k8s`, run the following commands to install everything:
-
-```
-> kubectl apply -f .build/manifests/raw
-> kubectl apply -f .build/manifests/0000-global.k8s.yaml
-> kubectl apply -f .build/manifests/0002-sk-ctrl.k8s.yaml
-```
+configuration.
 
 The SimKube controller needs, at a minimum, write access for all of the objects that it will be simulating.  In theory,
 since this is an isolated (or potentially even local) environment, it should be safe to give it `cluster-admin`, which
