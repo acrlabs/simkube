@@ -10,13 +10,13 @@ use chrono::{
     DateTime,
     Utc,
 };
+use either::Either;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use kube::api::{
     ListParams,
     Patch,
 };
-use kube::error::ErrorResponse;
 use kube::runtime::controller::Action;
 use kube::ResourceExt;
 use serde_json::json;
@@ -30,6 +30,7 @@ use simkube::metrics::api::*;
 use simkube::prelude::*;
 use simkube::sim::{
     hooks,
+    is_terminal,
     metrics_ns,
 };
 use tokio::runtime::Handle;
@@ -40,7 +41,7 @@ use crate::objects::*;
 use crate::*;
 
 pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS);
-const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
+pub(super) const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
 pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
 pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
@@ -56,10 +57,17 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
     }
 }
 
-pub(super) async fn fetch_driver_status(
+// The "left" driver state contains an actual status from the driver job, along with its start and
+// end times (if they exist).  The "right" driver state contains an "inferred" state, such as
+// "blocked" (i.e., the driver hasn't even been created yet because we couldn't claim the lease).
+type DriverState = Either<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>), (SimulationState, u64)>;
+
+pub(super) async fn fetch_driver_state(
     ctx: &SimulationContext,
     sim: &Simulation,
-) -> anyhow::Result<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>)> {
+    metaroot: &SimulationRoot,
+    ctrl_ns: &str,
+) -> anyhow::Result<DriverState> {
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     let (mut state, mut start_time, mut end_time) = (SimulationState::Initializing, None, None);
 
@@ -82,16 +90,32 @@ pub(super) async fn fetch_driver_status(
         }
     }
 
-    Ok((state, start_time, end_time))
+    if !is_terminal(&state) {
+        // It would be cool to check the error and return Blocked if something else nabbed the lease
+        // first.  But it's not actually that important, because it will just requeue and on the next
+        // time through it will correctly determine the Blocked status, so I'm not sure it's worth the
+        // increased complexity.
+        match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns).await? {
+            LeaseState::Claimed => (),
+            LeaseState::WaitingForClaim(t) => {
+                return Ok(DriverState::Right((SimulationState::Blocked, t)));
+            },
+            LeaseState::Unknown => bail!("unknown lease state"),
+        }
+    }
+
+    Ok(DriverState::Left((state, start_time, end_time)))
 }
 
-pub(super) async fn setup_driver(
+pub(super) async fn setup_simulation(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
     ctrl_ns: &str,
 ) -> anyhow::Result<Action> {
-    info!("setting up simulation driver");
+    info!("setting up simulation");
+
+    hooks::execute(sim, hooks::Type::PreStart).await?;
 
     // Validate the input before doing anything
     let ns_api = kube::Api::<corev1::Namespace>::all(ctx.client.clone());
@@ -99,15 +123,6 @@ pub(super) async fn setup_driver(
     if ns_api.get_opt(&metrics_ns).await?.is_none() {
         bail!(SkControllerError::namespace_not_found(&metrics_ns));
     };
-
-    match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns, Box::new(UtcClock)).await? {
-        LeaseState::Claimed => (),
-        LeaseState::WaitingForClaim(t) => {
-            info!("sleeping for {t} seconds");
-            return Ok(Action::requeue(Duration::from_secs(t as u64)));
-        },
-        LeaseState::Unknown => bail!("unknown lease state"),
-    }
 
     // Create the namespaces
     if ns_api.get_opt(&sim.spec.driver.namespace).await?.is_none() {
@@ -127,7 +142,7 @@ pub(super) async fn setup_driver(
             match prom_api.get_opt(&ctx.prometheus_name).await? {
                 None => {
                     info!("creating Prometheus object {}/{}", metrics_ns, ctx.prometheus_name);
-                    let obj = build_prometheus(&ctx.prometheus_name, sim, mc);
+                    let obj = build_prometheus(&ctx.prometheus_name, sim, metaroot, mc);
                     prom_api.create(&Default::default(), &obj).await?;
                 },
                 Some(prom) => {
@@ -191,32 +206,31 @@ pub(super) async fn setup_driver(
     Ok(Action::await_change())
 }
 
-pub(super) async fn cleanup(ctx: &SimulationContext, sim: &Simulation) {
+pub(super) async fn cleanup_simulation(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
-    let prom_api = kube::Api::<Prometheus>::namespaced(ctx.client.clone(), &metrics_ns(sim));
 
     info!("cleaning up simulation {}", ctx.name);
     if let Err(e) = roots_api.delete(&ctx.metaroot_name, &Default::default()).await {
         error!("Error cleaning up simulation: {e:?}");
     }
 
-    info!("cleaning up prometheus resources");
-    if let Err(e) = prom_api.delete(&ctx.prometheus_name, &Default::default()).await {
-        if matches!(e, kube::Error::Api(ErrorResponse { code: 404, .. })) {
-            warn!("prometheus object not found; maybe already cleaned up?");
-        } else {
-            error!("Error cleaning up Prometheus: {e:?}");
-        }
+    if let Err(e) = hooks::execute(sim, hooks::Type::PostStop).await {
+        error!("Error running PostStop hooks: {e:?}");
     }
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=sim.name_any()))]
-pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
+pub(super) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
     let sim = sim.deref();
     let ctx = ctx.with_sim(sim);
+    let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
 
-    let root = setup_sim_metaroot(&ctx, sim).await?;
-    let (driver_state, start_time, end_time) = fetch_driver_status(&ctx, sim).await?;
+    let metaroot = setup_sim_metaroot(&ctx, sim).await?;
+    let (simulation_state, start_time, end_time, blocked_duration) =
+        match fetch_driver_state(&ctx, sim, &metaroot, &ctrl_ns).await? {
+            DriverState::Left((state, st, et)) => (state, st, et, 0),
+            DriverState::Right((state, t)) => (state, None, None, t),
+        };
 
     let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());
     sim_api
@@ -228,29 +242,38 @@ pub(crate) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
                 "observedGeneration": sim.metadata.generation.unwrap_or(1),
                 "startTime": start_time,
                 "endTime": end_time,
-                "state": driver_state,
+                "state": simulation_state,
             }})),
         )
         .await
         .map_err(|e| anyhow!(e))?;
 
-    let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
-    match driver_state {
-        SimulationState::Initializing => {
-            hooks::execute(sim, hooks::Type::PreStart).await?;
-            setup_driver(&ctx, sim, &root, &ctrl_ns).await.map_err(|e| e.into())
+    match simulation_state {
+        SimulationState::Initializing => setup_simulation(&ctx, sim, &metaroot, &ctrl_ns).await.map_err(|e| e.into()),
+        SimulationState::Blocked => {
+            info!("simulation blocked; sleeping for {blocked_duration} seconds");
+            Ok(Action::requeue(Duration::from_secs(blocked_duration)))
         },
         SimulationState::Running => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
-            cleanup(&ctx, sim).await;
-            hooks::execute(sim, hooks::Type::PostStop).await?;
+            // This action should never return an error, we want to try cleaning up once and if it
+            // doesn't work, just abort (may revisit this in the future)
+            cleanup_simulation(&ctx, sim).await;
             Ok(Action::await_change())
         },
-        _ => unimplemented!(),
+
+        // The driver itself can never return "Retrying", this is only set by the controller's
+        // error_policy (see below).  If the driver were to return Retrying that would be very
+        // weird indeed and we should panic.
+        //
+        // I have some qualms about having a simulation state that doesn't match 1-1 with the
+        // driver state, but then also using the same enum for both... but I think in this specific
+        // circumstance it's OK.
+        SimulationState::Retrying => unimplemented!(),
     }
 }
 
-pub(crate) fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<SimulationContext>) -> Action {
+pub(super) fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<SimulationContext>) -> Action {
     skerr!(err, "reconcile failed on simulation {}", sim.namespaced_name());
     let (action, state) = if err.is::<SkControllerError>() {
         (Action::await_change(), SimulationState::Failed)

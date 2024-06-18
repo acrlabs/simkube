@@ -18,6 +18,12 @@ pub trait Clockable {
 
 pub struct UtcClock;
 
+impl UtcClock {
+    pub fn new() -> Box<UtcClock> {
+        Box::new(UtcClock)
+    }
+}
+
 impl Clockable for UtcClock {
     fn now(&self) -> DateTime<Utc> {
         Utc::now()

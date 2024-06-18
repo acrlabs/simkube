@@ -17,7 +17,7 @@ use crate::prelude::*;
 pub enum LeaseState {
     Unknown,
     Claimed,
-    WaitingForClaim(i64),
+    WaitingForClaim(u64),
 }
 
 pub fn build_lease(sim: &Simulation, metaroot: &SimulationRoot, ns: &str, now: DateTime<Utc>) -> coordinationv1::Lease {
@@ -35,6 +35,15 @@ pub fn build_lease(sim: &Simulation, metaroot: &SimulationRoot, ns: &str, now: D
 }
 
 pub async fn try_claim_lease(
+    client: kube::Client,
+    sim: &Simulation,
+    metaroot: &SimulationRoot,
+    lease_ns: &str,
+) -> anyhow::Result<LeaseState> {
+    try_claim_lease_with_clock(client, sim, metaroot, lease_ns, UtcClock::new()).await
+}
+
+pub(super) async fn try_claim_lease_with_clock(
     client: kube::Client,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -67,7 +76,7 @@ pub async fn try_claim_lease(
                 }
                 info!("another simulation is currently running: {holder}");
                 let sleep_time = compute_remaining_lease_time(maybe_duration_seconds, maybe_renew_time, clock.now_ts());
-                lease_state = LeaseState::WaitingForClaim(sleep_time);
+                lease_state = LeaseState::WaitingForClaim(sleep_time as u64);
             },
 
             // Case 2: There is no lease or the lease is unowned -- then we just take it
@@ -87,6 +96,15 @@ pub async fn try_claim_lease(
 }
 
 pub async fn try_update_lease(
+    client: kube::Client,
+    sim: &Simulation,
+    lease_ns: &str,
+    lease_duration: i64,
+) -> EmptyResult {
+    try_update_lease_with_clock(client, sim, lease_ns, lease_duration, UtcClock::new()).await
+}
+
+pub(super) async fn try_update_lease_with_clock(
     client: kube::Client,
     sim: &Simulation,
     lease_ns: &str,

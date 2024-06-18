@@ -83,7 +83,7 @@ impl PodWatcher {
                 owners_cache: OwnersCache::new(apiset),
                 store,
 
-                clock: Box::new(UtcClock),
+                clock: UtcClock::new(),
                 is_ready: false,
                 ready_tx: tx,
             },
