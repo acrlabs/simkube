@@ -1,5 +1,6 @@
 use std::env;
 
+use either::for_both;
 use httpmock::prelude::*;
 use kube::runtime::controller::Action;
 use serde_json::json;
@@ -21,23 +22,32 @@ fn opts() -> Options {
 
 #[rstest]
 #[tokio::test]
-async fn test_fetch_driver_status_no_driver(test_sim: Simulation, opts: Options) {
+async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
     fake_apiserver
         .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
+        .handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&lease_obj);
+        })
         .build();
-    assert_eq!(SimulationState::Initializing, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
+    let sim_state =
+        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    assert_eq!(SimulationState::Initializing, sim_state);
     fake_apiserver.assert();
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_fetch_driver_status_driver_no_status(test_sim: Simulation, opts: Options) {
+async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
     fake_apiserver
@@ -45,16 +55,24 @@ async fn test_fetch_driver_status_driver_no_status(test_sim: Simulation, opts: O
             when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
             then.json_body(json!({}));
         })
+        .handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&lease_obj);
+        })
         .build();
-    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
+    let sim_state =
+        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
 
 #[rstest]
 #[tokio::test]
-async fn test_fetch_driver_status_driver_running(test_sim: Simulation, opts: Options) {
+async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
     fake_apiserver
@@ -66,8 +84,15 @@ async fn test_fetch_driver_status_driver_running(test_sim: Simulation, opts: Opt
                 },
             }));
         })
+        .handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&lease_obj);
+        })
         .build();
-    assert_eq!(SimulationState::Running, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
+    let sim_state =
+        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
 
@@ -75,7 +100,12 @@ async fn test_fetch_driver_status_driver_running(test_sim: Simulation, opts: Opt
 #[case::complete(JOB_STATUS_CONDITION_COMPLETE)]
 #[case::failed(JOB_STATUS_CONDITION_FAILED)]
 #[tokio::test]
-async fn test_fetch_driver_status_driver_finished(test_sim: Simulation, opts: Options, #[case] status: &'static str) {
+async fn test_fetch_driver_state_driver_finished(
+    test_sim: Simulation,
+    test_sim_root: SimulationRoot,
+    opts: Options,
+    #[case] status: &'static str,
+) {
     let expected_state = if status == JOB_STATUS_CONDITION_COMPLETE {
         SimulationState::Finished
     } else {
@@ -86,6 +116,7 @@ async fn test_fetch_driver_status_driver_finished(test_sim: Simulation, opts: Op
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
     let driver_name = ctx.driver_name.clone();
+    // No lease handler because we don't claim the lease if we're done
     fake_apiserver
         .handle(move |when, then| {
             when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
@@ -96,44 +127,48 @@ async fn test_fetch_driver_status_driver_finished(test_sim: Simulation, opts: Op
             }));
         })
         .build();
-    assert_eq!(expected_state, fetch_driver_status(&ctx, &test_sim).await.unwrap().0);
+    let sim_state =
+        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    assert_eq!(expected_state, sim_state);
     fake_apiserver.assert();
 }
 
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_setup_driver_no_ns(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let mut other_sim = test_sim.clone();
+    other_sim.metadata.name = Some("blocking-sim".into());
+    let other_lease_obj = build_lease(&other_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
+
+    let driver_name = ctx.driver_name.clone();
     fake_apiserver
-        .handle_not_found(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"))
+        .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
+        .handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&other_lease_obj);
+        })
         .build();
 
-    assert!(matches!(
-        setup_driver(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
-            .await
-            .unwrap_err()
-            .downcast::<SkControllerError>()
-            .unwrap(),
-        SkControllerError::NamespaceNotFound(_)
-    ));
+    let sim_state =
+        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    assert_eq!(SimulationState::Blocked, sim_state);
     fake_apiserver.assert();
 }
 
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_setup_driver_lease_claim_fails(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+
+    let driver_name = ctx.driver_name.clone();
     fake_apiserver
-        .handle(|when, then| {
-            when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
-            then.json_body(json!({
-                "kind": "Namespace",
-            }));
-        })
+        .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
         .handle_not_found(format!(
             "/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"
         ))
@@ -152,7 +187,7 @@ async fn test_setup_driver_lease_claim_fails(test_sim: Simulation, test_sim_root
         })
         .build();
 
-    let err = setup_driver(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+    let err = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
         .unwrap_err()
         .downcast::<kube::api::entry::CommitError>()
@@ -164,15 +199,36 @@ async fn test_setup_driver_lease_claim_fails(test_sim: Simulation, test_sim_root
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_setup_driver_create_prom(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+    let (mut fake_apiserver, client) = make_fake_apiserver();
+    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    fake_apiserver
+        .handle_not_found(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"))
+        .build();
+
+    assert!(matches!(
+        setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+            .await
+            .unwrap_err()
+            .downcast::<SkControllerError>()
+            .unwrap(),
+        SkControllerError::NamespaceNotFound(_)
+    ));
+    fake_apiserver.assert();
+}
+
+#[rstest]
+#[traced_test]
+#[tokio::test]
+async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
-    let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
     let driver_ns = test_sim.spec.driver.namespace.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
-    let prom_obj = build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics.clone().unwrap());
+    let prom_obj =
+        build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim_root, &test_sim.spec.metrics.clone().unwrap());
 
     fake_apiserver
         .handle(|when, then| {
@@ -180,11 +236,6 @@ async fn test_setup_driver_create_prom(test_sim: Simulation, test_sim_root: Simu
             then.json_body(json!({
                 "kind": "Namespace",
             }));
-        })
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
         })
         .handle_not_found(format!("/api/v1/namespaces/{driver_ns}"))
         .handle(move |when, then| {
@@ -199,7 +250,7 @@ async fn test_setup_driver_create_prom(test_sim: Simulation, test_sim_root: Simu
         })
         .build();
     assert_eq!(
-        setup_driver(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
             .await
             .unwrap(),
         Action::requeue(REQUEUE_DURATION)
@@ -213,7 +264,7 @@ async fn test_setup_driver_create_prom(test_sim: Simulation, test_sim_root: Simu
 #[case::disabled(true, true)]
 #[traced_test]
 #[tokio::test]
-async fn test_setup_driver_wait_prom(
+async fn test_setup_simulation_wait_prom(
     mut test_sim: Simulation,
     test_sim_root: SimulationRoot,
     opts: Options,
@@ -230,7 +281,6 @@ async fn test_setup_driver_wait_prom(
     let webhook_name = ctx.webhook_name.clone();
     let driver_name = ctx.driver_name.clone();
 
-    let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
     let driver_svc_obj = build_driver_service(&ctx, &test_sim, &test_sim_root);
     let webhook_obj = build_mutating_webhook(&ctx, &test_sim, &test_sim_root);
@@ -244,11 +294,6 @@ async fn test_setup_driver_wait_prom(
             }));
         })
         .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .handle(move |when, then| {
             when.method(GET).path(format!("/api/v1/namespaces/{driver_ns}"));
             then.json_body_obj(&driver_ns_obj);
         });
@@ -256,7 +301,8 @@ async fn test_setup_driver_wait_prom(
     if disabled {
         test_sim.spec.metrics = None;
     } else {
-        let prom_obj = build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim.spec.metrics.clone().unwrap());
+        let prom_obj =
+            build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim_root, &test_sim.spec.metrics.clone().unwrap());
         fake_apiserver.handle(move |when, then| {
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));
@@ -300,7 +346,7 @@ async fn test_setup_driver_wait_prom(
             });
     }
     fake_apiserver.build();
-    let res = setup_driver(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+    let res = setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
         .unwrap();
     if ready {
@@ -315,50 +361,20 @@ async fn test_setup_driver_wait_prom(
 #[rstest]
 #[traced_test]
 #[tokio::test]
-async fn test_cleanup(test_sim: Simulation, opts: Options) {
+async fn test_cleanup_simulation(test_sim: Simulation, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
     let root = ctx.metaroot_name.clone();
-    let prom = ctx.prometheus_name.clone();
 
     fake_apiserver
         .handle(move |when, then| {
             when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
             then.json_body(status_ok());
         })
-        .handle(move |when, then| {
-            when.path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom}"));
-            then.json_body(status_ok());
-        })
         .build();
-    cleanup(&ctx, &test_sim).await;
+    cleanup_simulation(&ctx, &test_sim).await;
 
     assert!(!logs_contain("ERROR"));
-    fake_apiserver.assert();
-}
-
-// Copy-pasta-ing this because I can't get rstest cases and traced_test to play nicely with each
-// other :facepalm: :eyeroll:
-#[rstest]
-#[traced_test]
-#[tokio::test]
-async fn test_cleanup_not_found(test_sim: Simulation, opts: Options) {
-    let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
-
-    let root = ctx.metaroot_name.clone();
-    let prom = ctx.prometheus_name.clone();
-
-    fake_apiserver
-        .handle(move |when, then| {
-            when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
-            then.json_body(status_ok());
-        })
-        .handle_not_found(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom}"))
-        .build();
-    cleanup(&ctx, &test_sim).await;
-
-    assert!(logs_contain("WARN"));
     fake_apiserver.assert();
 }

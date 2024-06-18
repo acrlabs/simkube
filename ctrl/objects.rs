@@ -40,7 +40,12 @@ pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) 
     }
 }
 
-pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetricsConfig) -> Prometheus {
+pub(super) fn build_prometheus(
+    name: &str,
+    sim: &Simulation,
+    metaroot: &SimulationRoot,
+    mc: &SimulationMetricsConfig,
+) -> Prometheus {
     // Configure the remote write endpoints; these _can_ be overridden by the user but set up some
     // sane defaults so they don't have to.
     let mut rw_cfgs = mc.remote_write_configs.clone();
@@ -79,7 +84,7 @@ pub(super) fn build_prometheus(name: &str, sim: &Simulation, mc: &SimulationMetr
             .map_or(Default::default(), |name| build_containment_label_selector(APP_KUBERNETES_IO_NAME_KEY, name)),
     );
 
-    let owner = sim;
+    let owner = metaroot;
     Prometheus {
         metadata: build_object_meta(&metrics_ns(sim), name, &sim.name_any(), owner),
         spec: PrometheusSpec {

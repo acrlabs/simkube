@@ -16,5 +16,9 @@ pub fn metrics_svc_account(sim: &Simulation) -> String {
     }
 }
 
+pub fn is_terminal(sim_state: &SimulationState) -> bool {
+    matches!(sim_state, SimulationState::Finished | SimulationState::Failed)
+}
+
 #[cfg(test)]
 mod tests;

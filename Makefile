@@ -47,7 +47,7 @@ test: unit itest
 unit:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) -- --nocapture --skip itest
+	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) -- --skip itest
 
 .PHONY: itest
 itest:
