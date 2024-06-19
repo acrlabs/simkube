@@ -17,6 +17,7 @@ paths:
               required:
                 - start_ts
                 - end_ts
+                - export_path
                 - filters
               properties:
                 start_ts:
@@ -25,6 +26,8 @@ paths:
                 end_ts:
                   type: integer
                   format: int64
+                export_path:
+                  type: string
                 # TODO - eventually want positive filters too
                 filters:
                   type: object

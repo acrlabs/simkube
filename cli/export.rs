@@ -60,7 +60,7 @@ pub struct Args {
 
 pub async fn cmd(args: &Args) -> EmptyResult {
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![], true);
-    let req = ExportRequest::new(args.start_time, args.end_time, filters);
+    let req = ExportRequest::new(args.start_time, args.end_time, "".into(), filters);
     let endpoint = format!("{}/export", args.tracer_address);
 
     println!("exporting trace data");
