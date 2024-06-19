@@ -87,8 +87,8 @@ pre-k8s:: crd
 .PHONY: api
 api:
 	openapi-generator generate -i api/v1/simkube.yml -g rust --global-property models -o generated-api
-	cp generated-api/src/models/export_filters.rs lib/rust/api/v1/.
-	cp generated-api/src/models/export_request.rs lib/rust/api/v1/.
+	cp generated-api/src/models/export_filters.rs lib/api/v1/.
+	cp generated-api/src/models/export_request.rs lib/api/v1/.
 	@echo ''
 	@echo '----------------------------------------------------------------------'
 	@echo 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!'

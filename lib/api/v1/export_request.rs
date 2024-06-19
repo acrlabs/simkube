@@ -10,18 +10,25 @@
 
 use super::*;
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
 pub struct ExportRequest {
     #[serde(rename = "start_ts")]
     pub start_ts: i64,
     #[serde(rename = "end_ts")]
     pub end_ts: i64,
+    #[serde(rename = "export_path")]
+    pub export_path: String,
     #[serde(rename = "filters")]
     pub filters: Box<ExportFilters>,
 }
 
 impl ExportRequest {
-    pub fn new(start_ts: i64, end_ts: i64, filters: ExportFilters) -> ExportRequest {
-        ExportRequest { start_ts, end_ts, filters: Box::new(filters) }
+    pub fn new(start_ts: i64, end_ts: i64, export_path: String, filters: ExportFilters) -> ExportRequest {
+        ExportRequest {
+            start_ts,
+            end_ts,
+            export_path,
+            filters: Box::new(filters),
+        }
     }
 }
