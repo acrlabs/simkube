@@ -28,6 +28,7 @@ paths:
                   format: int64
                 export_path:
                   type: string
+                  format: uri
                 # TODO - eventually want positive filters too
                 filters:
                   type: object
@@ -50,3 +51,18 @@ paths:
       responses:
         '200':
           description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                title: export_response
+                properties:
+                  trace_data:
+                    type: string
+                    format: byte
+        '404':
+          description: Storage location not found
+        '500':
+          description: Tracer error
+        '502':
+          description: External storage provider error

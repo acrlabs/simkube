@@ -19,7 +19,7 @@ use simkube::metrics::api::prometheus::{
 };
 use simkube::prelude::*;
 use simkube::sim::*;
-use simkube::store::storage;
+use simkube::store::external_storage::ObjectStoreScheme;
 
 use super::cert_manager::DRIVER_CERT_NAME;
 use super::trace::get_local_trace_volume;
@@ -181,9 +181,10 @@ pub(super) fn build_driver_job(
     ctrl_ns: &str,
 ) -> anyhow::Result<batchv1::Job> {
     let trace_url = Url::parse(&sim.spec.driver.trace_path)?;
-    let (trace_vm, trace_volume, trace_mount_path) = match storage::get_scheme(&trace_url)? {
-        storage::Scheme::AmazonS3 => todo!(),
-        storage::Scheme::Local => get_local_trace_volume(&trace_url)?,
+    let (trace_vm, trace_volume, trace_mount_path) = match ObjectStoreScheme::parse(&trace_url)? {
+        (ObjectStoreScheme::AmazonS3, _) => todo!(),
+        (ObjectStoreScheme::Local, _) => get_local_trace_volume(&trace_url)?,
+        _ => unimplemented!(),
     };
     let (cert_vm, cert_volume, cert_mount_path) = build_certificate_volumes(cert_secret_name);
 

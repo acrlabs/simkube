@@ -1,5 +1,5 @@
+pub mod external_storage;
 mod pod_owners_map;
-pub mod storage;
 mod trace_filter;
 mod trace_store;
 
