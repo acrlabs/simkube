@@ -3,6 +3,7 @@ FROM debian:buster-slim
 ARG K8S_VERSION=v1.29.5
 
 RUN apt-get update && apt-get install -y \
+    ca-certificates \
     curl \
     dumb-init \
     jq \

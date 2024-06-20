@@ -1,12 +1,11 @@
-use std::fs;
-
-use anyhow::anyhow;
+use anyhow::bail;
 use bytes::Bytes;
+use object_store::PutPayload;
 use reqwest::Url;
 use simkube::prelude::*;
-use simkube::store::storage::{
-    get_scheme,
-    Scheme,
+use simkube::store::external_storage::{
+    object_store_for_scheme,
+    ObjectStoreScheme,
 };
 use simkube::time::duration_to_ts;
 
@@ -55,12 +54,12 @@ pub struct Args {
         long_help = "location to save exported trace",
         default_value = "file:///tmp/kind-node-data"
     )]
-    pub output: Url,
+    pub output_path: String,
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![], true);
-    let req = ExportRequest::new(args.start_time, args.end_time, "".into(), filters);
+    let req = ExportRequest::new(args.start_time, args.end_time, args.output_path.clone(), filters);
     let endpoint = format!("{}/export", args.tracer_address);
 
     println!("exporting trace data");
@@ -69,25 +68,28 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     println!("making request to {}", endpoint);
 
     let client = reqwest::Client::new();
-    let res = client.post(endpoint).json(&req).send().await?;
-
-    write_output(&res.bytes().await?, &args.output)
+    match client.post(endpoint).json(&req).send().await? {
+        res if res.status().is_success() => {
+            // If we got trace data back from the request, it means the tracer pod couldn't or
+            // didn't want to write it (e.g., we asked to write to a local file); in the future we
+            // might also try to write the data to the cloud provider storage as a fallback if it
+            // didn't work from the tracer pod, so this will handle that case as well.
+            let data = res.bytes().await?;
+            if !data.is_empty() {
+                write_output(data, &args.output_path).await?;
+            }
+            println!("Trace data exported to {}", args.output_path);
+        },
+        res => bail!("Received {} response; could not export trace data:\n\n{}", res.status(), res.text().await?),
+    };
+    Ok(())
 }
 
-fn write_output(data: &Bytes, output_url: &Url) -> EmptyResult {
-    match get_scheme(output_url)? {
-        Scheme::Local => {
-            let mut fp = output_url
-                .to_file_path()
-                .map_err(|_| anyhow!("could not compute export path: {}", output_url))?;
-            fs::create_dir_all(&fp)?;
-            fp.push("trace");
-            fs::write(&fp, data)?;
-            println!("trace successfully written to {}", fp.to_str().unwrap());
-        },
-        Scheme::AmazonS3 => unimplemented!(),
-    }
-
-
+async fn write_output(data: Bytes, output_path: &str) -> EmptyResult {
+    let url = Url::parse(output_path)?;
+    let (scheme, path) = ObjectStoreScheme::parse(&url)?;
+    let store = object_store_for_scheme(&scheme, output_path)?;
+    let payload = PutPayload::from_bytes(data);
+    store.put(&path, payload).await?;
     Ok(())
 }
