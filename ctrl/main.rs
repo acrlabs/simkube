@@ -1,7 +1,6 @@
 mod cert_manager;
 mod controller;
 mod objects;
-mod trace;
 
 use std::ops::Deref;
 use std::sync::Arc;
@@ -30,6 +29,9 @@ use crate::controller::{
 
 #[derive(Clone, Debug, Parser)]
 struct Options {
+    #[arg(long, value_delimiter = ',')]
+    driver_secrets: Option<Vec<String>>,
+
     // TODO: should support non-cert-manager for configuring certs as well
     #[arg(long)]
     use_cert_manager: bool,

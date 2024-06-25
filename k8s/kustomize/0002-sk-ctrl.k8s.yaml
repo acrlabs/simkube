@@ -37,6 +37,8 @@ spec:
       containers:
         - args:
             - /sk-ctrl
+            - --driver-secrets
+            - simkube
             - --use-cert-manager
             - --cert-manager-issuer
             - selfsigned

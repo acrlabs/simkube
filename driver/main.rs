@@ -1,19 +1,17 @@
 mod mutation;
 mod runner;
 
+use std::env;
 use std::net::{
     IpAddr,
     Ipv4Addr,
 };
 use std::sync::Arc;
 use std::time::Duration;
-use std::{
-    env,
-    fs,
-};
 
 use anyhow::anyhow;
 use clap::Parser;
+use reqwest::Url;
 use rocket::config::TlsConfig;
 use simkube::k8s::{
     ApiSet,
@@ -21,6 +19,10 @@ use simkube::k8s::{
 };
 use simkube::prelude::*;
 use simkube::sim::hooks;
+use simkube::store::external_storage::{
+    object_store_for_scheme,
+    ObjectStoreScheme,
+};
 use simkube::store::{
     TraceStorable,
     TraceStore,
@@ -55,7 +57,7 @@ struct Options {
     // because the location the trace is mounted in the pod will be different than
     // the location specified in the spec
     #[arg(long)]
-    trace_mount_path: String,
+    trace_path: String,
 
     #[arg(short, long, default_value = "info")]
     verbosity: String,
@@ -82,7 +84,11 @@ async fn run(opts: Options) -> EmptyResult {
 
     let root_name = format!("{name}-root");
 
-    let trace_data = fs::read(opts.trace_mount_path)?;
+    let url = Url::parse(&opts.trace_path)?;
+    let (scheme, path) = ObjectStoreScheme::parse(&url)?;
+    let store = object_store_for_scheme(&scheme, &opts.trace_path)?;
+    let trace_data = store.get(&path).await?.bytes().await?.to_vec();
+
     let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
 
     let apiset = ApiSet::new(client.clone());
