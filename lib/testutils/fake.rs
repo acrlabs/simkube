@@ -7,7 +7,7 @@ use httpmock::{
 use serde_json::json;
 
 pub struct MockServerBuilder {
-    pub server: MockServer,
+    server: MockServer,
     handlers: Vec<Box<dyn Fn(When, Then)>>,
     mock_ids: Vec<usize>,
 }
@@ -61,12 +61,16 @@ impl MockServerBuilder {
             when.matches(print_req);
         });
     }
+
+    pub fn url(&self) -> http::Uri {
+        http::Uri::try_from(self.server.url("/")).unwrap()
+    }
 }
 
 pub fn make_fake_apiserver() -> (MockServerBuilder, kube::Client) {
     let builder = MockServerBuilder::new();
     let config = kube::Config {
-        cluster_url: http::Uri::try_from(builder.server.url("/")).unwrap(),
+        cluster_url: builder.url(),
         default_namespace: "default".into(),
         root_cert: None,
         connect_timeout: None,

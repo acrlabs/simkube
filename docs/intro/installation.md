@@ -81,8 +81,7 @@ From the `kind` website:
 > kind is a tool for running local Kubernetes clusters using Docker container “nodes”.  kind was primarily designed for
 > testing Kubernetes itself, but may be used for local development or CI.
 
-You'll want to create a kind cluster with at least two nodes; moreover, you need to provide the cluster with access to a
-directory on your local hard drive from which it can read trace files.  Here's an example configuration:
+You'll want to create a kind cluster with at least two nodes.  Here's an example configuration:
 
 ```yaml
 # kind.yml
@@ -95,9 +94,6 @@ nodes:
   - role: worker
     labels:
       type: kind-worker
-    extraMounts:
-      - hostPath: /tmp/kind-node-data
-        containerPath: /data
 ```
 
 If you are pushing the SimKube docker images to a local docker registry, you will additionally need to follow the steps

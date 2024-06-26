@@ -12,56 +12,34 @@ actually perform the Simulation.
 
 ## Usage
 
-```
-Usage: sk-ctrl [OPTIONS]
-
-Options:
-      --use-cert-manager
-      --cert-manager-issuer <CERT_MANAGER_ISSUER>  [default: ]
-  -v, --verbosity <VERBOSITY>                      [default: info]
-  -h, --help                                       Print help
+```bash exec="on" result="plain"
+sk-ctrl --help
 ```
 
 ## Details
 
 The Simulation Controller does the following on receipt of a new Simulation:
 
-0. Verifies that all the expected pre-existing objects are present in the cluster
-1. Creates a SimulationRoot object to hang all of the simulated objects off of
-2. Creates the namespace for the simulation driver to run in
-3. Creates custom resources for the [Prometheus operator](https://prometheus-operator.dev) to configure metrics
+0. Runs all preStart hooks
+1. Verifies that all the expected pre-existing objects are present in the cluster
+2. Creates a SimulationRoot "meta" object to hang objects off of that should persist for the whole simulation
+3. Creates the namespace for the simulation driver to run in
+4. Creates custom resources for the [Prometheus operator](https://prometheus-operator.dev) to configure metrics
    collection
-4. Creates a MutatingWebhookConfiguration for the simulation driver
-5. Creates a Service for the simulation driver
-6. Sets up certificates for the simulation driver mutating webhook (currently requires the use of
+5. Creates a MutatingWebhookConfiguration for the simulation driver
+6. Creates a Service for the simulation driver
+7. Sets up certificates for the simulation driver mutating webhook (currently requires the use of
    [cert-manager](https://cert-manager.io)).
-7. Creates the simulation driver Job
+8. Creates the simulation driver Job
+9. Waits for the driver to complete
+10. Cleans up all "meta" resources
+11. Runs all postStop hooks
 
 ## Simulation Custom Resource
 
-Here is an example Simulation object:
-
-```yaml
-apiVersion: simkube.io/v1
-kind: Simulation
-metadata:
-  name: testing
-spec:
-  driverNamespace: simkube
-  metricsConfig:
-    namespace: monitoring
-    serviceAccount: prometheus-k8s
-    remoteWriteConfigs:
-      - url: http://prom2parquet-svc.monitoring:1234/receive
-  trace: file:///data/trace
-```
-
-The `SimulationSpec` contains three fields, the location of the trace file which we want to use for the simulation,
-configuration for metrics collection, and the namespace to launch the driver into.  Currently the only trace location
-supported is `file:///`, i.e., the trace file already has to be present on the driver node at the specified location.
-In the future we will support downloading from an S3 bucket or other persistent storage.
-
-The Simulation CR is cluster-namespaced, because it must create SimulationRoots.
+Simulations are controlled by a Simulation custom resource object, which specifies, among other things, how to configure
+the Simulation driver, metrics collection, and any hooks.  The Simulation CR is cluster-namespaced, because it must
+create SimulationRoots.
 
 ## SimulationRoot Custom Resource
 
@@ -72,6 +50,10 @@ simulation we may be creating additional namespaces to run simulated pods in.  N
 owned by the SimulationRoot, so that users can still see the results and logs from the after the sim is over.
 
 ## Configuring Metrics Collection
+
+> [!NOTE] In the future we may move metrics collection out of SimKube proper and instead run it as a standard "hook".
+> If you do not want to use Prometheus for metrics collection, or wish to configure it differently, you can disable
+> metrics collection using `skctl --disable-metrics` and configure your own metrics solution with a preStart hook.
 
 SimKube depends on the [Prometheus operator](https://prometheus-operator.dev) being installed in your simulation
 cluster, as it creates custom resources understood by this operator.  The `metricsConfig` section of the Simulation spec
