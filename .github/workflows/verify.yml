@@ -86,7 +86,7 @@ jobs:
       - name: Test
         run: make test cover
       - name: Upload coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: rust-coverage
           path: .build/coverage/rust-coverage.lcov
