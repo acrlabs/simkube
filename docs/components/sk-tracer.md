@@ -11,14 +11,8 @@ all or a portion of the trace to persistent storage so that it can be replayed l
 
 ## Usage
 
-```
-Usage: sk-tracer [OPTIONS] --config-file <CONFIG_FILE> --server-port <SERVER_PORT>
-
-Options:
-  -c, --config-file <CONFIG_FILE>
-      --server-port <SERVER_PORT>
-  -v, --verbosity <VERBOSITY>      [default: info]
-  -h, --help                       Print help
+```bash exec="on" result="plain"
+sk-tracer --help
 ```
 
 ## Config File Format

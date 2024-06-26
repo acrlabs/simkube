@@ -44,6 +44,7 @@ The SimKube repo is organized as follows:
     /ctrl      - Rust code for the `sk-ctrl` Kubernetes controller
     /docs      - Documentation
     /driver    - Rust code for the `sk-driver` Simulation runner
+    /examples  - Example YAML files and other configs
     /images    - Dockerfiles for all components
     /k8s       - 🔥Config Python scripts for Kubernetes manifest generation
     /lib       - shared library code

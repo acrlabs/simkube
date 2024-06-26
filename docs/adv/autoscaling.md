@@ -85,8 +85,8 @@ are some initial instructions in there for installing the karpenter+KWOK binary 
 it will automatically use KWOK to scale up nodes in the cluster just like Cluster Autoscaler.  As with Cluster
 Autoscaler, KWOK applies the `kwok-provider=true:NoSchedule` taint to the nodes it creates.
 
-> [!NOTE]
-> Unlike Cluster Autoscaler, karpenter does not take in a list of Kubernetes Node specs to determine what instances it
-> launches.  Instead, it uses a hard-coded list of "generic" instance types which roughly map to standard instance
-> offerings by the major cloud providers.  There is an [open PR](https://github.com/kubernetes-sigs/karpenter/pull/1048)
-> to enable configuring node types via an injected file.
+Unlike Cluster Autoscaler, karpenter does not take in a list of Kubernetes Node specs to determine what instances it
+launches.  Instead, it uses a hard-coded list of "generic" instance types which roughly map to standard instance
+offerings by the major cloud providers.  If you want to run Karpenter with a different set of configured instances, you
+need to modify the [embedded `instance_types.json`](https://github.com/kubernetes-sigs/karpenter/blob/main/kwok/cloudprovider/instance_types.json)
+file and rebuild Karpenter.

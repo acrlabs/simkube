@@ -12,32 +12,28 @@ selectors, and tolerations to ensure that the simulated pods end up on virtual n
 
 ## Usage
 
-```
-Usage: sk-driver [OPTIONS] --sim-name <SIM_NAME> --sim-root <SIM_ROOT> --virtual-ns-prefix <VIRTUAL_NS_PREFIX> \
-    --cert-path <CERT_PATH> --key-path <KEY_PATH> --trace-mount-path <TRACE_MOUNT_PATH>
-
-Options:
-      --sim-name <SIM_NAME>
-      --sim-root <SIM_ROOT>
-      --virtual-ns-prefix <VIRTUAL_NS_PREFIX>
-      --admission-webhook-port <ADMISSION_WEBHOOK_PORT>  [default: 8888]
-      --cert-path <CERT_PATH>
-      --key-path <KEY_PATH>
-      --trace-mount-path <TRACE_MOUNT_PATH>
-  -v, --verbosity <VERBOSITY>                            [default: info]
-  -h, --help                                             Print help
+```bash exec="on" result="plain"
+sk-driver --help
 ```
 
 ## Details
 
-The driver is launched by the [Simulation Controller](./sk-ctrl.md) when a new simulation is started.  On startup, it
-reads the cluster trace from the specified `--trace-path` and then replays all the events in the trace.  The driver
-shuts down when the trace is finished.
+The driver is launched by the [Simulation Controller](./sk-ctrl.md) when a new simulation is started.  The driver
+performs the following steps:
 
-The driver also exposes a `/mutate` endpoint on the specified `--admission-webhook-port`, which is called by the
-Kubernetes control plane whenever a new pod is created.  The mutation endpoint checks to see if the Pod is owned by any
-of the simulated resources, and if so, adds the following mutations to the object to ensure that it is scheduled on the
-virtual cluster:
+0. Runs all preRun hooks
+1. Creates the mutating webhook listener endpoint
+2. Creates a SimulationRoot object to hang all simulation objects off of
+3. Reads the specified trace from the specified path
+4. Replays the trace events
+5. Cleans up the SimulationRoot
+6. Shuts down the mutating webhook listener
+7. Runs all postRun hooks
+
+The driver exposes a `/mutate` endpoint on the specified `--admission-webhook-port`, which is called by the Kubernetes
+control plane whenever a new pod is created.  The mutation endpoint checks to see if the Pod is owned by any of the
+simulated resources, and if so, adds the following mutations to the object to ensure that it is scheduled on the virtual
+cluster:
 
 ```yaml
 labels:

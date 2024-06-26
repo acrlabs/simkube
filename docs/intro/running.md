@@ -13,7 +13,7 @@ Use the `skctl` CLI tool to collect a trace from your production cluster (where 
 
 ```
 > kubectl port-forward -n simkube pod/sk-tracer-depl-6d559b799-ln8gk 7777:7777
-> skctl export
+> skctl export -o s3://your-simkube-bucket/path/to/trace
 ```
 
 Alternately, if you don't have `sk-tracer` running anywhere, you can generate a "point-in-time" snapshot of your
@@ -32,18 +32,7 @@ trackedObjects:
     podSpecTemplatePath: /spec/template
 ```
 
-## Step 2: Copy the trace into your cluster
-
-> [!NOTE]
-> Yes, we know this step is very annoying.  We'll fix it soon---the plan is that the tracer will save the trace to a
-> blob store like S3, and the simulation driver will download the trace from the store, so you won't have to do this
-> step.
-
-The Simulation driver needs to have _local_ access to the generated trace file.  If you're running a local kind cluster
-as configured in the [installation](installation.md) section, you can copy the trace file into `/tmp/kind-node-data`.
-Otherwise, you'll need to upload it to the correct place in your Kubernetes cluster.
-
-## Step 3: Create some virtual nodes
+## Step 2: Create some virtual nodes
 
 SimKube is going to create a bunch of fake pods during the simulation run, and it will need someplace to schedule them.
 We're going to create a virtual node, managed by KWOK, for this.
@@ -92,10 +81,10 @@ simkube-control-plane   Ready    control-plane   12m   v1.27.3
 simkube-worker          Ready    <none>          12m   v1.27.3
 ```
 
-## Step 4: Run your simulation!
+## Step 3: Run your simulation!
 
 ```
-> skctl run --name my-first-simulation +5m
+> skctl run my-first-simulation --trace-path s3://your-simkube-bucket/path/to/trace +5m
 running simulation my-first-simulation
 ```
 
