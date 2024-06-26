@@ -1,11 +1,8 @@
 use anyhow::bail;
-use bytes::Bytes;
-use object_store::PutPayload;
-use reqwest::Url;
 use simkube::prelude::*;
 use simkube::store::external_storage::{
-    object_store_for_scheme,
-    ObjectStoreScheme,
+    ObjectStoreWrapper,
+    SkObjectStore,
 };
 use simkube::time::duration_to_ts;
 
@@ -76,20 +73,12 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             // didn't work from the tracer pod, so this will handle that case as well.
             let data = res.bytes().await?;
             if !data.is_empty() {
-                write_output(data, &args.output_path).await?;
+                let object_store = SkObjectStore::new(&args.output_path)?;
+                object_store.put(data).await?;
             }
             println!("Trace data exported to {}", args.output_path);
         },
         res => bail!("Received {} response; could not export trace data:\n\n{}", res.status(), res.text().await?),
     };
-    Ok(())
-}
-
-async fn write_output(data: Bytes, output_path: &str) -> EmptyResult {
-    let url = Url::parse(output_path)?;
-    let (scheme, path) = ObjectStoreScheme::parse(&url)?;
-    let store = object_store_for_scheme(&scheme, output_path)?;
-    let payload = PutPayload::from_bytes(data);
-    store.put(&path, payload).await?;
     Ok(())
 }

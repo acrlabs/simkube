@@ -11,7 +11,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Parser;
-use reqwest::Url;
 use rocket::config::TlsConfig;
 use simkube::k8s::{
     ApiSet,
@@ -20,8 +19,8 @@ use simkube::k8s::{
 use simkube::prelude::*;
 use simkube::sim::hooks;
 use simkube::store::external_storage::{
-    object_store_for_scheme,
-    ObjectStoreScheme,
+    ObjectStoreWrapper,
+    SkObjectStore,
 };
 use simkube::store::{
     TraceStorable,
@@ -84,10 +83,8 @@ async fn run(opts: Options) -> EmptyResult {
 
     let root_name = format!("{name}-root");
 
-    let url = Url::parse(&opts.trace_path)?;
-    let (scheme, path) = ObjectStoreScheme::parse(&url)?;
-    let store = object_store_for_scheme(&scheme, &opts.trace_path)?;
-    let trace_data = store.get(&path).await?.bytes().await?.to_vec();
+    let object_store = SkObjectStore::new(&opts.trace_path)?;
+    let trace_data = object_store.get().await?.to_vec();
 
     let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
 

@@ -1,5 +1,10 @@
+use async_trait::async_trait;
+use bytes::Bytes;
 use object_store::path::Path;
-use object_store::DynObjectStore;
+use object_store::{
+    DynObjectStore,
+    PutPayload,
+};
 use reqwest::Url;
 
 use crate::errors::*;
@@ -33,7 +38,7 @@ use crate::errors::*;
 // in that library.  This code can all be deleted if/once https://github.com/apache/arrow-rs/pull/5912
 // is merged.
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ObjectStoreScheme {
     Local,
     Memory,
@@ -81,24 +86,64 @@ impl ObjectStoreScheme {
 
 // End copy-pasta'ed code
 
-pub fn object_store_for_scheme(scheme: &ObjectStoreScheme, path_str: &str) -> anyhow::Result<Box<DynObjectStore>> {
-    let store: Box<DynObjectStore> = match &scheme {
-        ObjectStoreScheme::Local => Box::new(object_store::local::LocalFileSystem::new()),
-        ObjectStoreScheme::Memory => Box::new(object_store::memory::InMemory::new()),
-        ObjectStoreScheme::AmazonS3 => {
-            Box::new(object_store::aws::AmazonS3Builder::from_env().with_url(path_str).build()?)
-        },
-        ObjectStoreScheme::MicrosoftAzure => Box::new(
-            object_store::azure::MicrosoftAzureBuilder::from_env()
-                .with_url(path_str)
-                .build()?,
-        ),
-        ObjectStoreScheme::GoogleCloudStorage => Box::new(
-            object_store::gcp::GoogleCloudStorageBuilder::from_env()
-                .with_url(path_str)
-                .build()?,
-        ),
-        ObjectStoreScheme::Http => Box::new(object_store::http::HttpBuilder::new().with_url(path_str).build()?),
-    };
-    Ok(store)
+#[cfg(feature = "testutils")]
+use mockall::automock;
+
+#[cfg_attr(feature = "testutils", automock)]
+#[async_trait]
+pub trait ObjectStoreWrapper {
+    fn scheme(&self) -> ObjectStoreScheme;
+    async fn put(&self, data: Bytes) -> EmptyResult;
+    async fn get(&self) -> anyhow::Result<Bytes>;
+}
+
+#[derive(Debug)]
+pub struct SkObjectStore {
+    scheme: ObjectStoreScheme,
+    store: Box<DynObjectStore>,
+    path: Path,
+}
+
+impl SkObjectStore {
+    pub fn new(path_str: &str) -> anyhow::Result<SkObjectStore> {
+        let url = Url::parse(path_str)?;
+        let (scheme, path) = ObjectStoreScheme::parse(&url)?;
+        let store: Box<DynObjectStore> = match scheme {
+            ObjectStoreScheme::Local => Box::new(object_store::local::LocalFileSystem::new()),
+            ObjectStoreScheme::Memory => Box::new(object_store::memory::InMemory::new()),
+            ObjectStoreScheme::AmazonS3 => {
+                Box::new(object_store::aws::AmazonS3Builder::from_env().with_url(path_str).build()?)
+            },
+            ObjectStoreScheme::MicrosoftAzure => Box::new(
+                object_store::azure::MicrosoftAzureBuilder::from_env()
+                    .with_url(path_str)
+                    .build()?,
+            ),
+            ObjectStoreScheme::GoogleCloudStorage => Box::new(
+                object_store::gcp::GoogleCloudStorageBuilder::from_env()
+                    .with_url(path_str)
+                    .build()?,
+            ),
+            ObjectStoreScheme::Http => Box::new(object_store::http::HttpBuilder::new().with_url(path_str).build()?),
+        };
+
+        Ok(SkObjectStore { scheme, store, path })
+    }
+}
+
+#[async_trait]
+impl ObjectStoreWrapper for SkObjectStore {
+    fn scheme(&self) -> ObjectStoreScheme {
+        self.scheme.clone()
+    }
+
+    async fn put(&self, data: Bytes) -> EmptyResult {
+        let payload = PutPayload::from_bytes(data);
+        self.store.put(&self.path, payload).await?;
+        Ok(())
+    }
+
+    async fn get(&self) -> anyhow::Result<Bytes> {
+        Ok(self.store.get(&self.path).await?.bytes().await?)
+    }
 }
