@@ -1,5 +1,4 @@
 mod errors;
-
 use std::ops::Deref;
 use std::sync::{
     Arc,
@@ -9,15 +8,14 @@ use std::sync::{
 use bytes::Bytes;
 use clap::Parser;
 use kube::Client;
-use object_store::PutPayload;
-use reqwest::Url;
 use rocket::serde::json::Json;
 use simkube::api::v1::ExportRequest;
 use simkube::k8s::ApiSet;
 use simkube::prelude::*;
 use simkube::store::external_storage::{
-    object_store_for_scheme,
     ObjectStoreScheme,
+    ObjectStoreWrapper,
+    SkObjectStore,
 };
 use simkube::store::TraceStore;
 use simkube::watch::{
@@ -39,18 +37,18 @@ struct Options {
     verbosity: String,
 }
 
-async fn export_helper(req: &ExportRequest, store: &Arc<Mutex<TraceStore>>) -> anyhow::Result<Vec<u8>> {
-    let trace_data = store.lock().unwrap().export(req.start_ts, req.end_ts, &req.filters)?;
+async fn export_helper(
+    req: &ExportRequest,
+    trace_store: &Arc<Mutex<TraceStore>>,
+    object_store: &(dyn ObjectStoreWrapper + Sync),
+) -> anyhow::Result<Vec<u8>> {
+    let trace_data = trace_store.lock().unwrap().export(req.start_ts, req.end_ts, &req.filters)?;
 
-    let url = Url::parse(&req.export_path)?;
-    let (scheme, path) = ObjectStoreScheme::parse(&url)?;
-    match scheme {
+    match object_store.scheme() {
         // If we're writing to a cloud provider, we want to write from the location that the
         // tracer's running from, ostensibly to minimize transport costs.
         ObjectStoreScheme::AmazonS3 | ObjectStoreScheme::GoogleCloudStorage | ObjectStoreScheme::MicrosoftAzure => {
-            let store = object_store_for_scheme(&scheme, &req.export_path)?;
-            let payload = PutPayload::from_bytes(Bytes::from(trace_data));
-            store.put(&path, payload).await?;
+            object_store.put(Bytes::from(trace_data)).await?;
             Ok(vec![])
         },
 
@@ -64,10 +62,12 @@ async fn export_helper(req: &ExportRequest, store: &Arc<Mutex<TraceStore>>) -> a
 #[rocket::post("/export", data = "<req>")]
 async fn export(
     req: Json<ExportRequest>,
-    store: &rocket::State<Arc<Mutex<TraceStore>>>,
+    trace_store: &rocket::State<Arc<Mutex<TraceStore>>>,
 ) -> Result<Vec<u8>, ExportResponseError> {
     info!("export called with {:?}", req);
-    let res = export_helper(req.deref(), store).await;
+
+    let object_store = SkObjectStore::new(&req.export_path)?;
+    let res = export_helper(req.deref(), trace_store, &object_store).await;
 
     // anyhow::Error Debug implementation prints the entire chain of errors, but once this gets
     // sucked up into rocket it no longer knows anything about that, so here we print the full
@@ -110,3 +110,6 @@ async fn main() -> EmptyResult {
     logging::setup(&args.verbosity);
     run(args).await
 }
+
+#[cfg(test)]
+mod tests;

@@ -21,6 +21,7 @@ pub use fake::{
     make_fake_apiserver,
     status_not_found,
     status_ok,
+    MockServerBuilder,
 };
 pub use pods::test_pod;
 use rstest::*;
