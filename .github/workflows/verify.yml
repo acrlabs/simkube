@@ -64,8 +64,6 @@ jobs:
         uses: snok/install-poetry@v1
       - name: Run pre-commit
         uses: pre-commit/action@v3.0.1
-      - name: Format Rust code
-        run: make lint
 
   test:
     runs-on: ubuntu-latest
