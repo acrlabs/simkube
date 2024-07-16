@@ -1,0 +1,33 @@
+[package]
+name = "sk-tracer"
+description = "SimKube trace collection agent"
+version.workspace = true
+authors.workspace = true
+documentation.workspace = true
+license-file.workspace = true
+readme.workspace = true
+edition.workspace = true
+
+[features]
+testutils = []
+
+[dependencies]
+anyhow.workspace = true
+bytes.workspace = true
+clap.workspace = true
+clockabilly.workspace = true
+futures.workspace = true
+kube.workspace = true
+k8s-openapi.workspace = true
+object_store.workspace = true
+rocket.workspace = true
+sk-api.workspace = true
+sk-core.workspace = true
+sk-store.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+url = { workspace = true }
+
+[dev-dependencies]
+rstest.workspace = true
+sk-core = { workspace = true, features = ["testutils"] }

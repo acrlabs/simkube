@@ -1,0 +1,10 @@
+[package]
+name = "clockabilly"
+description = "Trait wrapper around chrono for testing"
+edition = "2021"
+
+[dependencies]
+chrono = { workspace = true }
+
+[features]
+mock = []

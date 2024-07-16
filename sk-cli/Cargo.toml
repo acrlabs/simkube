@@ -1,0 +1,32 @@
+[package]
+name = "skctl"
+description = "CLI utility for SimKube"
+version.workspace = true
+authors.workspace = true
+documentation.workspace = true
+license-file.workspace = true
+readme.workspace = true
+edition.workspace = true
+
+[features]
+testutils = []
+
+[dependencies]
+anyhow.workspace = true
+clockabilly.workspace = true
+clap.workspace = true
+clap_complete = { workspace = true }
+dirs = { workspace = true }
+kube.workspace = true
+k8s-openapi.workspace = true
+reqwest.workspace = true
+serde.workspace = true
+serde_yaml.workspace = true
+sk-api.workspace = true
+sk-core.workspace = true
+sk-store.workspace = true
+tokio.workspace = true
+
+[dev-dependencies]
+assertables.workspace = true
+rstest.workspace = true
