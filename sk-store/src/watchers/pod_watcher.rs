@@ -110,7 +110,7 @@ impl PodWatcher {
     // We swallow errors inside handle_pod_lifecycle to make sure that, on a refresh event, if one
     // pod update fails we can still process the remaining events.  If we use ? and return an error
     // from handle_pod_event, then this function will bail after the first failed pod update.
-    pub(super) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) {
+    pub(crate) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) {
         match evt {
             Event::Applied(pod) => {
                 let ns_name = pod.namespaced_name();

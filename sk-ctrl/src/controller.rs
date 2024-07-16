@@ -47,10 +47,10 @@ use crate::context::SimulationContext;
 use crate::errors::*;
 use crate::objects::*;
 
-pub(super) const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS);
-pub(super) const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
-pub(super) const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
-pub(super) const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
+pub const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS);
+pub const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
+pub const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
+pub const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
 async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
@@ -69,7 +69,7 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
 // "blocked" (i.e., the driver hasn't even been created yet because we couldn't claim the lease).
 type DriverState = Either<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>), (SimulationState, u64)>;
 
-pub(super) async fn fetch_driver_state(
+pub async fn fetch_driver_state(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -114,7 +114,7 @@ pub(super) async fn fetch_driver_state(
     Ok(DriverState::Left((state, start_time, end_time)))
 }
 
-pub(super) async fn setup_simulation(
+pub async fn setup_simulation(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -213,7 +213,7 @@ pub(super) async fn setup_simulation(
     Ok(Action::await_change())
 }
 
-pub(super) async fn cleanup_simulation(ctx: &SimulationContext, sim: &Simulation) {
+pub async fn cleanup_simulation(ctx: &SimulationContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
 
     info!("cleaning up simulation {}", ctx.name);
@@ -227,7 +227,7 @@ pub(super) async fn cleanup_simulation(ctx: &SimulationContext, sim: &Simulation
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=sim.name_any()))]
-pub(super) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
+pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
     let sim = sim.deref();
     let ctx = ctx.with_sim(sim);
     let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
@@ -280,7 +280,7 @@ pub(super) async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>)
     }
 }
 
-pub(super) fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<SimulationContext>) -> Action {
+pub fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<SimulationContext>) -> Action {
     skerr!(err, "reconcile failed on simulation {}", sim.namespaced_name());
     let (action, state) = if err.is::<SkControllerError>() {
         (Action::await_change(), SimulationState::Failed)

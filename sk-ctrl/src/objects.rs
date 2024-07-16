@@ -40,7 +40,7 @@ const SSL_MOUNT_PATH: &str = "/usr/local/etc/ssl";
 
 type VolumeInfo = (corev1::VolumeMount, corev1::Volume, String);
 
-pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
+pub fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
     let owner = sim;
     corev1::Namespace {
         metadata: build_global_object_meta(&sim.spec.driver.namespace, &ctx.name, owner),
@@ -48,7 +48,7 @@ pub(super) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) 
     }
 }
 
-pub(super) fn build_prometheus(
+pub fn build_prometheus(
     name: &str,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -119,7 +119,7 @@ pub(super) fn build_prometheus(
     }
 }
 
-pub(super) fn build_mutating_webhook(
+pub fn build_mutating_webhook(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -161,11 +161,7 @@ pub(super) fn build_mutating_webhook(
     }
 }
 
-pub(super) fn build_driver_service(
-    ctx: &SimulationContext,
-    sim: &Simulation,
-    metaroot: &SimulationRoot,
-) -> corev1::Service {
+pub fn build_driver_service(ctx: &SimulationContext, sim: &Simulation, metaroot: &SimulationRoot) -> corev1::Service {
     let owner = metaroot;
     corev1::Service {
         metadata: build_object_meta(&sim.spec.driver.namespace, &ctx.driver_svc, &ctx.name, owner),
@@ -182,7 +178,7 @@ pub(super) fn build_driver_service(
     }
 }
 
-pub(super) fn build_driver_job(
+pub fn build_driver_job(
     ctx: &SimulationContext,
     sim: &Simulation,
     driver_secrets: Option<&Vec<String>>,
