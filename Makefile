@@ -14,7 +14,7 @@ DOCKER_ARGS=-it --init
 endif
 
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
-APP_VERSION_CMD=cargo read-manifest | jq -r .version
+APP_VERSION_CMD=tomlq .workspace.package.version Cargo.toml
 APP_VERSION=$(shell $(APP_VERSION_CMD))
 
 include build/base.mk
@@ -28,17 +28,17 @@ RUST_BUILD_IMAGE ?= rust:buster
 # so we have a known location for it.  This is _not_ built in a docker container so that
 # because it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
 $(EXTRA_BUILD_ARTIFACTS)::
-	cargo build --target-dir=$(BUILD_DIR) --bin=$@ --color=always
+	cargo build --target-dir=$(BUILD_DIR) -p=$@ --color=always
 	cp $(BUILD_DIR)/debug/$@ $(BUILD_DIR)/.
 
 $(ARTIFACTS)::
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:ro -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
 
 pre-image:
 	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
 
 %-docker:
-	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) --bin=$* --color=always
+	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) -p=$* --color=always
 	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
 
 test: unit itest
@@ -47,11 +47,11 @@ test: unit itest
 unit:
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils $(CARGO_TEST) -- --skip itest
+	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) --features testutils -- --skip itest
 
 .PHONY: itest
 itest:
-	$(CARGO_TEST_PREFIX) cargo test --features=testutils itest -- --nocapture --test-threads=1
+	$(CARGO_TEST_PREFIX) cargo test itest --features testutils -- --nocapture --test-threads=1
 
 lint:
 	pre-commit run --all
@@ -62,9 +62,8 @@ cover:
 		--ignore '/*' \
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
-		--ignore 'lib/api/v1/*' \
-		--ignore 'lib/metrics/api/*' \
-		--ignore 'lib/testutils/*' \
+		--ignore 'sk-api/*' \
+		--ignore 'testutils/*' \
 		--ignore '.build/*' \
 		--excl-line '#\[derive' \
 		--excl-start '#\[cfg\((test|feature = "testutils")'
@@ -86,15 +85,15 @@ pre-k8s:: crd
 
 .PHONY: api
 api:
-	openapi-generator generate -i api/v1/simkube.yml -g rust --global-property models -o generated-api
-	cp generated-api/src/models/export_filters.rs lib/api/v1/.
-	cp generated-api/src/models/export_request.rs lib/api/v1/.
+	openapi-generator generate -i sk-api/schema/v1/simkube.yml -g rust --global-property models -o generated-api
+	cp generated-api/src/models/export_filters.rs sk-api/src/v1/.
+	cp generated-api/src/models/export_request.rs sk-api/src/v1/.
 	@echo ''
 	@echo '----------------------------------------------------------------------'
 	@echo 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!'
 	@echo '----------------------------------------------------------------------'
 	@echo 'At a minimum:'
-	@echo '   In lib/rust/api/v1/*, add "use super::*", and replace all the'
+	@echo '   In sk-api/src/v1/*, add "use super::*", and replace all the'
 	@echo '   k8s-generated types with the correct imports from k8s-openapi'
 	@echo '----------------------------------------------------------------------'
 	@echo 'CHECK THE DIFF CAREFULLY!!!'

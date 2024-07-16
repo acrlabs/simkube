@@ -1,0 +1,47 @@
+[package]
+name = "sk-core"
+description = "SimKube core libraries"
+version.workspace = true
+authors.workspace = true
+documentation.workspace = true
+license-file.workspace = true
+readme.workspace = true
+edition.workspace = true
+
+[features]
+testutils = ["dep:http", "dep:httpmock", "dep:mockall", "dep:rstest"]
+
+[dependencies]
+anyhow.workspace = true
+async-recursion = { workspace = true }
+async-trait = { workspace = true }
+bytes.workspace = true
+clockabilly.workspace = true
+json-patch.workspace = true
+kube.workspace = true
+k8s-openapi.workspace = true
+object_store = { workspace = true, features = ["aws", "gcp", "azure", "http"] }
+# remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
+parse_datetime = { workspace = true }
+paste = { workspace = true }
+regex = { workspace = true }
+reqwest.workspace = true
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sk-api.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+
+# testutils dependencies
+http = { workspace = true, optional = true }
+httpmock = { workspace = true,  optional = true }
+mockall = { workspace = true, optional = true }
+rstest = { workspace = true, optional = true }
+
+[dev-dependencies]
+assertables.workspace = true
+clockabilly = { workspace = true, features = ["mock"] }
+tracing-test.workspace = true
