@@ -35,7 +35,7 @@ use tokio::time::sleep;
 
 use super::*;
 
-pub(super) const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
+pub const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
 
 err_impl! {SkDriverError,
     #[error("could not delete simulation root {0}")]
@@ -45,7 +45,7 @@ err_impl! {SkDriverError,
     CleanupTimeout(String),
 }
 
-pub(super) fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, namespace: &str) -> corev1::Namespace {
+pub fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, namespace: &str) -> corev1::Namespace {
     let owner = root;
     let mut ns = corev1::Namespace {
         metadata: build_global_object_meta(namespace, &ctx.name, owner),
@@ -56,7 +56,7 @@ pub(super) fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, names
     ns
 }
 
-pub(super) fn build_virtual_obj(
+pub fn build_virtual_obj(
     ctx: &DriverContext,
     root: &SimulationRoot,
     original_ns: &str,
@@ -174,7 +174,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
     cleanup_trace(&ctx, roots_api, clock, timeout).await
 }
 
-pub(super) async fn cleanup_trace(
+pub async fn cleanup_trace(
     ctx: &DriverContext,
     roots_api: kube::Api<SimulationRoot>,
     clock: Box<dyn Clockable + Send>,

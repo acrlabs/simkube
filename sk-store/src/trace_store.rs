@@ -118,7 +118,7 @@ impl TraceStore {
         index.into_keys().collect()
     }
 
-    pub(super) fn collect_events(
+    pub(crate) fn collect_events(
         &self,
         start_ts: i64,
         end_ts: i64,

@@ -32,7 +32,7 @@ pub struct Args {
     pub stdout: bool,
 }
 
-pub(super) fn default_path_for(shell: &Shell) -> PathBuf {
+fn default_path_for(shell: &Shell) -> PathBuf {
     let mut default_path = dirs::data_dir().unwrap_or(PathBuf::from("."));
     match shell {
         Shell::Bash => default_path.push("bash-completion"),
@@ -56,7 +56,7 @@ fn completion_filename_for(shell: &Shell) -> &'static str {
     }
 }
 
-pub(super) fn prompt_for_location(shell: &Shell, input: &mut impl BufRead) -> anyhow::Result<PathBuf> {
+fn prompt_for_location(shell: &Shell, input: &mut impl BufRead) -> anyhow::Result<PathBuf> {
     let default_path = default_path_for(shell);
     println!("Where to install completions file? enter for default ({})", default_path.to_string_lossy());
 
@@ -110,4 +110,26 @@ pub fn cmd(args: &Args, mut cmd: clap::Command) -> EmptyResult {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod test {
+    use assertables::*;
+    use rstest::*;
+
+    use super::*;
+
+    #[rstest]
+    #[case::abs_path("/foo/bar", "/foo/bar")]
+    #[case::home_dir("~/foo/bar", dirs::home_dir().unwrap())]
+    #[case::no_entry("\n", default_path_for(&Shell::Bash))]
+    fn test_prompt_for_location(#[case] path: &str, #[case] expected_prefix: PathBuf) {
+        let res = prompt_for_location(&Shell::Bash, &mut path.as_bytes()).unwrap();
+        assert_starts_with!(res, &expected_prefix);
+    }
+
+    #[rstest]
+    fn test_prompt_for_location_unsupported() {
+        let _ = prompt_for_location(&Shell::Bash, &mut "~drmorr/foo/bar".as_bytes()).unwrap_err();
+    }
 }

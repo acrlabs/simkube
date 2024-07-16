@@ -66,6 +66,3 @@ async fn main() -> EmptyResult {
         },
     }
 }
-
-#[cfg(test)]
-mod tests;

@@ -45,24 +45,24 @@ use sk_core::prelude::*;
 pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
 #[derive(Default)]
-pub(super) struct PodOwnersMap {
+pub(crate) struct PodOwnersMap {
     m: HashMap<String, PodLifecyclesMap>,
     index: HashMap<String, (String, u64, usize)>,
 }
 
 impl PodOwnersMap {
-    pub(super) fn new_from_parts(
+    pub(crate) fn new_from_parts(
         m: HashMap<String, PodLifecyclesMap>,
         index: HashMap<String, (String, u64, usize)>,
     ) -> PodOwnersMap {
         PodOwnersMap { m, index }
     }
 
-    pub(super) fn has_pod(&self, ns_name: &str) -> bool {
+    pub(crate) fn has_pod(&self, ns_name: &str) -> bool {
         self.index.contains_key(ns_name)
     }
 
-    pub(super) fn lifecycle_data_for<'a>(
+    pub(crate) fn lifecycle_data_for<'a>(
         &'a self,
         owner_ns_name: &str,
         pod_hash: u64,
@@ -70,7 +70,7 @@ impl PodOwnersMap {
         self.m.get(owner_ns_name)?.get(&pod_hash)
     }
 
-    pub(super) fn store_new_pod_lifecycle(
+    pub(crate) fn store_new_pod_lifecycle(
         &mut self,
         ns_name: &str,
         owner_ns_name: &str,
@@ -93,7 +93,7 @@ impl PodOwnersMap {
         self.index.insert(ns_name.into(), (owner_ns_name.into(), hash, idx));
     }
 
-    pub(super) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
+    pub(crate) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
         match self.index.get(ns_name) {
             None => bail!("pod {} not present in index", ns_name),
             Some((owner_ns_name, hash, sequence_idx)) => {
@@ -121,7 +121,7 @@ impl PodOwnersMap {
 
     // Given an index of "owning objects", get a list of all the pods between a given start and end
     // time that belong to one of those owning objects.
-    pub(super) fn filter(
+    pub(crate) fn filter(
         &self,
         start_ts: i64,
         end_ts: i64,
@@ -145,7 +145,7 @@ impl PodOwnersMap {
     }
 }
 
-pub(super) fn filter_lifecycles_map(
+pub(crate) fn filter_lifecycles_map(
     start_ts: i64,
     end_ts: i64,
     lifecycles_map: &PodLifecyclesMap,
@@ -169,7 +169,7 @@ pub(super) fn filter_lifecycles_map(
 
 #[cfg(test)]
 impl PodOwnersMap {
-    pub(super) fn pod_owner_meta(&self, ns_name: &str) -> Option<&(String, u64, usize)> {
+    pub(crate) fn pod_owner_meta(&self, ns_name: &str) -> Option<&(String, u64, usize)> {
         self.index.get(ns_name)
     }
 }

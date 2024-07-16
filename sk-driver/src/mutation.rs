@@ -71,7 +71,7 @@ pub async fn handler(
 // TODO when we get the pod object, the final name hasn't been filled in yet; make sure this
 // doesn't cause any problems
 #[instrument(skip_all, fields(pod.namespaced_name=pod.namespaced_name()))]
-pub(super) async fn mutate_pod(
+pub async fn mutate_pod(
     ctx: &DriverContext,
     resp: AdmissionResponse,
     pod: &corev1::Pod,

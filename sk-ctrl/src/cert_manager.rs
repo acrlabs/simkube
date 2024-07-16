@@ -16,15 +16,15 @@ use crate::context::SimulationContext;
 
 // Adapted from the "full" cert-manager CRD output from kopium
 
-pub(super) const DRIVER_CERT_NAME: &str = "sk-driver-cert";
-const CERT_MANAGER_GROUP: &str = "cert-manager.io";
-const CERT_MANAGER_VERSION: &str = "v1";
-const CERTIFICATE_KIND: &str = "Certificate";
-const CERTIFICATE_PLURAL: &str = "certificates";
+pub const DRIVER_CERT_NAME: &str = "sk-driver-cert";
+pub const CERT_MANAGER_GROUP: &str = "cert-manager.io";
+pub const CERT_MANAGER_VERSION: &str = "v1";
+pub const CERTIFICATE_KIND: &str = "Certificate";
+pub const CERTIFICATE_PLURAL: &str = "certificates";
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct CertificateIssuerRef {
+pub struct CertificateIssuerRef {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -34,7 +34,7 @@ pub(super) struct CertificateIssuerRef {
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct CertificateSecretTemplate {
+pub struct CertificateSecretTemplate {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub annotations: Option<BTreeMap<String, String>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -43,7 +43,7 @@ pub(super) struct CertificateSecretTemplate {
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub(super) struct PartialCertificateSpec {
+pub struct PartialCertificateSpec {
     pub secret_name: String,
     pub secret_template: Option<CertificateSecretTemplate>,
     pub issuer_ref: CertificateIssuerRef,
@@ -52,12 +52,12 @@ pub(super) struct PartialCertificateSpec {
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
-pub(super) struct PartialCertificateStatus {
+pub struct PartialCertificateStatus {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub next_private_key_secret_name: Option<String>,
 }
 
-pub(super) type PartialCertificate = kube::api::Object<PartialCertificateSpec, PartialCertificateStatus>;
+pub type PartialCertificate = kube::api::Object<PartialCertificateSpec, PartialCertificateStatus>;
 
 fn api_version() -> String {
     format!("{CERT_MANAGER_GROUP}/{CERT_MANAGER_VERSION}")
@@ -73,7 +73,7 @@ fn api_resource() -> ApiResource {
     }
 }
 
-pub(super) async fn create_certificate_if_not_present(
+pub async fn create_certificate_if_not_present(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
