@@ -9,9 +9,9 @@ readme.workspace = true
 edition.workspace = true
 
 [dependencies]
-clockabilly.workspace = true
-k8s-openapi.workspace = true
-kube.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-schemars.workspace = true
+clockabilly = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+schemars = { workspace = true }

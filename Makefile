@@ -1,5 +1,4 @@
 ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
-EXTRA_BUILD_ARTIFACTS ?= skctl
 
 COVERAGE_DIR=$(BUILD_DIR)/coverage
 CARGO_HOME_ENV=CARGO_HOME=$(BUILD_DIR)/cargo
@@ -22,24 +21,26 @@ include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:buster
 
+main:
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make build-docker
+
+extra: skctl
+
 # This is sorta subtle; the three "main" artifacts get built inside docker containers
 # to ensure that they are built against the right libs that they'll be running on in
 # the cluster.  So for those we share CARGO_HOME_ENV, which needs to be in $(BUILD_DIR)
 # so we have a known location for it.  This is _not_ built in a docker container so that
 # because it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
-$(EXTRA_BUILD_ARTIFACTS)::
-	cargo build --target-dir=$(BUILD_DIR) -p=$@ --color=always
-	cp $(BUILD_DIR)/debug/$@ $(BUILD_DIR)/.
-
-$(ARTIFACTS)::
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make $@-docker
+skctl:
+	cargo build --target-dir=$(BUILD_DIR) -p=skctl --color=always
+	cp $(BUILD_DIR)/debug/skctl $(BUILD_DIR)/.
 
 pre-image:
 	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
 
-%-docker:
-	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) -p=$* --color=always
-	cp $(BUILD_DIR)/debug/$* $(BUILD_DIR)/.
+build-docker:
+	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) $(addprefix -p=,$(ARTIFACTS)) --color=always
+	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
 
 test: unit itest
 

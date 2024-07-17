@@ -12,26 +12,26 @@ edition.workspace = true
 testutils = ["dep:mockall"]
 
 [dependencies]
-anyhow.workspace = true
-clockabilly.workspace = true
-futures.workspace = true
-kube.workspace = true
-k8s-openapi.workspace = true
-rmp-serde.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-serde_yaml.workspace = true
-sk-api.workspace = true
-sk-core.workspace = true
-tracing.workspace = true
+anyhow = { workspace = true }
+clockabilly = { workspace = true }
+futures = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+rmp-serde = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sk-api = { workspace = true }
+sk-core = { workspace = true }
+tracing = { workspace = true }
 
 # testutils dependencies
 mockall = { workspace = true, optional = true }
 
 [dev-dependencies]
-assertables.workspace = true
+assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
-rstest.workspace = true
+rstest = { workspace = true }
 sk-core = { workspace = true, features = ["testutils"] }
-tokio.workspace = true
-tracing-test.workspace = true
+tokio = { workspace = true }
+tracing-test = { workspace = true }

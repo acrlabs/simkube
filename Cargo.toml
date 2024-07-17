@@ -28,17 +28,27 @@ sk-core.path = "sk-core"
 sk-store.path = "sk-store"
 testutils.path = "testutils"
 clockabilly.path = "clockabilly"
+
 anyhow = { version = "1.0.75", features = ["backtrace"] }
+async-recursion = "1.0.5"
+async-trait = "0.1.80"
 bytes = "1.5.0"
+chrono = "0.4.26"
 clap = { version = "4.3.21", features = ["cargo", "derive", "string"] }
+clap_complete = "4.5.6"
+dirs = "5.0.1"
 either = "1.12.0"
 futures = "0.3.28"
 json-patch = "1.2.0"
 k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
 object_store = { version = "0.10.1", features = ["aws", "gcp", "azure", "http"] }
+# remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
+parse_datetime = { git = "https://github.com/drmorr0/parse_datetime", rev = "748d15b" }
+paste = "1.0.14"
+regex = "1.10.2"
 reqwest = { version = "0.11.18", default-features = false, features = ["json", "rustls-tls"] }
-rocket = { version = "0.5.0", features = ["json", "tls"] }
 rmp-serde = "1.1.2"
+rocket = { version = "0.5.0", features = ["json", "tls"] }
 schemars = { version = "0.8.12", features = ["chrono"] }
 serde = "1.0.188"
 serde_json = "1.0.105"
@@ -46,25 +56,17 @@ serde_yaml = "0.9.25"
 thiserror = "1.0.46"
 tokio = { version = "1.28.2", features = ["io-util", "macros", "process", "rt-multi-thread", "signal"] }
 tracing = "0.1.37"
-tracing-test = "0.2.4"
+tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
+url = "2.4.1"
 
 # test dependencies
 assertables = "7.0.1"
+http = "0.2.9"
 httpmock = "0.6.8"
 hyper = "0.14.27"
 mockall = "0.11.4"
 rstest = "0.18.2"
-async-recursion = "1.0.5"
-async-trait = "0.1.80"
-chrono = "0.4.26"
-clap_complete = "4.5.6"
-dirs = "5.0.1"
-http = "0.2.9"
-parse_datetime = { git = "https://github.com/drmorr0/parse_datetime", rev = "748d15b" }
-paste = "1.0.14"
-regex = "1.10.2"
-tracing-subscriber = "0.3.17"
-url = "2.4.1"
+tracing-test = "0.2.4"
 
 [workspace.dependencies.kube]
 version = "0.85.0"
