@@ -30,7 +30,7 @@ async fn test_cleanup_trace_error() {
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
 
-    let clock = MockUtcClock::new(0);
+    let clock = MockUtcClock::boxed(0);
 
     fake_apiserver
         .handle(|when, then| {
@@ -58,7 +58,7 @@ async fn test_cleanup_trace_timeout() {
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
 
-    let clock = MockUtcClock::new(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
+    let clock = MockUtcClock::boxed(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
 
     let res = cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
         .await
@@ -79,7 +79,7 @@ async fn test_cleanup_trace() {
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
 
-    let clock = MockUtcClock::new(0);
+    let clock = MockUtcClock::boxed(0);
 
     fake_apiserver
         .handle(|when, then| {

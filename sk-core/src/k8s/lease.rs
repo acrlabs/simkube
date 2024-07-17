@@ -42,7 +42,7 @@ pub async fn try_claim_lease(
     metaroot: &SimulationRoot,
     lease_ns: &str,
 ) -> anyhow::Result<LeaseState> {
-    try_claim_lease_with_clock(client, sim, metaroot, lease_ns, UtcClock::new()).await
+    try_claim_lease_with_clock(client, sim, metaroot, lease_ns, UtcClock::boxed()).await
 }
 
 pub(super) async fn try_claim_lease_with_clock(
@@ -103,7 +103,7 @@ pub async fn try_update_lease(
     lease_ns: &str,
     lease_duration: i64,
 ) -> EmptyResult {
-    try_update_lease_with_clock(client, sim, lease_ns, lease_duration, UtcClock::new()).await
+    try_update_lease_with_clock(client, sim, lease_ns, lease_duration, UtcClock::boxed()).await
 }
 
 pub(super) async fn try_update_lease_with_clock(

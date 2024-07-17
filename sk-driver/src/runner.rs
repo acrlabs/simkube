@@ -169,7 +169,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         }
     }
 
-    let clock = UtcClock::new();
+    let clock = UtcClock::boxed();
     let timeout = clock.now_ts() + DRIVER_CLEANUP_TIMEOUT_SECONDS;
     cleanup_trace(&ctx, roots_api, clock, timeout).await
 }

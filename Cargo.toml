@@ -1,7 +1,6 @@
 [workspace]
 resolver = "2"
 members = [
-    "clockabilly",
     "sk-api",
     "sk-cli",
     "sk-core",
@@ -26,16 +25,14 @@ debug = false
 sk-api.path = "sk-api"
 sk-core.path = "sk-core"
 sk-store.path = "sk-store"
-testutils.path = "testutils"
-clockabilly.path = "clockabilly"
 
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
 async-trait = "0.1.80"
 bytes = "1.5.0"
-chrono = "0.4.26"
 clap = { version = "4.3.21", features = ["cargo", "derive", "string"] }
 clap_complete = "4.5.6"
+clockabilly = "0.1.0"
 dirs = "5.0.1"
 either = "1.12.0"
 futures = "0.3.28"
