@@ -31,7 +31,7 @@ fn lease_other_holder() -> coordinationv1::Lease {
 #[traced_test]
 #[tokio::test]
 async fn test_try_claim_lease_with_clock_already_owned_by_us(test_sim: Simulation, test_sim_root: SimulationRoot) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
     fake_apiserver
@@ -52,7 +52,7 @@ async fn test_try_claim_lease_with_clock_already_owned_by_us(test_sim: Simulatio
 #[traced_test]
 #[tokio::test]
 async fn test_try_claim_lease_with_clock_other_lease_unowned(test_sim: Simulation, test_sim_root: SimulationRoot) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let other_lease: coordinationv1::Lease = Default::default();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
@@ -83,7 +83,7 @@ async fn test_try_claim_lease_with_clock_already_owned_by_other(
     test_sim_root: SimulationRoot,
     lease_other_holder: coordinationv1::Lease,
 ) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver
         .handle(move |when, then| {
@@ -103,7 +103,7 @@ async fn test_try_claim_lease_with_clock_already_owned_by_other(
 #[traced_test]
 #[tokio::test]
 async fn test_try_claim_lease_with_clock(test_sim: Simulation, test_sim_root: SimulationRoot) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
     fake_apiserver
@@ -125,7 +125,7 @@ async fn test_try_claim_lease_with_clock(test_sim: Simulation, test_sim_root: Si
 #[traced_test]
 #[tokio::test]
 async fn test_try_update_lease_with_clock_no_lease_found(test_sim: Simulation) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver
         .handle_not_found(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"))
@@ -142,7 +142,7 @@ async fn test_try_update_lease_with_clock_no_lease_found(test_sim: Simulation) {
 #[traced_test]
 #[tokio::test]
 async fn test_try_update_lease_with_clock_wrong_owner(test_sim: Simulation, lease_other_holder: coordinationv1::Lease) {
-    let clock = MockUtcClock::new(NOW);
+    let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver
         .handle(move |when, then| {
@@ -163,7 +163,7 @@ async fn test_try_update_lease_with_clock_wrong_owner(test_sim: Simulation, leas
 #[traced_test]
 #[tokio::test]
 async fn test_try_update_lease_with_clock(test_sim: Simulation, test_sim_root: SimulationRoot) {
-    let mut clock = MockUtcClock::new(NOW);
+    let mut clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
     let mut patched_lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());

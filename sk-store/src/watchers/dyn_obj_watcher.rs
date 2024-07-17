@@ -75,7 +75,7 @@ impl DynObjWatcher {
 
         Ok((
             DynObjWatcher {
-                clock: UtcClock::new(),
+                clock: UtcClock::boxed(),
                 obj_stream: select_all(apis),
                 store,
 

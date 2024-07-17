@@ -625,7 +625,9 @@ checksum = "4b82cf0babdbd58558212896d1a4272303a57bdb245c2bf1147185fb45640e70"
 
 [[package]]
 name = "clockabilly"
-version = "0.0.0"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49ba5ead05fbdc11573017881b95c32343a382f917cf9354f8f22e3654226983"
 dependencies = [
  "chrono",
 ]

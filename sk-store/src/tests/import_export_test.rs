@@ -128,7 +128,7 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
 #[traced_test]
 #[tokio::test]
 async fn itest_export(#[case] duration: Option<String>) {
-    let clock = MockUtcClock::new(0);
+    let clock = MockUtcClock::boxed(0);
 
     // Since we're just generating the results from the stream and not actually querying any
     // Kubernetes internals or whatever, the TracerConfig is empty.

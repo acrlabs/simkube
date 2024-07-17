@@ -27,7 +27,7 @@ const END_TS: i64 = 5678;
 
 #[fixture]
 fn clock() -> Box<MockUtcClock> {
-    MockUtcClock::new(START_TS)
+    MockUtcClock::boxed(START_TS)
 }
 
 fn make_pod_watcher(
