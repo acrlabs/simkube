@@ -327,11 +327,17 @@ impl<'a> Iterator for TraceIterator<'a> {
 }
 
 #[cfg(test)]
-impl TraceStore {
-    pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<String> {
-        // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
-        // keep the deleted objects around, so we set that parameter to `false`.
-        let (_, index) = self.collect_events(0, end_ts, filter, false);
-        index.into_keys().collect()
+mod test {
+    use std::collections::HashSet;
+
+    use super::*;
+
+    impl TraceStore {
+        pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<String> {
+            // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
+            // keep the deleted objects around, so we set that parameter to `false`.
+            let (_, index) = self.collect_events(0, end_ts, filter, false);
+            index.into_keys().collect()
+        }
     }
 }
