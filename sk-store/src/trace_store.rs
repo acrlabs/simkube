@@ -1,6 +1,5 @@
 use std::collections::{
     HashMap,
-    HashSet,
     VecDeque,
 };
 use std::mem::take;
@@ -111,13 +110,6 @@ impl TraceStore {
         })
     }
 
-    pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<String> {
-        // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
-        // keep the deleted objects around, so we set that parameter to `false`.
-        let (_, index) = self.collect_events(0, end_ts, filter, false);
-        index.into_keys().collect()
-    }
-
     pub(crate) fn collect_events(
         &self,
         start_ts: i64,
@@ -129,8 +121,12 @@ impl TraceStore {
         // an empty event at the start_ts if there aren't any events that happened
         // before the start_ts
         let mut events = vec![TraceEvent { ts: start_ts, ..Default::default() }];
+
+        // flattened_objects is a list of everything that happened before start_ts but is
+        // still present at start_ts -- i.e., it is our starting configuration.
         let mut flattened_objects = HashMap::new();
         let mut index = HashMap::new();
+
         for (evt, _) in self.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
             // end_ts or greater gets discarded.  The event list is stored in
@@ -165,6 +161,8 @@ impl TraceStore {
             }
         }
 
+        // events[0] is the empty event we inserted at the beginning, so we're guaranteed not to
+        // overwrite anything here.
         events[0].applied_objs = flattened_objects.into_values().collect();
         (events, index)
     }
@@ -325,5 +323,15 @@ impl<'a> Iterator for TraceIterator<'a> {
 
         self.idx += 1;
         ret
+    }
+}
+
+#[cfg(test)]
+impl TraceStore {
+    pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<String> {
+        // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
+        // keep the deleted objects around, so we set that parameter to `false`.
+        let (_, index) = self.collect_events(0, end_ts, filter, false);
+        index.into_keys().collect()
     }
 }
