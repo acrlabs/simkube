@@ -84,7 +84,7 @@ simkube-worker          Ready    <none>          12m   v1.27.3
 ## Step 3: Run your simulation!
 
 ```
-> skctl run my-first-simulation --trace-path s3://your-simkube-bucket/path/to/trace +5m
+> skctl run my-first-simulation --trace-path s3://your-simkube-bucket/path/to/trace --duration +5m
 running simulation my-first-simulation
 ```
 
