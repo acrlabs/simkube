@@ -9,10 +9,10 @@ use std::sync::{
 use bytes::Bytes;
 use clap::Parser;
 use kube::Client;
+use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
 use sk_core::external_storage::{
-    ObjectStoreScheme,
     ObjectStoreWrapper,
     SkObjectStore,
 };

@@ -3,9 +3,9 @@ use std::sync::{
     Mutex,
 };
 
+use object_store::ObjectStoreScheme;
 use sk_core::external_storage::{
     MockObjectStoreWrapper,
-    ObjectStoreScheme,
     SkObjectStore,
 };
 
