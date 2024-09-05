@@ -19,6 +19,7 @@ either = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
+object_store = { workspace = true }
 reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }

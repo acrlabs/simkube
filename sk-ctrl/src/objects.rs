@@ -6,6 +6,7 @@ use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use kube::ResourceExt;
+use object_store::ObjectStoreScheme;
 use reqwest::Url;
 use sk_api::prometheus::{
     Prometheus,
@@ -14,7 +15,6 @@ use sk_api::prometheus::{
     PrometheusSpec,
 };
 use sk_api::v1::SimulationMetricsConfig;
-use sk_core::external_storage::ObjectStoreScheme;
 use sk_core::k8s::{
     build_containment_label_selector,
     build_global_object_meta,
