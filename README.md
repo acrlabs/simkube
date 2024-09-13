@@ -45,6 +45,12 @@ Computing's website.  Here are some quick links to select topics:
 - [Component Reference](http://appliedcomputing.io/simkube/docs/components/skctl/)
 - [Developing SimKube](http://appliedcomputing.io/simkube/docs/dev/contributing/)
 
+## Community
+
+We have a [channel](https://kubernetes.slack.com/archives/C07LTUB823Z) on the Kubernetes Slack instance!  Come chat with
+us there.  (You can [sign up](https://communityinviter.com/apps/kubernetes/community) for the Kubernetes Slack instance
+for free)
+
 ## Contributing
 
 We welcome any and all contributions to the SimKube project!  Please open a pull request.
@@ -72,3 +78,8 @@ default](https://docs.github.com/en/site-policy/github-terms/github-terms-of-ser
 > Due to the uncertain nature of copyright and IP law, this repository does not accept contributions that have been all
 > or partially generated with GitHub Copilot or other LLM-based code generation tools.  Please disable any such tools
 > before authoring changes to this project.
+
+## Related Reading
+
+- [Announcing SimKube 1.0](https://blog.appliedcomputing.io/p/announcing-simkube-v10)
+- [Why do we need a simulator?](https://blog.appliedcomputing.io/p/simkube-part-1-why-do-we-need-a-simulator)
