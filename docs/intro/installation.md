@@ -11,10 +11,10 @@ This guide will walk you through installing the various SimKube components
 
 The following prereqs are required for all components:
 
-- Rust >= 1.71
-- Docker
-- kubectl >= 1.27
-- Kubernetes >= 1.27
+- [Rust (including Cargo)](https://www.rust-lang.org/learn/get-started) >= 1.71
+- [Docker](https://docs.docker.com/get-started/)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) >= 1.27
+- a Kubernetes cluster running at least v1.27
 
 Additional prerequisites are necessary for your simulation cluster:
 
@@ -32,17 +32,25 @@ corresponding KWOK provider.  For the Kubernetes Cluster Autoscaler, a KWOK [clo
 is available, and for Karpenter, a basic [KWOK provider](https://github.com/kubernetes-sigs/karpenter/tree/main/kwok) is
 used.  See [Autoscaling](../adv/autoscaling.md) for more information on configuring these tools.
 
-## Installation using hosted quay.io images and kustomize
+## Installation using pre-built images (for users)
 
 SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcomputing); the easiest way to install and
 run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
 YAML files in `k8s/kustomize`:
 
 ```
+git clone https://github.com/acrlabs/simkube && cd simkube
 kubectl apply -k k8s/kustomize
 ```
 
-## Installation from source
+You'll need to also install `skctl` to start or interact with simulations; `skctl` is available on
+[crates.io](https://crates.io/crates/skctl) and you can install it with:
+
+```
+cargo install skctl
+```
+
+## Installation from source (for SimKube developers)
 
 If you instead want to build and install SimKube from source, you can follow these steps:
 
@@ -50,8 +58,11 @@ If you instead want to build and install SimKube from source, you can follow the
 
 To build all SimKube artifacts for the first time run:
 
-- `git submodule init && git submodule update`
-- `make build` from the root of this repository.
+```
+git clone https://github.com/acrlabs/simkube && cd simkube
+git submodule init && git submodule update
+make build
+```
 
 For all subsequent builds of SimKube artifacts, run only `make build` from the root of this repository.
 
@@ -61,7 +72,15 @@ To build and push Docker images for all the artifacts, run `DOCKER_REGISTRY=path
 
 ### Running the artifacts:
 
-To run the artifacts using the images you built in the previous step, run `make run`.
+To run the artifacts using the images you built in the previous step, run `make run`.   You should now see the SimKube
+pods running in the `simkube` namespace on your Kubernetes cluster:
+
+```
+> kubectl get pods -n simkube
+NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
+simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h
+simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
+```
 
 ### Cleaning up
 
@@ -154,13 +173,17 @@ spec:
 
 ## Customizing SimKube
 
-The following section describes some options for customizing the behaviour of your SimKube installation
+After completing the above steps, you should have a basic SimKube installation running on your Kubernetes cluster!
+The following section describes some options for customizing the behaviour of your SimKube installation; if you are
+using the provided [kustomize](https://github.com/acrlabs/simkube/tree/master/k8s/kustomize) manifests, you can update
+or override these values there.
 
 ### Configuration `sk-tracer`
 
 The SimKube tracer runs in a real cluster and collects data about changes to objects in that cluster.  You can configure
-what objects it watches via a config file.  Here is an example config file you can use to watch changes to Deployments,
-Jobs, and StatefulSets:
+what objects it watches via a config file, which is injected into the `sk-tracer` pod as a ConfigMap; if you are using
+the provided kustomize manifests, you can override the `tracer-config.yml` data in the provided ConfigMap.  Here is an
+example config that tells sk-tracer to watch Deployments, Jobs, and StatefulSets:
 
 ```yaml
 trackedObjects:
