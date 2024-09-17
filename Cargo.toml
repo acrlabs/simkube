@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Applied Computing Research Labs"]
 documentation = "https://appliedcomputing.io/simkube/"
 license-file = "LICENSE"
