@@ -34,11 +34,11 @@ used.  See [Autoscaling](../adv/autoscaling.md) for more information on configur
 
 ## Configuring your simulation cluster
 
-### Local cluster via kind
-
 This section explains how to create a [`kind`](https://kind.sigs.k8s.io) cluster on your local machine for running
 simulations.  If you have a pre-existing Kubernetes cluster that you will be using for your simulation environment, you
 can skip this step.
+
+### Setting up kind
 
 From the `kind` website:
 
@@ -116,7 +116,7 @@ spec:
 > kubectl apply -f self-signed.yml
 ```
 
-## Installation using pre-built images
+## Installing SimKube using pre-built images
 
 SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcomputing); the easiest way to install and
 run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
