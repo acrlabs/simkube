@@ -2226,9 +2226,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse_datetime"
-version = "0.6.0"
-source = "git+https://github.com/drmorr0/parse_datetime?rev=748d15b#748d15bb5ed8f7a26f3812c56b4cce1ecdf39599"
+name = "parse_datetime_fork"
+version = "0.6.0-custom"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "046ad1c286232a331a00b746a1a2acd57e6d246c95329f023f4b96a948c03875"
 dependencies = [
  "chrono",
  "nom",
@@ -3300,7 +3301,7 @@ dependencies = [
  "kube",
  "mockall",
  "object_store",
- "parse_datetime",
+ "parse_datetime_fork",
  "paste",
  "regex",
  "reqwest 0.11.27",
