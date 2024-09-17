@@ -7,6 +7,7 @@ nav:
       - Installation: docs/intro/installation.md
       - Running a Simulation: docs/intro/running.md
   - Advanced:
+      - Configuration: docs/adv/config.md
       - Autoscaling: docs/adv/autoscaling.md
       - Collecting Metrics: docs/adv/metrics.md
       - Traces: docs/adv/traces.md
@@ -17,5 +18,6 @@ nav:
       - sk-driver: docs/components/sk-driver.md
       - sk-tracer: docs/components/sk-tracer.md
   - Contributing:
+      - Setting up: docs/dev/setup.md
       - Developer's Guide: docs/dev/contributing.md
       - API changes: docs/dev/api_changes.md

@@ -32,68 +32,13 @@ corresponding KWOK provider.  For the Kubernetes Cluster Autoscaler, a KWOK [clo
 is available, and for Karpenter, a basic [KWOK provider](https://github.com/kubernetes-sigs/karpenter/tree/main/kwok) is
 used.  See [Autoscaling](../adv/autoscaling.md) for more information on configuring these tools.
 
-## Installation using pre-built images (for users)
-
-SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcomputing); the easiest way to install and
-run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
-YAML files in `k8s/kustomize`:
-
-```
-git clone https://github.com/acrlabs/simkube && cd simkube
-kubectl apply -k k8s/kustomize
-```
-
-You'll need to also install `skctl` to start or interact with simulations; `skctl` is available on
-[crates.io](https://crates.io/crates/skctl) and you can install it with:
-
-```
-cargo install skctl
-```
-
-## Installation from source (for SimKube developers)
-
-If you instead want to build and install SimKube from source, you can follow these steps:
-
-### Building SimKube
-
-To build all SimKube artifacts for the first time run:
-
-```
-git clone https://github.com/acrlabs/simkube && cd simkube
-git submodule init && git submodule update
-make build
-```
-
-For all subsequent builds of SimKube artifacts, run only `make build` from the root of this repository.
-
-### Docker images
-
-To build and push Docker images for all the artifacts, run `DOCKER_REGISTRY=path_to_your_registry:5000 make image`
-
-### Running the artifacts:
-
-To run the artifacts using the images you built in the previous step, run `make run`.   You should now see the SimKube
-pods running in the `simkube` namespace on your Kubernetes cluster:
-
-```
-> kubectl get pods -n simkube
-NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
-simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h
-simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
-```
-
-### Cleaning up
-
-All build artifacts are placed in the `.build/` directory.  You can remove this directory or run `make clean` to clean
-up.
-
 ## Configuring your simulation cluster
 
 ### Local cluster via kind
 
-This section explains how to create a [`kind`](https://kind.sigs.k8s.io) cluster on your local machine for running simulations.
-If you have a pre-existing Kubernetes cluster that you will be using for your simulation environment, you can skip this
-step.
+This section explains how to create a [`kind`](https://kind.sigs.k8s.io) cluster on your local machine for running
+simulations.  If you have a pre-existing Kubernetes cluster that you will be using for your simulation environment, you
+can skip this step.
 
 From the `kind` website:
 
@@ -171,62 +116,40 @@ spec:
 > kubectl apply -f self-signed.yml
 ```
 
-## Customizing SimKube
+## Installation using pre-built images
 
-After completing the above steps, you should have a basic SimKube installation running on your Kubernetes cluster!
-The following section describes some options for customizing the behaviour of your SimKube installation; if you are
-using the provided [kustomize](https://github.com/acrlabs/simkube/tree/master/k8s/kustomize) manifests, you can update
-or override these values there.
+SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcomputing); the easiest way to install and
+run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
+YAML files in `k8s/kustomize`:
 
-### Configuration `sk-tracer`
-
-The SimKube tracer runs in a real cluster and collects data about changes to objects in that cluster.  You can configure
-what objects it watches via a config file, which is injected into the `sk-tracer` pod as a ConfigMap; if you are using
-the provided kustomize manifests, you can override the `tracer-config.yml` data in the provided ConfigMap.  Here is an
-example config that tells sk-tracer to watch Deployments, Jobs, and StatefulSets:
-
-```yaml
-trackedObjects:
-  apps/v1.Deployment:
-    podSpecTemplatePath: /spec/template
-  batch/v1.Job:
-    podSpecTemplatePath: /spec/template
-  apps/v1.StatefulSet:
-    podSpecTemplatePath: /spec/template
+```
+git clone https://github.com/acrlabs/simkube && cd simkube
+kubectl apply -k k8s/kustomize
 ```
 
-> [!NOTE]
-> SimKube does some sanitization of the resources it watches, which is why it needs to know where the
-> `podSpecTemplatePath` is; especially for custom resources, the path to the `podSpecTemplate` is not necessarily
-> standard or well-known.  In a future version of SimKube we'll make this parameter optional for all "standard"
-> Kubernetes objects.
+You should now see the SimKube pods running in your cluster:
 
-`sk-tracer` needs an RBAC policy that grants "get", "list" and "watch" access to all configured objects in the cluster,
-as well as pods.  For example, if you use the above configuration, you will need the following RBAC policy attached to
-the service account used by `sk-tracer`:
 
-```yaml
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: sk-tracer
-rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["apps/v1"]
-  resources: ["deployment", "statefulset"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["batch/v1"]
-  resources: ["job"]
-  verbs: ["get", "watch", "list"]
+```
+> kubectl get pods -n simkube
+NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
+simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h
+simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
 ```
 
-### Configuring `sk-ctrl`
+You'll need to also install `skctl` to start or interact with simulations; `skctl` is available on
+[crates.io](https://crates.io/crates/skctl) and you can install it with:
 
-The SimKube controller just needs the SimKube custom resources installed in the target environment, and needs no other
-configuration.
+```
+cargo install skctl
+```
 
-The SimKube controller needs, at a minimum, write access for all of the objects that it will be simulating.  In theory,
-since this is an isolated (or potentially even local) environment, it should be safe to give it `cluster-admin`, which
-is probably the easiest way to configure it.
+You can test if it worked by running `skctl version` (make sure that your Cargo bin directory is on your `$PATH`, e.g.,
+`echo "export ${CARGO_HOME}/bin:${PATH}" >> ~/.zshrc`):
+
+```
+> skctl version
+skctl 1.0.1
+```
+
+Now you should be able to [run your first simulation](./running.md)!

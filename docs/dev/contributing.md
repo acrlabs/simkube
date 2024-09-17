@@ -5,50 +5,24 @@ template: docs.html
 
 # Contributing to SimKube
 
-## Setting up your environment
-
-### Prerequisites
-
-In addition to the project prerequisites, you will need to have the following installed:
-
-- [pre-commit](https://pre-commit.com)
-- Nightly version of rustfmt
-
-SimKube uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests from definitions located
-in `./k8s/`.  If you want to make changes to the generated Kubernetes manifests, you will need to install the
-following additional dependencies:
-
-- Python 3.11
-- Python Poetry (https://python-poetry.org/docs/)
-- NodeJS
-
-### Optional prerequisites
-
-- [grcov](https://github.com/mozilla/grcov) (if you want to generate coverage reports locally)
-- [openapi-generator](https://openapi-generator.tech) (if you need to make changes to the SimKube API)
-- [msgpack-tools](https://github.com/ludocode/msgpack-tools) (for inspecting the contents of exported trace files)
-
-### Setup
-
-Run `make setup` to install the pre-commit hooks and configure the Poetry virtualenv in `./k8s`
-
 ## Code organization
 
 The SimKube repo is organized as follows:
 
 ```
 /<root>
-    /api       - OpenAPI v3 definitions for the SimKube API
     /build     - build scripts and helper functions (git submodule)
-    /cli       - Rust code for the `skctl` CLI utility
-    /ctrl      - Rust code for the `sk-ctrl` Kubernetes controller
     /docs      - Documentation
-    /driver    - Rust code for the `sk-driver` Simulation runner
     /examples  - Example YAML files and other configs
     /images    - Dockerfiles for all components
     /k8s       - 🔥Config Python scripts for Kubernetes manifest generation
-    /lib       - shared library code
-    /tracer    - Rust code for the `sk-tracer` Kubernetes object
+    /sk-api    - CRD and OpenAPI v3 definitions for the SimKube API
+    /sk-cli    - Rust code for the `skctl` CLI utility
+    /sk-core   - Rust code for shared/"core" functionality
+    /sk-ctrl   - Rust code for the `sk-ctrl` Kubernetes controller
+    /sk-driver - Rust code for the `sk-driver` Simulation runner
+    /sk-store  - Rust code for the tracer object store
+    /sk-tracer    - Rust code for the `sk-tracer` Kubernetes object
 ```
 
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
@@ -63,8 +37,11 @@ needs to be shared between multiple artifacts should go in either `lib/`.
 ### Building the artifacts
 
 To build all SimKube artifacts for the first time run:
-- `git submodule init && git submodule update`
-- `make build` from the root of this repository.
+
+```
+git submodule init && git submodule update
+make build` from the root of this repository.
+```
 
 For all subsequent builds of SimKube artifacts, run only `make build` from the root of this repository.
 
@@ -87,19 +64,13 @@ artifacts, you can limit the scope with the `ARTIFACTS` environment variable.  Y
 docker registry by setting the `DOCKER_REGISTRY` environment variable; it defaults to `localhost:5000`.
 
 To accomplish automatic updates of the changed artifacts in Kubernetes (see below), during the image build phase, images
-are tagged with a SHA based on the contents of your Git repo (including working directory changes that have not been
-committed yet, but _not_ including untracked files).  🔥Config is smart enough to update the Deployment manifests with
-the new SHA after every image build, which means that the artifacts that have changed will automatically be updated by
-Kubernetes and everything else will be untouched.
+are tagged with a SHA based on the contents of your Git repo, plus a UUID.  🔥Config is smart enough to update the
+Deployment manifests with the new SHA after every image build, which means that the artifacts that have changed will
+automatically be updated by Kubernetes and everything else will be untouched.
 
 One consequence of the above is that if you don't periodically clean up old built Docker images, you can fill up your
 hard drive rather rapidly!  We recommend having `/var` (or wherever your Docker images live) be on a separate partition.
 We'd like to improve this situation sometime in the future but it's a low priority right now.
-
-The mechanism for determining the changes to your working directory temporarily resets your Git index to a different
-location.  This is a little bit of a risky operation, although we think we've mostly worked the kinks out at this point.
-We'd also like to make this better, but it's also a low priority.  You shouldn't lose any _data_, but it is possible
-(though unlikely, unless you're doing something weird) that your index state gets corrupted.
 
 ### Running the artifacts in Kubernetes
 
