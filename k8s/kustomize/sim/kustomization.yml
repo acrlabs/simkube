@@ -1,9 +1,7 @@
-
 ---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
+  - ../base
   - simkube.io_simulations.yml
-  - 0000-global.k8s.yaml
-  - 0001-sk-tracer.k8s.yaml
-  - 0002-sk-ctrl.k8s.yaml
+  - sk-ctrl.yml
