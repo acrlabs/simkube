@@ -122,19 +122,29 @@ SimKube images are [hosted on quay.io](https://quay.io/organization/appliedcompu
 run SimKube in your cluster is to use these images along with the provided [kustomize](https://kubernetes.io/docs/tasks/manage-kubernetes-objects/kustomization/)
 YAML files in `k8s/kustomize`:
 
-```
+```bash
 git clone https://github.com/acrlabs/simkube && cd simkube
-kubectl apply -k k8s/kustomize
+
+export PROD_CONTEXT=<your production cluster context name>
+export SIM_CONTEXT=<your simulation environment context name>
+
+# install sk-tracer in your production cluster
+kubectl --context ${PROD_CONTEXT} apply -k k8s/kustomize/prod
+
+# install sk-ctrl in your simulation environment
+kubectl --context ${SIM_CONTEXT} apply -k k8s/kustomize/sim
 ```
 
 You should now see the SimKube pods running in your cluster:
 
 
 ```
-> kubectl get pods -n simkube
+> kubectl --context ${PROD_CONTEXT} get pods -n simkube
+NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
+simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
+> kubectl --context ${SIM_CONTEXT} get pods -n simkube
 NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
 simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h
-simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
 ```
 
 You'll need to also install `skctl` to start or interact with simulations; `skctl` is available on

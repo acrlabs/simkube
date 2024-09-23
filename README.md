@@ -32,7 +32,9 @@ This package provides the following components:
 
 ## Installation
 
-`kubectl apply -k k8s/kustomize`
+1. To install `sk-tracer` in your prod cluster: `kubectl apply -k k8s/kustomize/prod`
+2. To install `sk-ctrl` in your simulation cluster: `kubectl apply -k k8s/kustomize/sim`
+3. To install `skctl` on your dev machine: `cargo install skctl`
 
 ## Documentation
 

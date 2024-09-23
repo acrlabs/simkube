@@ -46,4 +46,4 @@ repos:
         language: system
         entry: bash -c 'make kustomize && git diff --quiet'
         pass_filenames: false
-        files: 'lib/api/v1/.*|k8s/.*|Cargo.toml'
+        files: 'sk-api/.*|k8s/.*|Cargo.toml'

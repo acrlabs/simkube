@@ -10,16 +10,29 @@ from sk_tracer import SkTracer
 
 DAG_FILENAME = "dag.mermaid"
 DIFF_FILENAME = "k8s.df"
-KUSTOMIZATION_YML = """
----
+
+KUSTOMIZATION_YML_BASE = """---
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - simkube.io_simulations.yml
-  - 0000-global.k8s.yaml
-  - 0001-sk-tracer.k8s.yaml
-  - 0002-sk-ctrl.k8s.yaml
+  - sk-namespace.yml
 """
+KUSTOMIZATION_YML_PROD = """---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+  - sk-tracer.yml
+"""
+KUSTOMIZATION_YML_SIM = """---
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - ../base
+  - simkube.io_simulations.yml
+  - sk-ctrl.yml
+"""
+
 QUAY_IO_PREFIX = "quay.io/appliedcomputing"
 
 
@@ -48,6 +61,29 @@ def get_images(to_build: T.List, kustomize: bool, build_dir: str) -> T.List[str]
     return images
 
 
+def write_kustomize_files(build_dir: str):
+    # This is all super brittle and could fail if, well, really anything changes, but I want to replace
+    # this whole system at some point anyways so I'm just gonna deal with fixing it then
+    os.makedirs(f"{build_dir}/base", exist_ok=True)
+    os.makedirs(f"{build_dir}/prod", exist_ok=True)
+    os.makedirs(f"{build_dir}/sim", exist_ok=True)
+
+    kustomization_path_base = f"{build_dir}/base/kustomization.yml"
+    kustomization_path_prod = f"{build_dir}/prod/kustomization.yml"
+    kustomization_path_sim = f"{build_dir}/sim/kustomization.yml"
+    with open(kustomization_path_base, "w", encoding="utf-8") as f:
+        f.write(KUSTOMIZATION_YML_BASE)
+    with open(kustomization_path_prod, "w", encoding="utf-8") as f:
+        f.write(KUSTOMIZATION_YML_PROD)
+    with open(kustomization_path_sim, "w", encoding="utf-8") as f:
+        f.write(KUSTOMIZATION_YML_SIM)
+
+    os.rename(f"{build_dir}/0000-global.k8s.yaml", f"{build_dir}/base/sk-namespace.yml")
+    os.rename(f"{build_dir}/0001-sk-tracer.k8s.yaml", f"{build_dir}/prod/sk-tracer.yml")
+    os.rename(f"{build_dir}/0002-sk-ctrl.k8s.yaml", f"{build_dir}/sim/sk-ctrl.yml")
+    os.rename(f"{build_dir}/simkube.io_simulations.yml", f"{build_dir}/sim/simkube.io_simulations.yml")
+
+
 def main():
     args = setup_args()
     debug = not args.kustomize
@@ -55,7 +91,6 @@ def main():
     build_dir = os.getenv("BUILD_DIR")
     dag_path = None if args.kustomize else f"{build_dir}/{DAG_FILENAME}"
     diff_path = f"{build_dir}/{DIFF_FILENAME}"
-    kustomization_path = f"{build_dir}/kustomization.yml"
 
     apps = [SkTracer, SkCtrl]
     images = get_images(apps, args.kustomize, build_dir)
@@ -66,8 +101,7 @@ def main():
     )
 
     if args.kustomize:
-        with open(kustomization_path, "w", encoding="utf-8") as f:
-            f.write(KUSTOMIZATION_YML)
+        write_kustomize_files(build_dir)
     else:
         with open(dag_path, "w", encoding="utf-8") as f:
             f.write(graph)
