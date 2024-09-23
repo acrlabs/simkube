@@ -1,3 +1,4 @@
+mod check;
 mod completions;
 mod crd;
 mod delete;
@@ -27,6 +28,9 @@ struct SkCommandRoot {
 #[derive(Subcommand)]
 #[allow(clippy::large_enum_variant)]
 enum SkSubcommand {
+    #[command(about = "check trace file for issues")]
+    CheckTrace(check::Args),
+
     #[command(about = "generate shell completions for skctl")]
     Completions(completions::Args),
 
@@ -54,6 +58,7 @@ async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
 
     match &args.subcommand {
+        SkSubcommand::CheckTrace(args) => check::cmd(args),
         SkSubcommand::Completions(args) => completions::cmd(args, SkCommandRoot::command()),
         SkSubcommand::Crd => crd::cmd(),
         SkSubcommand::Export(args) => export::cmd(args).await,
