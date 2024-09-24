@@ -130,7 +130,9 @@ async fn build_stream_for_tracked_obj(apiset: &mut ApiSet, gvk: &GVK) -> anyhow:
     // it will prevent the tracer from starting up
     let api_version = gvk.api_version().clone();
     let kind = gvk.kind.clone();
-    let (api, _) = apiset.api_for(gvk).await?;
+
+    // The "unnamespaced" api variant can list/watch in all namespaces
+    let (api, _) = apiset.unnamespaced_api_by_gvk(gvk).await?;
 
     Ok(watcher(api.clone(), Default::default())
         // All these objects need to be cloned because they're moved into the stream here

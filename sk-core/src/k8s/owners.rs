@@ -48,7 +48,7 @@ impl OwnersCache {
 
         for rf in obj.owner_references() {
             let owner_gvk = GVK::from_owner_ref(rf)?;
-            let (api, cap) = self.apiset.api_for(&owner_gvk).await?;
+            let (api, cap) = self.apiset.unnamespaced_api_by_gvk(&owner_gvk).await?;
             let sel = build_owner_selector(&rf.name, obj, cap);
             let resp = api.list(&sel).await?;
             if resp.items.len() != 1 {
