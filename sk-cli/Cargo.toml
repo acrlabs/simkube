@@ -19,6 +19,7 @@ clap_complete = { workspace = true }
 dirs = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
+ratatui = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }
 serde_yaml = { workspace = true }

@@ -64,6 +64,7 @@ hyper = "0.14.27"
 mockall = "0.11.4"
 rstest = "0.18.2"
 tracing-test = "0.2.4"
+ratatui = "0.28.1"
 
 [workspace.dependencies.kube]
 version = "0.85.0"

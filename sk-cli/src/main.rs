@@ -4,6 +4,7 @@ mod delete;
 mod export;
 mod run;
 mod snapshot;
+mod xray;
 
 use clap::{
     crate_version,
@@ -47,6 +48,9 @@ enum SkSubcommand {
 
     #[command(about = "simkube version")]
     Version,
+
+    #[command(about = "explore or prepare trace data for simulation")]
+    Xray,
 }
 
 #[tokio::main]
@@ -64,5 +68,6 @@ async fn main() -> EmptyResult {
             println!("skctl {}", crate_version!());
             Ok(())
         },
+        SkSubcommand::Xray => xray::cmd(),
     }
 }
