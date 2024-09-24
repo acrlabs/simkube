@@ -141,7 +141,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
 
             info!("applying object {}", vobj.namespaced_name());
             apiset
-                .namespaced_api_for(&gvk, virtual_ns)
+                .api_for_obj(&vobj)
                 .await?
                 .patch(&vobj.name_any(), &PatchParams::apply("simkube"), &Patch::Apply(&vobj))
                 .await?;
@@ -149,10 +149,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
 
         for obj in &evt.deleted_objs {
             info!("deleting object {}", obj.namespaced_name());
-            let gvk = GVK::from_dynamic_obj(obj)?;
-            let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
             apiset
-                .namespaced_api_for(&gvk, virtual_ns)
+                .api_for_obj(obj)
                 .await?
                 .delete(&obj.name_any(), &Default::default())
                 .await?;
