@@ -50,7 +50,7 @@ enum SkSubcommand {
     Version,
 
     #[command(about = "explore or prepare trace data for simulation")]
-    Xray,
+    Xray(xray::Args),
 }
 
 #[tokio::main]
@@ -68,6 +68,6 @@ async fn main() -> EmptyResult {
             println!("skctl {}", crate_version!());
             Ok(())
         },
-        SkSubcommand::Xray => xray::cmd(),
+        SkSubcommand::Xray(args) => xray::cmd(args).await,
     }
 }

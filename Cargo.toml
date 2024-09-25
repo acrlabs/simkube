@@ -30,9 +30,11 @@ anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
 async-trait = "0.1.80"
 bytes = "1.5.0"
+chrono = "0.4.38"
 clap = { version = "4.3.21", features = ["cargo", "derive", "string"] }
 clap_complete = "4.5.6"
 clockabilly = "0.1.0"
+derive_setters = "0.1.6"
 dirs = "5.0.1"
 either = "1.12.0"
 futures = "0.3.28"
@@ -42,6 +44,7 @@ object_store = { version = "0.11.0", features = ["aws", "gcp", "azure", "http"] 
 # remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
 parse_datetime_fork = { version = "0.6.0-custom" }
 paste = "1.0.14"
+ratatui = "0.28.1"
 regex = "1.10.2"
 reqwest = { version = "0.11.18", default-features = false, features = ["json", "rustls-tls"] }
 rmp-serde = "1.1.2"
@@ -64,7 +67,6 @@ hyper = "0.14.27"
 mockall = "0.11.4"
 rstest = "0.18.2"
 tracing-test = "0.2.4"
-ratatui = "0.28.1"
 
 [workspace.dependencies.kube]
 version = "0.85.0"
