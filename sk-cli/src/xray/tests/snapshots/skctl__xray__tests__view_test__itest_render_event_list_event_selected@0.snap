@@ -1,0 +1,46 @@
+---
+source: sk-cli/src/xray/tests/view_test.rs
+expression: cf
+---
+CompletedFrame {
+    buffer: Buffer {
+        area: Rect { x: 0, y: 0, width: 80, height: 20 },
+        content: [
+            "┌──────────────────────────────────────────────────────────────────────────────┐",
+            "│>> 00:00:00 (0 applied/0 deleted)                                             │",
+            "│++                                                                            │",
+            "│   00:00:01 (1 applied/0 deleted)                                             │",
+            "│   00:00:02 (2 applied/0 deleted)                                             │",
+            "│   00:00:03 (0 applied/1 deleted)                                             │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "│                                                                              │",
+            "└──────────────────────────────────────────────────────────────────────────────┘",
+            "┌──────────────────────────────────────────────────────────────────────────────┐",
+            "│Hello SimKube!                                                                │",
+            "│Use arrows to navigate, space to select, 'q' to quit.                         │",
+            "│                                                                              │",
+            "└──────────────────────────────────────────────────────────────────────────────┘",
+        ],
+        styles: [
+            x: 0, y: 0, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 1, y: 1, fg: Reset, bg: Reset, underline: Reset, modifier: REVERSED,
+            x: 79, y: 1, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 1, y: 2, fg: Reset, bg: Blue, underline: Reset, modifier: ITALIC,
+            x: 79, y: 2, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 0, y: 15, fg: White, bg: Reset, underline: Reset, modifier: NONE,
+        ]
+    },
+    area: Rect {
+        x: 0,
+        y: 0,
+        width: 80,
+        height: 20,
+    },
+    count: 0,
+}
