@@ -33,4 +33,5 @@ tokio = { workspace = true }
 
 [dev-dependencies]
 assertables = { workspace = true }
+insta = { workspace = true }
 rstest = { workspace = true }
