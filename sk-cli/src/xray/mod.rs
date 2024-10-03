@@ -6,12 +6,7 @@ mod view;
 
 use ratatui::backend::Backend;
 use ratatui::Terminal;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
 use sk_core::prelude::*;
-use sk_store::TraceStore;
 
 use self::app::App;
 use self::event::handle_event;
@@ -28,11 +23,7 @@ pub struct Args {
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    let object_store = SkObjectStore::new(&args.trace_path)?;
-    let trace_data = object_store.get().await?.to_vec();
-    let store = TraceStore::import(trace_data, &None)?;
-
-    let app = App::new(&args.trace_path, store);
+    let app = App::new(&args.trace_path).await?;
     let term = ratatui::init();
     let res = run_loop(term, app);
     ratatui::restore();
