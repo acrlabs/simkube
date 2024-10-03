@@ -84,6 +84,12 @@ crd: skctl
 
 pre-k8s:: crd
 
+.PHONY: mdgen
+mdgen:
+	echo "# SimKube Trace Validation Checks" > sk-store/src/validation/README.md
+	cargo run --bin mdgen >> sk-store/src/validation/README.md
+	echo "This file is auto-generated; to rebuild, run \`make mdgen\`." >> sk-store/src/validation/README.md
+
 .PHONY: api
 api:
 	openapi-generator generate -i sk-api/schema/v1/simkube.yml -g rust --global-property models -o generated-api

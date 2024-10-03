@@ -35,3 +35,7 @@ rstest = { workspace = true }
 sk-core = { workspace = true, features = ["testutils"] }
 tokio = { workspace = true }
 tracing-test = { workspace = true }
+
+[[bin]]
+name = "mdgen"
+path = "src/validation/mdgen.rs"
