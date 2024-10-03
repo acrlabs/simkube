@@ -1,8 +1,8 @@
 use ratatui::widgets::ListState;
-use sk_store::{
-    TraceEvent,
-    TraceStorable,
-    TraceStore,
+
+use crate::validation::{
+    AnnotatedTrace,
+    ValidationStore,
 };
 
 #[derive(Debug, Default, Eq, PartialEq)]
@@ -18,9 +18,9 @@ pub(super) struct App {
     pub(super) running: bool,
     pub(super) mode: Mode,
 
-    pub(super) base_trace: TraceStore,
-    pub(super) trace_path: String,
-    pub(super) events: Vec<TraceEvent>,
+    pub(super) trace: AnnotatedTrace,
+    #[allow(dead_code)]
+    pub(super) validation_store: ValidationStore,
 
     pub(super) event_list_state: ListState,
     pub(super) object_list_state: ListState,
@@ -28,18 +28,13 @@ pub(super) struct App {
 }
 
 impl App {
-    pub(super) fn new(trace_path: &str, base_trace: TraceStore) -> App {
-        let events = base_trace.iter().map(|(evt, _)| evt).cloned().collect();
-        App {
+    pub(super) async fn new(trace_path: &str) -> anyhow::Result<App> {
+        Ok(App {
             running: true,
-
-            base_trace,
-            trace_path: trace_path.into(),
-            events,
-
+            trace: AnnotatedTrace::new(trace_path).await?,
             event_list_state: ListState::default().with_selected(Some(0)),
 
             ..Default::default()
-        }
+        })
     }
 }
