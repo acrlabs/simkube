@@ -3639,6 +3639,7 @@ dependencies = [
  "derive_setters",
  "dirs",
  "insta",
+ "json-patch",
  "k8s-openapi",
  "kube",
  "ratatui",
