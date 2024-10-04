@@ -11,7 +11,7 @@ This guide will walk you through installing the various SimKube components
 
 The following prereqs are required for all components:
 
-- [Rust (including Cargo)](https://www.rust-lang.org/learn/get-started) >= 1.71
+- [Rust (including Cargo)](https://www.rust-lang.org/learn/get-started) >= 1.79
 - [Docker](https://docs.docker.com/get-started/)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) >= 1.27
 - a Kubernetes cluster running at least v1.27
