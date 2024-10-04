@@ -17,6 +17,7 @@ documentation = "https://appliedcomputing.io/simkube/"
 license-file = "LICENSE"
 readme = "README.md"
 edition = "2021"
+rust-version = "1.79"
 
 [profile.dev.package."*"]
 debug = false

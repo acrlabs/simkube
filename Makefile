@@ -19,7 +19,7 @@ APP_VERSION=$(shell $(APP_VERSION_CMD))
 include build/base.mk
 include build/k8s.mk
 
-RUST_BUILD_IMAGE ?= rust:buster
+RUST_BUILD_IMAGE ?= rust:1.79-bullseye
 
 main:
 	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make build-docker

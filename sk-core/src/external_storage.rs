@@ -22,6 +22,12 @@
 /// Set the `GOOGLE_SERVICE_ACCOUNT` environment variable to the path for your service account JSON
 /// file (if you're running inside a container, you'll need that file injected as well).  Pass in a
 /// URL like `gs://bucket/path/to/resource`.
+use std::path::{
+    absolute,
+    PathBuf,
+};
+
+use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 #[cfg(feature = "testutils")]
@@ -53,8 +59,7 @@ pub struct SkObjectStore {
 
 impl SkObjectStore {
     pub fn new(path_str: &str) -> anyhow::Result<SkObjectStore> {
-        let url = Url::parse(path_str)?;
-        let (scheme, path) = ObjectStoreScheme::parse(&url)?;
+        let (scheme, path) = parse_path(path_str)?;
         let store: Box<DynObjectStore> = match scheme {
             ObjectStoreScheme::Local => Box::new(object_store::local::LocalFileSystem::new()),
             ObjectStoreScheme::Memory => Box::new(object_store::memory::InMemory::new()),
@@ -96,6 +101,18 @@ impl ObjectStoreWrapper for SkObjectStore {
     }
 }
 
+fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
+    let url = match Url::parse(path_str) {
+        Err(url::ParseError::RelativeUrlWithoutBase) => {
+            let path = absolute(PathBuf::from(path_str))?;
+            Url::from_file_path(path).map_err(|e| anyhow!("could not create URL from file path: {e:?}"))?
+        },
+        res => res?,
+    };
+
+    Ok(ObjectStoreScheme::parse(&url)?)
+}
+
 #[cfg(test)]
 mod test {
     use rstest::*;
@@ -111,5 +128,14 @@ mod test {
     fn test_new_sk_object_store() {
         let store = SkObjectStore::new("s3://foo/bar").unwrap();
         assert_eq!(store.scheme(), ObjectStoreScheme::AmazonS3);
+    }
+
+    #[rstest]
+    #[case::with_base("file:///tmp/foo")]
+    #[case::without_base("/tmp/foo")]
+    #[case::relative("foo")]
+    fn test_new_sk_object_store_local_path(#[case] path: &str) {
+        let store = SkObjectStore::new(path).unwrap();
+        assert_eq!(store.scheme(), ObjectStoreScheme::Local);
     }
 }

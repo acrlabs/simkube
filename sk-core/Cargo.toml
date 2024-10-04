@@ -33,6 +33,7 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+url = { workspace = true }
 
 # testutils dependencies
 http = { workspace = true, optional = true }
