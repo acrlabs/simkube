@@ -1,0 +1,40 @@
+[package]
+name = "sk-gen"
+description = "SimKube trace generator"
+version.workspace = true
+authors.workspace = true
+documentation.workspace = true
+license-file.workspace = true
+readme.workspace = true
+edition.workspace = true
+
+[features]
+testutils = ["dep:mockall"]
+
+[dependencies]
+anyhow = { workspace = true }
+clockabilly = { workspace = true }
+futures = { workspace = true }
+kube = { workspace = true }
+k8s-openapi = { workspace = true }
+rmp-serde = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+serde_yaml = { workspace = true }
+sk-api = { workspace = true }
+sk-core = { workspace = true }
+tracing = { workspace = true }
+sk-store = { workspace = true, features = ["testutils"] }
+
+# testutils dependencies
+mockall = { workspace = true, optional = true }
+clap = { workspace = true, features = ["derive"] }
+petgraph = { version = "0.6.5", features = ["generate"] }
+
+[dev-dependencies]
+assertables = { workspace = true }
+clockabilly = { workspace = true, features = ["mock"] }
+rstest = { workspace = true }
+sk-core = { workspace = true, features = ["testutils"] }
+tokio = { workspace = true }
+tracing-test = { workspace = true }
