@@ -161,8 +161,8 @@ pub fn generate_synthetic_trace(
         )]),
     };
 
-    // Create Pod object
-    let pod = DynamicObject {
+    // Create Pod object (not currently used)
+    let _pod = DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some("default".into()),
             name: Some("min-dep-hash".into()),
