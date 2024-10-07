@@ -17,6 +17,8 @@ use sk_store::{
     TracerConfig,
 };
 
+/// This tool generates synthetic traces of length <trace_length> on a minimal deploymebnt for a given set of replica
+/// counts, starting and ending at the first replica count.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
