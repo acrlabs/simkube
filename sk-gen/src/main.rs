@@ -43,12 +43,12 @@ struct Cli {
     output_dir: Option<PathBuf>,
 }
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     let trace_length = cli.trace_length;
     if trace_length < 3 {
-        panic!("trace length must be >= 3");
+        anyhow::bail!("trace length must be >= 3");
     }
     let replica_counts = cli.replica_counts;
 
@@ -57,6 +57,29 @@ fn main() {
     let replica_counts = replica_counts.split(',').map(|s| s.trim().parse().unwrap()).collect::<Vec<_>>();
 
     let nodes = replica_counts.into_iter().map(create_deployment).collect::<Vec<_>>();
+
+
+    // Right now, we create nodes first, then add edges. 
+    // Because we haven't decided on any notion of reduction via transitive closure, we add all the edges.
+
+    // Instead, of enumerating all valid configs and struggling with which of n^2 edges are valid,
+    // we can enumerate some simple actions, e.g.:
+    // enum Action {
+    //     CreateDeployment,
+    //     DeleteDeployment,
+    //     IncrementReplicas,
+    //     DecrementReplicas,
+    // }
+    // - create a deployment
+    // - delete a deployment
+    // - add a constant number of replicas
+    // - remove a constant number of replicas
+    // - uhhhh... something else??
+
+    // side note: hashing these states 
+
+    // from this, we can do a bfs of depth trace_length to find all reachable states, which is how we find our node set.
+
 
     // generate complete graph
     for node in nodes.iter() {
@@ -84,26 +107,22 @@ fn main() {
         })
     });
 
-    // ensure path exists
     if let Some(file) = &cli.output_dir {
         std::fs::create_dir_all(file).unwrap();
-        // print directory
         println!("output directory: {:?}", file);
     }
 
     for (i, walk) in walks.into_iter().enumerate() {
         let data = generate_synthetic_trace(walk);
 
-        let json_pretty = serde_json::to_string_pretty(&data).unwrap();
-
         if cli.display {
+            let json_pretty = serde_json::to_string_pretty(&data).unwrap();
             println!("walk {}:\n{}", i, json_pretty);
         }
 
         if let Some(file) = &cli.output_dir {
             let data = rmp_serde::to_vec(&data).unwrap();
             let path = file.join(format!("trace-{}.mp", i));
-            println!("writing to file: {:?}", path);
             std::fs::write(path, data).unwrap();
         }
     }
@@ -158,7 +177,6 @@ pub fn generate_synthetic_trace(
 
     let base_ts = 1728334068;
 
-    // Create TracerConfig
     let config = TracerConfig {
         tracked_objects: HashMap::from([(
             GVK::new("apps", "v1", "Deployment"),
@@ -169,7 +187,6 @@ pub fn generate_synthetic_trace(
         )]),
     };
 
-    // Create Pod object (not currently used)
     let _pod = DynamicObject {
         metadata: metav1::ObjectMeta {
             namespace: Some("default".into()),
@@ -206,11 +223,9 @@ pub fn generate_synthetic_trace(
     // });
 
     let mut ts = base_ts;
-    // Create a deployment for each replica count
     for deployment in deployments {
         let deployment_hash = jsonutils::hash_option(deployment.data.get("spec"));
         index.insert(deployment.metadata.name.clone().unwrap(), deployment_hash);
-        // trace event
         events.push_back(TraceEvent {
             ts,
             applied_objs: vec![deployment],
