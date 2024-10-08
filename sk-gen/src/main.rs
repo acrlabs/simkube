@@ -17,6 +17,9 @@ use sk_store::{
     TracerConfig,
 };
 
+use serde_json::json;
+use sk_store::TrackedObjectConfig;
+
 /// This tool generates synthetic traces of length <trace_length> on a minimal deployment for a given set of replica
 /// counts, starting and ending at the first replica count.
 #[derive(Parser)]
@@ -31,7 +34,7 @@ struct Cli {
     #[arg(short, long, value_name = "REPLICA_COUNT")]
     replica_counts: String,
 
-    /// Trace length
+    /// trace length
     #[arg(short, long, value_name = "TRACE_LENGTH")]
     trace_length: u64,
 
@@ -59,7 +62,7 @@ fn main() {
     for i in 0..nodes.len() {
         for j in 0..nodes.len() {
             if i != j {
-                graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ());
+                graph.add_edge(NodeIndex::new(i), NodeIndex::new(j), ()); // <- here is where the weights are added
             }
         }
     }
@@ -68,7 +71,7 @@ fn main() {
     let walks = (1..nodes.len()).flat_map(|i| {
         let start = NodeIndex::new(0);
         let end = NodeIndex::new(i);
-        all_simple_paths(&graph, start, end, trace_length as usize, None).map(|walk: Vec<NodeIndex>| {
+        all_simple_paths(&graph, start, end, trace_length as usize, Some(trace_length as usize -1)).map(|walk: Vec<NodeIndex>| {
             walk.into_iter()
                 .map(|i| graph[i].clone())
                 .chain(std::iter::once(graph[NodeIndex::new(0)].clone())) // return to start
@@ -99,8 +102,6 @@ fn main() {
     }
 }
 
-use serde_json::json;
-use sk_store::TrackedObjectConfig;
 
 fn create_deployment(replica_count: u32) -> DynamicObject {
     DynamicObject {
