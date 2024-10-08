@@ -2,6 +2,7 @@ mod config;
 mod pod_owners_map;
 mod trace_filter;
 mod trace_store;
+pub mod validation;
 pub mod watchers;
 
 use std::collections::VecDeque;
