@@ -34,7 +34,7 @@ struct Cli {
     #[arg(short, long, value_name = "REPLICA_COUNT")]
     replica_counts: String,
 
-    /// trace length
+    /// trace length (>= 3)
     #[arg(short, long, value_name = "TRACE_LENGTH")]
     trace_length: u64,
 
@@ -47,6 +47,9 @@ fn main() {
     let cli = Cli::parse();
 
     let trace_length = cli.trace_length;
+    if trace_length < 3 {
+        panic!("trace length must be >= 3");
+    }
     let replica_counts = cli.replica_counts;
 
     let mut graph = DiGraph::<DynamicObject, ()>::new();
@@ -71,7 +74,9 @@ fn main() {
     let walks = (1..nodes.len()).flat_map(|i| {
         let start = NodeIndex::new(0);
         let end = NodeIndex::new(i);
-        all_simple_paths(&graph, start, end, trace_length as usize, Some(trace_length as usize -1)).map(|walk: Vec<NodeIndex>| {
+        let intermediate_nodes = (trace_length - 3) as usize;
+        all_simple_paths(&graph, start, end, intermediate_nodes, Some(intermediate_nodes)).map(|walk: Vec<NodeIndex>| {
+            eprintln!("walk from start to i: {:?}", walk);
             walk.into_iter()
                 .map(|i| graph[i].clone())
                 .chain(std::iter::once(graph[NodeIndex::new(0)].clone())) // return to start
