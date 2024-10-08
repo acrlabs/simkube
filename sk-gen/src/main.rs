@@ -96,7 +96,9 @@ fn main() {
 
         let json_pretty = serde_json::to_string_pretty(&data).unwrap();
 
-        println!("walk {}:\n{}", i, json_pretty);
+        if cli.display {
+            println!("walk {}:\n{}", i, json_pretty);
+        }
 
         if let Some(file) = &cli.output_dir {
             let data = rmp_serde::to_vec(&data).unwrap();
