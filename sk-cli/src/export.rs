@@ -38,7 +38,8 @@ pub struct Args {
         long,
         long_help = "namespaces to exclude from the trace",
         value_delimiter = ',',
-        default_value = "cert-manager,kube-system,local-path-storage,monitoring,simkube"
+        default_value = "cert-manager,default,kube-public,kube-node-lease,kube-system,\
+            local-path-storage,monitoring,simkube"
     )]
     pub excluded_namespaces: Vec<String>,
 
