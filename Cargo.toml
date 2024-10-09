@@ -61,7 +61,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.4.1"
 
 # test dependencies
-assertables = "7.0.1"
+assertables = "8.18.0"
 http = "0.2.9"
 httpmock = "0.6.8"
 hyper = "0.14.27"

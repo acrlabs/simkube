@@ -8,6 +8,8 @@ TRACER_CONFIG_YML = """---
 trackedObjects:
   apps/v1.Deployment:
     podSpecTemplatePath: /spec/template
+  v1.ServiceAccount: {}
+  v1.ConfigMap: {}
 """
 CONFIGMAP_NAME = "tracer-config"
 

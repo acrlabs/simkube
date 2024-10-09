@@ -19,7 +19,7 @@ fn tracer() -> TraceStore {
             GVK::new("apps", "v1", "Deployment"),
             TrackedObjectConfig {
                 track_lifecycle: true,
-                pod_spec_template_path: "/spec/template".into(),
+                pod_spec_template_path: Some("/spec/template".into()),
             },
         )]),
     })
