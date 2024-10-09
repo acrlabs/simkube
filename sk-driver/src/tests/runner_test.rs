@@ -153,6 +153,12 @@ async fn itest_run(#[case] has_start_marker: bool) {
             then.json_body(status_ok());
         })
         .handle(|when, then| {
+            when.method(DELETE).path(format!(
+                "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment-2"
+            ));
+            then.json_body(status_ok());
+        })
+        .handle(|when, then| {
             when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
                 .method(DELETE);
             then.json_body(status_ok());

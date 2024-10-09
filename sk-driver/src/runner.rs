@@ -151,8 +151,11 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
 
         for obj in &evt.deleted_objs {
             info!("deleting object {}", obj.namespaced_name());
+            let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
+            let mut vobj = obj.clone();
+            vobj.metadata.namespace = Some(virtual_ns);
             apiset
-                .api_for_obj(obj)
+                .api_for_obj(&vobj)
                 .await?
                 .delete(&obj.name_any(), &Default::default())
                 .await?;

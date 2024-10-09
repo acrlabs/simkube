@@ -93,7 +93,17 @@
                     }
                 }
             ],
-            "deleted_objs": []
+            "deleted_objs": [
+                {
+                    "apiVersion": "apps/v1",
+                    "kind": "Deployment",
+                    "metadata": {
+                        "name": "nginx-deployment-2",
+                        "namespace": "default"
+                    },
+                    "spec": {}
+                }
+            ]
         }
     ],
     {
