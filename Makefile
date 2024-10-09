@@ -13,7 +13,7 @@ DOCKER_ARGS=-it --init
 endif
 
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
-APP_VERSION_CMD=tomlq .workspace.package.version Cargo.toml
+APP_VERSION_CMD=tomlq -r .workspace.package.version Cargo.toml
 APP_VERSION=$(shell $(APP_VERSION_CMD))
 
 include build/base.mk
@@ -75,8 +75,9 @@ release-patch release-minor release-major:
 	cargo set-version --bump $(subst release-,,$@)
 	make kustomize
 	NEW_APP_VERSION=`$(APP_VERSION_CMD)` && \
-		git commit -a -m "Release version v$$NEW_APP_VERSION" && \
+		git commit -a -m "release: version v$$NEW_APP_VERSION" && \
 		git tag v$$NEW_APP_VERSION
+	cargo ws publish --publish-as-is
 
 .PHONY: crd
 crd: skctl
