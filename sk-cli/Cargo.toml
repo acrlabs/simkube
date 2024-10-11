@@ -19,6 +19,7 @@ clap = { workspace = true }
 clap_complete = { workspace = true }
 derive_setters = { workspace = true }
 dirs = { workspace = true }
+json-patch = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 ratatui = { workspace = true }
