@@ -62,7 +62,7 @@ pub fn build_virtual_obj(
     original_ns: &str,
     virtual_ns: &str,
     obj: &DynamicObject,
-    pod_spec_template_path: &str,
+    maybe_pod_spec_template_path: Option<&str>,
 ) -> anyhow::Result<DynamicObject> {
     let owner = root;
     let mut vobj = obj.clone();
@@ -70,30 +70,36 @@ pub fn build_virtual_obj(
     vobj.metadata.namespace = Some(virtual_ns.into());
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
 
-    jsonutils::patch_ext::add(pod_spec_template_path, "metadata", &json!({}), &mut vobj.data, false)?;
-    jsonutils::patch_ext::add(
-        &format!("{}/metadata", pod_spec_template_path),
-        "annotations",
-        &json!({}),
-        &mut vobj.data,
-        false,
-    )?;
-    jsonutils::patch_ext::add(
-        &format!("{}/metadata/annotations", pod_spec_template_path),
-        ORIG_NAMESPACE_ANNOTATION_KEY,
-        &json!(original_ns),
-        &mut vobj.data,
-        true,
-    )?;
-    jsonutils::patch_ext::remove("", "status", &mut vobj.data)?;
+    if let Some(pod_spec_template_path) = maybe_pod_spec_template_path {
+        jsonutils::patch_ext::add(pod_spec_template_path, "metadata", &json!({}), &mut vobj.data, false)?;
+        jsonutils::patch_ext::add(
+            &format!("{}/metadata", pod_spec_template_path),
+            "annotations",
+            &json!({}),
+            &mut vobj.data,
+            false,
+        )?;
+        jsonutils::patch_ext::add(
+            &format!("{}/metadata/annotations", pod_spec_template_path),
+            ORIG_NAMESPACE_ANNOTATION_KEY,
+            &json!(original_ns),
+            &mut vobj.data,
+            true,
+        )?;
+        jsonutils::patch_ext::remove("", "status", &mut vobj.data)?;
 
-    // We remove all container ports from the pod specification just before applying, because it is
-    // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
-    // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no
-    // reason to expose the ports.  We do this here because we still want the ports to be a part of
-    // the podspec when we're computing its hash, i.e., changes to the container ports will still
-    // result in changes to the pod in the trace/simulation
-    jsonutils::patch_ext::remove(&format!("{}/spec/containers/*", pod_spec_template_path), "ports", &mut vobj.data)?;
+        // We remove all container ports from the pod specification just before applying, because it is
+        // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
+        // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no
+        // reason to expose the ports.  We do this here because we still want the ports to be a part of
+        // the podspec when we're computing its hash, i.e., changes to the container ports will still
+        // result in changes to the pod in the trace/simulation
+        jsonutils::patch_ext::remove(
+            &format!("{}/spec/containers/*", pod_spec_template_path),
+            "ports",
+            &mut vobj.data,
+        )?;
+    }
 
     Ok(vobj)
 }
@@ -132,11 +138,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
                 ns_api.create(&Default::default(), &vns).await?;
             }
 
-            let pod_spec_template_path = ctx
-                .store
-                .config()
-                .pod_spec_template_path(&gvk)
-                .ok_or(anyhow!("unknown simulated object: {:?}", gvk))?;
+            let pod_spec_template_path = ctx.store.config().pod_spec_template_path(&gvk);
             let vobj = build_virtual_obj(&ctx, &root_obj, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
             info!("applying object {}", vobj.namespaced_name());
@@ -149,8 +151,11 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
 
         for obj in &evt.deleted_objs {
             info!("deleting object {}", obj.namespaced_name());
+            let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
+            let mut vobj = obj.clone();
+            vobj.metadata.namespace = Some(virtual_ns);
             apiset
-                .api_for_obj(obj)
+                .api_for_obj(&vobj)
                 .await?
                 .delete(&obj.name_any(), &Default::default())
                 .await?;

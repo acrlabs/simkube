@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.0"
+version = "1.1.1"
 authors = ["Applied Computing Research Labs"]
 documentation = "https://appliedcomputing.io/simkube/"
 license-file = "LICENSE"
@@ -23,9 +23,9 @@ rust-version = "1.79"
 debug = false
 
 [workspace.dependencies]
-sk-api = { version = "1.1.0", path = "sk-api" }
-sk-core = { version = "1.1.0", path = "sk-core" }
-sk-store = { version = "1.1.0", path = "sk-store" }
+sk-api = { version = "1.1.1", path = "sk-api" }
+sk-core = { version = "1.1.1", path = "sk-core" }
+sk-store = { version = "1.1.1", path = "sk-store" }
 
 anyhow = { version = "1.0.75", features = ["backtrace"] }
 async-recursion = "1.0.5"
@@ -61,7 +61,7 @@ tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.4.1"
 
 # test dependencies
-assertables = "7.0.1"
+assertables = "8.18.0"
 http = "0.2.9"
 httpmock = "0.6.8"
 hyper = "0.14.27"

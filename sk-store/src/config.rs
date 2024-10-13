@@ -11,7 +11,7 @@ use sk_core::k8s::GVK;
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct TrackedObjectConfig {
-    pub pod_spec_template_path: String,
+    pub pod_spec_template_path: Option<String>,
 
     #[serde(default, skip_serializing_if = "<&bool>::not")]
     pub track_lifecycle: bool,
@@ -29,7 +29,7 @@ impl TracerConfig {
     }
 
     pub fn pod_spec_template_path(&self, gvk: &GVK) -> Option<&str> {
-        Some(&self.tracked_objects.get(gvk)?.pod_spec_template_path)
+        self.tracked_objects.get(gvk)?.pod_spec_template_path.as_deref()
     }
 
     pub fn track_lifecycle_for(&self, gvk: &GVK) -> bool {

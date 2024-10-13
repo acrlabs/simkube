@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
 
@@ -20,6 +21,8 @@ use crate::prelude::*;
 // custom serialization methods.  We also add some handy helper/conversion functions.
 //
 // Specifically for serialization/deserialization, we convert to the format "group/version.kind".
+// (unless the group is "core", and then we serialize to "version.kind", but can deserialize from
+// either "version.kind" or "/version.kind" for backwards compatibility)
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct GVK(GroupVersionKind);
 
@@ -62,7 +65,12 @@ impl Serialize for GVK {
     where
         S: Serializer,
     {
-        let skey = format!("{}/{}.{}", self.0.group, self.0.version, self.0.kind);
+        let mut group = Cow::from(&self.0.group);
+        if !group.is_empty() {
+            group.to_mut().push('/');
+        }
+
+        let skey = format!("{group}{}.{}", self.0.version, self.0.kind);
         serializer.serialize_str(&skey)
     }
 }
@@ -81,16 +89,18 @@ impl<'de> de::Visitor<'de> for GVKVisitor {
         E: de::Error,
     {
         let p1: Vec<_> = value.split('/').collect();
-        if p1.len() != 2 {
-            return Err(E::custom(format!("invalid format for gvk: {value}")));
-        }
-        let p2: Vec<_> = p1[1].split('.').collect();
-        if p2.len() != 2 {
-            return Err(E::custom(format!("invalid format for gvk: {value}")));
-        }
+        let (group, rest) = match p1.len() {
+            2 => (p1[0], p1[1]),
+            1 => ("", p1[0]),
+            _ => return Err(E::custom(format!("invalid format for gvk: {value}"))),
+        };
+        let p2: Vec<_> = rest.split('.').collect();
+        let (version, kind) = match p2.len() {
+            2 => (p2[0], p2[1]),
+            _ => return Err(E::custom(format!("invalid format for gvk: {value}"))),
+        };
 
-        let parts = [p1[0], p2[0], p2[1]];
-        Ok(GVK(GroupVersionKind::gvk(parts[0], parts[1], parts[2])))
+        Ok(GVK(GroupVersionKind::gvk(group, version, kind)))
     }
 }
 
@@ -100,5 +110,44 @@ impl<'de> Deserialize<'de> for GVK {
         D: Deserializer<'de>,
     {
         deserializer.deserialize_str(GVKVisitor)
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use assertables::*;
+    use rstest::*;
+    use serde::de::value::{
+        Error as SerdeError,
+        StrDeserializer,
+    };
+    use serde::de::IntoDeserializer;
+
+    use super::*;
+
+    #[rstest]
+    fn test_serialize() {
+        // I had to think about this for a minute, but strings in JSON have to include quotes,
+        // which is why they're escaped out here.
+        assert_eq!(serde_json::to_string(&GVK::new("foo", "v1", "bar")).unwrap(), "\"foo/v1.bar\"");
+        assert_eq!(serde_json::to_string(&GVK::new("", "v1", "bar")).unwrap(), "\"v1.bar\"");
+    }
+
+    #[rstest]
+    fn test_deserialize() {
+        let d1: StrDeserializer<SerdeError> = "foo/v1.bar".into_deserializer();
+        assert_eq!(GVK::deserialize(d1).unwrap(), GVK::new("foo", "v1", "bar"));
+
+        let d2: StrDeserializer<SerdeError> = "/v1.bar".into_deserializer();
+        assert_eq!(GVK::deserialize(d2).unwrap(), GVK::new("", "v1", "bar"));
+
+        let d3: StrDeserializer<SerdeError> = "v1.bar".into_deserializer();
+        assert_eq!(GVK::deserialize(d3).unwrap(), GVK::new("", "v1", "bar"));
+
+        let d4: StrDeserializer<SerdeError> = "asdf".into_deserializer();
+        assert_err!(GVK::deserialize(d4));
+
+        let d5: StrDeserializer<SerdeError> = "foo/asdf/asdf".into_deserializer();
+        assert_err!(GVK::deserialize(d5));
     }
 }
