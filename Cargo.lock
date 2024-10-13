@@ -3583,7 +3583,7 @@ dependencies = [
 
 [[package]]
 name = "sk-gen"
-version = "1.1.0"
+version = "1.1.1"
 dependencies = [
  "anyhow",
  "assertables",
@@ -3594,6 +3594,7 @@ dependencies = [
  "kube",
  "mockall",
  "petgraph",
+ "regex",
  "rmp-serde",
  "rstest",
  "serde",
@@ -3604,6 +3605,7 @@ dependencies = [
  "sk-store",
  "tokio",
  "tracing",
+ "tracing-subscriber",
  "tracing-test",
 ]
 

@@ -30,6 +30,8 @@ sk-store = { workspace = true, features = ["testutils"] }
 mockall = { workspace = true, optional = true }
 clap = { workspace = true, features = ["derive"] }
 petgraph = { version = "0.6.5", features = ["generate"] }
+regex.workspace = true
+tracing-subscriber = "0.3.18"
 
 [dev-dependencies]
 assertables = { workspace = true }
