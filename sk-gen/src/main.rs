@@ -5,7 +5,7 @@ use std::collections::{
     VecDeque,
 };
 use std::fmt::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use anyhow::{
     bail,
@@ -14,6 +14,7 @@ use anyhow::{
 use clap::{
     Parser,
     ValueEnum,
+    Subcommand,
 };
 use kube::api::DynamicObject;
 use petgraph::prelude::*;
@@ -41,11 +42,23 @@ enum DisplayMode {
     Actions,
 }
 
-
-/// sk-gen generates a graph enumerating all states reachable within
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    /// Generate traces
+    Traces(TracesArgs),
+    /// Generate graph
+    Graph(GraphArgs),
+}
+
+#[derive(Parser)]
+struct TracesArgs {
     /// trace length (>= 3, including start state)
     #[arg(short, long, value_parser = clap::value_parser!(u64).range(3..))]
     trace_length: u64,
@@ -63,13 +76,21 @@ struct Cli {
     force_overwrite: bool,
 }
 
+#[derive(Parser)]
+struct GraphArgs {
+    /// trace length (>= 3, including start state)
+    #[arg(short, long, value_parser = clap::value_parser!(u64).range(3..))]
+    trace_length: u64,
+
+    /// graphviz dot file output
+    #[arg(short, long)]
+    output: PathBuf,
+}
+
 fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let cli = Cli::parse();
-    if let Some(dir) = &cli.output_dir {
-        validate_overwrite_conditions(dir, cli.trace_length, cli.force_overwrite)?;
-    }
 
     let candidate_deployments: BTreeMap<String, Deployment> = BTreeMap::from_iter((1..=5).map(|i| {
         let name = format!("dep-{i}");
@@ -78,14 +99,42 @@ fn main() -> Result<()> {
 
     let starting_state = Node::new();
 
-    let graph = ClusterGraph::new(candidate_deployments, starting_state, cli.trace_length);
-    let walks = graph.generate_walks(cli.trace_length);
+    match &cli.command {
+        Commands::Traces(args) => generate_traces(args, candidate_deployments, starting_state),
+        Commands::Graph(args) => generate_graph(args, candidate_deployments, starting_state),
+    }
+}
+
+fn generate_traces(args: &TracesArgs, candidate_deployments: BTreeMap<String, Deployment>, starting_state: Node) -> Result<()> {
+    if let Some(dir) = &args.output_dir {
+        validate_overwrite_conditions(dir, args.trace_length, args.force_overwrite)?;
+    }
+
+    let graph = ClusterGraph::new(candidate_deployments, starting_state, args.trace_length);
+    let walks = graph.generate_walks(args.trace_length);
 
     if walks.is_empty() {
         warn!("No walks generated");
     }
 
-    graph.output_traces(walks, &cli)?;
+    graph.output_traces(walks, args)?;
+    Ok(())
+}
+
+fn generate_graph(args: &GraphArgs, candidate_deployments: BTreeMap<String, Deployment>, starting_state: Node) -> Result<()> {
+    let graph = ClusterGraph::new(candidate_deployments, starting_state, args.trace_length);
+
+    let path = args.output.clone();
+
+    // ensure parent exists
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            std::fs::create_dir_all(parent)?;
+        }
+    }
+
+    let contents = graph.to_graphviz();
+    std::fs::write(path, contents)?;
     Ok(())
 }
 
@@ -337,10 +386,9 @@ impl ClusterGraph {
         let mut visited = HashSet::new();
 
         while let Some((depth, configuration)) = bfs_queue.pop_front() {
-            let node_idx = configuration_to_index
+            let node_idx = *configuration_to_index
                 .get(&configuration)
-                .expect("configuration not in index")
-                .clone();
+                .expect("configuration not in index");
 
             if depth >= trace_length {
                 continue;
@@ -356,7 +404,7 @@ impl ClusterGraph {
                     tracing::debug!(action = ?action, "Considering action");
                     let next_idx = if let Some(node) = configuration_to_index.get(&next) {
                         // we've already seen this node so no need to revisit, but we still need to add the dge
-                        node.clone()
+                        *node
                     } else {
                         let node = graph.add_node(next.clone());
                         configuration_to_index.insert(next.clone(), node);
@@ -368,8 +416,8 @@ impl ClusterGraph {
                     // because we are not revisiting outgoing nodes, we can be sure that the edge does not already exist
                     // EXCEPT if the the same (node, node) edge is achievable by different actions
                     graph.update_edge(
-                        node_idx.clone(),
-                        next_idx.clone(),
+                        node_idx,
+                        next_idx,
                         Edge {
                             action,
                             trace_event: Self::gen_trace_event(BASE_TS + depth as i64, &configuration, &next),
@@ -510,8 +558,8 @@ impl ClusterGraph {
     }
 
     /// Generate output in accordance with CLI arguments.
-    fn output_traces(&self, walks: Vec<Vec<(Option<Edge>, Node)>>, cli: &Cli) -> Result<()> {
-        if let Some(dir) = &cli.output_dir {
+    fn output_traces(&self, walks: Vec<Vec<(Option<Edge>, Node)>>, args: &TracesArgs) -> Result<()> {
+        if let Some(dir) = &args.output_dir {
             if !dir.exists() {
                 info!("creating output directory at {}", dir.display());
                 std::fs::create_dir_all(dir)?;
@@ -526,7 +574,7 @@ impl ClusterGraph {
                 .collect();
             let data = generate_synthetic_trace(trace_events);
 
-            if let Some(display_modes) = &cli.display_modes {
+            if let Some(display_modes) = &args.display_modes {
                 let display_trace = display_modes.contains(&DisplayMode::Trace);
                 let display_actions = display_modes.contains(&DisplayMode::Actions);
                 let display_nodes = display_modes.contains(&DisplayMode::Nodes);
@@ -554,7 +602,7 @@ impl ClusterGraph {
                 }
             }
 
-            if let Some(dir) = &cli.output_dir {
+            if let Some(dir) = &args.output_dir {
                 let data = rmp_serde::to_vec(&data)?;
                 let path = dir.join(format!("trace-{}.mp", i));
                 std::fs::write(path, data)?;
@@ -563,7 +611,7 @@ impl ClusterGraph {
 
         // graph generation
         // TODO: break out graph generation to its own subcommand
-        if let Some(dir) = &cli.output_dir {
+        if let Some(dir) = &args.output_dir {
             let path = dir.join("graph.dot");
             let contents = self.to_graphviz();
             std::fs::write(path, contents)?;
@@ -574,7 +622,7 @@ impl ClusterGraph {
 
 
 /// Validates that we aren't overwriting files unless --force-overwrite has been specified.
-fn validate_overwrite_conditions(dir: &PathBuf, trace_length: u64, force_overwrite: bool) -> Result<()> {
+fn validate_overwrite_conditions(dir: &Path, trace_length: u64, force_overwrite: bool) -> Result<()> {
     if !dir.exists() {
         // Can't overwrite files in a non-existent directory.
         return Ok(());
