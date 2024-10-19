@@ -105,7 +105,7 @@ pub fn build_virtual_obj(
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
-pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult {
+pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim_step_duration: u64) -> EmptyResult {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
     let mut apiset = ApiSet::new(client.clone());
