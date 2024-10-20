@@ -184,7 +184,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
                 image: args.driver_image.clone(),
                 port: args.driver_port,
                 trace_path: args.trace_path.clone(),
-                sim_step_duration: Some(args.sim_step_duration),
+                sim_step_duration: args.sim_step_duration,
             },
             duration: args.duration.clone(),
             metrics: metrics_config,
