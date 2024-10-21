@@ -257,7 +257,8 @@ impl Deployment {
     }
 }
 
-/// A cluster state.
+/// A cluster state at an (unspecified) point in time. This tracks which of the candidate
+/// deployments are active and their state.
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct Node {
     /// The names of the active deployments in the cluster and their configurations.
@@ -345,7 +346,7 @@ impl Node {
     /// Enumerates at least all possible `ClusterAction` instances.
     ///
     /// Not all returned cluster actions are necessarily valid. [`Node::valid_action_states`] will
-    /// `filter_map` out all cluster actions which produce invalid `None` next states.
+    /// filter out all cluster actions which produce invalid `None` next states.
     fn enumerate_actions(&self, candidate_deployments: &BTreeMap<String, Deployment>) -> Vec<ClusterAction> {
         let mut actions = Vec::new();
 
