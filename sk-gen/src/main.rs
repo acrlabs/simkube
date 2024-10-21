@@ -121,6 +121,10 @@ struct Cli {
     #[arg(short, long)]
     deployment_count: usize,
 
+    /// Number of sample walks to generate (if not specified, generates all possible walks)
+    #[arg(short, long)]
+    num_samples: Option<usize>,
+
     /// If provided, output file in which graphviz representation of the graph will be written.
     #[arg(short = 'g', long)]
     graph_output_file: Option<PathBuf>,
@@ -140,9 +144,6 @@ struct Cli {
     #[arg(short = 't', long)]
     display_traces: bool,
 
-    /// Number of sample walks to generate (if not specified, generates all possible walks)
-    #[arg(short = 'n', long)]
-    num_samples: Option<usize>,
 }
 
 /// Actions which can be applied to a [`Deployment`].
