@@ -1,29 +1,30 @@
+#![deny(rustdoc::broken_intra_doc_links)]
 //! `sk-gen` is a CLI tool for generating synthetic trace data for SimKube.
 //!
 //! # Overview:
 //! ## Core types
-//! A [`Node`] represents a cluster state, containing a map from unique names to active
+//! [`Node`] represents a cluster state, containing a map from unique names to active
 //! [`Deployment`] states. `Node` implements [`Eq`] and [`Hash`], which we use to ensure that
 //! equivalent `Node`s are not duplicated in the graph.
 //!
-//! A [`Deployment`] is a simplified representation of a Kubernetes deployment spec, containing only
+//! [`Deployment`] is a simplified representation of a Kubernetes deployment spec, containing only
 //! the fields we are considering.
 //!
-//! A [`DeploymentAction`] (e.g. `CreateDeployment`, `DeleteDeployment`, `IncrementReplicas`,
+//! [`DeploymentAction`] (e.g. `CreateDeployment`, `DeleteDeployment`, `IncrementReplicas`,
 //! `DecrementReplicas`) can be performed on individual deployment instances.
 //!
-//! A [`ClusterAction`] contains a name of a candidate deployment alongside a [`DeploymentAction`]
+//! [`ClusterAction`] contains a name of a candidate deployment alongside a [`DeploymentAction`]
 //! such that it can be applied to a `Node` without ambiguity as to which deployment it applies. Not
 //! all `DeploymentAction`s are valid for every `Deployment`, and neither are all `ClusterAction`
 //! instances valid for every `Node`. For instance, we cannot delete a `Deployment` that does not
 //! exist, nor can we increment/decrement the replicas of a `Deployment` that is not active.
 //!
-//! A [`TraceEvent`] represents the Kubernetes API call which corresponds to a `ClusterAction`.
+//! [`TraceEvent`] represents the Kubernetes API call which corresponds to a `ClusterAction`.
 //!
-//! An [`Edge`] stores both a `ClusterAction` and the corresponding `TraceEvent`.
+//! [`Edge`] stores both a `ClusterAction` and the corresponding `TraceEvent`.
 //!
-//! A [`Trace`] is a sequence of [`TraceEvent`]s along with some additional metadata.
-//! A `Trace` is read by SimKube to drive a simulation.
+//! [`Trace`] is a sequence of [`TraceEvent`]s along with some additional metadata. A `Trace` is
+//! read by SimKube to drive a simulation.
 //!
 //!
 //! ## The graph
@@ -76,10 +77,10 @@ use anyhow::Result;
 use clap::Parser;
 use kube::api::DynamicObject;
 use petgraph::prelude::*;
+use rand::distributions::WeightedIndex;
+use rand::prelude::*;
 use serde_json::json;
 use sk_store::TraceEvent;
-use rand::prelude::*;
-use rand::distributions::WeightedIndex;
 
 use crate::output::{
     display_walks_and_traces,
@@ -143,7 +144,6 @@ struct Cli {
     /// Display traces to stdout as JSON.
     #[arg(short = 't', long)]
     display_traces: bool,
-
 }
 
 /// Actions which can be applied to a [`Deployment`].
@@ -419,7 +419,7 @@ struct ClusterGraph {
     /// A map of unique deployment names to [`Deployment`] configurations.
     ///
     /// Each [`Deployment`] in this map represents the initial state of each deployment when
-    /// initialized by a [`ClusterAction::CreateDeployment`].
+    /// initialized by a `CreateDeployment`.
     candidate_deployments: BTreeMap<String, Deployment>,
     /// The graph itself.
     ///
@@ -609,8 +609,12 @@ impl ClusterGraph {
                     .map(|&n| {
                         let edge = self.graph.edge_weight(self.graph.find_edge(current_node, n).unwrap()).unwrap();
                         match edge.action.action_type {
-                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => SCALE_ACTION_PROBABILITY,
-                            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => CREATE_DELETE_ACTION_PROBABILITY,
+                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => {
+                                SCALE_ACTION_PROBABILITY
+                            },
+                            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
+                                CREATE_DELETE_ACTION_PROBABILITY
+                            },
                         }
                     })
                     .collect();
