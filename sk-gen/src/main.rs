@@ -32,14 +32,14 @@
 //! 1:1 to traces which can be read by SimKube.
 //!
 //! ### Parameters
-//! - [`trace_length`](CLI::trace_length): we construct the graph so as to contain all walks of
+//! - [`trace_length`](Cli::trace_length): we construct the graph so as to contain all walks of
 //!   length `trace_length` starting from the initial `Node`.
 //! - `starting_state`: The initial [`Node`] from which to start the graph construction. We
 //!   presently use a `Node` with no active [`Deployment`]s.
 //! - `candidate_deployments`: A map from unique deployment names to corresponding initial
 //!   [`Deployment`] configurations which are added whenever a `CreateDeployment` action is
 //!   performed. We generate candidate deployments as `dep-1`, `dep-2`, etc. according to the
-//!   [`deployment_count`](CLI::deployment_count) argument.
+//!   [`deployment_count`](Cli::deployment_count) argument.
 //!
 //! ### Construction
 //! - Starting from an initial [`Node`] with no active deployments, perform a breadth-first search.
@@ -60,6 +60,8 @@
 //!
 //! The graph generation and trace extraction steps are separated for conceptual simplicity, and in
 //! anticipation of stochastic methods for trace generation.
+
+mod output;
 
 use std::collections::{
     BTreeMap,
@@ -86,6 +88,7 @@ use crate::output::{
     Trace,
 };
 
+
 /// The maximum number of replicas a deployment can have.
 const MAX_REPLICAS: u32 = u32::MAX;
 /// The minimum number of replicas a deployment can have.
@@ -96,14 +99,6 @@ const BASE_TS: i64 = 1_728_334_068;
 const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.2;
 
-fn trace_length_parser(s: &str) -> Result<usize, String> {
-    let value = s.parse::<usize>().map_err(|_| format!("`{s}` isn't a valid usize"))?;
-    if value >= 3 {
-        Ok(value)
-    } else {
-        Err("trace length must be at least 3".to_string())
-    }
-}
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
 /// `sk-gen` is a CLI tool for generating synthetic trace data which is ingestible by SimKube.
@@ -112,13 +107,13 @@ fn trace_length_parser(s: &str) -> Result<usize, String> {
 /// considerably faster for substantially high input values.
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
-struct CLI {
+struct Cli {
     /// Trace length (>= 3, including start state).
     ///
     /// A graph is constructed so as to contain all `trace_length`-walks from the starting state,
     /// then we enumerate all such walks.
-    #[arg(short = 'l', long, value_parser = trace_length_parser)]
-    trace_length: usize,
+    #[arg(short = 'l', long, value_parser = clap::value_parser!(u64).range(3..))]
+    trace_length: u64,
 
     /// Number of candidate deployments
     ///
@@ -436,7 +431,7 @@ impl ClusterGraph {
     /// Construct a new graph starting from a given (presently hard-coded) starting state.
     /// This is achieved via a search over all state reachable within `trace_length` actions from
     /// the starting state.
-    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Node, trace_length: usize) -> Self {
+    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Node, trace_length: u64) -> Self {
         let mut cluster_graph = Self { candidate_deployments, graph: DiGraph::new() };
 
         let starting_node_idx = cluster_graph.graph.add_node(starting_state.clone());
@@ -450,7 +445,7 @@ impl ClusterGraph {
 
         // To find the graph containing all valid traces of trace_length with a given start state, we
         // perform bfs to a depth of trace_length. Queue item: `(depth, deployment)`
-        let mut bfs_queue: VecDeque<(usize, Node)> = VecDeque::new();
+        let mut bfs_queue: VecDeque<(u64, Node)> = VecDeque::new();
         bfs_queue.push_back((1, starting_state)); // start at depth 1
         let mut visited = HashSet::new();
 
@@ -493,7 +488,7 @@ impl ClusterGraph {
     /// Returns a list of [`Walk`]s, where each is a list of `(incoming edge, node)` pairs.
     /// The first node of each walk, and thus the first pair, has no incoming edge, but all
     /// remaining pairs contain `Some` edge.
-    fn generate_walks(&self, trace_length: usize) -> Vec<Walk> {
+    fn generate_walks(&self, trace_length: u64) -> Vec<Walk> {
         let walk_start_node = self.graph.node_indices().next().unwrap();
 
         // We use a depth-first search because eventually we may want to use stochastic methods which do not
@@ -523,7 +518,7 @@ impl ClusterGraph {
 
     /// Perform a depth-first search over all walks of length `walk_length` starting from
     /// `current_node`.
-    fn dfs_walks(&self, current_node: NodeIndex, walk_length: usize) -> Vec<Vec<NodeIndex>> {
+    fn dfs_walks(&self, current_node: NodeIndex, walk_length: u64) -> Vec<Vec<NodeIndex>> {
         let mut walks = Vec::new();
 
         let start_walk = vec![current_node];
@@ -537,10 +532,10 @@ impl ClusterGraph {
         &self,
         current_node: NodeIndex,
         current_walk: Vec<NodeIndex>,
-        walk_length: usize,
+        walk_length: u64,
         walks: &mut Vec<Vec<NodeIndex>>,
     ) {
-        if current_walk.len() == walk_length {
+        if current_walk.len() as u64 == walk_length {
             walks.push(current_walk);
             return;
         }
@@ -594,7 +589,7 @@ impl ClusterGraph {
     }
 
     /// Generate n walks of length `walk_length` using weighted sampling.
-    fn walks_with_sampling(&self, start_node: NodeIndex, walk_length: usize, num_samples: usize) -> Vec<Vec<NodeIndex>> {
+    fn walks_with_sampling(&self, start_node: NodeIndex, walk_length: u64, num_samples: usize) -> Vec<Vec<NodeIndex>> {
         let mut rng = thread_rng();
         let mut samples = Vec::new();
 
@@ -633,7 +628,7 @@ impl ClusterGraph {
     }
 
     /// Generate n walks of length `trace_length` using weighted sampling.
-    fn generate_n_walks_with_sampling(&self, trace_length: usize, num_samples: usize) -> Vec<Walk> {
+    fn generate_n_walks_with_sampling(&self, trace_length: u64, num_samples: usize) -> Vec<Walk> {
         let walk_start_node = self.graph.node_indices().next().unwrap();
         let sampled_walks = self.walks_with_sampling(walk_start_node, trace_length, num_samples);
 
@@ -660,172 +655,6 @@ impl ClusterGraph {
     }
 }
 
-/// This mod contains graph/trace output utilities and functionality.
-mod output {
-    use std::collections::{
-        HashMap,
-        VecDeque,
-    };
-    use std::path::PathBuf;
-
-    use anyhow::Result;
-    use sk_core::k8s::GVK;
-    use sk_store::{
-        PodLifecyclesMap,
-        TraceEvent,
-        TracerConfig,
-        TrackedObjectConfig,
-    };
-
-    use crate::{
-        ClusterGraph,
-        Node,
-        Walk,
-        CLI,
-    };
-
-
-    // The rest of SimKube handles this data as a tuple, but since some of us are newer, we just use a
-    // struct.
-    /// A sequence of [`TraceEvent`] instances and additional metadata which can be simulated by
-    /// SimKube.
-    pub(crate) struct Trace {
-        config: TracerConfig,
-        /// At the moment, this is the only field we are using. This is just a queue of
-        /// `TraceEvent`s.
-        events: VecDeque<TraceEvent>,
-        index: HashMap<String, u64>,
-        pod_lifecycles: HashMap<String, PodLifecyclesMap>,
-    }
-
-    impl Trace {
-        /// Creates a new `trace` from a `Walk`.
-        ///
-        /// This simply entails extracting the [`TraceEvent`]s from the [`Edge`]s of the walk.
-        pub(crate) fn from_walk(walk: &Walk) -> Self {
-            let events = walk
-                .iter()
-                .filter_map(|(edge, _node)| edge.as_ref().map(|e| e.trace_event.clone()))
-                .collect();
-            Self::from_trace_events(events)
-        }
-
-        /// Creates a new `Trace` from a sequence of `TraceEvent` instances.
-        pub(crate) fn from_trace_events(events: Vec<TraceEvent>) -> Self {
-            let events = VecDeque::from(events);
-
-            let config = TracerConfig {
-                tracked_objects: HashMap::from([(
-                    GVK::new("apps", "v1", "Deployment"),
-                    TrackedObjectConfig {
-                        track_lifecycle: false,
-                        pod_spec_template_path: None,
-                    },
-                )]),
-            };
-
-            let index = HashMap::new(); // TODO
-            let pod_lifecycles = HashMap::new(); // TODO
-
-            Self { config, events, index, pod_lifecycles }
-        }
-
-        fn to_tuple(
-            &self,
-        ) -> (TracerConfig, VecDeque<TraceEvent>, HashMap<String, u64>, HashMap<String, PodLifecyclesMap>) {
-            (self.config.clone(), self.events.clone(), self.index.clone(), self.pod_lifecycles.clone())
-        }
-
-        fn to_msgpack(&self) -> Result<Vec<u8>> {
-            Ok(rmp_serde::to_vec_named(&self.to_tuple())?)
-        }
-
-        fn to_json(&self) -> Result<String> {
-            Ok(serde_json::to_string_pretty(&self.to_tuple())?)
-        }
-    }
-
-    /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
-    /// `prev` to `next` state over `ts` seconds.
-    pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
-        let mut applied_objs = Vec::new();
-        let mut deleted_objs = Vec::new();
-
-        for (name, deployment) in &prev.deployments {
-            if !next.deployments.contains_key(name) {
-                deleted_objs.push(deployment.to_dynamic_object());
-            } else if deployment != &next.deployments[name] {
-                applied_objs.push(next.deployments[name].to_dynamic_object());
-            }
-        }
-
-        for (name, deployment) in &next.deployments {
-            if !prev.deployments.contains_key(name) {
-                applied_objs.push(deployment.to_dynamic_object());
-            }
-        }
-
-        TraceEvent { ts, applied_objs, deleted_objs }
-    }
-
-    /// Display walks and traces as specified by user-provided CLI flags.
-    pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[Trace], cli: &CLI) -> Result<()> {
-        // create output directory if it doesn't exist
-        if let Some(traces_dir) = &cli.traces_output_dir {
-            if !traces_dir.exists() {
-                std::fs::create_dir_all(traces_dir)?;
-            }
-        }
-
-        for (i, (walk, trace)) in walks.iter().zip(traces.iter()).enumerate() {
-            if let Some(traces_dir) = &cli.traces_output_dir {
-                let data = trace.to_msgpack()?;
-                let path = traces_dir.join(format!("trace-{i}.mp"));
-                std::fs::write(path, data)?;
-            }
-
-            if cli.display_walks {
-                println!("walk-{i}:");
-                display_walk(walk);
-                println!();
-            }
-
-            if cli.display_traces {
-                println!("trace-{i}:");
-                println!("{}", trace.to_json()?);
-            }
-            println!();
-        }
-
-        Ok(())
-    }
-
-    /// Helper function to display a walk (handling the case where the incoming edge is None for the
-    /// first node).
-    fn display_walk(walk: &Walk) {
-        for (edge, node) in walk {
-            if let Some(e) = edge {
-                println!("{:?}", e.action);
-            }
-            println!("{node:#?}");
-        }
-    }
-
-    /// Exports the graphviz representation of the graph to a file, ensuring the parent directory
-    /// exists.
-    pub(crate) fn export_graphviz(graph: &ClusterGraph, output_file: &PathBuf) -> Result<()> {
-        // if the parent directory doesn't exist, create it
-        assert!(!output_file.is_dir(), "graph output file must not be a directory");
-
-        if let Some(parent) = output_file.parent() {
-            if !parent.exists() {
-                std::fs::create_dir_all(parent)?;
-            }
-        }
-        std::fs::write(output_file, graph.to_graphviz())?;
-        Ok(())
-    }
-}
 
 /// Generates `num_deployments` candidate deployments with names `dep-1`, `dep-2`, ..., `dep-n`.
 fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, Deployment> {
@@ -836,7 +665,7 @@ fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, De
 }
 
 fn main() -> Result<()> {
-    let cli = CLI::parse();
+    let cli = Cli::parse();
 
     let candidate_deployments = generate_candidate_deployments(cli.deployment_count);
     let starting_state = Node::new(); // Start with no active deployments
