@@ -76,6 +76,8 @@ use kube::api::DynamicObject;
 use petgraph::prelude::*;
 use serde_json::json;
 use sk_store::TraceEvent;
+use rand::prelude::*;
+use rand::distributions::WeightedIndex;
 
 use crate::output::{
     display_walks_and_traces,
@@ -90,6 +92,18 @@ const MAX_REPLICAS: u32 = u32::MAX;
 const MIN_REPLICAS: u32 = 0;
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
+/// Add these near the top of the file, after the existing constants
+const SCALE_ACTION_PROBABILITY: f64 = 0.8;
+const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.2;
+
+fn trace_length_parser(s: &str) -> Result<usize, String> {
+    let value = s.parse::<usize>().map_err(|_| format!("`{s}` isn't a valid usize"))?;
+    if value >= 3 {
+        Ok(value)
+    } else {
+        Err("trace length must be at least 3".to_string())
+    }
+}
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
 /// `sk-gen` is a CLI tool for generating synthetic trace data which is ingestible by SimKube.
@@ -103,7 +117,7 @@ struct CLI {
     ///
     /// A graph is constructed so as to contain all `trace_length`-walks from the starting state,
     /// then we enumerate all such walks.
-    #[arg(short = 'l', long, value_parser = clap::value_parser!(u64).range(3..))]
+    #[arg(short = 'l', long, value_parser = trace_length_parser)]
     trace_length: usize,
 
     /// Number of candidate deployments
@@ -130,6 +144,10 @@ struct CLI {
     /// Display traces to stdout as JSON.
     #[arg(short = 't', long)]
     display_traces: bool,
+
+    /// Number of sample walks to generate (if not specified, generates all possible walks)
+    #[arg(short = 'n', long)]
+    num_samples: Option<usize>,
 }
 
 /// Actions which can be applied to a [`Deployment`].
@@ -574,6 +592,72 @@ impl ClusterGraph {
         writeln!(&mut dot, "}}").unwrap();
         dot
     }
+
+    /// Generate n walks of length `walk_length` using weighted sampling.
+    fn walks_with_sampling(&self, start_node: NodeIndex, walk_length: usize, num_samples: usize) -> Vec<Vec<NodeIndex>> {
+        let mut rng = thread_rng();
+        let mut samples = Vec::new();
+
+        for _ in 0..num_samples {
+            let mut current_walk = vec![start_node];
+            let mut current_node = start_node;
+
+            for _ in 1..walk_length {
+                let neighbors: Vec<_> = self.graph.neighbors(current_node).collect();
+                if neighbors.is_empty() {
+                    break;
+                }
+
+                let weights: Vec<f64> = neighbors
+                    .iter()
+                    .map(|&n| {
+                        let edge = self.graph.edge_weight(self.graph.find_edge(current_node, n).unwrap()).unwrap();
+                        match edge.action.action_type {
+                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => SCALE_ACTION_PROBABILITY,
+                            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => CREATE_DELETE_ACTION_PROBABILITY,
+                        }
+                    })
+                    .collect();
+
+                let dist = WeightedIndex::new(&weights).unwrap();
+                let next_node = neighbors[dist.sample(&mut rng)];
+
+                current_walk.push(next_node);
+                current_node = next_node;
+            }
+
+            samples.push(current_walk);
+        }
+
+        samples
+    }
+
+    /// Generate n walks of length `trace_length` using weighted sampling.
+    fn generate_n_walks_with_sampling(&self, trace_length: usize, num_samples: usize) -> Vec<Walk> {
+        let walk_start_node = self.graph.node_indices().next().unwrap();
+        let sampled_walks = self.walks_with_sampling(walk_start_node, trace_length, num_samples);
+
+        sampled_walks
+            .into_iter()
+            .map(|walk_indices| {
+                let mut walk = Vec::new();
+
+                let start_node = self.graph.node_weight(walk_indices[0]).unwrap().clone();
+                walk.push((None, start_node));
+
+                for window in walk_indices.windows(2) {
+                    let (prev, next) = (window[0], window[1]);
+
+                    let edge_idx = self.graph.find_edge(prev, next).unwrap();
+                    let node = self.graph.node_weight(next).unwrap().clone();
+                    let edge = self.graph.edge_weight(edge_idx).cloned().unwrap();
+                    walk.push((Some(edge), node));
+                }
+
+                walk
+            })
+            .collect()
+    }
 }
 
 /// This mod contains graph/trace output utilities and functionality.
@@ -768,7 +852,11 @@ fn main() -> Result<()> {
 
     // If we don't need to output walks or traces, we don't need to generate them.
     if cli.graph_output_file.is_some() || cli.traces_output_dir.is_some() || cli.display_walks || cli.display_traces {
-        let walks = graph.generate_walks(cli.trace_length);
+        let walks = if let Some(num_samples) = cli.num_samples {
+            graph.generate_n_walks_with_sampling(cli.trace_length, num_samples)
+        } else {
+            graph.generate_walks(cli.trace_length)
+        };
 
         let traces: Vec<Trace> = walks.iter().map(Trace::from_walk).collect();
 
