@@ -1,3 +1,6 @@
 .build
 .vendor
 generated-api
+
+# Ignore .mp files
+*.mp
