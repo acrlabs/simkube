@@ -283,13 +283,11 @@ impl Node {
     ///
     /// Returns [`None`] if the deployment already exists.
     fn create_deployment(&self, name: &str, candidate_deployments: &BTreeMap<String, Deployment>) -> Option<Self> {
-        if let Some(deployment) = candidate_deployments.get(name) {
-            let mut next_state = self.clone();
-            next_state.deployments.insert(name.to_string(), deployment.clone());
-            Some(next_state)
-        } else {
-            None
-        }
+        let deployment = candidate_deployments.get(name)?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name.to_string(), deployment.clone());
+        Some(next_state)
     }
 
     /// Attempts to delete a [`Deployment`] from this state.
