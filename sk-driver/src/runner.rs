@@ -124,8 +124,6 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim_step_durati
 
     try_update_lease(client.clone(), &ctx.sim, &ctx.ctrl_ns, sim_duration).await?;
 
-    println!("simulation step time {}...", sim_step_duration);
-
     for (evt, maybe_next_ts) in ctx.store.iter() {
         // We're currently assuming that all tracked objects are namespace-scoped,
         // this will panic/fail if that is not true.
