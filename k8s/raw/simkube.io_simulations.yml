@@ -44,12 +44,17 @@ spec:
                   port:
                     format: int32
                     type: integer
+                  simStepDuration:
+                    format: uint64
+                    minimum: 0.0
+                    type: integer
                   tracePath:
                     type: string
                 required:
                 - image
                 - namespace
                 - port
+                - simStepDuration
                 - tracePath
                 type: object
               duration:
