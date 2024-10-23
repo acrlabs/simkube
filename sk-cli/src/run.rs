@@ -30,7 +30,7 @@ pub struct Args {
         long = "sim_step_duration",
         short = 's',
         long_help = "Time in seconds between each step in the simulation",
-        default_value = "1"
+        default_value = "0"
     )]
     pub sim_step_duration: u64,
 

@@ -164,7 +164,12 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim_step_durati
         if let Some(next_ts) = maybe_next_ts {
             let simulation_normal_step_duration = next_ts - sim_ts;
             let simulation_normal_step_duration_u64 = simulation_normal_step_duration.try_into().unwrap_or(u64::MAX);
-            let min_step_duration = min(sim_step_duration, simulation_normal_step_duration_u64);
+            let min_step_duration = if sim_step_duration <= 0 {
+                simulation_normal_step_duration_u64
+            } else {
+                min(sim_step_duration, simulation_normal_step_duration_u64)
+            };
+
             let sleep_duration = max(0, min_step_duration);
 
             info!("next event happens in {sleep_duration} seconds, sleeping");
