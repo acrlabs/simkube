@@ -1,5 +1,3 @@
 .build
 .vendor
 generated-api
-Makefile
-build/

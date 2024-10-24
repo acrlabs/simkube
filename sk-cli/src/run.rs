@@ -27,12 +27,12 @@ pub struct Args {
     pub duration: Option<String>,
 
     #[arg(
-        long = "sim_step_duration",
+        long = "speed",
         short = 's',
-        long_help = "Time in seconds between each step in the simulation",
-        default_value = "0"
+        long_help = "Time multiplier for the simulation",
+        default_value = "1"
     )]
-    pub sim_step_duration: u64,
+    pub speed: f64,
 
     #[arg(
         short = 'N',
@@ -184,7 +184,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
                 image: args.driver_image.clone(),
                 port: args.driver_port,
                 trace_path: args.trace_path.clone(),
-                sim_step_duration: args.sim_step_duration,
+                speed: args.speed,
             },
             duration: args.duration.clone(),
             metrics: metrics_config,

@@ -50,8 +50,8 @@ struct Options {
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     admission_webhook_port: u16,
 
-    #[arg(long, default_value = "0")]
-    sim_step_duration: u64,
+    #[arg(long, default_value = "1.0")]
+    speed: f64,
 
     #[arg(long)]
     cert_path: String,
@@ -126,7 +126,7 @@ async fn run(opts: Options) -> EmptyResult {
     hooks::execute(&ctx.sim, hooks::Type::PreRun).await?;
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),
-        res = tokio::spawn(run_trace(ctx.clone(), client, opts.sim_step_duration)) => {
+        res = tokio::spawn(run_trace(ctx.clone(), client, opts.speed)) => {
             match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),

@@ -1,4 +1,4 @@
-use std::cmp::{max, min};
+use std::cmp::max;
 use std::time::Duration;
 
 use anyhow::{
@@ -105,7 +105,7 @@ pub fn build_virtual_obj(
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
-pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim_step_duration: u64) -> EmptyResult {
+pub async fn run_trace(ctx: DriverContext, client: kube::Client, speed: f64) -> EmptyResult {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
     let mut apiset = ApiSet::new(client.clone());
@@ -164,13 +164,14 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim_step_durati
         if let Some(next_ts) = maybe_next_ts {
             let simulation_normal_step_duration = next_ts - sim_ts;
             let simulation_normal_step_duration_u64 = simulation_normal_step_duration.try_into().unwrap_or(u64::MAX);
-            let min_step_duration = if sim_step_duration <= 0 {
+
+            let sleep_duration = if speed <= 0.0 {
                 simulation_normal_step_duration_u64
             } else {
-                min(sim_step_duration, simulation_normal_step_duration_u64)
+                (simulation_normal_step_duration_u64 as f64 / speed).round() as u64
             };
 
-            let sleep_duration = max(0, min_step_duration);
+            let sleep_duration = max(0, sleep_duration);
 
             info!("next event happens in {sleep_duration} seconds, sleeping");
             debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
