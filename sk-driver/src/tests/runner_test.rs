@@ -164,6 +164,6 @@ async fn itest_run(#[case] has_start_marker: bool) {
             then.json_body(status_ok());
         })
         .build();
-    run_trace(ctx, client, 2).await.unwrap();
+    run_trace(ctx, client, 2.0).await.unwrap();
     fake_apiserver.assert();
 }
