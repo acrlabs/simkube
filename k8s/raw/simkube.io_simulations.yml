@@ -44,12 +44,16 @@ spec:
                   port:
                     format: int32
                     type: integer
+                  speed:
+                    format: double
+                    type: number
                   tracePath:
                     type: string
                 required:
                 - image
                 - namespace
                 - port
+                - speed
                 - tracePath
                 type: object
               duration:

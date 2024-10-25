@@ -50,6 +50,9 @@ struct Options {
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     admission_webhook_port: u16,
 
+    #[arg(long, default_value = "1.0")]
+    speed: f64,
+
     #[arg(long)]
     cert_path: String,
 
