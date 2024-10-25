@@ -5,7 +5,7 @@ use super::*;
 #[rstest]
 fn test_app_update_quit() {
     let mut app = App { running: true, ..Default::default() };
-    app.update(Message::Quit);
+    app.update_state(Message::Quit);
     assert!(!app.running);
 }
 
@@ -18,7 +18,7 @@ fn test_app_update_quit() {
 #[case(Message::Select, Mode::ObjectSelected, Mode::ObjectSelected)]
 fn test_app_update_selection(#[case] msg: Message, #[case] mode: Mode, #[case] new_mode: Mode) {
     let mut app = App { mode, ..Default::default() };
-    app.update(msg);
+    app.update_state(msg);
     assert_eq!(app.mode, new_mode);
 }
 
@@ -43,7 +43,7 @@ fn test_app_update_nav(#[case] mode: Mode, #[case] msg: Message) {
         object_contents_list_state: ListState::default().with_selected(Some(start)),
         ..Default::default()
     };
-    app.update(msg);
+    app.update_state(msg);
     match mode {
         Mode::RootView => assert_eq!(app.event_list_state.selected(), Some(end)),
         Mode::EventSelected => assert_eq!(app.object_list_state.selected(), Some(end)),

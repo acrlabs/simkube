@@ -10,37 +10,34 @@ use super::*;
 
 #[fixture]
 pub fn annotated_trace() -> AnnotatedTrace {
-    AnnotatedTrace {
-        events: vec![
-            AnnotatedTraceEvent {
-                data: TraceEvent { ts: 0, ..Default::default() },
-                ..Default::default()
+    AnnotatedTrace::new_with_events(vec![
+        AnnotatedTraceEvent {
+            data: TraceEvent { ts: 0, ..Default::default() },
+            ..Default::default()
+        },
+        AnnotatedTraceEvent {
+            data: TraceEvent {
+                ts: 1,
+                applied_objs: vec![test_deployment("test_depl1")],
+                deleted_objs: vec![],
             },
-            AnnotatedTraceEvent {
-                data: TraceEvent {
-                    ts: 1,
-                    applied_objs: vec![test_deployment("test_depl1")],
-                    deleted_objs: vec![],
-                },
-                ..Default::default()
+            ..Default::default()
+        },
+        AnnotatedTraceEvent {
+            data: TraceEvent {
+                ts: 2,
+                applied_objs: vec![test_deployment("test_depl1"), test_deployment("test_depl2")],
+                deleted_objs: vec![],
             },
-            AnnotatedTraceEvent {
-                data: TraceEvent {
-                    ts: 2,
-                    applied_objs: vec![test_deployment("test_depl1"), test_deployment("test_depl2")],
-                    deleted_objs: vec![],
-                },
-                ..Default::default()
+            ..Default::default()
+        },
+        AnnotatedTraceEvent {
+            data: TraceEvent {
+                ts: 3,
+                applied_objs: vec![],
+                deleted_objs: vec![test_deployment("test_depl1")],
             },
-            AnnotatedTraceEvent {
-                data: TraceEvent {
-                    ts: 3,
-                    applied_objs: vec![],
-                    deleted_objs: vec![test_deployment("test_depl1")],
-                },
-                ..Default::default()
-            },
-        ],
-        ..Default::default()
-    }
+            ..Default::default()
+        },
+    ])
 }
