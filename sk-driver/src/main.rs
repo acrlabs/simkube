@@ -126,7 +126,7 @@ async fn run(opts: Options) -> EmptyResult {
     hooks::execute(&ctx.sim, hooks::Type::PreRun).await?;
     tokio::select! {
         res = server_task => Err(anyhow!("server terminated: {res:#?}")),
-        res = tokio::spawn(run_trace(ctx.clone(), client, opts.speed)) => {
+        res = tokio::spawn(run_trace(ctx.clone(), client)) => {
             match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),

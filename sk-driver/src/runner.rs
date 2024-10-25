@@ -105,7 +105,7 @@ pub fn build_virtual_obj(
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
-pub async fn run_trace(ctx: DriverContext, client: kube::Client, speed: f64) -> EmptyResult {
+pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
     let mut apiset = ApiSet::new(client.clone());
@@ -117,6 +117,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, speed: f64) -> 
         let root_obj = build_simulation_root(&ctx.root_name, &ctx.sim);
         roots_api.create(&Default::default(), &root_obj).await?
     };
+
+    let speed = ctx.sim.spec.driver.speed;
 
     let mut sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
     let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
@@ -162,16 +164,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, speed: f64) -> 
         }
 
         if let Some(next_ts) = maybe_next_ts {
-            let simulation_normal_step_duration = next_ts - sim_ts;
-            let simulation_normal_step_duration_u64 = simulation_normal_step_duration.try_into().unwrap_or(u64::MAX);
-
-            let sleep_duration = if speed <= 0.0 {
-                simulation_normal_step_duration_u64
-            } else {
-                (simulation_normal_step_duration_u64 as f64 / speed).round() as u64
-            };
-
-            let sleep_duration = max(0, sleep_duration);
+            let simulation_normal_step_duration = max(0, next_ts - sim_ts) as f64;
+            let sleep_duration = (simulation_normal_step_duration / speed) as u64;
 
             info!("next event happens in {sleep_duration} seconds, sleeping");
             debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
