@@ -17,6 +17,7 @@ pub fn test_sim() -> Simulation {
                 image: "docker.foo:1234/sk-driver:latest".into(),
                 port: 9876,
                 trace_path: "file:///foo/bar".into(),
+                speed: 2.0,
             },
             metrics: Some(Default::default()),
             hooks: Some(SimulationHooksConfig {
