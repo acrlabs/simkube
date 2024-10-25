@@ -5,12 +5,9 @@ use ratatui::crossterm::event::{
     KeyEventKind,
 };
 
-use super::{
-    App,
-    Message,
-};
+use super::Message;
 
-pub(super) fn handle_event(_app: &App) -> anyhow::Result<Message> {
+pub(super) fn handle_event() -> anyhow::Result<Message> {
     if let Event::Key(key) = read()? {
         if key.kind == KeyEventKind::Press {
             return Ok(match key.code {

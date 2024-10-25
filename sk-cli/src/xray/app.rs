@@ -5,12 +5,21 @@ use crate::validation::{
     ValidationStore,
 };
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub(super) enum Mode {
     #[default]
     RootView,
     EventSelected,
     ObjectSelected,
+}
+
+pub(super) enum Message {
+    Deselect,
+    Down,
+    Quit,
+    Select,
+    Unknown,
+    Up,
 }
 
 #[derive(Default)]
@@ -36,5 +45,41 @@ impl App {
 
             ..Default::default()
         })
+    }
+
+    pub(super) fn update(&mut self, msg: Message) {
+        match msg {
+            Message::Deselect => match self.mode {
+                Mode::ObjectSelected => {
+                    self.mode = Mode::EventSelected;
+                    self.object_contents_list_state.select(None);
+                },
+                Mode::EventSelected => self.mode = Mode::RootView,
+                _ => (),
+            },
+            Message::Down => match self.mode {
+                Mode::ObjectSelected => self.object_contents_list_state.select_next(),
+                Mode::EventSelected => self.object_list_state.select_next(),
+                Mode::RootView => self.event_list_state.select_next(),
+            },
+            Message::Quit => self.running = false,
+            Message::Select => match self.mode {
+                Mode::EventSelected => {
+                    self.mode = Mode::ObjectSelected;
+                    self.object_contents_list_state.select(Some(0));
+                },
+                Mode::RootView => {
+                    self.mode = Mode::EventSelected;
+                    self.object_list_state.select(Some(0));
+                },
+                _ => (),
+            },
+            Message::Unknown => (),
+            Message::Up => match self.mode {
+                Mode::ObjectSelected => self.object_contents_list_state.select_previous(),
+                Mode::EventSelected => self.object_list_state.select_previous(),
+                Mode::RootView => self.event_list_state.select_previous(),
+            },
+        }
     }
 }

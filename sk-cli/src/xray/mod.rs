@@ -1,6 +1,5 @@
 mod app;
 mod event;
-mod update;
 mod util;
 mod view;
 
@@ -8,12 +7,11 @@ use ratatui::backend::Backend;
 use ratatui::Terminal;
 use sk_core::prelude::*;
 
-use self::app::App;
-use self::event::handle_event;
-use self::update::{
-    update,
+use self::app::{
+    App,
     Message,
 };
+use self::event::handle_event;
 use self::view::view;
 
 #[derive(clap::Args)]
@@ -33,8 +31,8 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 fn run_loop<B: Backend>(mut term: Terminal<B>, mut app: App) -> EmptyResult {
     while app.running {
         term.draw(|frame| view(&mut app, frame))?;
-        let msg: Message = handle_event(&app)?;
-        update(&mut app, msg);
+        let msg = handle_event()?;
+        app.update(msg);
     }
     Ok(())
 }
