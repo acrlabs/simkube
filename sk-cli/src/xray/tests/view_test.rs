@@ -10,7 +10,7 @@ use crate::validation::AnnotatedTrace;
 #[fixture]
 fn test_app(annotated_trace: AnnotatedTrace) -> App {
     App {
-        trace: annotated_trace,
+        annotated_trace,
         event_list_state: ListState::default().with_selected(Some(0)),
         ..Default::default()
     }

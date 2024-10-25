@@ -29,10 +29,14 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 }
 
 fn run_loop<B: Backend>(mut term: Terminal<B>, mut app: App) -> EmptyResult {
+    let mut trace_changed = true;
     while app.running {
+        if trace_changed {
+            app.rebuild_annotated_trace();
+        }
         term.draw(|frame| view(&mut app, frame))?;
         let msg = handle_event()?;
-        app.update(msg);
+        trace_changed = app.update_state(msg);
     }
     Ok(())
 }

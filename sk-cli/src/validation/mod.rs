@@ -1,6 +1,7 @@
 mod annotated_trace;
 mod status_field_populated;
 mod validation_store;
+mod validator;
 
 use clap::{
     value_parser,
@@ -71,7 +72,7 @@ pub async fn cmd(subcommand: &ValidateSubcommand) -> EmptyResult {
 }
 
 fn print_summary(trace: &AnnotatedTrace, validators: &ValidationStore) -> EmptyResult {
-    for (code, count) in trace.summary.iter() {
+    for (code, count) in trace.summary_iter() {
         let name = validators.lookup(code)?.name;
         println!("{name} ({code}): {count:.>30}");
     }

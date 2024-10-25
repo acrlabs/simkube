@@ -11,7 +11,6 @@ use ratatui::widgets::{
     Paragraph,
 };
 use sk_core::k8s::KubeResourceExt;
-use sk_store::TraceStorable;
 
 use super::app::{
     App,
@@ -26,7 +25,7 @@ pub(super) fn view(app: &mut App, frame: &mut Frame) {
         .split(frame.area());
     let (top, bottom) = (layout[0], layout[1]);
 
-    let events_border = Block::bordered().title(app.trace.path.clone());
+    let events_border = Block::bordered().title(app.annotated_trace.path());
     let object_border = Block::bordered();
 
     if top.width > 120 {
@@ -72,14 +71,14 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
     // our layout into three sublayouts; the first includes all the events up to the selected one,
     // then we nest in one level and display the applied and deleted objects, then we unnest and
     // display the rest of the events
-    let num_events = app.trace.events.len();
-    let start_ts = app.trace.base.start_ts().unwrap_or(0);
+    let num_events = app.annotated_trace.len();
+    let start_ts = app.annotated_trace.start_ts().unwrap_or(0);
 
     // Add one so the selected event is included on top
     let (sel_index_inclusive, sel_event) = match app.mode {
         Mode::EventSelected | Mode::ObjectSelected => {
             let sel_index = app.event_list_state.selected().unwrap();
-            (sel_index + 1, Some(&app.trace.events[sel_index]))
+            (sel_index + 1, Some(&app.annotated_trace[sel_index]))
         },
         _ => (num_events, None),
     };
@@ -87,7 +86,7 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
     let mut root_items_1 = Vec::with_capacity(sel_index_inclusive);
     let mut root_items_2 = Vec::with_capacity(num_events - sel_index_inclusive);
 
-    for (i, evt) in app.trace.events.iter().enumerate() {
+    for (i, evt) in app.annotated_trace.iter().enumerate() {
         let d = TimeDelta::new(evt.data.ts - start_ts, 0).unwrap();
         let d_str = format!(
             "{} ({} applied/{} deleted)",
@@ -145,16 +144,16 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
 fn render_object(app: &mut App, frame: &mut Frame, layout: Rect) {
     let evt_idx = app.event_list_state.selected().unwrap();
     let obj_idx = app.object_list_state.selected().unwrap();
-    let applied_len = app.trace.events[evt_idx].data.applied_objs.len();
-    let deleted_len = app.trace.events[evt_idx].data.deleted_objs.len();
+    let applied_len = app.annotated_trace[evt_idx].data.applied_objs.len();
+    let deleted_len = app.annotated_trace[evt_idx].data.deleted_objs.len();
 
     let obj = if obj_idx >= applied_len {
         if obj_idx - applied_len > deleted_len {
             return;
         }
-        &app.trace.events[evt_idx].data.deleted_objs[obj_idx - applied_len]
+        &app.annotated_trace[evt_idx].data.deleted_objs[obj_idx - applied_len]
     } else {
-        &app.trace.events[evt_idx].data.applied_objs[obj_idx]
+        &app.annotated_trace[evt_idx].data.applied_objs[obj_idx]
     };
 
     let obj_str = serde_json::to_string_pretty(obj).unwrap();

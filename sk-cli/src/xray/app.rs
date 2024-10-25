@@ -27,8 +27,7 @@ pub(super) struct App {
     pub(super) running: bool,
     pub(super) mode: Mode,
 
-    pub(super) trace: AnnotatedTrace,
-    #[allow(dead_code)]
+    pub(super) annotated_trace: AnnotatedTrace,
     pub(super) validation_store: ValidationStore,
 
     pub(super) event_list_state: ListState,
@@ -40,14 +39,18 @@ impl App {
     pub(super) async fn new(trace_path: &str) -> anyhow::Result<App> {
         Ok(App {
             running: true,
-            trace: AnnotatedTrace::new(trace_path).await?,
+            annotated_trace: AnnotatedTrace::new(trace_path).await?,
             event_list_state: ListState::default().with_selected(Some(0)),
 
             ..Default::default()
         })
     }
 
-    pub(super) fn update(&mut self, msg: Message) {
+    pub(super) fn rebuild_annotated_trace(&mut self) {
+        self.validation_store.validate_trace(&mut self.annotated_trace)
+    }
+
+    pub(super) fn update_state(&mut self, msg: Message) -> bool {
         match msg {
             Message::Deselect => match self.mode {
                 Mode::ObjectSelected => {
@@ -81,5 +84,7 @@ impl App {
                 Mode::RootView => self.event_list_state.select_previous(),
             },
         }
+
+        false
     }
 }

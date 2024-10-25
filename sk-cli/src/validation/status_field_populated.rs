@@ -1,5 +1,5 @@
 use super::annotated_trace::AnnotatedTraceEvent;
-use super::validation_store::{
+use super::validator::{
     Diagnostic,
     Validator,
     ValidatorType,
