@@ -77,3 +77,6 @@ fn print_summary(trace: &AnnotatedTrace, validators: &ValidationStore) -> EmptyR
     }
     Ok(())
 }
+
+#[cfg(test)]
+pub mod tests;

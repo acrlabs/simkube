@@ -132,7 +132,11 @@ fn test_collect_events(mut tracer: TraceStore) {
     all_events[0].ts = 1;
     assert_eq!(events, all_events[0..4]);
     let keys: Vec<_> = index.into_keys().collect();
-    assert_bag_eq!(keys, ["test/obj1", "test/obj2", "test/obj3"].map(|s| s.to_string()));
+    assert_bag_eq!(
+        keys,
+        [format!("{TEST_NAMESPACE}/obj1"), format!("{TEST_NAMESPACE}/obj2"), format!("{TEST_NAMESPACE}/obj3")]
+            .map(|s| s.to_string())
+    );
 }
 
 #[rstest]

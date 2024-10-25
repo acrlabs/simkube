@@ -1,56 +1,16 @@
 use insta::assert_debug_snapshot;
-use kube::core::{
-    ApiResource,
-    DynamicObject,
-    GroupVersionKind,
-};
 use ratatui::backend::TestBackend;
 use ratatui::prelude::*;
 use ratatui::widgets::ListState;
-use sk_store::TraceEvent;
 
 use super::*;
+use crate::validation::tests::annotated_trace;
+use crate::validation::AnnotatedTrace;
 
 #[fixture]
-fn test_app() -> App {
+fn test_app(annotated_trace: AnnotatedTrace) -> App {
     App {
-        events: vec![
-            TraceEvent { ts: 0, ..Default::default() },
-            TraceEvent {
-                ts: 1,
-                applied_objs: vec![DynamicObject::new(
-                    "test_depl1",
-                    &ApiResource::from_gvk(&GroupVersionKind::gvk("core".into(), "v1".into(), "deployment".into())),
-                )
-                .within("test_namespace")],
-                deleted_objs: vec![],
-            },
-            TraceEvent {
-                ts: 2,
-                applied_objs: vec![
-                    DynamicObject::new(
-                        "test_depl1",
-                        &ApiResource::from_gvk(&GroupVersionKind::gvk("core".into(), "v1".into(), "deployment".into())),
-                    )
-                    .within("test_namespace"),
-                    DynamicObject::new(
-                        "test_depl2",
-                        &ApiResource::from_gvk(&GroupVersionKind::gvk("core".into(), "v1".into(), "deployment".into())),
-                    )
-                    .within("test_namespace"),
-                ],
-                deleted_objs: vec![],
-            },
-            TraceEvent {
-                ts: 3,
-                applied_objs: vec![],
-                deleted_objs: vec![DynamicObject::new(
-                    "test_depl1",
-                    &ApiResource::from_gvk(&GroupVersionKind::gvk("core".into(), "v1".into(), "deployment".into())),
-                )
-                .within("test_namespace")],
-            },
-        ],
+        trace: annotated_trace,
         event_list_state: ListState::default().with_selected(Some(0)),
         ..Default::default()
     }
