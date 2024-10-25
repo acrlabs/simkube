@@ -231,7 +231,6 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
-    let driver_ns = test_sim.spec.driver.namespace.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
     let prom_obj =
@@ -244,7 +243,7 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
                 "kind": "Namespace",
             }));
         })
-        .handle_not_found(format!("/api/v1/namespaces/{driver_ns}"))
+        .handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}"))
         .handle(move |when, then| {
             when.method(POST).path("/api/v1/namespaces");
             then.json_body_obj(&driver_ns_obj);
@@ -282,7 +281,6 @@ async fn test_setup_simulation_wait_prom(
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
-    let driver_ns = test_sim.spec.driver.namespace.clone();
     let prom_name = ctx.prometheus_name.clone();
     let driver_svc_name = ctx.driver_svc.clone();
     let webhook_name = ctx.webhook_name.clone();
@@ -301,7 +299,7 @@ async fn test_setup_simulation_wait_prom(
             }));
         })
         .handle(move |when, then| {
-            when.method(GET).path(format!("/api/v1/namespaces/{driver_ns}"));
+            when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}"));
             then.json_body_obj(&driver_ns_obj);
         });
 
@@ -323,13 +321,13 @@ async fn test_setup_simulation_wait_prom(
 
     if ready {
         fake_apiserver
-            .handle_not_found(format!("/api/v1/namespaces/test/services/{driver_svc_name}"))
+            .handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"))
             .handle(move |when, then| {
-                when.method(POST).path("/api/v1/namespaces/test/services");
+                when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
                 then.json_body_obj(&driver_svc_obj);
             })
             .handle(move |when, then| {
-                when.method(GET).path("/api/v1/namespaces/test/secrets");
+                when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/secrets"));
                 then.json_body(json!({
                     "kind": "SecretList",
                     "metadata": {},
@@ -346,9 +344,10 @@ async fn test_setup_simulation_wait_prom(
                     .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
                 then.json_body_obj(&webhook_obj);
             })
-            .handle_not_found(format!("/apis/batch/v1/namespaces/test/jobs/{driver_name}"))
+            .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
             .handle(move |when, then| {
-                when.method(POST).path("/apis/batch/v1/namespaces/test/jobs");
+                when.method(POST)
+                    .path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs"));
                 then.json_body_obj(&driver_obj);
             });
     }

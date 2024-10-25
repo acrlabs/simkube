@@ -64,7 +64,7 @@ cover:
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
 		--ignore 'sk-api/*' \
-		--ignore 'testutils/*' \
+		--ignore '*/testutils/*' \
 		--ignore '.build/*' \
 		--excl-line '#\[derive' \
 		--excl-start '#\[cfg\((test|feature = "testutils")'

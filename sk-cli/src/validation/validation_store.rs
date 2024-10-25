@@ -56,7 +56,7 @@ pub struct Validator {
 }
 
 impl Validator {
-    fn check_next_event(&mut self, a_event: &mut AnnotatedTraceEvent) -> Vec<usize> {
+    pub(super) fn check_next_event(&mut self, a_event: &mut AnnotatedTraceEvent) -> Vec<usize> {
         self.diagnostic.check_next_event(a_event)
     }
 
@@ -71,7 +71,7 @@ impl Validator {
 
 #[derive(Serialize)]
 pub struct ValidationStore {
-    validators: BTreeMap<String, Validator>,
+    pub(super) validators: BTreeMap<String, Validator>,
 }
 
 impl ValidationStore {
@@ -119,7 +119,7 @@ impl ValidationStore {
         Ok(())
     }
 
-    fn register(&mut self, v: Validator) {
+    pub(super) fn register(&mut self, v: Validator) {
         let code = format!("{}{:04}", v.type_, self.validators.len());
         self.validators.insert(code, v);
     }
