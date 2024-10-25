@@ -431,22 +431,25 @@ impl ClusterGraph {
     /// Construct a new graph starting from a given (presently hard-coded) starting state.
     /// This is achieved via a search over all state reachable within `trace_length` actions from
     /// the starting state.
-    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Node, trace_length: u64) -> Self {
+    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Vec<Node>, trace_length: u64) -> Self {
         let mut cluster_graph = Self { candidate_deployments, graph: DiGraph::new() };
-
-        let starting_node_idx = cluster_graph.graph.add_node(starting_state.clone());
 
         // we want to track nodes we've seen before to prevent duplicates...
         // petgraph may have internal capabilities for this, but I haven't had the time to look
         // if this stays a part of our code, we may want to wrap the graph w/ tracking data in a new struct
         // -HM
         let mut node_to_index: HashMap<Node, NodeIndex> = HashMap::new();
-        node_to_index.insert(starting_state.clone(), starting_node_idx);
+        for node in &starting_state {
+            let node_idx = cluster_graph.graph.add_node(node.clone());
+            node_to_index.insert(node.clone(), node_idx);
+        }
 
         // To find the graph containing all valid traces of trace_length with a given start state, we
         // perform bfs to a depth of trace_length. Queue item: `(depth, deployment)`
         let mut bfs_queue: VecDeque<(u64, Node)> = VecDeque::new();
-        bfs_queue.push_back((1, starting_state)); // start at depth 1
+        for node in starting_state {
+            bfs_queue.push_back((1, node));
+        }
         let mut visited = HashSet::new();
 
         while let Some((depth, node)) = bfs_queue.pop_front() {
@@ -457,7 +460,9 @@ impl ClusterGraph {
             }
 
             let not_previously_seen = visited.insert(node.clone());
-            assert!(not_previously_seen);
+            if !not_previously_seen {
+                continue;
+            }
 
             node.valid_action_states(&cluster_graph.candidate_deployments)
                 .into_iter()
@@ -489,31 +494,35 @@ impl ClusterGraph {
     /// The first node of each walk, and thus the first pair, has no incoming edge, but all
     /// remaining pairs contain `Some` edge.
     fn generate_walks(&self, trace_length: u64) -> Vec<Walk> {
-        let walk_start_node = self.graph.node_indices().next().unwrap();
+        let start_nodes: Vec<NodeIndex> = self.graph.node_indices().collect();
+        let mut all_walks = Vec::new();
 
         // We use a depth-first search because eventually we may want to use stochastic methods which do not
         // fully enumerate the neighborhood of each visited node.
+        for walk_start_node in start_nodes {
+            let walks = self.dfs_walks(walk_start_node, trace_length);
+            all_walks.extend(
+                walks.into_iter().map(|walk_indices| {
+                    let mut walk = Vec::new();
 
-        self.dfs_walks(walk_start_node, trace_length)
-            .into_iter()
-            .map(|walk_indices| {
-                let mut walk = Vec::new();
+                    let start_node = self.graph.node_weight(walk_indices[0]).unwrap().clone();
+                    walk.push((None, start_node));
 
-                let start_node = self.graph.node_weight(walk_indices[0]).unwrap().clone();
-                walk.push((None, start_node));
+                    for window in walk_indices.windows(2) {
+                        let (prev, next) = (window[0], window[1]);
 
-                for window in walk_indices.windows(2) {
-                    let (prev, next) = (window[0], window[1]);
+                        let edge_idx = self.graph.find_edge(prev, next).unwrap();
+                        let node = self.graph.node_weight(next).unwrap().clone();
+                        let edge = self.graph.edge_weight(edge_idx).cloned().unwrap();
+                        walk.push((Some(edge), node));
+                    }
 
-                    let edge_idx = self.graph.find_edge(prev, next).unwrap();
-                    let node = self.graph.node_weight(next).unwrap().clone();
-                    let edge = self.graph.edge_weight(edge_idx).cloned().unwrap();
-                    walk.push((Some(edge), node));
-                }
+                    walk
+                }),
+            );
+        }
 
-                walk
-            })
-            .collect()
+        all_walks
     }
 
     /// Perform a depth-first search over all walks of length `walk_length` starting from
@@ -672,7 +681,11 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let candidate_deployments = generate_candidate_deployments(cli.deployment_count);
-    let starting_state = Node::new(); // Start with no active deployments
+    let node_a = Node::new();
+    let node_b = Node::new(); 
+    // node_b.create_deployment("dep-1", &candidate_deployments);
+
+    let starting_state = vec![node_a, node_b];
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
