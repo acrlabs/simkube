@@ -1,3 +1,4 @@
+mod app_test;
 mod testutils;
 mod view_test;
 
