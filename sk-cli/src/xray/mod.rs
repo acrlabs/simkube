@@ -1,6 +1,5 @@
 mod app;
 mod event;
-mod util;
 mod view;
 
 use ratatui::backend::Backend;

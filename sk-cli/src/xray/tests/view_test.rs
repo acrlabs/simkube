@@ -4,11 +4,18 @@ use ratatui::prelude::*;
 use ratatui::widgets::ListState;
 
 use super::*;
-use crate::validation::tests::annotated_trace;
-use crate::validation::AnnotatedTrace;
+use crate::validation::tests::{
+    annotated_trace,
+    test_validation_store,
+};
+use crate::validation::{
+    AnnotatedTrace,
+    ValidationStore,
+};
 
 #[fixture]
-fn test_app(annotated_trace: AnnotatedTrace) -> App {
+fn test_app(mut test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) -> App {
+    test_validation_store.validate_trace(&mut annotated_trace);
     App {
         annotated_trace,
         event_list_state: ListState::default().with_selected(Some(0)),

@@ -15,12 +15,24 @@ use sk_store::{
     TraceStore,
 };
 
-use super::validator::Validator;
+use super::validator::{
+    Validator,
+    ValidatorCode,
+};
 
 #[derive(Clone, Default)]
 pub struct AnnotatedTraceEvent {
     pub data: TraceEvent,
-    pub annotations: Vec<(usize, String)>,
+    pub annotations: Vec<Vec<ValidatorCode>>,
+}
+
+impl AnnotatedTraceEvent {
+    pub fn new(data: TraceEvent) -> AnnotatedTraceEvent {
+        let len = data.applied_objs.len() + data.deleted_objs.len();
+        let annotations = vec![vec![]; len];
+
+        AnnotatedTraceEvent { data, annotations }
+    }
 }
 
 #[derive(Default)]
@@ -29,7 +41,7 @@ pub struct AnnotatedTrace {
     base: TraceStore,
     path: String,
     events: Vec<AnnotatedTraceEvent>,
-    summary: BTreeMap<String, usize>,
+    summary: BTreeMap<ValidatorCode, usize>,
 }
 
 impl AnnotatedTrace {
@@ -37,10 +49,7 @@ impl AnnotatedTrace {
         let object_store = SkObjectStore::new(trace_path)?;
         let trace_data = object_store.get().await?.to_vec();
         let base = TraceStore::import(trace_data, &None)?;
-        let events = base
-            .iter()
-            .map(|(event, _)| AnnotatedTraceEvent { data: event.clone(), ..Default::default() })
-            .collect();
+        let events = base.iter().map(|(event, _)| AnnotatedTraceEvent::new(event.clone())).collect();
         Ok(AnnotatedTrace {
             base,
             events,
@@ -49,16 +58,16 @@ impl AnnotatedTrace {
         })
     }
 
-    pub fn validate(&mut self, validators: &mut BTreeMap<String, Validator>) {
-        for evt in self.events.iter_mut() {
+    pub fn validate(&mut self, validators: &mut BTreeMap<ValidatorCode, Validator>) {
+        for event in self.events.iter_mut() {
             for (code, validator) in validators.iter_mut() {
-                let mut affected_indices: Vec<_> =
-                    validator.check_next_event(evt).into_iter().map(|i| (i, code.clone())).collect();
+                let affected_indices = validator.check_next_event(event);
                 let count = affected_indices.len();
-                self.summary.entry(code.into()).and_modify(|e| *e += count).or_insert(count);
+                self.summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
 
-                // This needs to happen at the ends, since `append` consumes affected_indices' contents
-                evt.annotations.append(&mut affected_indices);
+                for i in affected_indices {
+                    event.annotations[i].push(*code);
+                }
             }
         }
     }
@@ -79,7 +88,7 @@ impl AnnotatedTrace {
         self.events.first().map(|evt| evt.data.ts)
     }
 
-    pub fn summary_iter(&self) -> btree_map::Iter<'_, String, usize> {
+    pub fn summary_iter(&self) -> btree_map::Iter<'_, ValidatorCode, usize> {
         self.summary.iter()
     }
 }
@@ -98,7 +107,7 @@ impl AnnotatedTrace {
         AnnotatedTrace { events, ..Default::default() }
     }
 
-    pub fn summary_for(&self, code: &str) -> Option<usize> {
+    pub fn summary_for(&self, code: &ValidatorCode) -> Option<usize> {
         self.summary.get(code).cloned()
     }
 }

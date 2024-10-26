@@ -10,8 +10,15 @@ use clap::{
 };
 use sk_core::prelude::*;
 
-pub use self::annotated_trace::AnnotatedTrace;
+pub use self::annotated_trace::{
+    AnnotatedTrace,
+    AnnotatedTraceEvent,
+};
 pub use self::validation_store::ValidationStore;
+pub use self::validator::{
+    ValidatorCode,
+    ValidatorType,
+};
 
 #[derive(Subcommand)]
 pub enum ValidateSubcommand {
@@ -33,8 +40,8 @@ pub struct CheckArgs {
 
 #[derive(clap::Args)]
 pub struct ExplainArgs {
-    #[arg(long_help = "Error code to explain")]
-    pub code: String,
+    #[arg(long_help = "Error code to explain", value_parser = ValidatorCode::parse)]
+    pub code: ValidatorCode,
 }
 
 #[derive(Clone, ValueEnum)]

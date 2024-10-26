@@ -5,7 +5,10 @@ use serde::Serialize;
 use sk_core::prelude::*;
 
 use super::annotated_trace::AnnotatedTrace;
-use super::validator::Validator;
+use super::validator::{
+    Validator,
+    ValidatorCode,
+};
 use super::{
     status_field_populated,
     PrintFormat,
@@ -13,7 +16,7 @@ use super::{
 
 #[derive(Serialize)]
 pub struct ValidationStore {
-    pub(super) validators: BTreeMap<String, Validator>,
+    pub(super) validators: BTreeMap<ValidatorCode, Validator>,
 }
 
 impl ValidationStore {
@@ -25,7 +28,7 @@ impl ValidationStore {
         trace.validate(&mut self.validators);
     }
 
-    pub(super) fn explain(&self, code: &str) -> EmptyResult {
+    pub(super) fn explain(&self, code: &ValidatorCode) -> EmptyResult {
         let v = self.lookup(code)?;
         println!("{} ({code})", v.name);
         println!("{:=<80}", "");
@@ -33,7 +36,7 @@ impl ValidationStore {
         Ok(())
     }
 
-    pub(super) fn lookup<'a>(&'a self, code: &str) -> anyhow::Result<&'a Validator> {
+    pub(super) fn lookup<'a>(&'a self, code: &ValidatorCode) -> anyhow::Result<&'a Validator> {
         self.validators.get(code).ok_or(anyhow!("code not found: {code}"))
     }
 
@@ -49,11 +52,11 @@ impl ValidationStore {
     }
 
     pub(super) fn register(&mut self, v: Validator) {
-        let code = format!("{}{:04}", v.type_, self.validators.len());
+        let code = ValidatorCode(v.type_, self.validators.len());
         self.register_with_code(code, v);
     }
 
-    pub(super) fn register_with_code(&mut self, code: String, v: Validator) {
+    pub(super) fn register_with_code(&mut self, code: ValidatorCode, v: Validator) {
         self.validators.insert(code, v);
     }
 
