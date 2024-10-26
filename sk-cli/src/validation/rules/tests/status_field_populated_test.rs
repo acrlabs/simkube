@@ -15,7 +15,7 @@ fn test_status_field_populated(test_deployment: DynamicObject) {
         },
         ..Default::default()
     };
-    let annotations = v.check_next_event(&mut evt).unwrap();
+    let annotations = v.check_next_event(&mut evt, &Default::default()).unwrap();
     assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
 }
 
@@ -30,6 +30,6 @@ fn test_status_field_not_populated(test_deployment: DynamicObject) {
         },
         ..Default::default()
     };
-    let annotations = v.check_next_event(&mut evt).unwrap();
+    let annotations = v.check_next_event(&mut evt, &Default::default()).unwrap();
     assert_is_empty!(annotations);
 }

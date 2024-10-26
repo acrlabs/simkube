@@ -52,4 +52,4 @@ repos:
         language: system
         entry: bash -c 'make validation_rules && git diff --quiet'
         pass_filenames: false
-        files: "sk-store/src/validation/.*"
+        files: "sk-cli/src/validation/.*"

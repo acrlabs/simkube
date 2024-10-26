@@ -88,7 +88,7 @@ crd: skctl
 pre-k8s:: crd
 
 .PHONY: validation_rules
-validation_rules: VALIDATION_FILE=sk-cli/src/validation/README.md
+validation_rules: VALIDATION_FILE=sk-cli/src/validation/rules/README.md
 validation_rules: skctl
 	printf "# SimKube Trace Validation Checks\n\n" > $(VALIDATION_FILE)
 	$(BUILD_DIR)/skctl validate print --format table >> $(VALIDATION_FILE)

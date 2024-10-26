@@ -11,6 +11,7 @@ use serde::{
     Serialize,
     Serializer,
 };
+use sk_store::TracerConfig;
 
 use super::annotated_trace::{
     AnnotatedTraceEvent,
@@ -60,7 +61,7 @@ impl fmt::Display for ValidatorCode {
 pub type CheckResult = anyhow::Result<BTreeMap<usize, Vec<AnnotatedTracePatch>>>;
 
 pub trait Diagnostic {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent) -> CheckResult;
+    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult;
     fn reset(&mut self);
 }
 
@@ -78,8 +79,8 @@ pub struct Validator {
 }
 
 impl Validator {
-    pub fn check_next_event(&self, event: &mut AnnotatedTraceEvent) -> CheckResult {
-        self.diagnostic.write().unwrap().check_next_event(event)
+    pub fn check_next_event(&self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult {
+        self.diagnostic.write().unwrap().check_next_event(event, config)
     }
 
     pub fn reset(&self) {

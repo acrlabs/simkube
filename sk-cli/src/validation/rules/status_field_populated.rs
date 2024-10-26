@@ -5,6 +5,7 @@ use std::sync::{
 
 use json_patch_ext::prelude::*;
 use lazy_static::lazy_static;
+use sk_store::TracerConfig;
 
 use crate::validation::validator::{
     CheckResult,
@@ -34,7 +35,7 @@ lazy_static! {
 }
 
 impl Diagnostic for StatusFieldPopulated {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent) -> CheckResult {
+    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, _: &TracerConfig) -> CheckResult {
         Ok(event
             .data
             .applied_objs

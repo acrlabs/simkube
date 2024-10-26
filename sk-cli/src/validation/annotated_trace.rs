@@ -123,7 +123,7 @@ impl AnnotatedTrace {
         for event in self.events.iter_mut() {
             event.clear_annotations();
             for (code, validator) in validators.iter() {
-                let event_patches = validator.check_next_event(event)?;
+                let event_patches = validator.check_next_event(event, self.base.config())?;
                 let count = event_patches.len();
                 summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
 
