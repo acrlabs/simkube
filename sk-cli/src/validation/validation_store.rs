@@ -97,6 +97,7 @@ impl ValidationStore {
         let mut store = ValidationStore { validators: BTreeMap::new() };
 
         store.register(status_field_populated::validator());
+        store.register(service_account_missing::validator());
 
         store
     }

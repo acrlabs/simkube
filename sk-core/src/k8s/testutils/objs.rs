@@ -16,8 +16,13 @@ pub fn test_deployment(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject 
 }
 
 #[fixture]
-pub fn test_daemonset(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject {
+pub fn test_daemonset(#[default(TEST_DAEMONSET)] name: &str) -> DynamicObject {
     DynamicObject::new(&name, &ApiResource::from_gvk(&DS_GVK))
         .within(TEST_NAMESPACE)
         .data(json!({"spec": {"updateStrategy": {"type": "onDelete"}}}))
+}
+
+#[fixture]
+pub fn test_service_account(#[default(TEST_SERVICE_ACCOUNT)] name: &str) -> DynamicObject {
+    DynamicObject::new(&name, &ApiResource::from_gvk(&SA_GVK)).within(TEST_NAMESPACE)
 }

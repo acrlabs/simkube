@@ -36,6 +36,8 @@ mod test_constants {
 
     pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
     pub const TEST_DEPLOYMENT: &str = "the-deployment";
+    pub const TEST_DAEMONSET: &str = "the-daemonset";
+    pub const TEST_SERVICE_ACCOUNT: &str = "the-service-account";
     pub const TEST_NAMESPACE: &str = "test-namespace";
     pub const TEST_SIM_NAME: &str = "test-sim";
     pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
@@ -47,6 +49,7 @@ mod test_constants {
     lazy_static! {
         pub static ref DEPL_GVK: GVK = GVK::new("apps", "v1", "Deployment");
         pub static ref DS_GVK: GVK = GVK::new("apps", "v1", "DaemonSet");
+        pub static ref SA_GVK: GVK = GVK::new("", "v1", "ServiceAccount");
     }
 }
 

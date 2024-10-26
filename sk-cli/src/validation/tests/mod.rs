@@ -10,7 +10,10 @@ use std::sync::{
 use json_patch_ext::prelude::*;
 use rstest::*;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
+use sk_store::{
+    TraceEvent,
+    TracerConfig,
+};
 
 use super::annotated_trace::AnnotatedTraceEvent;
 use super::validator::{
@@ -53,7 +56,7 @@ pub fn annotated_trace() -> AnnotatedTrace {
 struct TestDiagnostic {}
 
 impl Diagnostic for TestDiagnostic {
-    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> CheckResult {
+    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent, _: &TracerConfig) -> CheckResult {
         if evt.data.applied_objs.len() > 1 && evt.data.applied_objs[1].data.get("foo").is_none() {
             Ok(BTreeMap::from([(
                 1,
