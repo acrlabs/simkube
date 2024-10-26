@@ -1,53 +1,20 @@
-use std::collections::BTreeMap;
-
 use assertables::*;
 
-use super::validator::{
-    Diagnostic,
-    Validator,
-    ValidatorType,
-};
 use super::*;
 
-struct TestDiagnostic {}
-
-impl Diagnostic for TestDiagnostic {
-    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> Vec<usize> {
-        if evt.data.applied_objs.len() > 1 {
-            vec![1]
-        } else {
-            vec![]
-        }
-    }
-
-    fn reset(&mut self) {}
-}
-
-#[fixture]
-fn validator() -> Validator {
-    Validator {
-        type_: ValidatorType::Warning,
-        name: "test_validator",
-        help: "HELP ME, I'M STUCK IN THE BORROW CHECKER",
-        diagnostic: Box::new(TestDiagnostic {}),
-    }
-}
-
 #[rstest]
-fn test_validate_trace(validator: Validator, mut annotated_trace: AnnotatedTrace) {
-    let code = "W9999";
-    let mut test_store = ValidationStore { validators: BTreeMap::new() };
-    test_store.register_with_code(code.into(), validator);
-
-    test_store.validate_trace(&mut annotated_trace);
+fn test_validate_trace(mut test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) {
+    test_validation_store.validate_trace(&mut annotated_trace);
 
     for evt in annotated_trace.iter() {
         if evt.data.applied_objs.len() > 1 {
-            assert_eq!(evt.annotations, vec![(1, code.into())]);
+            assert_eq!(evt.annotations[1], vec![TEST_VALIDATOR_CODE]);
         } else {
-            assert_is_empty!(evt.annotations);
+            for annotation in &evt.annotations {
+                assert_is_empty!(annotation);
+            }
         }
     }
 
-    assert_eq!(annotated_trace.summary_for(code).unwrap(), 1);
+    assert_eq!(annotated_trace.summary_for(&TEST_VALIDATOR_CODE).unwrap(), 1);
 }

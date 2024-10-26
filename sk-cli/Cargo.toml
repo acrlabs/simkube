@@ -22,6 +22,7 @@ dirs = { workspace = true }
 json-patch = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
+lazy_static = { workspace = true }
 ratatui = { workspace = true }
 reqwest = { workspace = true }
 serde = { workspace = true }

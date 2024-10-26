@@ -41,6 +41,7 @@ either = "1.12.0"
 futures = "0.3.28"
 json-patch = "1.2.0"
 k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
+lazy_static = "1.5.0"
 object_store = { version = "0.11.0", features = ["aws", "gcp", "azure", "http"] }
 # remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
 parse_datetime_fork = { version = "0.6.0-custom" }
