@@ -501,25 +501,23 @@ impl ClusterGraph {
         // fully enumerate the neighborhood of each visited node.
         for walk_start_node in start_nodes {
             let walks = self.dfs_walks(walk_start_node, trace_length);
-            all_walks.extend(
-                walks.into_iter().map(|walk_indices| {
-                    let mut walk = Vec::new();
+            all_walks.extend(walks.into_iter().map(|walk_indices| {
+                let mut walk = Vec::new();
 
-                    let start_node = self.graph.node_weight(walk_indices[0]).unwrap().clone();
-                    walk.push((None, start_node));
+                let start_node = self.graph.node_weight(walk_indices[0]).unwrap().clone();
+                walk.push((None, start_node));
 
-                    for window in walk_indices.windows(2) {
-                        let (prev, next) = (window[0], window[1]);
+                for window in walk_indices.windows(2) {
+                    let (prev, next) = (window[0], window[1]);
 
-                        let edge_idx = self.graph.find_edge(prev, next).unwrap();
-                        let node = self.graph.node_weight(next).unwrap().clone();
-                        let edge = self.graph.edge_weight(edge_idx).cloned().unwrap();
-                        walk.push((Some(edge), node));
-                    }
+                    let edge_idx = self.graph.find_edge(prev, next).unwrap();
+                    let node = self.graph.node_weight(next).unwrap().clone();
+                    let edge = self.graph.edge_weight(edge_idx).cloned().unwrap();
+                    walk.push((Some(edge), node));
+                }
 
-                    walk
-                }),
-            );
+                walk
+            }));
         }
 
         all_walks
@@ -681,11 +679,19 @@ fn main() -> Result<()> {
     let cli = Cli::parse();
 
     let candidate_deployments = generate_candidate_deployments(cli.deployment_count);
-    let node_a = Node::new();
-    let node_b = Node::new(); 
-    // node_b.create_deployment("dep-1", &candidate_deployments);
 
-    let starting_state = vec![node_a, node_b];
+    // Hard-code the nodes resulting from an input trace at least until we have the capability to parse out a real trace
+    let target_name = candidate_deployments.keys()
+        .next()
+        .expect("candidate_deployments should not be empty")
+        .clone();
+
+    let a = Node::new();
+    let b = a.create_deployment(&target_name, &candidate_deployments).unwrap();
+    let c = a.increment_replica_count(target_name.clone()).unwrap();
+    let d = b.decrement_replica_count(target_name.clone()).unwrap();
+
+    let starting_state = vec![a, b, c, d];
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
