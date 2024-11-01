@@ -153,6 +153,8 @@ enum DeploymentAction {
     DecrementReplicas,
     CreateDeployment,
     DeleteDeployment,
+    DoubleCPU, 
+    HalfCPU
 }
 
 /// An action to be applied to a [`Node`] on one of its active [`Deployment`]s.
@@ -180,12 +182,14 @@ struct Deployment {
     name: String,
     /// The number of replicas of the deployment.
     replica_count: u32,
+    /// The CPU usage of the deployment 
+    cpu_count: u32,
 }
 
 impl Deployment {
     /// Creates a new deployment with a given name and replica count.
     fn new(name: String, replica_count: u32) -> Self {
-        Self { name, replica_count }
+        Self { name, replica_count, cpu_count: 1 }
     }
 
     /// Attempts to increment the replica count of this deployment.
@@ -211,6 +215,29 @@ impl Deployment {
             }
         }
         None
+    }
+
+    /// Attempts to double the CPU count of this deployment. 
+    ///
+    /// Returns None if the new CPU count would exceed the maximum value for u32.
+    fn double_cpu(&self) -> Option<Self>{
+        if let Some(new_cpu) = self.cpu_count.checked_mul(2) {
+            Some(Self { cpu_count: new_cpu, ..self.clone()})
+        } else {
+            None
+        }
+    }
+
+     /// Attempts to halve the CPU count of this deployment. 
+    ///
+    /// Returns None if the new CPU count would be reduced to a value below 1. 
+    fn half_cpu(&self) -> Option<Self> {
+        if self.cpu_count > 1 {
+            Some(Self { cpu_count: self.cpu_count / 2, ..self.clone() })
+        }
+        else {
+            None
+        }
     }
 
     /// Converts this deployment to a [`DynamicObject`].
@@ -325,6 +352,28 @@ impl Node {
         Some(next_state)
     }
 
+    /// Attempts to double the CPU count of an active [`Deployment`] in this state
+    ///
+    /// Returns [`None`] if doubling would overflow the CPU usage or deployment does not exist
+    fn double_cpu_usage(&self, name: String) -> Option<Self> {
+        let doubled_deployment = self.deployments.get(&name)?.double_cpu()?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name, doubled_deployment);
+        Some(next_state)
+    }
+
+    /// Attempts to halve the CPU count of an active [`Deployment`] in this state
+    ///
+    /// Returns [`None`] if the deployment does not exist or halving would reduce the CPU count below the minimum.
+    fn halve_cpu_usage(&self, name: String) -> Option<Self> {
+        let halved_deployment = self.deployments.get(&name)?.half_cpu()?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name, halved_deployment);
+        Some(next_state)
+    }
+
     /// Attempts to perform a [`ClusterAction`] on this [`Node`] to obtain a next [`Node`].
     ///
     /// Returns [`None`] if the action is invalid.
@@ -338,6 +387,8 @@ impl Node {
             DeploymentAction::DecrementReplicas => self.decrement_replica_count(name),
             DeploymentAction::CreateDeployment => self.create_deployment(&name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&name),
+            DeploymentAction::DoubleCPU => self.double_cpu_usage(name),
+            DeploymentAction::HalfCPU => self.halve_cpu_usage(name),
         }
     }
 
@@ -366,7 +417,7 @@ impl Node {
             }
         }
 
-        // across all active deployments, we can try to increment/decrement, saving bounds checks for later
+        // across all active deployments, we can try to increment/decrement, double/half CPU, saving bounds checks for later
         for name in self.deployments.keys() {
             actions.push(ClusterAction {
                 target_name: name.clone(),
@@ -375,6 +426,14 @@ impl Node {
             actions.push(ClusterAction {
                 target_name: name.clone(),
                 action_type: DeploymentAction::DecrementReplicas,
+            });
+            actions.push(ClusterAction {
+                target_name: name.clone(),
+                action_type: DeploymentAction::DoubleCPU,
+            });
+            actions.push(ClusterAction {
+                target_name: name.clone(),
+                action_type: DeploymentAction::HalfCPU,
             });
         }
 
@@ -585,6 +644,8 @@ impl ClusterGraph {
                     DeploymentAction::DecrementReplicas => "replicas--",
                     DeploymentAction::CreateDeployment => "create",
                     DeploymentAction::DeleteDeployment => "delete",
+                    DeploymentAction::DoubleCPU => "cpu x2",
+                    DeploymentAction::HalfCPU => "cpu /2",
                 },
                 action.target_name.replace('"', "\\\"") // Escape any quotes in the name
             )
@@ -620,6 +681,9 @@ impl ClusterGraph {
                             },
                             DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
                                 CREATE_DELETE_ACTION_PROBABILITY
+                            },
+                            DeploymentAction::DoubleCPU | DeploymentAction::HalfCPU => {
+                                SCALE_ACTION_PROBABILITY
                             },
                         }
                     })
