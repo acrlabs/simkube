@@ -688,8 +688,8 @@ fn main() -> Result<()> {
 
     let a = Node::new();
     let b = a.create_deployment(&target_name, &candidate_deployments).unwrap();
-    let c = a.increment_replica_count(target_name.clone()).unwrap();
-    let d = b.decrement_replica_count(target_name.clone()).unwrap();
+    let c = b.increment_replica_count(target_name.clone()).unwrap();
+    let d = c.decrement_replica_count(target_name.clone()).unwrap();
 
     let starting_state = vec![a, b, c, d];
 
