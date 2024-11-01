@@ -100,6 +100,10 @@ const BASE_TS: i64 = 1_728_334_068;
 const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.2;
 
+const MemoryRequestScale: f64 = 2.0;
+const MemoryRequestMin: u64 = 1;
+const MemoryRequestMax: u64 = u64::MAX;
+
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
 /// `sk-gen` is a CLI tool for generating synthetic trace data which is ingestible by SimKube.
@@ -146,13 +150,31 @@ struct Cli {
     display_traces: bool,
 }
 
-/// Actions which can be applied to a [`Deployment`].
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum MemoryAction {
+    Increase,
+    Decrease,
+    // TODO: Set?
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum ResourceAction {
+    Cpu,
+    Memory(MemoryAction),
+    Gpu,
+}
+
+/// Actions which can be applied to a [`Deployment`].
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 enum DeploymentAction {
     IncrementReplicas,
     DecrementReplicas,
     CreateDeployment,
     DeleteDeployment,
+    ResourceAction {
+        container_name: String,
+        action: ResourceAction
+    }
 }
 
 /// An action to be applied to a [`Node`] on one of its active [`Deployment`]s.
@@ -201,6 +223,10 @@ impl Deployment {
     /// Creates a new deployment with a given name and replica count.
     fn new(name: String, replica_count: u32, containers: BTreeMap<String, Container>) -> Self {
         Self { name, replica_count, containers }
+    }
+
+    fn resource_action(&self, action: ResourceAction) -> Option<Self> {
+        unimplemented!();
     }
 
     /// Attempts to increment the replica count of this deployment.
@@ -345,19 +371,28 @@ impl Node {
         Some(next_state)
     }
 
+    fn resource_action(&self, deployment_name: String, container_name: &str, action: ResourceAction) -> Option<Self> {
+        let modified_deployment = self.deployments.get(&deployment_name)?.resource_action(action)?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(deployment_name, modified_deployment);
+        Some(next_state)
+    }
+
     /// Attempts to perform a [`ClusterAction`] on this [`Node`] to obtain a next [`Node`].
     ///
     /// Returns [`None`] if the action is invalid.
     fn perform_action(
         &self,
-        ClusterAction { target_name: name, action_type }: ClusterAction,
+        ClusterAction { target_name: deployment_name, action_type }: ClusterAction,
         candidate_deployments: &BTreeMap<String, Deployment>,
     ) -> Option<Self> {
         match action_type {
-            DeploymentAction::IncrementReplicas => self.increment_replica_count(name),
-            DeploymentAction::DecrementReplicas => self.decrement_replica_count(name),
-            DeploymentAction::CreateDeployment => self.create_deployment(&name, candidate_deployments),
-            DeploymentAction::DeleteDeployment => self.delete_deployment(&name),
+            DeploymentAction::IncrementReplicas => self.increment_replica_count(deployment_name),
+            DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
+            DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
+            DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
+            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(&deployment_name, &container_name, action)
         }
     }
 
