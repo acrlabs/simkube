@@ -168,6 +168,20 @@ struct ClusterAction {
     action_type: DeploymentAction,
 }
 
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Requests {
+    memory_gb: u64, // TODO maybe we want float (or different units)
+}
+
+
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Container {
+    name: String,
+    image: String,
+    requests: Requests,
+}
+
 /// The aspects of a Kubernetes deployment spec which we are considering in our generation.
 ///
 /// We don't want to be lugging YAML around everywhere, especially when the graph gets very large.
@@ -180,12 +194,13 @@ struct Deployment {
     name: String,
     /// The number of replicas of the deployment.
     replica_count: u32,
+    containers: BTreeMap<String, Container>,
 }
 
 impl Deployment {
     /// Creates a new deployment with a given name and replica count.
-    fn new(name: String, replica_count: u32) -> Self {
-        Self { name, replica_count }
+    fn new(name: String, replica_count: u32, containers: BTreeMap<String, Container>) -> Self {
+        Self { name, replica_count, containers }
     }
 
     /// Attempts to increment the replica count of this deployment.
@@ -245,10 +260,15 @@ impl Deployment {
                             }
                         },
                         "spec": {
-                            "containers": [{
-                                "name": "minimal-container",
-                                "image": "nginx:latest"
-                            }]
+                            "containers": self.containers.iter().map(|(_name, c)| {json! {
+                                {
+                                "name": c.name,
+                                "image": c.image,
+                                "requests": {
+                                    "memory": format!("{}gb", c.requests.memory_gb),
+                                },
+                            }
+                            }}).collect::<Vec<_>>()
                         }
                     }
                 }
@@ -667,11 +687,25 @@ impl ClusterGraph {
 }
 
 
+
 /// Generates `num_deployments` candidate deployments with names `dep-1`, `dep-2`, ..., `dep-n`.
 fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, Deployment> {
+    // Assume for simplicity all pods are running the same container
+    let mut default_containers = BTreeMap::new();
+
+    let default_container = Container {
+        name: "name".to_string(),
+        image: "nginx".to_string(),
+        requests: Requests {
+            memory_gb: 1,
+        }
+    };
+
+    default_containers.insert(default_container.name.clone(), default_container);
+
     (1..=num_deployments)
         .map(|i| format!("dep-{i}"))
-        .map(|name| (name.clone(), Deployment::new(name, 1)))
+        .map(|name| (name.clone(), Deployment::new(name, 1, default_containers.clone())))
         .collect()
 }
 
