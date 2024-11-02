@@ -89,20 +89,20 @@ use crate::output::{
     Trace,
 };
 
-
-/// The maximum number of replicas a deployment can have.
-const MAX_REPLICAS: u32 = u32::MAX;
-/// The minimum number of replicas a deployment can have.
-const MIN_REPLICAS: u32 = 0;
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
-/// Add these near the top of the file, after the existing constants
-const SCALE_ACTION_PROBABILITY: f64 = 0.8;
-const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.2;
 
-const MemoryRequestScale: f64 = 2.0;
-const MemoryRequestMin: u64 = 1;
-const MemoryRequestMax: u64 = u64::MAX;
+const REPLICA_COUNT_MIN: u32 = u32::MAX;
+const REPLICA_COUNT_MAX: u32 = 0;
+const REPLICA_COUNT_CHANGE: u32 = 1;
+
+const MEMORY_REQUEST_MIN: u64 = 1;
+const MEMORY_REQUEST_MAX: u64 = u64::MAX;
+const MEMORY_REQUEST_SCALE: f64 = 2.0;
+
+const SCALE_ACTION_PROBABILITY: f64 = 0.8;
+const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.1;
+const RESOURCE_ACTION_PROBABILITY: f64 = 0.1;
 
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
@@ -204,6 +204,35 @@ struct Container {
     requests: Requests,
 }
 
+impl Container {
+    fn resource_action(&self, action: ResourceAction) -> Option<Self> {
+        match action {
+            ResourceAction::Cpu => unimplemented!(),
+            ResourceAction::Memory(memory_action) => self.memory_action(memory_action),
+            ResourceAction::Gpu => unimplemented!(),
+        }
+    }
+
+    fn memory_scale(&self, scale: f64) -> Option<Self> {
+        let new_memory = ((self.requests.memory_gb as f64) * scale) as u64;
+
+        if MEMORY_REQUEST_MIN <= new_memory && new_memory <= MEMORY_REQUEST_MAX
+        {
+            Some(Self { requests: Requests { memory_gb: new_memory }, ..self.clone()})
+        } else {
+            None
+        }
+    }
+
+
+    fn memory_action(&self, action: MemoryAction) -> Option<Self> {
+        match action {
+            MemoryAction::Decrease => self.memory_scale(1.0/MEMORY_REQUEST_SCALE),
+            MemoryAction::Increase => self.memory_scale(MEMORY_REQUEST_SCALE),
+        }
+    }
+}
+
 /// The aspects of a Kubernetes deployment spec which we are considering in our generation.
 ///
 /// We don't want to be lugging YAML around everywhere, especially when the graph gets very large.
@@ -225,34 +254,34 @@ impl Deployment {
         Self { name, replica_count, containers }
     }
 
-    fn resource_action(&self, action: ResourceAction) -> Option<Self> {
-        unimplemented!();
+    fn resource_action(&self, container_name: String, action: ResourceAction) -> Option<Self> {
+        let container = self.containers.get(&container_name)?.resource_action(action)?;
+
+        let mut next_state = self.clone();
+        next_state.containers.insert(container_name, container)?;
+        Some(next_state)
     }
 
-    /// Attempts to increment the replica count of this deployment.
-    ///
-    /// Returns None if the increment would exceed the maximum number of replicas.
-    fn increment(&self) -> Option<Self> {
-        if let Some(new_count) = self.replica_count.checked_add(1) {
-            if new_count <= MAX_REPLICAS {
-                return Some(Self { replica_count: new_count, ..self.clone() });
-            }
+    fn replica_count_increment(&self, change: u32) -> Option<Self> {
+        let new_count = self.replica_count.checked_add(change)?; 
+
+        if new_count <= REPLICA_COUNT_MIN {
+            Some(Self { replica_count: new_count, ..self.clone() })
+        } else {
+            None
         }
-        None
     }
 
-    /// Attempts to decrement the replica count of this deployment.
-    ///
-    /// Returns None if the decrement would bring the replica count below the minimum number of
-    /// replicas.
-    fn decrement(&self) -> Option<Self> {
-        if let Some(new_count) = self.replica_count.checked_sub(1) {
-            if new_count >= MIN_REPLICAS {
-                return Some(Self { replica_count: new_count, ..self.clone() });
-            }
+    fn replica_count_decrement(&self, change: u32) -> Option<Self> {
+        let new_count = self.replica_count.checked_sub(change)?; 
+
+        if REPLICA_COUNT_MAX < new_count {
+            Some(Self { replica_count: new_count, ..self.clone() })
+        } else {
+            None
         }
-        None
     }
+
 
     /// Converts this deployment to a [`DynamicObject`].
     ///
@@ -353,7 +382,7 @@ impl Node {
     ///
     /// Returns [`None`] if the deployment does not exist.
     fn increment_replica_count(&self, name: String) -> Option<Self> {
-        let incremented_deployment = self.deployments.get(&name)?.increment()?;
+        let incremented_deployment = self.deployments.get(&name)?.replica_count_increment(REPLICA_COUNT_CHANGE)?;
 
         let mut next_state = self.clone();
         next_state.deployments.insert(name, incremented_deployment);
@@ -364,15 +393,15 @@ impl Node {
     ///
     /// Returns [`None`] if the deployment does not exist.
     fn decrement_replica_count(&self, name: String) -> Option<Self> {
-        let decremented_deployment = self.deployments.get(&name)?.decrement()?;
+        let decremented_deployment = self.deployments.get(&name)?.replica_count_decrement(REPLICA_COUNT_CHANGE)?;
 
         let mut next_state = self.clone();
         next_state.deployments.insert(name, decremented_deployment);
         Some(next_state)
     }
 
-    fn resource_action(&self, deployment_name: String, container_name: &str, action: ResourceAction) -> Option<Self> {
-        let modified_deployment = self.deployments.get(&deployment_name)?.resource_action(action)?;
+    fn resource_action(&self, deployment_name: String, container_name: String, action: ResourceAction) -> Option<Self> {
+        let modified_deployment = self.deployments.get(&deployment_name)?.resource_action(container_name, action)?;
 
         let mut next_state = self.clone();
         next_state.deployments.insert(deployment_name, modified_deployment);
@@ -392,7 +421,7 @@ impl Node {
             DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
             DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
-            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(&deployment_name, &container_name, action)
+            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action)
         }
     }
 
@@ -422,7 +451,7 @@ impl Node {
         }
 
         // across all active deployments, we can try to increment/decrement, saving bounds checks for later
-        for name in self.deployments.keys() {
+        for (name, deployment) in self.deployments.iter() {
             actions.push(ClusterAction {
                 target_name: name.clone(),
                 action_type: DeploymentAction::IncrementReplicas,
@@ -431,6 +460,15 @@ impl Node {
                 target_name: name.clone(),
                 action_type: DeploymentAction::DecrementReplicas,
             });
+
+            for container_name in deployment.containers.keys() {
+                for memory_action in [MemoryAction::Decrease, MemoryAction::Increase] {
+                    actions.push(ClusterAction {
+                        target_name: name.clone(),
+                        action_type: DeploymentAction::ResourceAction { container_name: container_name.clone(), action: ResourceAction::Memory(memory_action) }
+                    });
+                }
+            }
         }
 
         actions
@@ -635,12 +673,7 @@ impl ClusterGraph {
                 "  {} -> {} [label=\"{} {}\"];",
                 edge.source().index(),
                 edge.target().index(),
-                match action.action_type {
-                    DeploymentAction::IncrementReplicas => "replicas++",
-                    DeploymentAction::DecrementReplicas => "replicas--",
-                    DeploymentAction::CreateDeployment => "create",
-                    DeploymentAction::DeleteDeployment => "delete",
-                },
+                format!("{:?}", action),
                 action.target_name.replace('"', "\\\"") // Escape any quotes in the name
             )
             .unwrap();
@@ -676,6 +709,7 @@ impl ClusterGraph {
                             DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
                                 CREATE_DELETE_ACTION_PROBABILITY
                             },
+                            DeploymentAction::ResourceAction {..} => RESOURCE_ACTION_PROBABILITY,
                         }
                     })
                     .collect();
