@@ -152,6 +152,10 @@ struct Cli {
     /// Display walks to stdout. Walks are displayed as a list of nodes and intermediate actions.
     #[arg(short = 'w', long)]
     display_walks: bool,
+
+    /// Display walks to stdout. Walks are displayed as a list of nodes and intermediate actions.
+    #[arg(short = 'p', long)]
+    model_gpu: bool,
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
@@ -162,10 +166,16 @@ enum MemoryAction {
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum GpuAction {
+    Increase,
+    Decrease,
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 enum ResourceAction {
     Cpu,
     Memory(MemoryAction),
-    Gpu,
+    Gpu(GpuAction),
 }
 
 /// Actions which can be applied to a [`Deployment`].
@@ -197,6 +207,7 @@ struct ClusterAction {
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct Requests {
     memory_gb: u64, // TODO maybe we want float (or different units)
+    gpu_count: u64
 }
 
 
@@ -213,7 +224,7 @@ impl Container {
         match action {
             ResourceAction::Cpu => unimplemented!(),
             ResourceAction::Memory(memory_action) => self.memory_action(memory_action),
-            ResourceAction::Gpu => unimplemented!(),
+            ResourceAction::Gpu (gpu_action) => self.gpu_action(gpu_action)
         }
     }
 
@@ -222,10 +233,18 @@ impl Container {
 
         if MEMORY_REQUEST_MIN <= new_memory && new_memory <= MEMORY_REQUEST_MAX
         {
-            Some(Self { requests: Requests { memory_gb: new_memory }, ..self.clone()})
+            Some(Self { requests: Requests { memory_gb: new_memory, gpu_count: self.requests.gpu_count }, ..self.clone()})
         } else {
             None
         }
+    }
+
+    fn increase_gpu(&self) -> Option<Self> {
+        Some(Self { requests: Requests { memory_gb: self.requests.memory_gb, gpu_count: self.requests.gpu_count + 1 }, ..self.clone()})
+    }
+
+    fn decrease_gpu(&self) -> Option<Self> {
+        Some(Self { requests: Requests { memory_gb: self.requests.memory_gb, gpu_count: self.requests.gpu_count - 1 }, ..self.clone()})
     }
 
 
@@ -233,6 +252,13 @@ impl Container {
         match action {
             MemoryAction::Decrease => self.memory_scale(1.0/MEMORY_REQUEST_SCALE),
             MemoryAction::Increase => self.memory_scale(MEMORY_REQUEST_SCALE),
+        }
+    }
+
+    fn gpu_action(&self, action: GpuAction) -> Option<Self> {
+        match action {
+            GpuAction::Decrease => self.decrease_gpu(),
+            GpuAction::Increase => self.increase_gpu(),
         }
     }
 }
@@ -425,7 +451,7 @@ impl Node {
             DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
             DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
-            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action)
+            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action),
         }
     }
 
@@ -470,6 +496,13 @@ impl Node {
                     actions.push(ClusterAction {
                         target_name: name.clone(),
                         action_type: DeploymentAction::ResourceAction { container_name: container_name.clone(), action: ResourceAction::Memory(memory_action) }
+                    });
+                }
+
+                for gpu_action in [GpuAction::Decrease, GpuAction::Increase] {
+                    actions.push(ClusterAction {
+                        target_name: name.clone(),
+                        action_type: DeploymentAction::ResourceAction { container_name: container_name.clone(), action: ResourceAction::Gpu(gpu_action) }
                     });
                 }
             }
@@ -528,7 +561,7 @@ impl ClusterGraph {
     /// Construct a new graph starting from a given (presently hard-coded) starting state.
     /// This is achieved via a search over all state reachable within `trace_length` actions from
     /// the starting state.
-    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Vec<Node>, trace_length: u64) -> Self {
+    fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Vec<Node>, trace_length: u64, model_gpu: bool) -> Self {
         let mut cluster_graph = Self { candidate_deployments, graph: DiGraph::new() };
 
         // we want to track nodes we've seen before to prevent duplicates...
@@ -771,6 +804,7 @@ fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, De
         image: "nginx".to_string(),
         requests: Requests {
             memory_gb: 1,
+            gpu_count: 0
         }
     };
 
@@ -802,7 +836,7 @@ fn main() -> Result<()> {
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
-    let graph = ClusterGraph::new(candidate_deployments, starting_state, cli.trace_length);
+    let graph = ClusterGraph::new(candidate_deployments, starting_state, cli.trace_length, cli.model_gpu);
 
     // if the user provided a path for us to save the graphviz representation, do so
     if let Some(graph_output_file) = &cli.graph_output_file {
