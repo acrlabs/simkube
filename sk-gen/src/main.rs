@@ -79,6 +79,7 @@ use kube::api::DynamicObject;
 use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
+use serde::Serialize;
 use serde_json::json;
 
 use sk_store::{TraceEvent, TraceStorable, TraceStore};
@@ -152,6 +153,15 @@ struct Cli {
     /// Display walks to stdout. Walks are displayed as a list of nodes and intermediate actions.
     #[arg(short = 'w', long)]
     display_walks: bool,
+}
+
+struct OrderedHashableObject<T: Serialize>(T);
+
+impl<T: Serialize> std::hash::Hash for OrderedHashableObject<T> {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        let json = serde_json::to_value(&self.0).unwrap();
+        sk_core::jsonutils::ordered_hash(&json).hash(state);
+    }
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
