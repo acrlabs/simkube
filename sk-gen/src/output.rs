@@ -1,88 +1,20 @@
 //! This module contains graph/trace output utilities and functionality.
 
-use std::collections::{
-    HashMap,
-    VecDeque,
-};
 use std::path::PathBuf;
 
 use anyhow::Result;
-use sk_core::k8s::GVK;
 use sk_store::{
-    PodLifecyclesMap,
-    TraceEvent,
-    TracerConfig,
-    TrackedObjectConfig,
+    TraceEvent, TraceStorable,
 };
 
 use crate::{
     Cli,
     ClusterGraph,
-    Edge,
     Node,
     Walk,
 };
 
-
-// The rest of SimKube handles this data as a tuple, but since some of us are newer, we just use a
-// struct.
-/// A sequence of [`TraceEvent`] instances and additional metadata which can be simulated by
-/// SimKube.
-pub(crate) struct Trace {
-    config: TracerConfig,
-    /// At the moment, this is the only field we are using. This is just a queue of
-    /// `TraceEvent`s.
-    events: VecDeque<TraceEvent>,
-    index: HashMap<String, u64>,
-    pod_lifecycles: HashMap<String, PodLifecyclesMap>,
-}
-
-impl Trace {
-    /// Creates a new `trace` from a `Walk`.
-    ///
-    /// This simply entails extracting the [`TraceEvent`]s from the [`Edge`]s of the walk.
-    pub(crate) fn from_walk(walk: &Walk) -> Self {
-        let events = walk
-            .iter()
-            .filter_map(|(edge, _node)| edge.as_ref().map(|e| e.trace_event.clone()))
-            .collect();
-        Self::from_trace_events(events)
-    }
-
-    /// Creates a new `Trace` from a sequence of `TraceEvent` instances.
-    pub(crate) fn from_trace_events(events: Vec<TraceEvent>) -> Self {
-        let events = VecDeque::from(events);
-
-        let config = TracerConfig {
-            tracked_objects: HashMap::from([(
-                GVK::new("apps", "v1", "Deployment"),
-                TrackedObjectConfig {
-                    track_lifecycle: false,
-                    pod_spec_template_path: None,
-                },
-            )]),
-        };
-
-        let index = HashMap::new(); // TODO
-        let pod_lifecycles = HashMap::new(); // TODO
-
-        Self { config, events, index, pod_lifecycles }
-    }
-
-    fn to_tuple(
-        &self,
-    ) -> (TracerConfig, VecDeque<TraceEvent>, HashMap<String, u64>, HashMap<String, PodLifecyclesMap>) {
-        (self.config.clone(), self.events.clone(), self.index.clone(), self.pod_lifecycles.clone())
-    }
-
-    fn to_msgpack(&self) -> Result<Vec<u8>> {
-        Ok(rmp_serde::to_vec_named(&self.to_tuple())?)
-    }
-
-    fn to_json(&self) -> Result<String> {
-        Ok(serde_json::to_string_pretty(&self.to_tuple())?)
-    }
-}
+use sk_store::TraceStore;
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
 /// `prev` to `next` state over `ts` seconds.
@@ -108,7 +40,7 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
 }
 
 /// Display walks and traces as specified by user-provided CLI flags.
-pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[Trace], cli: &Cli) -> Result<()> {
+pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[TraceStore], cli: &Cli) -> Result<()> {
     // create output directory if it doesn't exist
     if let Some(traces_dir) = &cli.traces_output_dir {
         if !traces_dir.exists() {
@@ -117,8 +49,12 @@ pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[Trace], cli: &C
     }
 
     for (i, (walk, trace)) in walks.iter().zip(traces.iter()).enumerate() {
+        let min_ts = trace.start_ts().unwrap();
+        let max_ts = trace.end_ts().unwrap();
+        let export_filters = sk_api::v1::ExportFilters::default(); // TODO ensure this is non-restrictive
+
         if let Some(traces_dir) = &cli.traces_output_dir {
-            let data = trace.to_msgpack()?;
+            let data = trace.export(min_ts, max_ts, &export_filters)?;
             let path = traces_dir.join(format!("trace-{i}.mp"));
             std::fs::write(path, data)?;
         }
@@ -126,12 +62,6 @@ pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[Trace], cli: &C
         if cli.display_walks {
             println!("walk-{i}:");
             display_walk(walk);
-            println!();
-        }
-
-        if cli.display_traces {
-            println!("trace-{i}:");
-            println!("{}", trace.to_json()?);
             println!();
         }
     }

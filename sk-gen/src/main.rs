@@ -80,14 +80,22 @@ use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
 use serde_json::json;
-use sk_store::TraceEvent;
+
+use sk_store::{TraceEvent, TraceStorable, TraceStore};
 
 use crate::output::{
     display_walks_and_traces,
     export_graphviz,
     gen_trace_event,
-    Trace,
 };
+
+use sk_core::k8s::GVK;
+use sk_store::{
+    TracerConfig,
+    TrackedObjectConfig,
+};
+
+
 
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
@@ -144,10 +152,6 @@ struct Cli {
     /// Display walks to stdout. Walks are displayed as a list of nodes and intermediate actions.
     #[arg(short = 'w', long)]
     display_walks: bool,
-
-    /// Display traces to stdout as JSON.
-    #[arg(short = 't', long)]
-    display_traces: bool,
 }
 
 #[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
@@ -806,17 +810,51 @@ fn main() -> Result<()> {
     }
 
     // If we don't need to output walks or traces, we don't need to generate them.
-    if cli.graph_output_file.is_some() || cli.traces_output_dir.is_some() || cli.display_walks || cli.display_traces {
+    if cli.graph_output_file.is_some() || cli.traces_output_dir.is_some() || cli.display_walks {
         let walks = if let Some(num_samples) = cli.num_samples {
             graph.generate_n_walks_with_sampling(cli.trace_length, num_samples)
         } else {
             graph.generate_walks(cli.trace_length)
         };
 
-        let traces: Vec<Trace> = walks.iter().map(Trace::from_walk).collect();
+        let traces: Vec<TraceStore> = walks.iter().map(tracestore_from_walk).collect();
 
         display_walks_and_traces(&walks, &traces, &cli)?;
     }
 
     Ok(())
+}
+
+fn tracestore_from_walk(walk: &Walk) -> TraceStore {
+    let config = TracerConfig {
+        tracked_objects: HashMap::from([(
+            GVK::new("apps", "v1", "Deployment"),
+                TrackedObjectConfig {
+                track_lifecycle: false,
+                pod_spec_template_path: None,
+            },
+        )]),
+    };
+
+    let mut trace_store = TraceStore::new(config);
+
+    let events = walk
+        .iter()
+        .filter_map(|(edge, _node)| edge.as_ref().map(|e| e.trace_event.clone()))
+        .collect::<Vec<_>>();
+
+    for (ts, trace_event) in events.into_iter().enumerate() {
+        for obj in trace_event.applied_objs {
+            trace_store.create_or_update_obj(&obj, ts as i64, None); // TODO check on maybe_old_hash
+        }
+
+        for obj in trace_event.deleted_objs {
+            trace_store.delete_obj(&obj, ts as i64);
+        }
+    }
+
+    trace_store
+
+
+
 }
