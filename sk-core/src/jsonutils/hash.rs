@@ -85,3 +85,9 @@ pub fn hash(v: &json::Value) -> u64 {
     HashableJsonValue(v).hash(&mut s);
     s.finish()
 }
+
+pub fn ordered_hash(v: &json::Value) -> u64 {
+    let mut s = DefaultHasher::new();
+    OrderedHashableJsonValue(v).hash(&mut s);
+    s.finish()
+}
