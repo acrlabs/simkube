@@ -16,7 +16,6 @@ fn data() -> Value {
     })
 }
 
-
 #[rstest]
 #[case::overwrite(true)]
 #[case::no_overwrite(false)]

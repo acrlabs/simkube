@@ -7,22 +7,35 @@
 // regenerating!
 // !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-use kube::CustomResource;
-use serde::{Serialize, Deserialize};
-use std::collections::BTreeMap;
-use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
+use kube::CustomResource;
 use schemars::JsonSchema;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(CustomResource, Serialize, Deserialize, Clone, Debug, Default)]
-#[kube(group = "monitoring.coreos.com", version = "v1", kind = "Prometheus", plural = "prometheuses")]
+#[kube(
+    group = "monitoring.coreos.com",
+    version = "v1",
+    kind = "Prometheus",
+    plural = "prometheuses"
+)]
 #[kube(namespaced)]
 #[kube(status = "PrometheusStatus")]
 #[kube(schema = "disabled")]
 pub struct PrometheusSpec {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "additionalAlertManagerConfigs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "additionalAlertManagerConfigs"
+    )]
     pub additional_alert_manager_configs: Option<PrometheusAdditionalAlertManagerConfigs>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "additionalAlertRelabelConfigs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "additionalAlertRelabelConfigs"
+    )]
     pub additional_alert_relabel_configs: Option<PrometheusAdditionalAlertRelabelConfigs>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "additionalArgs")]
     pub additional_args: Option<Vec<PrometheusAdditionalArgs>>,
@@ -36,7 +49,11 @@ pub struct PrometheusSpec {
     pub allow_overlapping_blocks: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "apiserverConfig")]
     pub apiserver_config: Option<PrometheusApiserverConfig>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "arbitraryFSAccessThroughSMs")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "arbitraryFSAccessThroughSMs"
+    )]
     pub arbitrary_fs_access_through_s_ms: Option<PrometheusArbitraryFsAccessThroughSMs>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "baseImage")]
     pub base_image: Option<String>,
@@ -50,15 +67,27 @@ pub struct PrometheusSpec {
     pub enable_admin_api: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enableFeatures")]
     pub enable_features: Option<Vec<String>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "enableRemoteWriteReceiver")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "enableRemoteWriteReceiver"
+    )]
     pub enable_remote_write_receiver: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enforcedBodySizeLimit")]
     pub enforced_body_size_limit: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enforcedLabelLimit")]
     pub enforced_label_limit: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "enforcedLabelNameLengthLimit")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "enforcedLabelNameLengthLimit"
+    )]
     pub enforced_label_name_length_limit: Option<i64>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "enforcedLabelValueLengthLimit")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "enforcedLabelValueLengthLimit"
+    )]
     pub enforced_label_value_length_limit: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "enforcedNamespaceLabel")]
     pub enforced_namespace_label: Option<String>,
@@ -80,7 +109,11 @@ pub struct PrometheusSpec {
     pub host_aliases: Option<Vec<PrometheusHostAliases>>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "hostNetwork")]
     pub host_network: Option<bool>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "ignoreNamespaceSelectors")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "ignoreNamespaceSelectors"
+    )]
     pub ignore_namespace_selectors: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub image: Option<String>,
@@ -108,7 +141,11 @@ pub struct PrometheusSpec {
     pub paused: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "podMetadata")]
     pub pod_metadata: Option<PrometheusPodMetadata>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "podMonitorNamespaceSelector")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "podMonitorNamespaceSelector"
+    )]
     pub pod_monitor_namespace_selector: Option<metav1::LabelSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "podMonitorSelector")]
     pub pod_monitor_selector: Option<metav1::LabelSelector>,
@@ -122,9 +159,17 @@ pub struct PrometheusSpec {
     pub probe_namespace_selector: Option<metav1::LabelSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "probeSelector")]
     pub probe_selector: Option<metav1::LabelSelector>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "prometheusExternalLabelName")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "prometheusExternalLabelName"
+    )]
     pub prometheus_external_label_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "prometheusRulesExcludedFromEnforce")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "prometheusRulesExcludedFromEnforce"
+    )]
     pub prometheus_rules_excluded_from_enforce: Option<Vec<PrometheusPrometheusRulesExcludedFromEnforce>>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub query: Option<PrometheusQuery>,
@@ -134,7 +179,11 @@ pub struct PrometheusSpec {
     pub remote_read: Option<Vec<PrometheusRemoteRead>>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "remoteWrite")]
     pub remote_write: Option<Vec<PrometheusRemoteWrite>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "replicaExternalLabelName")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "replicaExternalLabelName"
+    )]
     pub replica_external_label_name: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub replicas: Option<i32>,
@@ -152,7 +201,11 @@ pub struct PrometheusSpec {
     pub rule_selector: Option<metav1::LabelSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rules: Option<PrometheusRules>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "scrapeConfigNamespaceSelector")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "scrapeConfigNamespaceSelector"
+    )]
     pub scrape_config_namespace_selector: Option<metav1::LabelSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "scrapeConfigSelector")]
     pub scrape_config_selector: Option<metav1::LabelSelector>,
@@ -166,7 +219,11 @@ pub struct PrometheusSpec {
     pub security_context: Option<PrometheusSecurityContext>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "serviceAccountName")]
     pub service_account_name: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "serviceMonitorNamespaceSelector")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "serviceMonitorNamespaceSelector"
+    )]
     pub service_monitor_namespace_selector: Option<metav1::LabelSelector>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "serviceMonitorSelector")]
     pub service_monitor_selector: Option<metav1::LabelSelector>,
@@ -182,7 +239,11 @@ pub struct PrometheusSpec {
     pub thanos: Option<PrometheusThanos>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tolerations: Option<Vec<PrometheusTolerations>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "topologySpreadConstraints")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "topologySpreadConstraints"
+    )]
     pub topology_spread_constraints: Option<Vec<PrometheusTopologySpreadConstraints>>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tracingConfig")]
     pub tracing_config: Option<PrometheusTracingConfig>,
@@ -246,10 +307,20 @@ pub struct PrometheusAffinity {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityNodeAffinity {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "preferredDuringSchedulingIgnoredDuringExecution")]
-    pub preferred_during_scheduling_ignored_during_execution: Option<Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "requiredDuringSchedulingIgnoredDuringExecution")]
-    pub required_during_scheduling_ignored_during_execution: Option<PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "preferredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub preferred_during_scheduling_ignored_during_execution:
+        Option<Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "requiredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub required_during_scheduling_ignored_during_execution:
+        Option<PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -261,9 +332,12 @@ pub struct PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringE
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecutionPreference {
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "matchExpressions")]
-    pub match_expressions: Option<Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecutionPreferenceMatchExpressions>>,
+    pub match_expressions: Option<
+        Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecutionPreferenceMatchExpressions>,
+    >,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "matchFields")]
-    pub match_fields: Option<Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecutionPreferenceMatchFields>>,
+    pub match_fields:
+        Option<Vec<PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringExecutionPreferenceMatchFields>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -285,7 +359,8 @@ pub struct PrometheusAffinityNodeAffinityPreferredDuringSchedulingIgnoredDuringE
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecution {
     #[serde(rename = "nodeSelectorTerms")]
-    pub node_selector_terms: Vec<PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTerms>,
+    pub node_selector_terms:
+        Vec<PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTerms>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -297,7 +372,8 @@ pub struct PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringEx
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsMatchExpressions {
+pub struct PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringExecutionNodeSelectorTermsMatchExpressions
+{
     pub key: String,
     pub operator: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -314,10 +390,20 @@ pub struct PrometheusAffinityNodeAffinityRequiredDuringSchedulingIgnoredDuringEx
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityPodAffinity {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "preferredDuringSchedulingIgnoredDuringExecution")]
-    pub preferred_during_scheduling_ignored_during_execution: Option<Vec<PrometheusAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "requiredDuringSchedulingIgnoredDuringExecution")]
-    pub required_during_scheduling_ignored_during_execution: Option<Vec<PrometheusAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecution>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "preferredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub preferred_during_scheduling_ignored_during_execution:
+        Option<Vec<PrometheusAffinityPodAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "requiredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub required_during_scheduling_ignored_during_execution:
+        Option<Vec<PrometheusAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExecution>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
@@ -353,16 +439,27 @@ pub struct PrometheusAffinityPodAffinityRequiredDuringSchedulingIgnoredDuringExe
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityPodAntiAffinity {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "preferredDuringSchedulingIgnoredDuringExecution")]
-    pub preferred_during_scheduling_ignored_during_execution: Option<Vec<PrometheusAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "requiredDuringSchedulingIgnoredDuringExecution")]
-    pub required_during_scheduling_ignored_during_execution: Option<Vec<PrometheusAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecution>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "preferredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub preferred_during_scheduling_ignored_during_execution:
+        Option<Vec<PrometheusAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecution>>,
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "requiredDuringSchedulingIgnoredDuringExecution"
+    )]
+    pub required_during_scheduling_ignored_during_execution:
+        Option<Vec<PrometheusAffinityPodAntiAffinityRequiredDuringSchedulingIgnoredDuringExecution>>,
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecution {
     #[serde(rename = "podAffinityTerm")]
-    pub pod_affinity_term: PrometheusAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTerm,
+    pub pod_affinity_term:
+        PrometheusAffinityPodAntiAffinityPreferredDuringSchedulingIgnoredDuringExecutionPodAffinityTerm,
     pub weight: i32,
 }
 
@@ -728,7 +825,11 @@ pub struct PrometheusContainers {
     pub stdin_once: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationMessagePath")]
     pub termination_message_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationMessagePolicy")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationMessagePolicy"
+    )]
     pub termination_message_policy: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tty: Option<bool>,
@@ -932,7 +1033,11 @@ pub struct PrometheusContainersLivenessProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusContainersLivenessProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -1009,7 +1114,11 @@ pub struct PrometheusContainersReadinessProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusContainersReadinessProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -1079,7 +1188,11 @@ pub struct PrometheusContainersResourcesClaims {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusContainersSecurityContext {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "allowPrivilegeEscalation")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "allowPrivilegeEscalation"
+    )]
     pub allow_privilege_escalation: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<PrometheusContainersSecurityContextCapabilities>,
@@ -1161,7 +1274,11 @@ pub struct PrometheusContainersStartupProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusContainersStartupProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -1308,7 +1425,11 @@ pub struct PrometheusInitContainers {
     pub stdin_once: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationMessagePath")]
     pub termination_message_path: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationMessagePolicy")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationMessagePolicy"
+    )]
     pub termination_message_policy: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tty: Option<bool>,
@@ -1512,7 +1633,11 @@ pub struct PrometheusInitContainersLivenessProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusInitContainersLivenessProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -1589,7 +1714,11 @@ pub struct PrometheusInitContainersReadinessProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusInitContainersReadinessProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -1659,7 +1788,11 @@ pub struct PrometheusInitContainersResourcesClaims {
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusInitContainersSecurityContext {
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "allowPrivilegeEscalation")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "allowPrivilegeEscalation"
+    )]
     pub allow_privilege_escalation: Option<bool>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<PrometheusInitContainersSecurityContextCapabilities>,
@@ -1741,7 +1874,11 @@ pub struct PrometheusInitContainersStartupProbe {
     pub success_threshold: Option<i32>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "tcpSocket")]
     pub tcp_socket: Option<PrometheusInitContainersStartupProbeTcpSocket>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "terminationGracePeriodSeconds")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "terminationGracePeriodSeconds"
+    )]
     pub termination_grace_period_seconds: Option<i64>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "timeoutSeconds")]
     pub timeout_seconds: Option<i32>,
@@ -2515,8 +2652,7 @@ pub struct PrometheusStorageEphemeralVolumeClaimTemplate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct PrometheusStorageEphemeralVolumeClaimTemplateMetadata {
-}
+pub struct PrometheusStorageEphemeralVolumeClaimTemplateMetadata {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusStorageEphemeralVolumeClaimTemplateSpec {
@@ -3295,8 +3431,7 @@ pub struct PrometheusVolumesEphemeralVolumeClaimTemplate {
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
-pub struct PrometheusVolumesEphemeralVolumeClaimTemplateMetadata {
-}
+pub struct PrometheusVolumesEphemeralVolumeClaimTemplateMetadata {}
 
 #[derive(Serialize, Deserialize, Clone, Debug, Default)]
 pub struct PrometheusVolumesEphemeralVolumeClaimTemplateSpec {
@@ -3775,7 +3910,11 @@ pub struct PrometheusWebTlsConfig {
     pub max_version: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none", rename = "minVersion")]
     pub min_version: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none", rename = "preferServerCipherSuites")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        rename = "preferServerCipherSuites"
+    )]
     pub prefer_server_cipher_suites: Option<bool>,
 }
 

@@ -106,6 +106,7 @@ const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.1;
 
 
+
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
 /// `sk-gen` is a CLI tool for generating synthetic trace data which is ingestible by SimKube.
 ///
@@ -125,7 +126,7 @@ struct Cli {
     ///
     /// These are generated as `dep-1`, `dep-2`, ... `dep-N`.
     #[arg(short, long)]
-    deployment_count: usize,
+    source: PathBuf,
 
     /// Number of sample walks to generate (if not specified, generates all possible walks)
     #[arg(short, long)]
@@ -203,14 +204,22 @@ impl Node {
         Self { objects: BTreeMap::new() }
     }
 
-    fn from_trace_store(trace_store: &TraceStore) -> Vec<Self> {
+    fn from_trace_store(trace_store: &TraceStore) -> (Vec<Self>, BTreeMap<String, DynamicObject>) {
+        let mut candidate_objects = BTreeMap::new();
+
         let mut node = Node::new();
         let mut nodes = Vec::new();
-        nodes.push(node.clone());
 
-        for (event, _) in trace_store.iter() {
+        for (event, _ts) in trace_store.iter() {
+            // TODO: add ts handling
+
             for applied_obj in &event.applied_objs {
-                node.objects.insert(applied_obj.metadata.name.as_ref().unwrap().clone(), applied_obj.clone());
+                let name = applied_obj.metadata.name.as_ref().unwrap();
+                node.objects.insert(name.clone(), applied_obj.clone());
+
+                if !candidate_objects.contains_key(name) {
+                    candidate_objects.insert(name.clone(), applied_obj.clone());
+                }
             }
 
             for deleted_obj in &event.deleted_objs {
@@ -219,7 +228,7 @@ impl Node {
 
             nodes.push(node.clone());
         }
-        nodes
+        (nodes, candidate_objects)
     }
 
     fn create_deployment(&self, name: &str, candidate_deployments: &BTreeMap<String, DynamicObject>) -> Option<Self> {
@@ -411,7 +420,7 @@ impl ClusterGraph {
     }
 
     fn generate_walks(&self, trace_length: u64) -> Vec<Walk> {
-        let start_nodes: Vec<NodeIndex> = self.graph.node_indices().collect();
+        let start_nodes: Vec<NodeIndex> = self.graph.node_indices().take(1).collect();
         let mut all_walks = Vec::new();
 
         // We use a depth-first search because eventually we may want to use stochastic methods which do not
@@ -579,7 +588,7 @@ fn generate_candidate_objects(num_deployments: usize) -> BTreeMap<String, Dynami
     let default_container = k8s_openapi::api::core::v1::Container {
         name: "name".to_string(),
         image: Some("nginx".to_string()),
-        resources: Some(k8s_openapi::api::core::v1::ResourceRequirements { requests: Some(BTreeMap::from([("memory".to_string(), Quantity("1Gi".to_string()))])), ..Default::default() }),
+        resources: Some(k8s_openapi::api::core::v1::ResourceRequirements { requests: Some(BTreeMap::from([("memory".to_string(), Quantity("1048576".to_string()))])), ..Default::default() }),
         ..Default::default()
     };
 
@@ -606,7 +615,18 @@ fn generate_candidate_objects(num_deployments: usize) -> BTreeMap<String, Dynami
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let candidate_deployments = generate_candidate_objects(cli.deployment_count);
+    let input_trace_data: Vec<u8> = std::fs::read(cli.source)?;
+
+    let trace = TraceStore::import(input_trace_data, &None)?;
+
+    let (starting_state, candidate_deployments) = Node::from_trace_store(&trace);
+
+    println!("{starting_state:#?}{candidate_deployments:#?}");
+    std::process::exit(0);
+    
+
+
+
 
     // Hard-code the nodes resulting from an input trace at least until we have the capability to parse out a real trace
     let target_name = candidate_deployments.keys()

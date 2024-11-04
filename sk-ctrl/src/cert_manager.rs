@@ -13,7 +13,6 @@ use sk_core::prelude::*;
 
 use crate::context::SimulationContext;
 
-
 // Adapted from the "full" cert-manager CRD output from kopium
 
 pub const DRIVER_CERT_NAME: &str = "sk-driver-cert";

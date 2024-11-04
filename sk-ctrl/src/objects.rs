@@ -71,7 +71,6 @@ pub fn build_prometheus(
         });
     }
 
-
     let shards = mc.prometheus_shards.or(Some(1));
     let pod_monitor_namespace_selector =
         Some(mc.pod_monitor_namespaces.clone().map_or(Default::default(), |name| {

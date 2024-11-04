@@ -86,7 +86,6 @@ pub(super) async fn try_claim_lease_with_clock(
         })
         .or_insert(|| lease_obj);
 
-
     Ok(match lease_state {
         LeaseState::Unknown => {
             info!("trying to acquire lease");

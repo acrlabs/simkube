@@ -4,7 +4,9 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use sk_store::{
-    TraceEvent, TraceStorable,
+    TraceEvent,
+    TraceStorable,
+    TraceStore,
 };
 
 use crate::{
@@ -13,8 +15,6 @@ use crate::{
     Node,
     Walk,
 };
-
-use sk_store::TraceStore;
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
 /// `prev` to `next` state over `ts` seconds.

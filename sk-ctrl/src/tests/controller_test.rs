@@ -364,7 +364,6 @@ async fn test_setup_simulation_wait_prom(
     fake_apiserver.assert();
 }
 
-
 #[rstest]
 #[traced_test]
 #[tokio::test]
