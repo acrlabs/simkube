@@ -13,11 +13,11 @@
 //! [`DeploymentAction`] (e.g. `CreateDeployment`, `DeleteDeployment`, `IncrementReplicas`,
 //! `DecrementReplicas`) can be performed on individual deployment instances.
 //!
-//! [`ClusterAction`] contains a name of a candidate deployment alongside a [`DeploymentAction`]
-//! such that it can be applied to a `Node` without ambiguity as to which deployment it applies. Not
-//! all `DeploymentAction`s are valid for every `Deployment`, and neither are all `ClusterAction`
-//! instances valid for every `Node`. For instance, we cannot delete a `Deployment` that does not
-//! exist, nor can we increment/decrement the replicas of a `Deployment` that is not active.
+//! [`ClusterAction`] is a deploment name paired with a [`DeploymentAction`] to execute
+//! WARNING: Not all `DeploymentAction`s are valid for every `Deployment`
+//!       Simmilarly Not all `ClusterAction`s are valid for every `Node`
+//!       For instance, we cannot delete a `Deployment` that does not exist
+//!       simmilarly we cant increment/decrement the replicas of a `Deployment` that is not active.
 //!
 //! [`TraceEvent`] represents the Kubernetes API call which corresponds to a `ClusterAction`.
 //!
