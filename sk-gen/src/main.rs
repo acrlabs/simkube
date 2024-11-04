@@ -103,14 +103,17 @@ const REPLICA_COUNT_MIN: u32 = u32::MAX;
 const REPLICA_COUNT_MAX: u32 = 0;
 const REPLICA_COUNT_CHANGE: u32 = 1;
 
+const DEFAULT_MEMORY_COUNT: i64 = 1;
 const MEMORY_REQUEST_MIN: i64 = 1;
 const MEMORY_REQUEST_MAX: i64 = i64::MAX;
 const MEMORY_REQUEST_SCALE: f64 = 2.0;
 
-const CPU_REQUEST_MIN: i64 = 1;
-const CPU_REQUEST_MAX: i64 = i64::MAX;
-const CPU_REQUEST_SCALE: f64 = 2.0;
+const MCPU_DEFAULT_COUNT: i64 = 1000;
+const MCPU_REQUEST_MIN: i64 = 1;
+const MCPU_REQUEST_MAX: i64 = i64::MAX;
+const MCPU_REQUEST_SCALE: f64 = 2.0;
 
+const DEFAULT_GPU_COUNT: i64 = 0;
 const GPU_REQUEST_MIN: i64 = 0;
 const GPU_REQUEST_MAX: i64 = i64::MAX;
 const GPU_REQUEST_STEP: i64 = 1;
@@ -257,7 +260,7 @@ impl Container {
     fn cpu_scale(&self, scale: f64) -> Option<Self> {
         let new_cpu = ((self.requests.mili_cpu_count as f64) * scale) as i64;
 
-        if (CPU_REQUEST_MIN..CPU_REQUEST_MAX).contains(&new_cpu) {
+        if (MCPU_REQUEST_MIN..MCPU_REQUEST_MAX).contains(&new_cpu) {
             Some(Self {
                 requests: Requests { mili_cpu_count: new_cpu, ..self.requests.clone() },
                 ..self.clone()
@@ -295,8 +298,8 @@ impl Container {
 
     fn cpu_action(&self, action: CpuAction) -> Option<Self> {
         match action {
-            CpuAction::Decrease => self.cpu_scale(1.0 / CPU_REQUEST_SCALE),
-            CpuAction::Increase => self.cpu_scale(CPU_REQUEST_SCALE),
+            CpuAction::Decrease => self.cpu_scale(1.0 / MCPU_REQUEST_SCALE),
+            CpuAction::Increase => self.cpu_scale(MCPU_REQUEST_SCALE),
         }
     }
 
@@ -879,7 +882,11 @@ fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, De
     let default_container = Container {
         name: "name".to_string(),
         image: "nginx".to_string(),
-        requests: Requests { memory_gb: 1, mili_cpu_count: 1, gpu_count: 0 },
+        requests: Requests {
+            memory_gb: DEFAULT_MEMORY_COUNT,
+            mili_cpu_count: MCPU_DEFAULT_COUNT,
+            gpu_count: DEFAULT_GPU_COUNT,
+        },
     };
 
     default_containers.insert(default_container.name.clone(), default_container);
