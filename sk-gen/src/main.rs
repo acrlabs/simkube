@@ -98,8 +98,6 @@ use sk_store::{
     TrackedObjectConfig,
 };
 
-
-
 const BASE_TS: i64 = 1_728_334_068;
 
 const REPLICA_COUNT_CHANGE: i32 = 1;
@@ -163,6 +161,11 @@ struct ClusterAction {
     action_type: DeploymentAction,
 }
 
+#[derive(Clone, PartialEq, Debug)]
+struct Deployment {
+    deployment: K8sDeployment,
+}
+
 #[derive(Clone, Debug)]
 struct Node {
     objects: BTreeMap<String, DynamicObject>,
@@ -195,15 +198,28 @@ fn deployment_to_dynamic_object(deployment: &K8sDeployment) -> Result<DynamicObj
     Ok(dynamic_object)
 }
 
-#[derive(Clone, PartialEq, Debug)]
-struct Deployment {
-    deployment: K8sDeployment,
-}
-
-
 impl Node {
     fn new() -> Self {
         Self { objects: BTreeMap::new() }
+    }
+
+    fn from_trace_store(trace_store: &TraceStore) -> Vec<Self> {
+        let mut node = Node::new();
+        let mut nodes = Vec::new();
+        nodes.push(node.clone());
+
+        for (event, _) in trace_store.iter() {
+            for applied_obj in &event.applied_objs {
+                node.objects.insert(applied_obj.metadata.name.as_ref().unwrap().clone(), applied_obj.clone());
+            }
+
+            for deleted_obj in &event.deleted_objs {
+                node.objects.remove(deleted_obj.metadata.name.as_ref().unwrap());
+            }
+
+            nodes.push(node.clone());
+        }
+        nodes
     }
 
     fn create_deployment(&self, name: &str, candidate_deployments: &BTreeMap<String, DynamicObject>) -> Option<Self> {
