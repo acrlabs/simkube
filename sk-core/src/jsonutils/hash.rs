@@ -30,6 +30,7 @@ impl<'a> Hash for HashableJsonValue<'a> {
     }
 }
 
+
 struct OrderedHashableJsonValue<'a>(&'a json::Value);
 
 impl<'a> Hash for OrderedHashableJsonValue<'a> {
@@ -42,7 +43,7 @@ impl<'a> Hash for OrderedHashableJsonValue<'a> {
             json::Value::Array(a) => {
                 let mut hashes = a.into_iter().map(|v| {
                     let hasher = &mut DefaultHasher::new();
-                    HashableJsonValue(v).hash(hasher);
+                    OrderedHashableJsonValue(v).hash(hasher);
 
                     hasher.finish()
                 }).collect::<Vec<_>>();
@@ -56,7 +57,7 @@ impl<'a> Hash for OrderedHashableJsonValue<'a> {
                 let mut hashes = o.into_iter().map(|(k, v)| {
                     let hasher = &mut DefaultHasher::new();
                     k.hash(hasher);
-                    HashableJsonValue(v).hash(hasher);
+                    OrderedHashableJsonValue(v).hash(hasher);
 
                     hasher.finish()
                 }).collect::<Vec<_>>();
@@ -90,4 +91,37 @@ pub fn ordered_hash(v: &json::Value) -> u64 {
     let mut s = DefaultHasher::new();
     OrderedHashableJsonValue(v).hash(&mut s);
     s.finish()
+}
+
+pub fn ordered_eq(v1: &json::Value, v2: &json::Value) -> bool {
+    order_json(v1) == order_json(v2)
+}
+
+pub fn order_json(value: &json::Value) -> json::Value {
+    match value {
+        json::Value::Array(a) => {
+            let mut pairs: Vec<(u64, &json::Value)> = a
+                .iter()
+                .map(|v| (ordered_hash(v), v))
+                .collect();
+            pairs.sort_by_key(|(h, _)| *h);
+            
+            json::Value::Array(
+                pairs.into_iter()
+                    .map(|(_, v)| order_json(v))
+                    .collect()
+            )
+        },
+        json::Value::Object(o) => {
+            let mut pairs: Vec<_> = o
+                .iter()
+                .map(|(k, v)| (k.clone(), order_json(v)))
+                .collect();
+
+            pairs.sort_by(|(k1, _), (k2, _)| std::cmp::Ord::cmp(k1, k2));
+            
+            json::Value::Object(pairs.into_iter().collect())
+        },
+        _ => value.clone(),
+    }
 }

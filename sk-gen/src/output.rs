@@ -22,17 +22,17 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
     let mut applied_objs = Vec::new();
     let mut deleted_objs = Vec::new();
 
-    for (name, deployment) in &prev.deployments {
-        if !next.deployments.contains_key(name) {
-            deleted_objs.push(deployment.to_dynamic_object());
-        } else if deployment != &next.deployments[name] {
-            applied_objs.push(next.deployments[name].to_dynamic_object());
+    for (name, deployment) in &prev.objects {
+        if !next.objects.contains_key(name) {
+            deleted_objs.push(deployment.clone());
+        } else if deployment != &next.objects[name] {
+            applied_objs.push(next.objects[name].clone());
         }
     }
 
-    for (name, deployment) in &next.deployments {
-        if !prev.deployments.contains_key(name) {
-            applied_objs.push(deployment.to_dynamic_object());
+    for (name, deployment) in &next.objects {
+        if !prev.objects.contains_key(name) {
+            applied_objs.push(deployment.clone());
         }
     }
 
