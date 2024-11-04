@@ -74,7 +74,7 @@ pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[TraceStore], cl
 fn display_walk(walk: &Walk) {
     for (edge, node) in walk {
         if let Some(e) = edge {
-            println!("{:?}", e.action);
+            println!("{:#?}", e.action);
         }
         println!("{node:#?}");
     }

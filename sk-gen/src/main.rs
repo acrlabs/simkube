@@ -75,16 +75,34 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
+use k8s_openapi::api::apps::v1::{
+    Deployment as K8sDeployment,
+    DeploymentSpec,
+};
 use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
-use kube::api::{DynamicObject, ObjectMeta};
+use kube::api::{
+    DynamicObject,
+    ObjectMeta,
+};
 use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use k8s_openapi::api::apps::v1::{Deployment as K8sDeployment, DeploymentSpec};
-
-use sk_core::jsonutils::{ordered_eq, ordered_hash};
-use sk_core::prelude::corev1::{PodSpec, PodTemplateSpec};
-use sk_store::{TraceEvent, TraceStorable, TraceStore};
+use sk_core::jsonutils::{
+    ordered_eq,
+    ordered_hash,
+};
+use sk_core::k8s::GVK;
+use sk_core::prelude::corev1::{
+    PodSpec,
+    PodTemplateSpec,
+};
+use sk_store::{
+    TraceEvent,
+    TraceStorable,
+    TraceStore,
+    TracerConfig,
+    TrackedObjectConfig,
+};
 
 use crate::output::{
     display_walks_and_traces,
@@ -92,19 +110,17 @@ use crate::output::{
     gen_trace_event,
 };
 
-use sk_core::k8s::GVK;
-use sk_store::{
-    TracerConfig,
-    TrackedObjectConfig,
-};
-
 const BASE_TS: i64 = 1_728_334_068;
 
 const REPLICA_COUNT_CHANGE: i32 = 1;
+const REPLICA_COUNT_MIN: i32 = 0;
+const REPLICA_COUNT_MAX: i32 = i32::MAX;
+
+const RESOURCE_SCALE_FACTOR: f64 = 2.0;
+const RESOURCE_SCALE_MIN: i64 = 1;
 
 const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.1;
-
 
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
@@ -149,11 +165,34 @@ struct Cli {
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
+enum ObjectAction {
+    Create,
+    Delete,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+enum ActionType {
+    Increase,
+    Decrease,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+enum ResourceAction {
+    Request { resource: String, action: ActionType },
+    Limit { resource: String, action: ActionType },
+    Claim,
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+enum ContainerAction {
+    Resource(ResourceAction),
+}
+
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
 enum DeploymentAction {
-    IncrementReplicas,
-    DecrementReplicas,
-    CreateObject,
-    DeleteObject,
+    ReplicaCount(ActionType),
+    Object(ObjectAction),
+    Container { name: String, action: ContainerAction },
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
@@ -197,6 +236,37 @@ fn deployment_to_dynamic_object(deployment: &K8sDeployment) -> Result<DynamicObj
     let json = serde_json::to_value(deployment).expect("All deployments are serializable");
     let dynamic_object = serde_json::from_value(json).expect("DynamicObject should superset Deployment");
     Ok(dynamic_object)
+}
+
+fn scale_quantity(quantity_str: &str, scale: f64) -> Option<String> {
+    // Parse number and suffix (e.g., "1048576" -> (1048576, ""))
+    let mut num_str = String::new();
+    let mut suffix = String::new();
+    let mut in_suffix = false;
+
+    for c in quantity_str.chars() {
+        if c.is_ascii_digit() || c == '.' {
+            if !in_suffix {
+                num_str.push(c);
+            } else {
+                return None; // Invalid format
+            }
+        } else {
+            in_suffix = true;
+            suffix.push(c);
+        }
+    }
+
+    // Parse the number
+    let num: f64 = num_str.parse().ok()?;
+    let scaled = (num * scale) as i64;
+
+    if scaled < RESOURCE_SCALE_MIN {
+        return None;
+    }
+
+    // Format back with the same suffix
+    Some(format!("{}{}", scaled, suffix))
 }
 
 impl Node {
@@ -249,11 +319,15 @@ impl Node {
         }
     }
 
-    fn increment_replica_count(&self, name: String) -> Option<Self> {
+    fn change_replica_count(&self, name: String, change: i32) -> Option<Self> {
         let mut deployment = dynamic_object_to_deployment(self.objects.get(&name)?).ok()?;
 
         let replicas = deployment.spec.get_or_insert_with(Default::default).replicas.get_or_insert(1);
-        *replicas = replicas.checked_add(REPLICA_COUNT_CHANGE)?;
+        *replicas = replicas.checked_add(change)?;
+
+        if *replicas < REPLICA_COUNT_MIN || *replicas > REPLICA_COUNT_MAX {
+            return None;
+        }
 
         let incremented_deployment = deployment_to_dynamic_object(&deployment).unwrap();
 
@@ -262,16 +336,45 @@ impl Node {
         Some(next_state)
     }
 
-    fn decrement_replica_count(&self, name: String) -> Option<Self> {
-        let mut deployment = dynamic_object_to_deployment(self.objects.get(&name)?).ok()?;
+    fn resource_request(
+        &self,
+        deployment_name: String,
+        container_name: String,
+        action: ResourceAction,
+    ) -> Option<Self> {
+        let mut deployment = dynamic_object_to_deployment(self.objects.get(&deployment_name)?).ok()?;
 
-        let replicas = deployment.spec.get_or_insert_with(Default::default).replicas.get_or_insert(1);
-        *replicas = replicas.checked_sub(REPLICA_COUNT_CHANGE)?;
+        let resources = deployment
+            .spec
+            .get_or_insert_with(Default::default)
+            .template
+            .spec
+            .get_or_insert_with(Default::default)
+            .containers
+            .iter_mut()
+            .find(|container| container.name == container_name)?
+            .resources
+            .get_or_insert_with(Default::default);
 
-        let decremented_deployment = deployment_to_dynamic_object(&deployment).unwrap();
+        match action {
+            ResourceAction::Request { resource, action } => {
+                let requests = resources.requests.get_or_insert_with(BTreeMap::new);
+                if let Some(current) = requests.get(&resource) {
+                    let scale = match action {
+                        ActionType::Increase => RESOURCE_SCALE_FACTOR,
+                        ActionType::Decrease => 1.0 / RESOURCE_SCALE_FACTOR,
+                    };
+                    let new_value = scale_quantity(&current.0, scale)?;
+                    requests.insert(resource, Quantity(new_value));
+                }
+            },
+            ResourceAction::Limit { .. } => todo!(),
+            ResourceAction::Claim => todo!(),
+        }
 
+        let updated_deployment = deployment_to_dynamic_object(&deployment).ok()?;
         let mut next_state = self.clone();
-        next_state.objects.insert(name, decremented_deployment);
+        next_state.objects.insert(deployment_name, updated_deployment);
         Some(next_state)
     }
 
@@ -281,16 +384,29 @@ impl Node {
         candidate_deployments: &BTreeMap<String, DynamicObject>,
     ) -> Option<Self> {
         match action_type {
-            DeploymentAction::IncrementReplicas => self.increment_replica_count(deployment_name),
-            DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
-            DeploymentAction::CreateObject => self.create_deployment(&deployment_name, candidate_deployments),
-            DeploymentAction::DeleteObject => self.delete_deployment(&deployment_name),
+            DeploymentAction::ReplicaCount(ActionType::Increase) => {
+                self.change_replica_count(deployment_name, REPLICA_COUNT_CHANGE)
+            },
+            DeploymentAction::ReplicaCount(ActionType::Decrease) => {
+                self.change_replica_count(deployment_name, -REPLICA_COUNT_CHANGE)
+            },
+            DeploymentAction::Object(ObjectAction::Create) => {
+                self.create_deployment(&deployment_name, candidate_deployments)
+            },
+            DeploymentAction::Object(ObjectAction::Delete) => self.delete_deployment(&deployment_name),
+            DeploymentAction::Container { name: container_name, action } => match action {
+                ContainerAction::Resource(resource_action) => {
+                    self.resource_request(deployment_name, container_name, resource_action)
+                },
+            },
         }
     }
 
     fn deployments(&self) -> impl Iterator<Item = Deployment> + '_ {
         self.objects.values().filter_map(|obj| {
-            dynamic_object_to_deployment(obj).ok().map(|deployment| Deployment { deployment })
+            dynamic_object_to_deployment(obj)
+                .ok()
+                .map(|deployment| Deployment { deployment })
         })
     }
 
@@ -304,13 +420,13 @@ impl Node {
                 // already created, so we can delete
                 actions.push(ClusterAction {
                     target_name: name.clone(),
-                    action_type: DeploymentAction::DeleteObject,
+                    action_type: DeploymentAction::Object(ObjectAction::Delete),
                 });
             } else {
                 // not already created, so we can create
                 actions.push(ClusterAction {
                     target_name: name.clone(),
-                    action_type: DeploymentAction::CreateObject,
+                    action_type: DeploymentAction::Object(ObjectAction::Create),
                 });
             }
         }
@@ -323,28 +439,52 @@ impl Node {
 
             actions.push(ClusterAction {
                 target_name: target_name.clone(),
-                action_type: DeploymentAction::IncrementReplicas,
+                action_type: DeploymentAction::ReplicaCount(ActionType::Increase),
             });
             actions.push(ClusterAction {
                 target_name: target_name.clone(),
-                action_type: DeploymentAction::DecrementReplicas,
+                action_type: DeploymentAction::ReplicaCount(ActionType::Decrease),
             });
 
-            // TODO: resource actions
+            let containers = deployment
+                .spec
+                .and_then(|spec| spec.template.spec)
+                .map(|template| template.containers)
+                .unwrap_or_default();
 
+            for container in containers {
+                let name = container.name;
+                for action in [ActionType::Increase, ActionType::Decrease] {
+                    for resource in ["memory", "cpu"] {
+                        actions.push(ClusterAction {
+                            target_name: target_name.clone(),
+                            action_type: DeploymentAction::Container {
+                                name: name.clone(),
+                                action: ContainerAction::Resource(ResourceAction::Request {
+                                    resource: resource.to_string(),
+                                    action: action.clone(),
+                                }),
+                            },
+                        });
+                    }
+                }
+            }
         }
 
         actions
     }
 
     fn valid_action_states(&self, candidate_objects: &BTreeMap<String, DynamicObject>) -> Vec<(ClusterAction, Self)> {
-        self.enumerate_actions(candidate_objects)
+        let actions = self.enumerate_actions(candidate_objects)
             .into_iter()
             .filter_map(|action| {
                 self.perform_action(action.clone(), candidate_objects)
                     .map(|next_state| (action, next_state))
             })
-            .collect()
+            .collect::<Vec<_>>();
+
+        dbg!(&actions.len());
+        actions
     }
 }
 
@@ -384,6 +524,7 @@ impl ClusterGraph {
         let mut visited = HashSet::new();
 
         while let Some((depth, node)) = bfs_queue.pop_front() {
+            dbg!(&bfs_queue.len());
             let node_idx = *node_to_index.get(&node).expect("node not found in node_to_index");
 
             if depth >= trace_length {
@@ -488,7 +629,13 @@ impl ClusterGraph {
             let node = &self.graph[node_index];
             let label = node
                 .deployments()
-                .map(|dep| format!("{}: {}", dep.deployment.metadata.name.unwrap(), dep.deployment.spec.unwrap().replicas.unwrap()))
+                .map(|dep| {
+                    format!(
+                        "{}: {}",
+                        dep.deployment.metadata.name.unwrap(),
+                        dep.deployment.spec.unwrap().replicas.unwrap()
+                    )
+                })
                 .collect::<Vec<_>>()
                 .join("\\n");
             writeln!(&mut dot, "  {} [label=\"{}\"];", node_index.index(), label).unwrap();
@@ -530,12 +677,10 @@ impl ClusterGraph {
                     .map(|&n| {
                         let edge = self.graph.edge_weight(self.graph.find_edge(current_node, n).unwrap()).unwrap();
                         match edge.action.action_type {
-                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => {
+                            DeploymentAction::ReplicaCount(_) | DeploymentAction::Container { .. } => {
                                 SCALE_ACTION_PROBABILITY
                             },
-                            DeploymentAction::CreateObject | DeploymentAction::DeleteObject => {
-                                CREATE_DELETE_ACTION_PROBABILITY
-                            },
+                            DeploymentAction::Object(_) => CREATE_DELETE_ACTION_PROBABILITY,
                         }
                     })
                     .collect();
@@ -580,69 +725,28 @@ impl ClusterGraph {
     }
 }
 
-
-
-fn generate_candidate_objects(num_deployments: usize) -> BTreeMap<String, DynamicObject> {
-    // Assume for simplicity all pods are running the same container
-
-    let default_container = k8s_openapi::api::core::v1::Container {
-        name: "name".to_string(),
-        image: Some("nginx".to_string()),
-        resources: Some(k8s_openapi::api::core::v1::ResourceRequirements { requests: Some(BTreeMap::from([("memory".to_string(), Quantity("1048576".to_string()))])), ..Default::default() }),
-        ..Default::default()
-    };
-
-    let mut default_containers = Vec::new();
-    default_containers.push(default_container);
-
-    let pod_template_spec = PodTemplateSpec { spec: Some(PodSpec { containers: default_containers.clone(), ..Default::default() }), ..Default::default() };
-
-    let deployment_spec = DeploymentSpec { replicas: Some(1), template: pod_template_spec, ..Default::default() };
-
-    (1..=num_deployments)
-        .map(|i| format!("dep-{i}"))
-        .map(|name| {
-            (name.clone(), 
-            deployment_to_dynamic_object(&K8sDeployment {
-                metadata: ObjectMeta { name: Some(name.clone()), ..Default::default() },
-                spec: Some(deployment_spec.clone()),
-                ..Default::default()
-            }).unwrap())
-        })
-        .collect()
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let input_trace_data: Vec<u8> = std::fs::read(cli.source)?;
+    let input_trace_data: Vec<u8> = std::fs::read(&cli.source)?;
 
     let trace = TraceStore::import(input_trace_data, &None)?;
 
-    let (starting_state, candidate_deployments) = Node::from_trace_store(&trace);
+    let (nodes, candidate_deployments) = Node::from_trace_store(&trace);
+    // TODO, we should use the trace as the start point wherever we start from
 
-    println!("{starting_state:#?}{candidate_deployments:#?}");
-    std::process::exit(0);
-    
+    println!("candidate_deployments:\n\n{:#?}\n\n\n nodes:\n\n{:#?}", candidate_deployments, nodes);
+    // write to file
+    std::fs::write("out/candidate_deployments.json", serde_json::to_string_pretty(&candidate_deployments)?).unwrap();
+    for (i, node) in nodes.iter().enumerate() {
+        std::fs::write(format!("out/node-{i}.json"), format!("{:#?}", node)).unwrap();
+    }
 
-
-
-
-    // Hard-code the nodes resulting from an input trace at least until we have the capability to parse out a real trace
-    let target_name = candidate_deployments.keys()
-        .next()
-        .expect("candidate_deployments should not be empty")
-        .clone();
-
-    let a = Node::new();
-    let b = a.create_deployment(&target_name, &candidate_deployments).unwrap();
-    let c = b.increment_replica_count(target_name.clone()).unwrap();
-    let d = c.decrement_replica_count(target_name.clone()).unwrap();
-
-    let starting_state = vec![a, b, c, d];
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
+    let starting_state = vec![nodes[nodes.len() - 1].clone()];
+    // let starting_state = nodes[..1].to_vec();
     let graph = ClusterGraph::new(candidate_deployments, starting_state, cli.trace_length);
 
     // if the user provided a path for us to save the graphviz representation, do so
@@ -670,7 +774,7 @@ fn tracestore_from_walk(walk: &Walk) -> TraceStore {
     let config = TracerConfig {
         tracked_objects: HashMap::from([(
             GVK::new("apps", "v1", "Deployment"),
-                TrackedObjectConfig {
+            TrackedObjectConfig {
                 track_lifecycle: false,
                 pod_spec_template_path: None,
             },
