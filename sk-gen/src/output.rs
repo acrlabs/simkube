@@ -1,8 +1,10 @@
 //! This module contains graph/trace output utilities and functionality.
 
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
+use k8s_openapi::api::apps::v1::Deployment;
 use kube::api::DynamicObject;
 use sk_store::{
     TraceEvent,
@@ -17,9 +19,6 @@ use crate::{
     Node,
     Walk,
 };
-
-use std::collections::BTreeMap;
-use k8s_openapi::api::apps::v1::Deployment;
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
 /// `prev` to `next` state over `ts` seconds.
@@ -122,18 +121,15 @@ pub(crate) fn write_debug_info(
     output_dir: &PathBuf,
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir)?;
-    
+
     std::fs::write(
         output_dir.join("candidate_deployments.json"),
-        serde_json::to_string_pretty(&candidate_deployments)?
+        serde_json::to_string_pretty(&candidate_deployments)?,
     )?;
-    
+
     for (i, node) in nodes.iter().enumerate() {
-        std::fs::write(
-            output_dir.join(format!("node-{i}.ron")),
-            format!("{:#?}", node)
-        )?;
+        std::fs::write(output_dir.join(format!("node-{i}.ron")), format!("{:#?}", node))?;
     }
-    
+
     Ok(())
 }

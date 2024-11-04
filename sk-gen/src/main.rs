@@ -250,7 +250,12 @@ impl Node {
     }
 
     fn change_replica_count(&self, name: String, change: i32) -> Option<Self> {
-        let replicas = self.deployments.get(&name)?.clone().spec.as_mut()
+        let replicas = self
+            .deployments
+            .get(&name)?
+            .clone()
+            .spec
+            .as_mut()
             .and_then(|s| s.replicas.as_mut())
             .map(|r| *r)
             .unwrap_or(1);
@@ -398,8 +403,7 @@ impl Node {
     }
 
     fn valid_action_states(&self, candidate_deployments: &BTreeMap<String, Deployment>) -> Vec<(ClusterAction, Self)> {
-        self
-            .enumerate_actions(candidate_deployments)
+        self.enumerate_actions(candidate_deployments)
             .into_iter()
             .filter_map(|action| {
                 self.perform_action(action.clone(), candidate_deployments)
@@ -670,7 +674,7 @@ fn main() -> Result<()> {
     let trace = TraceStore::import(input_trace_data, &None)?;
 
     let (nodes, candidate_deployments) = Node::from_trace_store(&trace);
-    
+
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
