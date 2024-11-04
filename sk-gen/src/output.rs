@@ -3,6 +3,7 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use kube::api::DynamicObject;
 use sk_store::{
     TraceEvent,
     TraceStorable,
@@ -10,11 +11,15 @@ use sk_store::{
 };
 
 use crate::{
+    deployment_to_dynamic_object,
     Cli,
     ClusterGraph,
     Node,
     Walk,
 };
+
+use std::collections::BTreeMap;
+use k8s_openapi::api::apps::v1::Deployment;
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
 /// `prev` to `next` state over `ts` seconds.
@@ -22,19 +27,29 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
     let mut applied_objs = Vec::new();
     let mut deleted_objs = Vec::new();
 
-    for (name, deployment) in &prev.objects {
-        if !next.objects.contains_key(name) {
+    for (name, deployment) in &prev.deployments {
+        if !next.deployments.contains_key(name) {
             deleted_objs.push(deployment.clone());
-        } else if deployment != &next.objects[name] {
-            applied_objs.push(next.objects[name].clone());
+        } else if deployment != &next.deployments[name] {
+            applied_objs.push(next.deployments[name].clone());
         }
     }
 
-    for (name, deployment) in &next.objects {
-        if !prev.objects.contains_key(name) {
+    for (name, deployment) in &next.deployments {
+        if !prev.deployments.contains_key(name) {
             applied_objs.push(deployment.clone());
         }
     }
+
+
+    let applied_objs: Vec<DynamicObject> = applied_objs
+        .iter()
+        .map(|d| deployment_to_dynamic_object(d).expect("All applied objects should be valid deployments"))
+        .collect();
+    let deleted_objs: Vec<DynamicObject> = deleted_objs
+        .iter()
+        .map(|d| deployment_to_dynamic_object(d).expect("All deleted objects should be valid deployments"))
+        .collect();
 
     TraceEvent { ts, applied_objs, deleted_objs }
 }
@@ -48,9 +63,14 @@ pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[TraceStore], cl
         }
     }
 
+    if cli.display_walks {
+        println!("num walks: {}", walks.len());
+    }
+
     for (i, (walk, trace)) in walks.iter().zip(traces.iter()).enumerate() {
         let min_ts = trace.start_ts().unwrap();
-        let max_ts = trace.end_ts().unwrap();
+        let max_ts = trace.end_ts().unwrap() + 1;
+
         let export_filters = sk_api::v1::ExportFilters::default(); // TODO ensure this is non-restrictive
 
         if let Some(traces_dir) = &cli.traces_output_dir {
@@ -92,5 +112,28 @@ pub(crate) fn export_graphviz(graph: &ClusterGraph, output_file: &PathBuf) -> Re
         }
     }
     std::fs::write(output_file, graph.to_graphviz())?;
+    Ok(())
+}
+
+/// Writes debug information about deployments and nodes to files
+pub(crate) fn write_debug_info(
+    candidate_deployments: &BTreeMap<String, Deployment>,
+    nodes: &[Node],
+    output_dir: &PathBuf,
+) -> Result<()> {
+    std::fs::create_dir_all(output_dir)?;
+    
+    std::fs::write(
+        output_dir.join("candidate_deployments.json"),
+        serde_json::to_string_pretty(&candidate_deployments)?
+    )?;
+    
+    for (i, node) in nodes.iter().enumerate() {
+        std::fs::write(
+            output_dir.join(format!("node-{i}.ron")),
+            format!("{:#?}", node)
+        )?;
+    }
+    
     Ok(())
 }
