@@ -168,7 +168,15 @@ impl TraceStore {
     }
 
     fn append_event(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
-        info!("{} - {:?} @ {}", obj.namespaced_name(), action, ts);
+        info!(
+            "{:?} @ {ts}: {} {}",
+            action,
+            obj.types
+                .clone()
+                .map(|tm| format!("{}.{}", tm.api_version, tm.kind))
+                .unwrap_or("<unknown type>".into()),
+            obj.namespaced_name(),
+        );
 
         let obj = obj.clone();
         match self.events.back_mut() {
