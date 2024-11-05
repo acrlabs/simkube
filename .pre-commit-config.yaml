@@ -46,4 +46,10 @@ repos:
         language: system
         entry: bash -c 'make kustomize && git diff --quiet'
         pass_filenames: false
-        files: 'sk-api/.*|k8s/.*|Cargo.toml'
+        files: "sk-api/.*|k8s/.*|Cargo.toml"
+      - id: check-validation-readme
+        name: Check Validation README
+        language: system
+        entry: bash -c 'make validation_rules && git diff --quiet'
+        pass_filenames: false
+        files: "sk-store/src/validation/.*"

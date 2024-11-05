@@ -1,24 +1,16 @@
 mod app;
 mod event;
-mod update;
-mod util;
 mod view;
 
 use ratatui::backend::Backend;
 use ratatui::Terminal;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
 use sk_core::prelude::*;
-use sk_store::TraceStore;
 
-use self::app::App;
-use self::event::handle_event;
-use self::update::{
-    update,
+use self::app::{
+    App,
     Message,
 };
+use self::event::handle_event;
 use self::view::view;
 
 #[derive(clap::Args)]
@@ -28,11 +20,7 @@ pub struct Args {
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    let object_store = SkObjectStore::new(&args.trace_path)?;
-    let trace_data = object_store.get().await?.to_vec();
-    let store = TraceStore::import(trace_data, &None)?;
-
-    let app = App::new(&args.trace_path, store);
+    let app = App::new(&args.trace_path).await?;
     let term = ratatui::init();
     let res = run_loop(term, app);
     ratatui::restore();
@@ -40,10 +28,14 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 }
 
 fn run_loop<B: Backend>(mut term: Terminal<B>, mut app: App) -> EmptyResult {
+    let mut trace_changed = true;
     while app.running {
+        if trace_changed {
+            app.rebuild_annotated_trace();
+        }
         term.draw(|frame| view(&mut app, frame))?;
-        let msg: Message = handle_event(&app)?;
-        update(&mut app, msg);
+        let msg = handle_event()?;
+        trace_changed = app.update_state(msg);
     }
     Ok(())
 }

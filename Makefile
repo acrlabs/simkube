@@ -64,7 +64,7 @@ cover:
 		--ignore '*/tests/*' \
 		--ignore '*_test.rs' \
 		--ignore 'sk-api/*' \
-		--ignore 'testutils/*' \
+		--ignore '*/testutils/*' \
 		--ignore '.build/*' \
 		--excl-line '#\[derive' \
 		--excl-start '#\[cfg\((test|feature = "testutils")'
@@ -84,6 +84,13 @@ crd: skctl
 	$(BUILD_DIR)/skctl crd > k8s/raw/simkube.io_simulations.yml
 
 pre-k8s:: crd
+
+.PHONY: validation_rules
+validation_rules: VALIDATION_FILE=sk-cli/src/validation/README.md
+validation_rules: skctl
+	printf "# SimKube Trace Validation Checks\n\n" > $(VALIDATION_FILE)
+	$(BUILD_DIR)/skctl validate print --format table >> $(VALIDATION_FILE)
+	printf "\nThis file is auto-generated; to rebuild, run \`make $@\`.\n" >> $(VALIDATION_FILE)
 
 .PHONY: api
 api:

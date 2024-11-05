@@ -7,9 +7,9 @@ template: docs.html
 
 ![build status](https://github.com/acrlabs/simkube/actions/workflows/verify.yml/badge.svg)
 
-# simkube
+<img src="docs/images/logo_with_name.png" width=400 /><img src="docs/images/mascot-2024.png" height=200 align="right"/>
 
-A collection of tools for simulating Kubernetes scheduling and autoscaling behaviour
+A record-and-replay simulation environment for the Kubernetes control plane based on [KWOK](https://kwok.sigs.k8s.io).
 
 ## Overview
 
@@ -21,14 +21,6 @@ This package provides the following components:
 - `sk-driver`: the actual runner for a specific simulation, created as a Kubernetes Job by `sk-ctrl`
 - `sk-tracer`: a watcher for Kubernetes pod creation and deletion events, saves these events in a replayable trace
   format.
-
-### Architecture Diagram
-
-![architecture diagram of SimKube](docs/images/sk-overview.png)
-
-### Demo
-
-[![Watch the video](https://img.youtube.com/vi/Q1XpH1H4It8/hqdefault.jpg)](https://www.youtube.com/watch?v=Q1XpH1H4It8)
 
 ## Installation
 
@@ -46,6 +38,14 @@ Computing's website.  Here are some quick links to select topics:
 - [Metrics Collection](http://appliedcomputing.io/simkube/docs/adv/metrics/)
 - [Component Reference](http://appliedcomputing.io/simkube/docs/components/skctl/)
 - [Developing SimKube](http://appliedcomputing.io/simkube/docs/dev/contributing/)
+
+### Architecture Diagram
+
+![architecture diagram of SimKube](docs/images/sk-overview.png)
+
+### Demo
+
+[![Watch the video](https://img.youtube.com/vi/Q1XpH1H4It8/hqdefault.jpg)](https://www.youtube.com/watch?v=Q1XpH1H4It8)
 
 ## Community
 

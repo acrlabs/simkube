@@ -1,11 +1,11 @@
 use ratatui::widgets::ListState;
-use sk_store::{
-    TraceEvent,
-    TraceStorable,
-    TraceStore,
+
+use crate::validation::{
+    AnnotatedTrace,
+    ValidationStore,
 };
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub(super) enum Mode {
     #[default]
     RootView,
@@ -13,14 +13,22 @@ pub(super) enum Mode {
     ObjectSelected,
 }
 
+pub(super) enum Message {
+    Deselect,
+    Down,
+    Quit,
+    Select,
+    Unknown,
+    Up,
+}
+
 #[derive(Default)]
 pub(super) struct App {
     pub(super) running: bool,
     pub(super) mode: Mode,
 
-    pub(super) base_trace: TraceStore,
-    pub(super) trace_path: String,
-    pub(super) events: Vec<TraceEvent>,
+    pub(super) annotated_trace: AnnotatedTrace,
+    pub(super) validation_store: ValidationStore,
 
     pub(super) event_list_state: ListState,
     pub(super) object_list_state: ListState,
@@ -28,18 +36,55 @@ pub(super) struct App {
 }
 
 impl App {
-    pub(super) fn new(trace_path: &str, base_trace: TraceStore) -> App {
-        let events = base_trace.iter().map(|(evt, _)| evt).cloned().collect();
-        App {
+    pub(super) async fn new(trace_path: &str) -> anyhow::Result<App> {
+        Ok(App {
             running: true,
-
-            base_trace,
-            trace_path: trace_path.into(),
-            events,
-
+            annotated_trace: AnnotatedTrace::new(trace_path).await?,
             event_list_state: ListState::default().with_selected(Some(0)),
 
             ..Default::default()
+        })
+    }
+
+    pub(super) fn rebuild_annotated_trace(&mut self) {
+        self.validation_store.validate_trace(&mut self.annotated_trace)
+    }
+
+    pub(super) fn update_state(&mut self, msg: Message) -> bool {
+        match msg {
+            Message::Deselect => match self.mode {
+                Mode::ObjectSelected => {
+                    self.mode = Mode::EventSelected;
+                    self.object_contents_list_state.select(None);
+                },
+                Mode::EventSelected => self.mode = Mode::RootView,
+                _ => (),
+            },
+            Message::Down => match self.mode {
+                Mode::ObjectSelected => self.object_contents_list_state.select_next(),
+                Mode::EventSelected => self.object_list_state.select_next(),
+                Mode::RootView => self.event_list_state.select_next(),
+            },
+            Message::Quit => self.running = false,
+            Message::Select => match self.mode {
+                Mode::EventSelected => {
+                    self.mode = Mode::ObjectSelected;
+                    self.object_contents_list_state.select(Some(0));
+                },
+                Mode::RootView => {
+                    self.mode = Mode::EventSelected;
+                    self.object_list_state.select(Some(0));
+                },
+                _ => (),
+            },
+            Message::Unknown => (),
+            Message::Up => match self.mode {
+                Mode::ObjectSelected => self.object_contents_list_state.select_previous(),
+                Mode::EventSelected => self.object_list_state.select_previous(),
+                Mode::RootView => self.event_list_state.select_previous(),
+            },
         }
+
+        false
     }
 }

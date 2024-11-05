@@ -28,6 +28,7 @@ pub struct SimulationDriverConfig {
     pub image: String,
     pub trace_path: String,
     pub port: i32,
+    pub speed: f64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]

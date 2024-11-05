@@ -22,6 +22,7 @@ apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - ../base
+  - sk-tracer-rbac.yml
   - sk-tracer.yml
 """
 KUSTOMIZATION_YML_SIM = """---
@@ -80,6 +81,7 @@ def write_kustomize_files(build_dir: str):
 
     os.rename(f"{build_dir}/0000-global.k8s.yaml", f"{build_dir}/base/sk-namespace.yml")
     os.rename(f"{build_dir}/0001-sk-tracer.k8s.yaml", f"{build_dir}/prod/sk-tracer.yml")
+    os.rename(f"{build_dir}/sk-tracer-rbac.yml", f"{build_dir}/prod/sk-tracer-rbac.yml")
     os.rename(f"{build_dir}/0002-sk-ctrl.k8s.yaml", f"{build_dir}/sim/sk-ctrl.yml")
     os.rename(f"{build_dir}/simkube.io_simulations.yml", f"{build_dir}/sim/simkube.io_simulations.yml")
 

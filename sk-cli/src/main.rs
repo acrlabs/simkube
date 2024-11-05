@@ -4,6 +4,7 @@ mod delete;
 mod export;
 mod run;
 mod snapshot;
+mod validation;
 mod xray;
 
 use clap::{
@@ -13,6 +14,8 @@ use clap::{
     Subcommand,
 };
 use sk_core::prelude::*;
+
+use crate::validation::ValidateSubcommand;
 
 #[derive(Parser)]
 #[command(
@@ -46,6 +49,9 @@ enum SkSubcommand {
     #[command(about = "take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)")]
     Snapshot(snapshot::Args),
 
+    #[command(subcommand)]
+    Validate(ValidateSubcommand),
+
     #[command(about = "simkube version")]
     Version,
 
@@ -64,6 +70,7 @@ async fn main() -> EmptyResult {
         SkSubcommand::Delete(args) => delete::cmd(args).await,
         SkSubcommand::Run(args) => run::cmd(args).await,
         SkSubcommand::Snapshot(args) => snapshot::cmd(args).await,
+        SkSubcommand::Validate(subcommand) => validation::cmd(subcommand).await,
         SkSubcommand::Version => {
             println!("skctl {}", crate_version!());
             Ok(())

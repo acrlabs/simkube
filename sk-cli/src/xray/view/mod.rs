@@ -1,6 +1,10 @@
-use std::iter::repeat;
+mod helpers;
 
-use chrono::TimeDelta;
+use std::iter::{
+    once,
+    repeat,
+};
+
 use ratatui::prelude::*;
 use ratatui::widgets::{
     Block,
@@ -10,14 +14,14 @@ use ratatui::widgets::{
     Padding,
     Paragraph,
 };
-use sk_core::k8s::KubeResourceExt;
-use sk_store::TraceStorable;
 
+use self::helpers::*;
 use super::app::{
     App,
     Mode,
 };
-use super::util::format_duration;
+
+const MIN_TWO_PANEL_WIDTH: u16 = 120;
 
 pub(super) fn view(app: &mut App, frame: &mut Frame) {
     let layout = Layout::default()
@@ -26,10 +30,10 @@ pub(super) fn view(app: &mut App, frame: &mut Frame) {
         .split(frame.area());
     let (top, bottom) = (layout[0], layout[1]);
 
-    let events_border = Block::bordered().title(app.trace_path.clone());
+    let events_border = Block::bordered().title(app.annotated_trace.path());
     let object_border = Block::bordered();
 
-    if top.width > 120 {
+    if top.width > MIN_TWO_PANEL_WIDTH {
         let lr_layout = Layout::default()
             .direction(Direction::Horizontal)
             .constraints(vec![Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -72,44 +76,37 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
     // our layout into three sublayouts; the first includes all the events up to the selected one,
     // then we nest in one level and display the applied and deleted objects, then we unnest and
     // display the rest of the events
-    let num_events = app.events.len();
-    let start_ts = app.base_trace.start_ts().unwrap_or(0);
+    let num_events = app.annotated_trace.len();
+    let start_ts = app.annotated_trace.start_ts().unwrap_or(0);
 
     // Add one so the selected event is included on top
     let (sel_index_inclusive, sel_event) = match app.mode {
         Mode::EventSelected | Mode::ObjectSelected => {
             let sel_index = app.event_list_state.selected().unwrap();
-            (sel_index + 1, Some(&app.events[sel_index]))
+            (sel_index + 1, Some(&app.annotated_trace[sel_index]))
         },
         _ => (num_events, None),
     };
 
-    let mut root_items_1 = Vec::with_capacity(sel_index_inclusive);
-    let mut root_items_2 = Vec::with_capacity(num_events - sel_index_inclusive);
+    let event_spans = app.annotated_trace.iter().map(|event| make_event_spans(event, start_ts));
+    let mut top_entries = format_list_entries(event_spans, layout.width as usize);
+    let bottom_entries = top_entries.split_off(sel_index_inclusive);
 
-    for (i, evt) in app.events.iter().enumerate() {
-        let d = TimeDelta::new(evt.ts - start_ts, 0).unwrap();
-        let d_str =
-            format!("{} ({} applied/{} deleted)", format_duration(d), evt.applied_objs.len(), evt.deleted_objs.len());
-        if i < sel_index_inclusive {
-            root_items_1.push(d_str);
-        } else {
-            root_items_2.push(d_str);
-        }
-    }
-
-    let sublist_items = sel_event.map_or(vec![], |evt| {
-        let mut items: Vec<_> = evt
+    let obj_spans = sel_event.map_or(vec![], |evt| {
+        let mut sublist_items = evt
+            .data
             .applied_objs
             .iter()
-            .zip(repeat("+"))
-            .chain(evt.deleted_objs.iter().zip(repeat("-")))
-            .map(|(obj, op)| format!("  {} {}", op, obj.namespaced_name()))
-            .collect();
-        if items.is_empty() {
-            items.push(String::new());
+            .zip(repeat('+'))
+            .chain(evt.data.deleted_objs.iter().zip(repeat('-')))
+            .enumerate()
+            .map(|(i, (obj, op))| make_object_spans(i, obj, op, evt))
+            .peekable();
+        if sublist_items.peek().is_none() {
+            format_list_entries(once((Span::default(), Span::default())), layout.width as usize)
+        } else {
+            format_list_entries(sublist_items, layout.width as usize)
         }
-        items
     });
 
     let nested_layout = Layout::default()
@@ -117,20 +114,19 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
         .constraints(vec![
             // We know how many lines we have; use max constraints here so the lists are next to
             // each other.  The last one can be min(0) and take up the rest of the space
-            Constraint::Max(root_items_1.len() as u16),
-            Constraint::Max(sublist_items.len() as u16),
+            Constraint::Max(top_entries.len() as u16),
+            Constraint::Max(obj_spans.len() as u16),
             Constraint::Min(0),
         ])
         .split(layout);
 
-    let list_part_one = List::new(root_items_1)
+    let list_part_one = List::new(top_entries)
         .highlight_style(Style::new().add_modifier(Modifier::REVERSED))
         .highlight_symbol(">> ");
-    let sublist = List::new(sublist_items)
+    let sublist = List::new(obj_spans)
         .highlight_style(Style::new().bg(Color::Blue))
-        .highlight_symbol("++ ")
-        .style(Style::new().italic());
-    let list_part_two = List::new(root_items_2).block(Block::new().padding(Padding::left(3)));
+        .highlight_symbol("++ ");
+    let list_part_two = List::new(bottom_entries).block(Block::new().padding(Padding::left(LIST_PADDING as u16)));
 
     frame.render_stateful_widget(list_part_one, nested_layout[0], &mut app.event_list_state);
     frame.render_stateful_widget(sublist, nested_layout[1], &mut app.object_list_state);
@@ -140,16 +136,16 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
 fn render_object(app: &mut App, frame: &mut Frame, layout: Rect) {
     let evt_idx = app.event_list_state.selected().unwrap();
     let obj_idx = app.object_list_state.selected().unwrap();
-    let applied_len = app.events[evt_idx].applied_objs.len();
-    let deleted_len = app.events[evt_idx].deleted_objs.len();
+    let applied_len = app.annotated_trace[evt_idx].data.applied_objs.len();
+    let deleted_len = app.annotated_trace[evt_idx].data.deleted_objs.len();
 
     let obj = if obj_idx >= applied_len {
         if obj_idx - applied_len > deleted_len {
             return;
         }
-        &app.events[evt_idx].deleted_objs[obj_idx - applied_len]
+        &app.annotated_trace[evt_idx].data.deleted_objs[obj_idx - applied_len]
     } else {
-        &app.events[evt_idx].applied_objs[obj_idx]
+        &app.annotated_trace[evt_idx].data.applied_objs[obj_idx]
     };
 
     let obj_str = serde_json::to_string_pretty(obj).unwrap();

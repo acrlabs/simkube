@@ -118,6 +118,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         roots_api.create(&Default::default(), &root_obj).await?
     };
 
+    let speed = ctx.sim.spec.driver.speed;
+
     let mut sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
     let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
     let sim_duration = sim_end_ts - sim_ts;
@@ -162,7 +164,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         }
 
         if let Some(next_ts) = maybe_next_ts {
-            let sleep_duration = max(0, next_ts - sim_ts);
+            let simulation_normal_step_duration = max(0, next_ts - sim_ts) as f64;
+            let sleep_duration = (simulation_normal_step_duration / speed) as u64;
 
             info!("next event happens in {sleep_duration} seconds, sleeping");
             debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
