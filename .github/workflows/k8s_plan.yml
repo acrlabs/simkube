@@ -6,6 +6,10 @@ on:  # yamllint disable-line rule:truthy
     paths:
       - 'k8s/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   plan:
     runs-on: ubuntu-latest
