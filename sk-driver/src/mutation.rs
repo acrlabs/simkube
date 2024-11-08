@@ -6,6 +6,7 @@ use json_patch::{
     Patch,
     PatchOperation,
 };
+use json_patch_ext::escape;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
@@ -21,6 +22,7 @@ use sk_core::jsonutils;
 use sk_core::k8s::{
     KubeResourceExt,
     PodExt,
+    PodLifecycleData,
 };
 use sk_core::prelude::*;
 
@@ -101,7 +103,7 @@ fn add_simulation_labels(ctx: &DriverContext, pod: &corev1::Pod, patches: &mut V
         patches.push(PatchOperation::Add(AddOperation { path: "/metadata/labels".into(), value: json!({}) }));
     }
     patches.push(PatchOperation::Add(AddOperation {
-        path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
+        path: format!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)),
         value: Value::String(ctx.name.clone()),
     }));
 
@@ -126,7 +128,7 @@ fn add_lifecycle_annotation(
             let seq = mut_data.count(hash);
 
             let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_ns_name, hash, seq);
-            if let Some(patch) = lifecycle.to_annotation_patch() {
+            if let Some(patch) = to_annotation_patch(&lifecycle) {
                 info!("applying lifecycle annotations (hash={hash}, seq={seq})");
                 if pod.metadata.annotations.is_none() {
                     patches.push(PatchOperation::Add(AddOperation {
@@ -168,5 +170,15 @@ fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
         // All that matters is that we keep the request UUID, which is in the TypeMeta
         request: None,
         response: Some(resp),
+    }
+}
+
+fn to_annotation_patch(pld: &PodLifecycleData) -> Option<PatchOperation> {
+    match pld {
+        PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
+        PodLifecycleData::Finished(start_ts, end_ts) => Some(PatchOperation::Add(AddOperation {
+            path: format!("/metadata/annotations/{}", escape(LIFETIME_ANNOTATION_KEY)),
+            value: Value::String(format!("{}", end_ts - start_ts)),
+        })),
     }
 }
