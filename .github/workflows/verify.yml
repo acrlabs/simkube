@@ -6,6 +6,10 @@ on:   # yamllint disable-line rule:truthy
       - "master"
   pull_request: {}
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_INCREMENTAL: 0
   SCCACHE_GHA_ENABLED: "true"
