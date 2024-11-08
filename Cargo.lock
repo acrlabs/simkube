@@ -1823,12 +1823,46 @@ dependencies = [
 ]
 
 [[package]]
+name = "json-patch"
+version = "3.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "863726d7afb6bc2590eeff7135d923545e5e964f004c2ccf8716c25e70a86f08"
+dependencies = [
+ "jsonptr",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
+name = "json-patch-ext"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "43b15fa8e1747529b482cda6caff763a207911b7bcb3352130f20520a3cf0087"
+dependencies = [
+ "json-patch 3.0.1",
+ "jsonptr",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "jsonpath_lib"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "eaa63191d68230cccb81c5aa23abd53ed64d83337cacbb25a7b8c7979523774f"
 dependencies = [
  "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
+name = "jsonptr"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5dea2b27dd239b2556ed7a25ba842fe47fd602e7fc7433c2a8d6106d4d9edd70"
+dependencies = [
  "serde",
  "serde_json",
 ]
@@ -1908,7 +1942,7 @@ dependencies = [
  "chrono",
  "form_urlencoded",
  "http 0.2.12",
- "json-patch",
+ "json-patch 1.4.0",
  "k8s-openapi",
  "once_cell",
  "schemars",
@@ -1942,7 +1976,7 @@ dependencies = [
  "derivative",
  "futures",
  "hashbrown",
- "json-patch",
+ "json-patch 1.4.0",
  "k8s-openapi",
  "kube-client",
  "parking_lot",
@@ -3378,12 +3412,13 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.118"
+version = "1.0.132"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d947f6b3163d8857ea16c4fa0dd4840d52f3041039a85decd46867eb1abef2e4"
+checksum = "d726bfaff4b320266d395898905d0eba0345aae23b54aee3a737e260fd46db03"
 dependencies = [
  "indexmap",
  "itoa",
+ "memchr",
  "ryu",
  "serde",
 ]
@@ -3507,7 +3542,6 @@ dependencies = [
  "clockabilly",
  "http 0.2.12",
  "httpmock",
- "json-patch",
  "k8s-openapi",
  "kube",
  "mockall",
@@ -3564,7 +3598,8 @@ dependencies = [
  "clockabilly",
  "either",
  "httpmock",
- "json-patch",
+ "json-patch 1.4.0",
+ "json-patch-ext",
  "k8s-openapi",
  "kube",
  "mockall",
@@ -3639,7 +3674,7 @@ dependencies = [
  "derive_setters",
  "dirs",
  "insta",
- "json-patch",
+ "json-patch-ext",
  "k8s-openapi",
  "kube",
  "lazy_static",

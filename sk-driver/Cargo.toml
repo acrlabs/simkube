@@ -19,6 +19,7 @@ either = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 json-patch = { workspace = true }
+json-patch-ext = { workspace = true }
 rocket = { workspace = true }
 serde_json = { workspace = true }
 sk-api = { workspace = true }
