@@ -43,10 +43,6 @@ Computing's website.  Here are some quick links to select topics:
 
 ![architecture diagram of SimKube](docs/images/sk-overview.png)
 
-### Demo
-
-[![Watch the video](https://img.youtube.com/vi/Q1XpH1H4It8/hqdefault.jpg)](https://www.youtube.com/watch?v=Q1XpH1H4It8)
-
 ## Community
 
 We have a [channel](https://kubernetes.slack.com/archives/C07LTUB823Z) on the Kubernetes Slack instance!  Come chat with
