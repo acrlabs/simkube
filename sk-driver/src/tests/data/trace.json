@@ -1,12 +1,13 @@
-[
-    {
+{
+    "version": 2,
+    "config": {
         "trackedObjects": {
             "apps/v1.Deployment": {
                 "podSpecTemplatePath": "/spec/template"
             }
         }
     },
-    [
+    "events": [
         {
             "ts": 1709241485,
             "applied_objs": [
@@ -106,8 +107,8 @@
             ]
         }
     ],
-    {
+    "index": {
         "default/nginx-deployment": 2842228259284014139
     },
-    {}
-]
+    "pod_lifecycles": {}
+}

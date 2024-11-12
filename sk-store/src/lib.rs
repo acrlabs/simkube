@@ -19,10 +19,11 @@ pub use crate::config::{
     TracerConfig,
     TrackedObjectConfig,
 };
-pub use crate::trace_store::TraceStore;
+pub use crate::trace_store::{
+    ExportedTrace,
+    TraceStore,
+};
 
-#[cfg(test)]
-mod tests;
 #[derive(Debug)]
 enum TraceAction {
     ObjectApplied,
@@ -59,6 +60,9 @@ pub trait TraceStorable {
     fn end_ts(&self) -> Option<i64>;
     fn iter(&self) -> TraceIterator<'_>;
 }
+
+#[cfg(test)]
+mod tests;
 
 #[cfg(feature = "testutils")]
 pub mod mock {

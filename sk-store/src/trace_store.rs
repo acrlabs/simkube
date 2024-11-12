@@ -11,6 +11,10 @@ use clockabilly::{
 };
 use kube::api::DynamicObject;
 use kube::ResourceExt;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
@@ -22,6 +26,7 @@ use sk_core::k8s::{
 };
 use sk_core::prelude::*;
 use sk_core::time::duration_to_ts_from;
+use thiserror::Error;
 
 use crate::config::TracerConfig;
 use crate::pod_owners_map::{
@@ -36,12 +41,43 @@ use crate::{
     TraceStorable,
 };
 
+const CURRENT_TRACE_VERSION: u16 = 2;
+type TraceIndex = HashMap<String, u64>;
+
+#[derive(Debug, Error)]
+pub enum TraceStoreError {
+    #[error(
+        "could not parse trace file\n\nIf this trace file is older than version 2, \
+        it is only parseable by SimKube <= 1.1.1.  Please see the release notes for details."
+    )]
+    ParseFailed(#[from] rmp_serde::decode::Error),
+}
+
+
 #[derive(Default)]
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: VecDeque<TraceEvent>,
     pub(crate) pod_owners: PodOwnersMap,
     pub(crate) index: HashMap<String, u64>,
+}
+
+#[derive(Deserialize, Serialize)]
+pub struct ExportedTrace {
+    version: u16,
+    config: TracerConfig,
+    events: Vec<TraceEvent>,
+    index: TraceIndex,
+    pod_lifecycles: HashMap<String, PodLifecyclesMap>,
+}
+
+#[cfg(feature = "testutils")]
+impl ExportedTrace {
+    pub fn prepend_event(&mut self, event: TraceEvent) {
+        let mut tmp = vec![event];
+        tmp.append(&mut self.events);
+        self.events = tmp;
+    }
 }
 
 // The TraceStore object is an in-memory store of a cluster trace.  It keeps track of all the
@@ -64,13 +100,20 @@ impl TraceStore {
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
         let (events, index) = self.collect_events(start_ts, end_ts, filter, true);
+        let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
-        let lifecycle_data = self.pod_owners.filter(start_ts, end_ts, &index);
-        let data = rmp_serde::to_vec_named(&(&self.config, &events, &index, &lifecycle_data))?;
+        let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
+        let data = rmp_serde::to_vec_named(&ExportedTrace {
+            version: CURRENT_TRACE_VERSION,
+            config: self.config.clone(),
+            events,
+            index,
+            pod_lifecycles,
+        })?;
 
-        info!("Exported {} events", events.len());
+        info!("Exported {} events", num_events);
         Ok(data)
     }
 
@@ -78,35 +121,38 @@ impl TraceStore {
     // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
     // information to be able to run a simulation off the trace store.
     pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
-        let (config, mut events, index, lifecycle_data): (
-            TracerConfig,
-            VecDeque<TraceEvent>,
-            HashMap<String, u64>,
-            HashMap<String, PodLifecyclesMap>,
-        ) = rmp_serde::from_slice(&data)?;
+        let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceStoreError::ParseFailed)?;
 
-        let trace_start_ts = events
-            .front()
+        if exported_trace.version != CURRENT_TRACE_VERSION {
+            bail!("unsupported trace version: {}", exported_trace.version);
+        }
+
+        let trace_start_ts = exported_trace
+            .events
+            .first()
             .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
             .ts;
-        let mut trace_end_ts = events
-            .back()
+        let mut trace_end_ts = exported_trace
+            .events
+            .last()
             .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
             .ts;
         if let Some(trace_duration_str) = maybe_duration {
             trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
-            events.retain(|evt| evt.ts < trace_end_ts);
+            exported_trace.events.retain(|evt| evt.ts < trace_end_ts);
 
             // Add an empty event to the very end to make sure the driver doesn't shut down early
-            events.push_back(TraceEvent { ts: trace_end_ts, ..Default::default() });
+            exported_trace
+                .events
+                .push(TraceEvent { ts: trace_end_ts, ..Default::default() });
         }
 
-        info!("Imported {} events between {trace_start_ts} and {trace_end_ts}", events.len());
+        info!("Imported {} events between {trace_start_ts} and {trace_end_ts}", exported_trace.events.len());
         Ok(TraceStore {
-            config,
-            events,
-            index,
-            pod_owners: PodOwnersMap::new_from_parts(lifecycle_data, HashMap::new()),
+            config: exported_trace.config,
+            events: exported_trace.events.into(),
+            index: exported_trace.index,
+            pod_owners: PodOwnersMap::new_from_parts(exported_trace.pod_lifecycles, HashMap::new()),
         })
     }
 
