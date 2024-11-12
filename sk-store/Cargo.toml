@@ -23,6 +23,7 @@ serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sk-api = { workspace = true }
 sk-core = { workspace = true }
+thiserror = { workspace = true }
 tracing = { workspace = true }
 
 # testutils dependencies

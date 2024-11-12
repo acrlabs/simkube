@@ -3634,6 +3634,7 @@ dependencies = [
  "serde_yaml",
  "sk-api",
  "sk-core",
+ "thiserror",
  "tokio",
  "tracing",
  "tracing-test",
