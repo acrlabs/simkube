@@ -95,6 +95,7 @@ use sk_store::{
     TrackedObjectConfig,
 };
 
+use rand_distr::{Poisson, Distribution};
 
 
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
@@ -348,6 +349,7 @@ struct Node {
     /// To derive [`Hash`] for [`Node`], we use [`BTreeMap`] which implements `Hash` as our keys
     /// (the deployment names) implement [`Ord`],
     deployments: BTreeMap<String, Deployment>,
+    timestamp: u64 
 }
 
 impl Node {
@@ -355,7 +357,7 @@ impl Node {
     ///
     /// This can be revised in future to, for instance, start at the end of an existing trace.
     fn new() -> Self {
-        Self { deployments: BTreeMap::new() }
+        Self { deployments: BTreeMap::new(), timestamp: 0 }
     }
 
     /// Attempts to create a [`Deployment`] in this state.
@@ -420,12 +422,20 @@ impl Node {
         ClusterAction { target_name: deployment_name, action_type }: ClusterAction,
         candidate_deployments: &BTreeMap<String, Deployment>,
     ) -> Option<Self> {
-        match action_type {
+        let new_node = match action_type {
             DeploymentAction::IncrementReplicas => self.increment_replica_count(deployment_name),
             DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
             DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
             DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action)
+        };
+        if let Some(mut new_node) = new_node {
+            let poisson = Poisson::new(2.0).unwrap();
+            let wait_time = poisson.sample(&mut thread_rng());
+            new_node.timestamp = self.timestamp + wait_time as u64;
+            Some(new_node)
+        } else {
+            None
         }
     }
 
