@@ -4,7 +4,7 @@ mod validation_store_test;
 use std::collections::BTreeMap;
 
 use rstest::*;
-use sk_core::k8s::testutils::test_deployment;
+use sk_core::prelude::*;
 use sk_store::TraceEvent;
 
 use super::annotated_trace::AnnotatedTraceEvent;

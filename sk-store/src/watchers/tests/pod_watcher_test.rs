@@ -13,7 +13,6 @@ use kube::runtime::watcher::Event;
 use mockall::predicate;
 use sk_core::k8s::{
     ApiSet,
-    KubeResourceExt,
     OwnersCache,
     PodLifecycleData,
 };

@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use kube::ResourceExt;
 use serde_json::json;
 
 use super::*;

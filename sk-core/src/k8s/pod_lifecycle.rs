@@ -6,7 +6,7 @@ use std::cmp::{
 };
 
 use clockabilly::Clockable;
-use kube::ResourceExt;
+use tracing::*;
 
 use super::*;
 use crate::prelude::*;

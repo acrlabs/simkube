@@ -21,6 +21,7 @@ use kube::runtime::{
 };
 use sk_core::logging;
 use sk_core::prelude::*;
+use tracing::*;
 
 use crate::context::SimulationContext;
 use crate::controller::{

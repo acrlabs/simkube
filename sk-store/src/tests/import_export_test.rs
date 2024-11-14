@@ -10,9 +10,9 @@ use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
-use serde_json::json;
 use sk_api::v1::ExportFilters;
 use sk_core::macros::*;
+use sk_core::prelude::*;
 
 use super::*;
 use crate::watchers::{
@@ -21,23 +21,12 @@ use crate::watchers::{
 };
 use crate::TraceStore;
 
-fn test_pod(idx: i64) -> DynamicObject {
-    DynamicObject {
-        metadata: metav1::ObjectMeta {
-            namespace: Some(TEST_NAMESPACE.into()),
-            name: Some(format!("pod{idx}").into()),
-            ..Default::default()
-        },
-        types: None,
-        data: json!({"spec": {}}),
-    }
+fn d(idx: i64) -> DynamicObject {
+    test_deployment(&format!("depl{idx}"))
 }
 
-fn test_daemonset_pod(idx: i64) -> DynamicObject {
-    let mut ds_pod = test_pod(idx + 100);
-    ds_pod.metadata.owner_references =
-        Some(vec![metav1::OwnerReference { kind: "DaemonSet".into(), ..Default::default() }]);
-    ds_pod
+fn ds(idx: i64) -> DynamicObject {
+    test_daemonset(&format!("ds{idx}"))
 }
 
 // Set up a test stream to ensure that imports and exports work correctly.
@@ -52,27 +41,34 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
         let mut c = clock.clone();
         async move {
             match state {
-                // Initial conditions: we create 10 regular pods and 5 daemonset pods
+                // Initial conditions: we create 10 deployments and 5 daemonsets
+                // These are handled by different watchers, so they appear as different events.
+                // I didn't really set up this test to handle multiple events happening at the
+                // same time so I'm just having the deployments created first and the daemonsets
+                // created at the next timestep.
                 (-1, id) => {
-                    let mut pods: Vec<_> = (0..10).map(|i| test_pod(i)).collect();
-                    let ds_pods: Vec<_> = (0..5).map(|i| test_daemonset_pod(i)).collect();
-                    pods.extend(ds_pods);
-                    return Some((Ok(Event::Restarted(pods)), (0, id)));
+                    let objs: Vec<_> = (0..10).map(|i| d(i)).collect();
+                    return Some((Ok((DEPL_GVK.clone(), Event::Restarted(objs))), (0, id)));
+                },
+                (0, id) => {
+                    let objs: Vec<_> = (0..5).map(|i| ds(i)).collect();
+                    let new_ts = c.advance(1);
+                    return Some((Ok((DS_GVK.clone(), Event::Restarted(objs))), (new_ts, id)));
                 },
 
-                // We recreate one of the pods at time zero just to make sure there's
+                // We recreate one of the pods at time one just to make sure there's
                 // no weird duplicate behaviours
-                (0, id) => {
-                    let pod = test_pod(id);
+                (1, id) => {
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok((DEPL_GVK.clone(), Event::Applied(obj))), (new_ts, id)));
                 },
 
                 // From times 10..20, we delete one of the regular pods
                 (5..=19, id) => {
-                    let pod = test_pod(id);
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok((DEPL_GVK.clone(), Event::Deleted(obj))), (new_ts, id + 1)));
                 },
 
                 // In times 20..25, we test the various filter options:
@@ -82,38 +78,38 @@ fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
                 //
                 // In the test below, all of these events should be filtered out
                 (20, id) => {
-                    let pod = test_daemonset_pod(7);
+                    let obj = ds(7);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok((DS_GVK.clone(), Event::Applied(obj))), (new_ts, id)));
                 },
                 (21, id) => {
-                    let pod = test_daemonset_pod(8);
+                    let obj = ds(8);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok((DS_GVK.clone(), Event::Applied(obj))), (new_ts, id)));
                 },
                 (22, id) => {
-                    let mut pod = test_pod(30);
-                    pod.metadata.namespace = Some("kube-system".into());
+                    let mut obj = d(30);
+                    obj.metadata.namespace = Some("kube-system".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok((DEPL_GVK.clone(), Event::Applied(obj))), (new_ts, id)));
                 },
                 (23, id) => {
-                    let pod = test_daemonset_pod(1);
+                    let obj = ds(1);
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id)));
+                    return Some((Ok((DS_GVK.clone(), Event::Deleted(obj))), (new_ts, id)));
                 },
                 (24, id) => {
-                    let mut pod = test_pod(31);
-                    pod.labels_mut().insert("foo".into(), "bar".into());
+                    let mut obj = d(31);
+                    obj.labels_mut().insert("foo".into(), "bar".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok((DEPL_GVK.clone(), Event::Applied(obj))), (new_ts, id)));
                 },
 
                 // Lastly we delete the remaining "regular" pods
                 (25..=55, id) => {
-                    let pod = test_pod(id);
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok((DEPL_GVK.clone(), Event::Deleted(obj))), (new_ts, id + 1)));
                 },
                 _ => None,
             }
@@ -155,8 +151,8 @@ async fn itest_export(#[case] duration: Option<String>) {
             // Confirm that the results match what we expect
             let new_store = TraceStore::import(data, &duration).unwrap();
             let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-            let expected_pods = store.objs_at(import_end_ts, &filter);
-            let actual_pods = new_store.objs_at(end_ts, &filter);
+            let expected_pods = store.sorted_objs_at(import_end_ts, &filter);
+            let actual_pods = new_store.sorted_objs_at(end_ts, &filter);
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(actual_pods, expected_pods);

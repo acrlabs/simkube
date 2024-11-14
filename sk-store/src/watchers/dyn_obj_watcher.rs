@@ -35,7 +35,7 @@ use sk_core::k8s::{
     ApiSet,
     GVK,
 };
-use sk_core::prelude::*;
+use tracing::*;
 
 use crate::{
     TraceStorable,
@@ -43,7 +43,7 @@ use crate::{
     TrackedObjectConfig,
 };
 
-pub type KubeObjectStream = Pin<Box<dyn Stream<Item = anyhow::Result<Event<DynamicObject>>> + Send>>;
+pub type KubeObjectStream = Pin<Box<dyn Stream<Item = anyhow::Result<(GVK, Event<DynamicObject>)>> + Send>>;
 
 // Watch a (customizable) list of objects.  Since we don't know what these object types will be at
 // runtime, we have to use the DynamicObject API, which gives us everything in JSON format that we
@@ -67,7 +67,7 @@ impl DynObjWatcher {
     ) -> anyhow::Result<(DynObjWatcher, Receiver<bool>)> {
         let mut apis = vec![];
         for gvk in tracked_objects.keys() {
-            let stream = build_stream_for_tracked_obj(apiset, gvk).await?;
+            let stream = build_stream_for_tracked_obj(apiset, gvk.clone()).await?;
             apis.push(stream);
         }
 
@@ -91,7 +91,9 @@ impl DynObjWatcher {
             let ts = self.clock.now_ts();
 
             match res {
-                Ok(evt) => self.handle_obj_event(evt, ts),
+                Ok((ref gvk, evt)) => self.handle_obj_event(gvk, evt, ts).unwrap_or_else(|err| {
+                    skerr!(err, "could not handle event");
+                }),
                 Err(err) => {
                     skerr!(err, "watcher received error on stream");
                 },
@@ -99,14 +101,14 @@ impl DynObjWatcher {
         }
     }
 
-    fn handle_obj_event(&mut self, evt: Event<DynamicObject>, ts: i64) {
+    fn handle_obj_event(&mut self, gvk: &GVK, evt: Event<DynamicObject>, ts: i64) -> EmptyResult {
         // We don't expect the trace store to panic, but if it does we should panic here too
         let mut store = self.store.lock().unwrap();
         match evt {
-            Event::Applied(obj) => store.create_or_update_obj(&obj, ts, None),
-            Event::Deleted(obj) => store.delete_obj(&obj, ts),
+            Event::Applied(obj) => store.create_or_update_obj(&obj, ts, None)?,
+            Event::Deleted(obj) => store.delete_obj(&obj, ts)?,
             Event::Restarted(objs) => {
-                store.update_all_objs(&objs, ts);
+                store.update_all_objs_for_gvk(gvk, &objs, ts)?;
 
                 // When the watcher first starts up it does a List call, which (internally) gets
                 // converted into a "Restarted" event that contains all of the listed objects.
@@ -116,29 +118,27 @@ impl DynObjWatcher {
                     self.is_ready = true;
 
                     // unlike golang, sending is non-blocking
-                    if let Err(e) = self.ready_tx.send(true) {
-                        error!("failed to update dynobjwatcher ready status: {e:?}")
-                    }
+                    self.ready_tx.send(true)?;
                 }
             },
         };
+        Ok(())
     }
 }
 
-async fn build_stream_for_tracked_obj(apiset: &mut ApiSet, gvk: &GVK) -> anyhow::Result<KubeObjectStream> {
+async fn build_stream_for_tracked_obj(apiset: &mut ApiSet, gvk: GVK) -> anyhow::Result<KubeObjectStream> {
     // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
     // it will prevent the tracer from starting up
     let api_version = gvk.api_version().clone();
     let kind = gvk.kind.clone();
 
     // The "unnamespaced" api variant can list/watch in all namespaces
-    let (api, _) = apiset.unnamespaced_api_by_gvk(gvk).await?;
+    let (api, _) = apiset.unnamespaced_api_by_gvk(&gvk).await?;
 
     Ok(watcher(api.clone(), Default::default())
         // All these objects need to be cloned because they're moved into the stream here
-        .modify(move |obj| {
-            sanitize_obj(obj, &api_version, &kind);
-        })
+        .modify(move |obj| sanitize_obj(obj, &api_version, &kind))
+        .map_ok(move |obj| (gvk.clone(), obj))
         .map_err(|e| e.into())
         .boxed())
 }

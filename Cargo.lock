@@ -3544,6 +3544,7 @@ dependencies = [
  "httpmock",
  "k8s-openapi",
  "kube",
+ "lazy_static",
  "mockall",
  "object_store",
  "parse_datetime_fork",
