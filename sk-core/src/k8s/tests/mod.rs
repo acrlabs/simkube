@@ -8,5 +8,4 @@ use rstest::*;
 use tracing_test::traced_test;
 
 use super::*;
-use crate::k8s::testutils::*;
 use crate::macros::*;

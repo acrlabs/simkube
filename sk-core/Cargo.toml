@@ -9,7 +9,7 @@ readme.workspace = true
 edition.workspace = true
 
 [features]
-testutils = ["dep:http", "dep:httpmock", "dep:mockall", "dep:rstest"]
+testutils = ["dep:http", "dep:httpmock", "dep:lazy_static", "dep:mockall", "dep:rstest"]
 
 [dependencies]
 anyhow = { workspace = true }
@@ -37,6 +37,7 @@ url = { workspace = true }
 # testutils dependencies
 http = { workspace = true, optional = true }
 httpmock = { workspace = true,  optional = true }
+lazy_static = { workspace = true, optional = true }
 mockall = { workspace = true, optional = true }
 rstest = { workspace = true, optional = true }
 

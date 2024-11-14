@@ -24,7 +24,6 @@ use kube::api::{
     PatchParams,
     PropagationPolicy,
 };
-use kube::ResourceExt;
 use serde_json::json;
 use sk_core::errors::*;
 use sk_core::k8s::{
@@ -38,6 +37,7 @@ use sk_core::k8s::{
 use sk_core::macros::*;
 use sk_core::prelude::*;
 use tokio::time::sleep;
+use tracing::*;
 
 use super::*;
 

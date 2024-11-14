@@ -5,6 +5,7 @@ use std::ops::Deref;
 use kube::api::{
     DynamicObject,
     GroupVersionKind,
+    TypeMeta,
 };
 use serde::{
     de,
@@ -49,6 +50,13 @@ impl GVK {
             bail!("invalid format for api_version: {}", rf.api_version);
         }
     }
+
+    pub fn into_type_meta(&self) -> TypeMeta {
+        TypeMeta {
+            api_version: self.0.api_version(),
+            kind: self.0.kind.clone(),
+        }
+    }
 }
 
 // Impl Deref lets a GVK act like a GroupVersionKind anywhere one of those is expected
@@ -60,18 +68,24 @@ impl Deref for GVK {
     }
 }
 
-impl Serialize for GVK {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
+impl fmt::Display for GVK {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mut group = Cow::from(&self.0.group);
         if !group.is_empty() {
             group.to_mut().push('/');
         }
 
-        let skey = format!("{group}{}.{}", self.0.version, self.0.kind);
-        serializer.serialize_str(&skey)
+        write!(f, "{group}{}.{}", self.0.version, self.0.kind)
+    }
+}
+
+impl Serialize for GVK {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // reuse the display impl for serializing
+        serializer.serialize_str(&format!("{self}"))
     }
 }
 

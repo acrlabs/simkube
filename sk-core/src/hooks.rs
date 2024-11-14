@@ -9,6 +9,7 @@ use tokio::io::{
     BufWriter,
 };
 use tokio::process::Command;
+use tracing::*;
 
 use crate::prelude::*;
 
@@ -70,7 +71,6 @@ mod test {
     use tracing_test::*;
 
     use super::*;
-    use crate::k8s::testutils::test_sim;
 
     #[rstest]
     #[traced_test]

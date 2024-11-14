@@ -1,7 +1,6 @@
 use assertables::*;
 use kube::api::DynamicObject;
 use serde_json::json;
-use sk_core::k8s::testutils::test_deployment;
 use sk_store::TraceEvent;
 
 use super::*;

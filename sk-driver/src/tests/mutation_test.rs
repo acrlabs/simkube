@@ -15,7 +15,6 @@ use kube::core::{
     GroupVersionKind,
     GroupVersionResource,
 };
-use kube::ResourceExt;
 use mockall::predicate;
 use rocket::serde::json::Json;
 use sk_core::k8s::PodLifecycleData;
@@ -134,7 +133,7 @@ async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionRespo
         .with(predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
         .returning(|_, _, _| PodLifecycleData::Finished(1, 2))
         .once();
-    let _ = store.expect_has_obj().returning(move |o| o == owner_ns_name);
+    let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
 
     let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
 

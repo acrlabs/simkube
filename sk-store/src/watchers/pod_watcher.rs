@@ -28,11 +28,11 @@ use kube::runtime::watcher::{
 use sk_core::errors::*;
 use sk_core::k8s::{
     ApiSet,
-    KubeResourceExt,
     OwnersCache,
     PodLifecycleData,
 };
 use sk_core::prelude::*;
+use tracing::*;
 
 use crate::{
     TraceStorable,

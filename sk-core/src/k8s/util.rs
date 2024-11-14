@@ -3,7 +3,6 @@ use std::collections::BTreeMap;
 use kube::api::{
     DynamicObject,
     Resource,
-    ResourceExt,
     TypeMeta,
 };
 use serde_json as json;
@@ -39,7 +38,7 @@ where
     });
 }
 
-pub fn build_deletable(ns_name: &str) -> DynamicObject {
+pub fn build_deletable(gvk: &GVK, ns_name: &str) -> DynamicObject {
     let (ns, name) = split_namespaced_name(ns_name);
     DynamicObject {
         metadata: metav1::ObjectMeta {
@@ -47,7 +46,7 @@ pub fn build_deletable(ns_name: &str) -> DynamicObject {
             name: Some(name),
             ..Default::default()
         },
-        types: None,
+        types: Some(gvk.into_type_meta()),
         data: json::Value::Null,
     }
 }

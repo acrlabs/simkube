@@ -27,6 +27,7 @@ use sk_store::{
     TraceStore,
     TracerConfig,
 };
+use tracing::*;
 
 use crate::errors::ExportResponseError;
 

@@ -12,7 +12,6 @@ use kube::core::admission::{
     AdmissionResponse,
     AdmissionReview,
 };
-use kube::ResourceExt;
 use rocket::serde::json::Json;
 use serde_json::{
     json,
@@ -20,11 +19,12 @@ use serde_json::{
 };
 use sk_core::jsonutils;
 use sk_core::k8s::{
-    KubeResourceExt,
     PodExt,
     PodLifecycleData,
+    GVK,
 };
 use sk_core::prelude::*;
+use tracing::*;
 
 use crate::DriverContext;
 
@@ -119,8 +119,9 @@ fn add_lifecycle_annotation(
 ) -> EmptyResult {
     if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
         for owner in owners {
+            let gvk = GVK::from_owner_ref(owner)?;
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.store.has_obj(&owner_ns_name) {
+            if !ctx.store.has_obj(&gvk, &owner_ns_name) {
                 continue;
             }
 

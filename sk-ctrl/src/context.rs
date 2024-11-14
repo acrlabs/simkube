@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use kube::ResourceExt;
 use sk_api::v1::Simulation;
+use sk_core::prelude::*;
 
 use crate::Options;
 

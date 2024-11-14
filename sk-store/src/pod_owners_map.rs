@@ -3,7 +3,7 @@ use std::collections::HashMap;
 
 use sk_core::errors::*;
 use sk_core::k8s::PodLifecycleData;
-use sk_core::prelude::*;
+use tracing::*;
 
 // The PodOwnersMap tracks lifecycle data for all pods that are owned by some object that we care
 // about (e.g., if we are tracking Deployments, the owners map will track the lifecycle data for
@@ -121,6 +121,7 @@ impl PodOwnersMap {
 
     // Given an index of "owning objects", get a list of all the pods between a given start and end
     // time that belong to one of those owning objects.
+    #[allow(dead_code)]
     pub(crate) fn filter(
         &self,
         start_ts: i64,
