@@ -119,16 +119,16 @@ fn add_lifecycle_annotation(
 ) -> EmptyResult {
     if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
         for owner in owners {
-            let gvk = GVK::from_owner_ref(owner)?;
+            let owner_gvk = GVK::from_owner_ref(owner)?;
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.store.has_obj(&gvk, &owner_ns_name) {
+            if !ctx.store.has_obj(&owner_gvk, &owner_ns_name) {
                 continue;
             }
 
             let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
             let seq = mut_data.count(hash);
 
-            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_ns_name, hash, seq);
+            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
             if let Some(patch) = to_annotation_patch(&lifecycle) {
                 info!("applying lifecycle annotations (hash={hash}, seq={seq})");
                 if pod.metadata.annotations.is_none() {

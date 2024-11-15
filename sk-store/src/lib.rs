@@ -53,14 +53,14 @@ pub struct ExportedTrace {
     config: TracerConfig,
     events: Vec<TraceEvent>,
     index: TraceIndex,
-    pod_lifecycles: HashMap<String, PodLifecyclesMap>,
+    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
 }
 
 pub trait TraceStorable {
     fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) -> EmptyResult;
     fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult;
     fn update_all_objs_for_gvk(&mut self, gvk: &GVK, objs: &[DynamicObject], ts: i64) -> EmptyResult;
-    fn lookup_pod_lifecycle(&self, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData;
+    fn lookup_pod_lifecycle(&self, gvk: &GVK, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData;
     fn record_pod_lifecycle(
         &mut self,
         ns_name: &str,
@@ -91,7 +91,7 @@ pub mod mock {
             fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) -> EmptyResult;
             fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult;
             fn update_all_objs_for_gvk(&mut self, gvk: &GVK, objs: &[DynamicObject], ts: i64) -> EmptyResult;
-            fn lookup_pod_lifecycle(&self, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData;
+            fn lookup_pod_lifecycle(&self, owner_gvk: &GVK, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData;
             fn record_pod_lifecycle(
                 &mut self,
                 ns_name: &str,

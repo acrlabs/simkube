@@ -5,7 +5,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::k8s::GVK;
+use sk_core::k8s::{
+    format_gvk_name,
+    GVK,
+};
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct TraceIndex {
@@ -25,7 +28,7 @@ impl TraceIndex {
     pub fn flattened_keys(&self) -> Vec<String> {
         self.index
             .iter()
-            .flat_map(|(gvk, gvk_hash)| gvk_hash.keys().map(move |k| format!("{gvk}:{k}")))
+            .flat_map(|(gvk, gvk_hash)| gvk_hash.keys().map(move |ns_name| format_gvk_name(gvk, ns_name)))
             .collect()
     }
 

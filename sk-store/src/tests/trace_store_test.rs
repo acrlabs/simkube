@@ -33,14 +33,14 @@ fn owner_ref() -> metav1::OwnerReference {
 
 #[rstest]
 fn test_lookup_pod_lifecycle_no_owner(tracer: TraceStore) {
-    let res = tracer.lookup_pod_lifecycle(TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
+    let res = tracer.lookup_pod_lifecycle(&DEPL_GVK, TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
 #[rstest]
 fn test_lookup_pod_lifecycle_no_hash(mut tracer: TraceStore) {
     tracer.index.insert(DEPL_GVK.clone(), TEST_DEPLOYMENT.into(), 1234);
-    let res = tracer.lookup_pod_lifecycle(TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
+    let res = tracer.lookup_pod_lifecycle(&DEPL_GVK, TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
@@ -51,11 +51,14 @@ fn test_lookup_pod_lifecycle(mut tracer: TraceStore) {
 
     tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), 1234);
     tracer.pod_owners = PodOwnersMap::new_from_parts(
-        HashMap::from([(owner_ns_name.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, vec![pod_lifecycle.clone()])]))]),
+        HashMap::from([(
+            (DEPL_GVK.clone(), owner_ns_name.clone()),
+            HashMap::from([(EMPTY_POD_SPEC_HASH, vec![pod_lifecycle.clone()])]),
+        )]),
         HashMap::new(),
     );
 
-    let res = tracer.lookup_pod_lifecycle(&owner_ns_name, EMPTY_POD_SPEC_HASH, 0);
+    let res = tracer.lookup_pod_lifecycle(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, pod_lifecycle);
 }
 
@@ -290,6 +293,22 @@ fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore, owne
     ));
 }
 
+fn mock_pod_owners_map(
+    pod_ns_name: &str,
+    pod_spec_hash: u64,
+    owner_ns_name: &str,
+    init_lifecycle_data: Vec<PodLifecycleData>,
+    pod_seq_idx: usize,
+) -> PodOwnersMap {
+    PodOwnersMap::new_from_parts(
+        HashMap::from([(
+            (DEPL_GVK.clone(), owner_ns_name.into()),
+            HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
+        )]),
+        HashMap::from([(pod_ns_name.into(), ((DEPL_GVK.clone(), owner_ns_name.into()), pod_spec_hash, pod_seq_idx))]),
+    )
+}
+
 #[rstest]
 fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore, owner_ref: metav1::OwnerReference) {
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
@@ -303,18 +322,18 @@ fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore, owner
     let mut expected_lifecycle_data = init_lifecycle_data.clone();
     expected_lifecycle_data[pod_seq_idx] = new_lifecycle_data.clone();
 
-    let ns_name = format!("{}/{}", TEST_NAMESPACE, "the-pod");
+    let pod_ns_name = format!("{}/{}", TEST_NAMESPACE, "the-pod");
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
-    tracer.pod_owners = PodOwnersMap::new_from_parts(
-        HashMap::from([(owner_ns_name.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]))]),
-        HashMap::from([(ns_name.clone(), (owner_ns_name.clone(), EMPTY_POD_SPEC_HASH, pod_seq_idx))]),
-    );
+    tracer.pod_owners =
+        mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, pod_seq_idx);
     tracer
-        .record_pod_lifecycle(&ns_name, None, vec![owner_ref], &new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, None, vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        tracer
+            .pod_owners
+            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         Some(&expected_lifecycle_data)
     );
 }
@@ -333,7 +352,7 @@ fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(
         .unwrap();
 
     let unused_hash = 0;
-    assert_eq!(tracer.pod_owners.lifecycle_data_for(&owner_ns_name, unused_hash), None);
+    assert_eq!(tracer.pod_owners.lifecycle_data_for(&DEPL_GVK, &owner_ns_name, unused_hash), None);
 }
 
 #[rstest]
@@ -355,7 +374,9 @@ fn test_record_pod_lifecycle_with_new_pod_hash(
         .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data.clone())
         .unwrap();
 
-    let lifecycle_data = tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH);
+    let lifecycle_data = tracer
+        .pod_owners
+        .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH);
     if track_lifecycle {
         assert_eq!(lifecycle_data, Some(&vec![new_lifecycle_data]));
     } else {
@@ -374,21 +395,26 @@ fn test_record_pod_lifecycle_with_new_pod_existing_hash(
     let mut expected_lifecycle_data = init_lifecycle_data.clone();
     expected_lifecycle_data.push(new_lifecycle_data.clone());
 
-    let ns_name = test_pod.namespaced_name();
+    let pod_ns_name = test_pod.namespaced_name();
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
 
     tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
     tracer.pod_owners = PodOwnersMap::new_from_parts(
-        HashMap::from([(owner_ns_name.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]))]),
-        HashMap::from([("asdf".into(), (owner_ns_name.clone(), 1234, 0))]),
+        HashMap::from([(
+            (DEPL_GVK.clone(), owner_ns_name.clone()),
+            HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
+        )]),
+        HashMap::from([("asdf".into(), ((DEPL_GVK.clone(), owner_ns_name.clone()), 1234, 0))]),
     );
 
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        tracer
+            .pod_owners
+            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         Some(&expected_lifecycle_data)
     );
 }
@@ -403,21 +429,20 @@ fn test_record_pod_lifecycle_with_existing_pod(
     let init_lifecycle_data = vec![PodLifecycleData::Running(5)];
     let expected_lifecycle_data = vec![new_lifecycle_data.clone()];
 
-    let ns_name = test_pod.namespaced_name();
+    let pod_ns_name = test_pod.namespaced_name();
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
 
     tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
-    tracer.pod_owners = PodOwnersMap::new_from_parts(
-        HashMap::from([(owner_ns_name.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]))]),
-        HashMap::from([(ns_name.clone(), (owner_ns_name.clone(), EMPTY_POD_SPEC_HASH, 0))]),
-    );
+    tracer.pod_owners = mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, 0);
 
     tracer
-        .record_pod_lifecycle(&ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, Some(test_pod), vec![owner_ref], &new_lifecycle_data)
         .unwrap();
 
     assert_eq!(
-        tracer.pod_owners.lifecycle_data_for(&owner_ns_name, EMPTY_POD_SPEC_HASH),
+        tracer
+            .pod_owners
+            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         Some(&expected_lifecycle_data)
     );
 }
