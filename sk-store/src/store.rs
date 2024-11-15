@@ -75,13 +75,13 @@ impl TraceStore {
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
-        // let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
+        let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
         let data = rmp_serde::to_vec_named(&ExportedTrace {
             version: CURRENT_TRACE_VERSION,
             config: self.config.clone(),
             events,
             index,
-            pod_lifecycles: HashMap::new(), // TODO pod lifecycles don't work in SK2.0
+            pod_lifecycles,
         })?;
 
         info!("Exported {} events", num_events);
@@ -230,8 +230,14 @@ impl TraceStorable for TraceStore {
         Ok(())
     }
 
-    fn lookup_pod_lifecycle(&self, owner_ns_name: &str, pod_hash: u64, seq: usize) -> PodLifecycleData {
-        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(owner_ns_name, pod_hash);
+    fn lookup_pod_lifecycle(
+        &self,
+        owner_gvk: &GVK,
+        owner_ns_name: &str,
+        pod_hash: u64,
+        seq: usize,
+    ) -> PodLifecycleData {
+        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(owner_gvk, owner_ns_name, pod_hash);
         match maybe_lifecycle_data {
             Some(data) => data[seq % data.len()].clone(),
             _ => PodLifecycleData::Empty,
@@ -260,12 +266,12 @@ impl TraceStorable for TraceStore {
             for owner in &owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), owner.name);
-                let gvk = GVK::from_owner_ref(owner)?;
-                if !self.has_obj(&gvk, &owner_ns_name) {
+                let owner_gvk = GVK::from_owner_ref(owner)?;
+                if !self.has_obj(&owner_gvk, &owner_ns_name) {
                     continue;
                 }
 
-                if !self.config.track_lifecycle_for(&gvk) {
+                if !self.config.track_lifecycle_for(&owner_gvk) {
                     continue;
                 }
 
@@ -280,7 +286,7 @@ impl TraceStorable for TraceStore {
                 // more things out from this and/or allow users to specify what is filtered out.
                 let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
                 self.pod_owners
-                    .store_new_pod_lifecycle(ns_name, &owner_ns_name, hash, lifecycle_data);
+                    .store_new_pod_lifecycle(ns_name, &owner_gvk, &owner_ns_name, hash, lifecycle_data);
                 break;
             }
         } else {

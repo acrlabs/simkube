@@ -130,8 +130,8 @@ async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionRespo
     let mut store = MockTraceStore::new();
     let _ = store
         .expect_lookup_pod_lifecycle()
-        .with(predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
-        .returning(|_, _, _| PodLifecycleData::Finished(1, 2))
+        .with(predicate::always(), predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
+        .returning(|_, _, _, _| PodLifecycleData::Finished(1, 2))
         .once();
     let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
 
