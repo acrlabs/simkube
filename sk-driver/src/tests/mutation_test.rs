@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use json_patch::{
-    patch,
+use json_patch_ext::{
+    patch_ext,
     Patch,
 };
 use kube::api::TypeMeta;
@@ -140,5 +140,5 @@ async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionRespo
     adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new()).await.unwrap();
     let mut json_pod = serde_json::to_value(&test_pod).unwrap();
     let pod_patch: Patch = serde_json::from_slice(&adm_resp.patch.unwrap()).unwrap();
-    patch(&mut json_pod, &pod_patch).unwrap();
+    patch_ext(&mut json_pod, pod_patch.0[0].clone()).unwrap();
 }

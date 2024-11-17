@@ -13,6 +13,7 @@ testutils = ["dep:mockall"]
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 clockabilly = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }

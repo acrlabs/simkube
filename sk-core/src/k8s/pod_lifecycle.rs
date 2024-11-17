@@ -5,7 +5,6 @@ use std::cmp::{
     Ordering,
 };
 
-use clockabilly::Clockable;
 use tracing::*;
 
 use super::*;
@@ -109,10 +108,9 @@ impl PodLifecycleData {
     pub fn guess_finished_lifecycle(
         pod: &corev1::Pod,
         current_lifecycle_data: &PodLifecycleData,
-        clock: &(dyn Clockable + Send),
+        now: i64,
     ) -> anyhow::Result<PodLifecycleData> {
         let new_lifecycle_data = PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty);
-        let now = clock.now_ts();
 
         match new_lifecycle_data {
             PodLifecycleData::Finished(..) => Ok(new_lifecycle_data),
