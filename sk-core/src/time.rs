@@ -2,7 +2,7 @@ use clockabilly::{
     DateTime,
     Local,
 };
-use parse_datetime_fork::{
+use parse_datetime::{
     parse_datetime,
     parse_datetime_at_date,
 };

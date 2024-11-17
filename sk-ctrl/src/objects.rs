@@ -201,7 +201,7 @@ pub fn build_driver_job(
         secrets_list
             .iter()
             .map(|s| corev1::EnvFromSource {
-                secret_ref: Some(corev1::SecretEnvSource { name: Some(s.clone()), optional: Some(false) }),
+                secret_ref: Some(corev1::SecretEnvSource { name: s.clone(), optional: Some(false) }),
                 ..Default::default()
             })
             .collect()

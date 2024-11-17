@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use json_patch::{
-    AddOperation,
+use json_patch_ext::{
+    add_operation,
+    escape,
+    format_ptr,
     Patch,
     PatchOperation,
 };
-use json_patch_ext::escape;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
@@ -90,24 +91,12 @@ pub async fn mutate_pod(
         return Ok(resp);
     }
 
-    let mut patches = vec![];
-    add_simulation_labels(ctx, pod, &mut patches)?;
+    let mut patches =
+        vec![add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.name))];
     add_lifecycle_annotation(ctx, pod, &owners, mut_data, &mut patches)?;
     add_node_selector_tolerations(pod, &mut patches)?;
 
     Ok(resp.with_patch(Patch(patches))?)
-}
-
-fn add_simulation_labels(ctx: &DriverContext, pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
-    if pod.metadata.labels.is_none() {
-        patches.push(PatchOperation::Add(AddOperation { path: "/metadata/labels".into(), value: json!({}) }));
-    }
-    patches.push(PatchOperation::Add(AddOperation {
-        path: format!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)),
-        value: Value::String(ctx.name.clone()),
-    }));
-
-    Ok(())
 }
 
 fn add_lifecycle_annotation(
@@ -132,10 +121,7 @@ fn add_lifecycle_annotation(
             if let Some(patch) = to_annotation_patch(&lifecycle) {
                 info!("applying lifecycle annotations (hash={hash}, seq={seq})");
                 if pod.metadata.annotations.is_none() {
-                    patches.push(PatchOperation::Add(AddOperation {
-                        path: "/metadata/annotations".into(),
-                        value: json!({}),
-                    }));
+                    patches.push(add_operation(format_ptr!("/metadata/annotations"), json!({})));
                 }
                 patches.push(patch);
                 break;
@@ -150,16 +136,13 @@ fn add_lifecycle_annotation(
 
 fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
     if pod.spec()?.tolerations.is_none() {
-        patches.push(PatchOperation::Add(AddOperation { path: "/spec/tolerations".into(), value: json!([]) }));
+        patches.push(add_operation(format_ptr!("/spec/tolerations"), json!([])));
     }
-    patches.push(PatchOperation::Add(AddOperation {
-        path: "/spec/nodeSelector".into(),
-        value: json!({"type": "virtual"}),
-    }));
-    patches.push(PatchOperation::Add(AddOperation {
-        path: "/spec/tolerations/-".into(),
-        value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
-    }));
+    patches.push(add_operation(format_ptr!("/spec/nodeSelector"), json!({"type": "virtual"})));
+    patches.push(add_operation(
+        format_ptr!("/spec/tolerations/-"),
+        json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+    ));
 
     Ok(())
 }
@@ -177,9 +160,9 @@ fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
 fn to_annotation_patch(pld: &PodLifecycleData) -> Option<PatchOperation> {
     match pld {
         PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
-        PodLifecycleData::Finished(start_ts, end_ts) => Some(PatchOperation::Add(AddOperation {
-            path: format!("/metadata/annotations/{}", escape(LIFETIME_ANNOTATION_KEY)),
-            value: Value::String(format!("{}", end_ts - start_ts)),
-        })),
+        PodLifecycleData::Finished(start_ts, end_ts) => Some(add_operation(
+            format_ptr!("/metadata/annotations/{}", escape(LIFETIME_ANNOTATION_KEY)),
+            Value::String(format!("{}", end_ts - start_ts)),
+        )),
     }
 }

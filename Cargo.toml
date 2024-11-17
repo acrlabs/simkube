@@ -27,53 +27,51 @@ sk-api = { version = "1.1.1", path = "sk-api" }
 sk-core = { version = "1.1.1", path = "sk-core" }
 sk-store = { version = "1.1.1", path = "sk-store" }
 
-anyhow = { version = "1.0.75", features = ["backtrace"] }
-async-recursion = "1.0.5"
-async-trait = "0.1.80"
-bytes = "1.5.0"
+anyhow = { version = "1.0.93", features = ["backtrace"] }
+async-recursion = "1.1.1"
+async-trait = "0.1.83"
+bytes = "1.8.0"
 chrono = "0.4.38"
-clap = { version = "4.3.21", features = ["cargo", "derive", "string"] }
-clap_complete = "4.5.6"
-clockabilly = "0.1.0"
+clap = { version = "4.5.21", features = ["cargo", "derive", "string"] }
+clap_complete = "4.5.38"
+clockabilly = "0.1.1"
 derive_setters = "0.1.6"
 dirs = "5.0.1"
-either = "1.12.0"
-futures = "0.3.28"
-# remove this when we bump kube-rs
-json-patch = { version = "1.0.0" }
+either = "1.13.0"
+futures = "0.3.31"
 json-patch-ext = "0.1.0"
-k8s-openapi = { version = "0.19.0", features = ["v1_27"] }
+k8s-openapi = { version = "0.23.0", features = ["v1_27"] }
 lazy_static = "1.5.0"
-object_store = { version = "0.11.0", features = ["aws", "gcp", "azure", "http"] }
-# remove this fork once https://github.com/uutils/parse_datetime/pull/80 is merged and a new version released
-parse_datetime_fork = { version = "0.6.0-custom" }
-paste = "1.0.14"
+object_store = { version = "0.11.1", features = ["aws", "gcp", "azure", "http"] }
+parse_datetime = { git="https://github.com/uutils/parse_datetime", rev = "5e3fc53" }
+paste = "1.0.15"
 ratatui = "0.28.1"
-regex = "1.10.2"
-reqwest = { version = "0.11.18", default-features = false, features = ["json", "rustls-tls"] }
-rmp-serde = "1.1.2"
-rocket = { version = "0.5.0", features = ["json", "tls"] }
-schemars = { version = "0.8.12", features = ["chrono"] }
-serde = "1.0.188"
-serde_json = "1.0.105"
-serde_yaml = "0.9.25"
-thiserror = "1.0.46"
-tokio = { version = "1.28.2", features = ["io-util", "macros", "process", "rt-multi-thread", "signal"] }
-tracing = "0.1.37"
+regex = "1.11.1"
+reqwest = { version = "0.12.9", default-features = false, features = ["json", "rustls-tls"] }
+rmp-serde = "1.3.0"
+rocket = { version = "0.5.1", features = ["json", "tls"] }
+schemars = { version = "0.8.21", features = ["chrono"] }
+serde = "1.0.215"
+serde_json = "1.0.132"
+serde_yaml = "0.9.34"
+thiserror = "1.0.69"
+tokio = { version = "1.41.1", features = ["io-util", "macros", "process", "rt-multi-thread", "signal"] }
+tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
-url = "2.4.1"
+url = "2.5.3"
 
 # test dependencies
 assertables = "8.18.0"
-http = "0.2.9"
+http = "1.1.0"
 httpmock = "0.6.8"
-hyper = "0.14.27"
-insta = "1.40.0"
+hyper = "1.5.0"
+insta = "1.41.1"
 mockall = "0.11.4"
 rstest = "0.18.2"
-tracing-test = "0.2.4"
+tracing-test = "0.2.5"
 
 [workspace.dependencies.kube]
-version = "0.85.0"
+rev = "8b5230f"
+git = "https://github.com/kube-rs/kube"
 features = ["client", "derive", "runtime", "rustls-tls", "admission", "unstable-runtime"]
 default-features = false
