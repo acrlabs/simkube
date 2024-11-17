@@ -36,7 +36,6 @@ paths:
                   required:
                     - excluded_namespaces
                     - excluded_labels
-                    - exclude_daemonsets
                   properties:
                     excluded_namespaces:
                       type: array
@@ -46,8 +45,6 @@ paths:
                       type: array
                       items:
                         $ref: 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/v3/api__v1_openapi.json#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector'  # yamllint disable-line rule:line-length
-                    exclude_daemonsets:
-                      type: boolean
       responses:
         '200':
           description: OK

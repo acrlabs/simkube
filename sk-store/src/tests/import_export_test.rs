@@ -122,7 +122,6 @@ async fn itest_export(#[case] duration: Option<String>) {
             match_labels: klabel!("foo" => "bar"),
             ..Default::default()
         }],
-        exclude_daemonsets: true,
     };
 
     let store = s.lock().unwrap();
