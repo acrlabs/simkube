@@ -89,6 +89,8 @@ def write_kustomize_files(build_dir: str):
 def main():
     args = setup_args()
     debug = not args.kustomize
+    if args.kustomize:
+        os.environ["KUSTOMIZE"] = "1"
 
     build_dir = os.getenv("BUILD_DIR")
     dag_path = None if args.kustomize else f"{build_dir}/{DAG_FILENAME}"

@@ -79,8 +79,6 @@ spec:
           volumeMounts:
             - mountPath: /config
               name: tracer-config
-      nodeSelector:
-        type: kind-worker
       serviceAccountName: sk-tracer-sa
       volumes:
         - configMap:
