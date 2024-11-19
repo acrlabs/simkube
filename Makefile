@@ -13,8 +13,7 @@ DOCKER_ARGS=-it --init
 endif
 
 RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
-APP_VERSION_CMD=tomlq -r .workspace.package.version Cargo.toml
-APP_VERSION=$(shell $(APP_VERSION_CMD))
+APP_VERSION=$(shell tomlq -r .workspace.package.version Cargo.toml)
 
 include build/base.mk
 include build/k8s.mk
@@ -70,13 +69,16 @@ cover:
 		--excl-start '#\[cfg\((test|feature = "testutils")'
 	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
 
-.PHONY: release-patch release-minor release-major
-release-patch release-minor release-major:
-	cargo set-version --bump $(subst release-,,$@)
+.PHONY: release publish
+release: NEW_APP_VERSION=$(subst v,,$(shell git cliff --bumped-version))
+release:
+	cargo set-version $(NEW_APP_VERSION)
+	git cliff -u --tag $(NEW_APP_VERSION) --prepend CHANGELOG.md
 	make kustomize
-	NEW_APP_VERSION=`$(APP_VERSION_CMD)` && \
-		git commit -a -m "release: version v$$NEW_APP_VERSION" && \
-		git tag v$$NEW_APP_VERSION
+	git commit -a -m "release: version v$(NEW_APP_VERSION)" && \
+		git tag v$(NEW_APP_VERSION)
+
+publish:
 	cargo ws publish --publish-as-is
 
 .PHONY: crd
