@@ -72,7 +72,7 @@ spec:
               value: "1"
             - name: POD_OWNER
               value: sk-tracer-depl
-          image: quay.io/appliedcomputing/sk-tracer:v1.1.1
+          image: quay.io/appliedcomputing/sk-tracer:v2.0.0
           name: sk-tracer
           ports:
             - containerPort: 7777

@@ -11,7 +11,7 @@ members = [
 ]
 
 [workspace.package]
-version = "1.1.1"
+version = "2.0.0"
 authors = ["Applied Computing Research Labs"]
 documentation = "https://appliedcomputing.io/simkube/"
 license-file = "LICENSE"
@@ -23,9 +23,9 @@ rust-version = "1.79"
 debug = false
 
 [workspace.dependencies]
-sk-api = { version = "1.1.1", path = "sk-api" }
-sk-core = { version = "1.1.1", path = "sk-core" }
-sk-store = { version = "1.1.1", path = "sk-store" }
+sk-api = { version = "2.0.0", path = "sk-api" }
+sk-core = { version = "2.0.0", path = "sk-core" }
+sk-store = { version = "2.0.0", path = "sk-store" }
 
 anyhow = { version = "1.0.93", features = ["backtrace"] }
 async-recursion = "1.1.1"

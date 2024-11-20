@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
 
+## [2.0.0] - 2024-11-20
+
+### 🚀 Features
+
+- Variable simulation speed
+- Code validation for 'status' field
+- Show validation results in xray
+- ⚠️  Update to versioned exported trace format
+
+### 🐛 Bug Fixes
+
+- Print object kind in tracer log
+- ⚠️  Tracer no longer accidentally deletes objects on restart
+- Pod lifecycle data stored using GVK+namespaced name
+- Remove `exclude_daemonsets`
+- Fix various panics and display bugs in `skctl xray`
+
+### ☸️ Kubernetes
+
+- Update tracer permissions to read-only
+- Don't set node-selector for sk-tracer in kustomize files
+
 ## [1.1.1] - 2024-10-09
 
 ### 🐛 Bug Fixes
