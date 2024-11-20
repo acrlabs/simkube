@@ -2017,8 +2017,9 @@ dependencies = [
 
 [[package]]
 name = "kube"
-version = "0.96.0"
-source = "git+https://github.com/kube-rs/kube?rev=8b5230f#8b5230f908aeec5659168500fa3131b5148d7f1b"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e5fd2596428f922f784ca43907c449f104d69055c811135684474143736c67ae"
 dependencies = [
  "k8s-openapi",
  "kube-client",
@@ -2029,8 +2030,9 @@ dependencies = [
 
 [[package]]
 name = "kube-client"
-version = "0.96.0"
-source = "git+https://github.com/kube-rs/kube?rev=8b5230f#8b5230f908aeec5659168500fa3131b5148d7f1b"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d539b6493d162ae5ab691762be972b6a1c20f6d8ddafaae305c0e2111b589d99"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -2056,7 +2058,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_yaml",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-util",
  "tower",
@@ -2066,8 +2068,9 @@ dependencies = [
 
 [[package]]
 name = "kube-core"
-version = "0.96.0"
-source = "git+https://github.com/kube-rs/kube?rev=8b5230f#8b5230f908aeec5659168500fa3131b5148d7f1b"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "98a87cc0046cf6b62cbb63ae1fbc366ee8ba29269f575289679473754ff5d7a7"
 dependencies = [
  "chrono",
  "form_urlencoded",
@@ -2078,13 +2081,14 @@ dependencies = [
  "serde",
  "serde-value",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
 ]
 
 [[package]]
 name = "kube-derive"
-version = "0.96.0"
-source = "git+https://github.com/kube-rs/kube?rev=8b5230f#8b5230f908aeec5659168500fa3131b5148d7f1b"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65576922713e6154a89b5a8d2747adca15725b90fa64fc2b828774bf96d6acd8"
 dependencies = [
  "darling",
  "proc-macro2",
@@ -2095,8 +2099,9 @@ dependencies = [
 
 [[package]]
 name = "kube-runtime"
-version = "0.96.0"
-source = "git+https://github.com/kube-rs/kube?rev=8b5230f#8b5230f908aeec5659168500fa3131b5148d7f1b"
+version = "0.97.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f348cc3e6c9be0ae17f300594bde541b667d10ab8934a119edd61ab5123c43e"
 dependencies = [
  "ahash",
  "async-broadcast",
@@ -2114,7 +2119,7 @@ dependencies = [
  "pin-project",
  "serde",
  "serde_json",
- "thiserror 1.0.69",
+ "thiserror 2.0.3",
  "tokio",
  "tokio-util",
  "tracing",
@@ -2548,9 +2553,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse_datetime"
-version = "0.6.0"
-source = "git+https://github.com/uutils/parse_datetime?rev=5e3fc53#5e3fc539a3d478809c58b2093cfa3d1cabb79b2c"
+name = "parse_datetime_fork"
+version = "0.6.0-custom"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "046ad1c286232a331a00b746a1a2acd57e6d246c95329f023f4b96a948c03875"
 dependencies = [
  "chrono",
  "nom",
@@ -3699,7 +3705,7 @@ dependencies = [
  "lazy_static",
  "mockall",
  "object_store",
- "parse_datetime",
+ "parse_datetime_fork",
  "paste",
  "regex",
  "reqwest",
