@@ -42,6 +42,16 @@ pub struct TraceEvent {
     pub deleted_objs: Vec<DynamicObject>,
 }
 
+impl TraceEvent {
+    pub fn len(&self) -> usize {
+        self.applied_objs.len() + self.deleted_objs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.applied_objs.is_empty() && self.deleted_objs.is_empty()
+    }
+}
+
 pub struct TraceIterator<'a> {
     events: &'a TraceEventList,
     idx: usize,

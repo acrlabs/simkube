@@ -58,7 +58,7 @@ impl App {
                     self.object_contents_list_state.select(None);
                 },
                 Mode::EventSelected => self.mode = Mode::RootView,
-                _ => (),
+                Mode::RootView => self.running = false,
             },
             Message::Down => match self.mode {
                 Mode::ObjectSelected => self.object_contents_list_state.select_next(),
@@ -68,8 +68,11 @@ impl App {
             Message::Quit => self.running = false,
             Message::Select => match self.mode {
                 Mode::EventSelected => {
-                    self.mode = Mode::ObjectSelected;
-                    self.object_contents_list_state.select(Some(0));
+                    let i = self.selected_event_index();
+                    if !self.annotated_trace.is_empty_at(i) {
+                        self.mode = Mode::ObjectSelected;
+                        self.object_contents_list_state.select(Some(0));
+                    }
                 },
                 Mode::RootView => {
                     self.mode = Mode::EventSelected;
@@ -86,5 +89,9 @@ impl App {
         }
 
         false
+    }
+
+    pub(super) fn selected_event_index(&self) -> usize {
+        self.event_list_state.selected().unwrap() // there should always be a selected event
     }
 }

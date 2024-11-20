@@ -82,8 +82,8 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
     // Add one so the selected event is included on top
     let (sel_index_inclusive, sel_event) = match app.mode {
         Mode::EventSelected | Mode::ObjectSelected => {
-            let sel_index = app.event_list_state.selected().unwrap();
-            (sel_index + 1, Some(&app.annotated_trace[sel_index]))
+            let sel_index = app.selected_event_index();
+            (sel_index + 1, app.annotated_trace.get_event(sel_index))
         },
         _ => (num_events, None),
     };
@@ -130,24 +130,16 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
 
     frame.render_stateful_widget(list_part_one, nested_layout[0], &mut app.event_list_state);
     frame.render_stateful_widget(sublist, nested_layout[1], &mut app.object_list_state);
-    frame.render_widget(list_part_two, nested_layout[2])
+    frame.render_widget(list_part_two, nested_layout[2]);
 }
 
 fn render_object(app: &mut App, frame: &mut Frame, layout: Rect) {
-    let evt_idx = app.event_list_state.selected().unwrap();
+    let event_idx = app.event_list_state.selected().unwrap();
     let obj_idx = app.object_list_state.selected().unwrap();
-    let applied_len = app.annotated_trace[evt_idx].data.applied_objs.len();
-    let deleted_len = app.annotated_trace[evt_idx].data.deleted_objs.len();
 
-    let obj = if obj_idx >= applied_len {
-        if obj_idx - applied_len > deleted_len {
-            return;
-        }
-        &app.annotated_trace[evt_idx].data.deleted_objs[obj_idx - applied_len]
-    } else {
-        &app.annotated_trace[evt_idx].data.applied_objs[obj_idx]
+    let Some(obj) = app.annotated_trace.get_object(event_idx, obj_idx) else {
+        return;
     };
-
     let obj_str = serde_json::to_string_pretty(obj).unwrap();
     let contents = List::new(obj_str.split('\n')).highlight_style(Style::new().bg(Color::Blue));
     frame.render_stateful_widget(contents, layout, &mut app.object_contents_list_state);
