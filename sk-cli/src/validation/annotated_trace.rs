@@ -2,9 +2,9 @@ use std::collections::{
     btree_map,
     BTreeMap,
 };
-use std::ops::Index;
 use std::slice;
 
+use kube::api::DynamicObject;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
@@ -28,8 +28,7 @@ pub struct AnnotatedTraceEvent {
 
 impl AnnotatedTraceEvent {
     pub fn new(data: TraceEvent) -> AnnotatedTraceEvent {
-        let len = data.applied_objs.len() + data.deleted_objs.len();
-        let annotations = vec![vec![]; len];
+        let annotations = vec![vec![]; data.len()];
 
         AnnotatedTraceEvent { data, annotations }
     }
@@ -72,6 +71,27 @@ impl AnnotatedTrace {
         }
     }
 
+    pub fn get_event(&self, idx: usize) -> Option<&AnnotatedTraceEvent> {
+        self.events.get(idx)
+    }
+
+    pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {
+        let event = self.events.get(event_idx)?;
+        let applied_len = event.data.applied_objs.len();
+        if obj_idx >= applied_len {
+            event.data.deleted_objs.get(obj_idx - applied_len)
+        } else {
+            event.data.applied_objs.get(obj_idx)
+        }
+    }
+
+    pub fn is_empty_at(&self, idx: usize) -> bool {
+        self.events
+            .get(idx)
+            .map(|evt| evt.data.applied_objs.is_empty() && evt.data.deleted_objs.is_empty())
+            .unwrap_or(true)
+    }
+
     pub fn iter(&self) -> slice::Iter<'_, AnnotatedTraceEvent> {
         self.events.iter()
     }
@@ -90,14 +110,6 @@ impl AnnotatedTrace {
 
     pub fn summary_iter(&self) -> btree_map::Iter<'_, ValidatorCode, usize> {
         self.summary.iter()
-    }
-}
-
-impl Index<usize> for AnnotatedTrace {
-    type Output = AnnotatedTraceEvent;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.events[index]
     }
 }
 

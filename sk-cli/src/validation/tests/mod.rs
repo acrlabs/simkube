@@ -29,7 +29,11 @@ pub fn annotated_trace() -> AnnotatedTrace {
         }),
         AnnotatedTraceEvent::new(TraceEvent {
             ts: 2,
-            applied_objs: vec![test_deployment("test_depl1"), test_deployment("test_depl2")],
+            applied_objs: vec![
+                test_deployment("test_depl1"),
+                test_deployment(&("test_depl2".to_string() + &"x".repeat(100))),
+                test_deployment(&("test_depl3".to_string() + &"x".repeat(100))),
+            ],
             deleted_objs: vec![],
         }),
         AnnotatedTraceEvent::new(TraceEvent {
