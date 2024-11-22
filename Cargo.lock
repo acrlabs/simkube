@@ -3827,6 +3827,7 @@ version = "2.0.0"
 dependencies = [
  "anyhow",
  "assertables",
+ "bytes",
  "chrono",
  "clap",
  "clap_complete",
@@ -3840,6 +3841,7 @@ dependencies = [
  "lazy_static",
  "ratatui",
  "reqwest",
+ "rmp-serde",
  "rstest",
  "serde",
  "serde_json",

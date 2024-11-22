@@ -1,9 +1,7 @@
-use std::collections::{
-    btree_map,
-    BTreeMap,
-};
+use std::collections::BTreeMap;
 use std::slice;
 
+use json_patch_ext::prelude::*;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
@@ -32,15 +30,34 @@ impl AnnotatedTraceEvent {
 
         AnnotatedTraceEvent { data, annotations }
     }
+
+    pub fn clear_annotations(&mut self) {
+        self.annotations = vec![vec![]; self.data.len()];
+    }
 }
+
+pub enum PatchLocations {
+    #[allow(dead_code)]
+    Everywhere,
+    AffectedObjects(ValidatorCode),
+    #[allow(dead_code)]
+    ObjectReference(TypeMeta, String),
+}
+
+pub struct AnnotatedTracePatch {
+    pub locations: PatchLocations,
+    pub op: PatchOperation,
+}
+
+type AnnotationSummary = BTreeMap<ValidatorCode, usize>;
 
 #[derive(Default)]
 pub struct AnnotatedTrace {
-    #[allow(dead_code)]
-    base: TraceStore,
     path: String,
+    base: TraceStore,
+    patches: Vec<AnnotatedTracePatch>,
+
     events: Vec<AnnotatedTraceEvent>,
-    summary: BTreeMap<ValidatorCode, usize>,
 }
 
 impl AnnotatedTrace {
@@ -57,22 +74,72 @@ impl AnnotatedTrace {
         })
     }
 
-    pub fn validate(&mut self, validators: &mut BTreeMap<ValidatorCode, Validator>) {
+    pub fn apply_patch(&mut self, patch: AnnotatedTracePatch) -> anyhow::Result<usize> {
+        let mut count = 0;
         for event in self.events.iter_mut() {
-            for (code, validator) in validators.iter_mut() {
+            for (i, obj) in event
+                .data
+                .applied_objs
+                .iter_mut()
+                .chain(event.data.deleted_objs.iter_mut())
+                .enumerate()
+            {
+                let should_apply_here = match patch.locations {
+                    PatchLocations::Everywhere => true,
+                    PatchLocations::AffectedObjects(code) => event.annotations[i].contains(&code),
+                    PatchLocations::ObjectReference(ref type_, ref ns_name) => {
+                        obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
+                    },
+                };
+
+                if should_apply_here {
+                    count += 1;
+                    patch_ext(&mut obj.data, patch.op.clone())?;
+                }
+            }
+        }
+        self.patches.push(patch);
+
+        Ok(count)
+    }
+
+    pub fn export(&self) -> anyhow::Result<Vec<u8>> {
+        let trace = self
+            .base
+            .clone_with_events(self.events.iter().map(|a_event| a_event.data.clone()).collect());
+        trace.export_all()
+    }
+
+    pub fn validate(&mut self, validators: &BTreeMap<ValidatorCode, Validator>) -> AnnotationSummary {
+        let mut summary = BTreeMap::new();
+        for event in self.events.iter_mut() {
+            event.clear_annotations();
+            for (code, validator) in validators.iter() {
                 let affected_indices = validator.check_next_event(event);
                 let count = affected_indices.len();
-                self.summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
+                summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
 
                 for i in affected_indices {
                     event.annotations[i].push(*code);
                 }
             }
         }
+        summary
     }
 
     pub fn get_event(&self, idx: usize) -> Option<&AnnotatedTraceEvent> {
         self.events.get(idx)
+    }
+
+    pub fn get_next_error(&self) -> Option<ValidatorCode> {
+        for event in &self.events {
+            for annotation in &event.annotations {
+                if let Some(code) = annotation.first() {
+                    return Some(*code);
+                }
+            }
+        }
+        None
     }
 
     pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {
@@ -107,19 +174,11 @@ impl AnnotatedTrace {
     pub fn start_ts(&self) -> Option<i64> {
         self.events.first().map(|evt| evt.data.ts)
     }
-
-    pub fn summary_iter(&self) -> btree_map::Iter<'_, ValidatorCode, usize> {
-        self.summary.iter()
-    }
 }
 
 #[cfg(test)]
 impl AnnotatedTrace {
     pub fn new_with_events(events: Vec<AnnotatedTraceEvent>) -> AnnotatedTrace {
         AnnotatedTrace { events, ..Default::default() }
-    }
-
-    pub fn summary_for(&self, code: &ValidatorCode) -> Option<usize> {
-        self.summary.get(code).cloned()
     }
 }

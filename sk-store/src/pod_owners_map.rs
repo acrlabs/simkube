@@ -50,7 +50,7 @@ use crate::TraceIndex;
 
 pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct PodOwnersMap {
     m: HashMap<(GVK, String), PodLifecyclesMap>,
     index: HashMap<String, ((GVK, String), u64, usize)>,

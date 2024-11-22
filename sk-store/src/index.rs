@@ -10,7 +10,7 @@ use sk_core::k8s::{
     GVK,
 };
 
-#[derive(Default, Deserialize, Serialize)]
+#[derive(Clone, Default, Deserialize, Serialize)]
 pub struct TraceIndex {
     #[serde(flatten)]
     index: HashMap<GVK, HashMap<String, u64>>,

@@ -29,9 +29,9 @@ use crate::{
     TraceIndex,
     TraceIterator,
     TraceStorable,
+    CURRENT_TRACE_FORMAT_VERSION,
 };
 
-const CURRENT_TRACE_VERSION: u16 = 2;
 
 #[derive(Debug, Error)]
 pub enum TraceStoreError {
@@ -42,7 +42,7 @@ pub enum TraceStoreError {
     ParseFailed(#[from] rmp_serde::decode::Error),
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: TraceEventList,
@@ -62,6 +62,12 @@ impl TraceStore {
         TraceStore { config, ..Default::default() }
     }
 
+    pub fn clone_with_events(&self, events: TraceEventList) -> TraceStore {
+        let mut store = self.clone();
+        store.events = events;
+        store
+    }
+
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs between {start_ts} and {end_ts} with filters: {filter:?}");
 
@@ -76,7 +82,7 @@ impl TraceStore {
         // owned by some object contained in the trace
         let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
         let data = rmp_serde::to_vec_named(&ExportedTrace {
-            version: CURRENT_TRACE_VERSION,
+            version: CURRENT_TRACE_FORMAT_VERSION,
             config: self.config.clone(),
             events,
             index,
@@ -87,13 +93,20 @@ impl TraceStore {
         Ok(data)
     }
 
+    pub fn export_all(&self) -> anyhow::Result<Vec<u8>> {
+        let (Some(start_ts), Some(end_ts)) = (self.start_ts(), self.end_ts()) else {
+            return Ok(vec![]);
+        };
+        self.export(start_ts, end_ts, &ExportFilters::default())
+    }
+
     // Note that _importing_ data into a trace store is lossy -- we don't store (or import) all of
     // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
     // information to be able to run a simulation off the trace store.
     pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
         let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceStoreError::ParseFailed)?;
 
-        if exported_trace.version != CURRENT_TRACE_VERSION {
+        if exported_trace.version != CURRENT_TRACE_FORMAT_VERSION {
             bail!("unsupported trace version: {}", exported_trace.version);
         }
 
