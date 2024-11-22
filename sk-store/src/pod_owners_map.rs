@@ -133,7 +133,6 @@ impl PodOwnersMap {
 
     // Given an index of "owning objects", get a list of all the pods between a given start and end
     // time that belong to one of those owning objects.
-    #[allow(dead_code)]
     pub(crate) fn filter(
         &self,
         start_ts: i64,

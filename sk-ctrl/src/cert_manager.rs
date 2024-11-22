@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use kube::api::TypeMeta;
 use kube::discovery::ApiResource;
 use schemars::JsonSchema;
 use serde::{

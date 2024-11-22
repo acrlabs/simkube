@@ -1,5 +1,4 @@
 use clockabilly::Utc;
-use kube::api::DynamicObject;
 use serde_json as json;
 
 use super::*;

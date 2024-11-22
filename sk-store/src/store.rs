@@ -5,7 +5,6 @@ use clockabilly::{
     Clockable,
     UtcClock,
 };
-use kube::api::DynamicObject;
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{

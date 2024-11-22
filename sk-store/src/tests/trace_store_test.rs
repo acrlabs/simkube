@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 
 use assertables::*;
-use kube::api::DynamicObject;
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::GVK;
 

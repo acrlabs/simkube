@@ -11,6 +11,10 @@ pub mod time;
 pub mod prelude {
     pub use k8s_openapi::api::core::v1 as corev1;
     pub use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+    pub use kube::api::{
+        DynamicObject,
+        TypeMeta,
+    };
     pub use kube::{
         CustomResourceExt,
         ResourceExt,

@@ -10,13 +10,7 @@ use clockabilly::{
     UtcClock,
 };
 use either::Either;
-use json_patch_ext::{
-    add_operation,
-    escape,
-    format_ptr,
-    patch_ext,
-    remove_operation,
-};
+use json_patch_ext::prelude::*;
 use kube::api::{
     DeleteParams,
     DynamicObject,
