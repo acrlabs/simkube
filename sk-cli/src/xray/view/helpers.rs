@@ -1,5 +1,4 @@
 use chrono::TimeDelta;
-use kube::api::DynamicObject;
 use lazy_static::lazy_static;
 use ratatui::prelude::*;
 use sk_core::prelude::*;

@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use json_patch_ext::{
-    patch_ext,
-    Patch,
-};
-use kube::api::TypeMeta;
+use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,

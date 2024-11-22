@@ -2,11 +2,7 @@ use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
 
-use kube::api::{
-    DynamicObject,
-    GroupVersionKind,
-    TypeMeta,
-};
+use kube::api::GroupVersionKind;
 use serde::{
     de,
     Deserialize,

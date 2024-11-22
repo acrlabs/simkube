@@ -1,13 +1,7 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use json_patch_ext::{
-    add_operation,
-    escape,
-    format_ptr,
-    Patch,
-    PatchOperation,
-};
+use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,

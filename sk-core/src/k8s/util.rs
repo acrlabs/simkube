@@ -1,10 +1,6 @@
 use std::collections::BTreeMap;
 
-use kube::api::{
-    DynamicObject,
-    Resource,
-    TypeMeta,
-};
+use kube::api::Resource;
 use serde_json as json;
 
 use super::*;

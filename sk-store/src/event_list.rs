@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 use std::ops::Index;
 
-use kube::api::DynamicObject;
 use sk_core::prelude::*;
 use tracing::*;
 

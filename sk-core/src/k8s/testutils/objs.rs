@@ -1,4 +1,3 @@
-use kube::api::DynamicObject;
 use kube::discovery::ApiResource;
 use rstest::*;
 use serde_json::json;

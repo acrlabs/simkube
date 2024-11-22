@@ -4,11 +4,11 @@ use std::collections::{
 };
 use std::slice;
 
-use kube::api::DynamicObject;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
 };
+use sk_core::prelude::*;
 use sk_store::{
     TraceEvent,
     TraceStorable,

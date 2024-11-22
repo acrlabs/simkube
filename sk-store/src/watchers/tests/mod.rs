@@ -1,7 +1,6 @@
 mod pod_watcher_test;
 
 use futures::stream;
-use kube::api::DynamicObject;
 use mockall::predicate;
 use rstest::*;
 use sk_core::prelude::*;

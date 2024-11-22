@@ -8,7 +8,6 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use kube::api::DynamicObject;
 use kube::runtime::watcher::watcher;
 use kube::runtime::WatchStreamExt;
 use sk_core::errors::*;
@@ -17,6 +16,7 @@ use sk_core::k8s::{
     ApiSet,
     GVK,
 };
+use sk_core::prelude::*;
 
 use crate::watchers::{
     EventHandler,

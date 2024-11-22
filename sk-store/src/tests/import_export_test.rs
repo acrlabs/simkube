@@ -7,12 +7,10 @@ use clockabilly::mock::MockUtcClock;
 use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
 use sk_api::v1::ExportFilters;
 use sk_core::macros::*;
-use sk_core::prelude::*;
 
 use super::*;
 use crate::watchers::{

@@ -1,4 +1,3 @@
-use kube::api::DynamicObject;
 use sk_api::v1::ExportFilters;
 use sk_core::prelude::*;
 

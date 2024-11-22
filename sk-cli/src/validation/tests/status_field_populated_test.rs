@@ -1,5 +1,4 @@
 use assertables::*;
-use kube::api::DynamicObject;
 use serde_json::json;
 use sk_store::TraceEvent;
 
