@@ -1,7 +1,12 @@
 use std::fmt;
 use std::str::from_utf8;
+use std::sync::{
+    Arc,
+    RwLock,
+};
 
 use anyhow::bail;
+use json_patch_ext::prelude::*;
 use serde::{
     Serialize,
     Serializer,
@@ -51,6 +56,7 @@ impl fmt::Display for ValidatorCode {
 
 pub trait Diagnostic {
     fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> Vec<usize>;
+    fn fixes(&self) -> Vec<PatchOperation>;
     fn reset(&mut self);
 }
 
@@ -64,16 +70,20 @@ pub struct Validator {
     pub help: &'static str,
 
     #[serde(skip)]
-    pub diagnostic: Box<dyn Diagnostic>,
+    pub diagnostic: Arc<RwLock<dyn Diagnostic + Send + Sync>>,
 }
 
 impl Validator {
-    pub fn check_next_event(&mut self, a_event: &mut AnnotatedTraceEvent) -> Vec<usize> {
-        self.diagnostic.check_next_event(a_event)
+    pub fn check_next_event(&self, a_event: &mut AnnotatedTraceEvent) -> Vec<usize> {
+        self.diagnostic.write().unwrap().check_next_event(a_event)
     }
 
-    pub fn reset(&mut self) {
-        self.diagnostic.reset()
+    pub fn fixes(&self) -> Vec<PatchOperation> {
+        self.diagnostic.read().unwrap().fixes()
+    }
+
+    pub fn reset(&self) {
+        self.diagnostic.write().unwrap().reset()
     }
 
     pub fn help(&self) -> String {

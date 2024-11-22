@@ -2,7 +2,7 @@ use ratatui::widgets::ListState;
 
 use crate::validation::{
     AnnotatedTrace,
-    ValidationStore,
+    VALIDATORS,
 };
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
@@ -28,7 +28,6 @@ pub(super) struct App {
     pub(super) mode: Mode,
 
     pub(super) annotated_trace: AnnotatedTrace,
-    pub(super) validation_store: ValidationStore,
 
     pub(super) event_list_state: ListState,
     pub(super) object_list_state: ListState,
@@ -47,7 +46,9 @@ impl App {
     }
 
     pub(super) fn rebuild_annotated_trace(&mut self) {
-        self.validation_store.validate_trace(&mut self.annotated_trace)
+        VALIDATORS
+            .validate_trace(&mut self.annotated_trace, false)
+            .expect("validation failed");
     }
 
     pub(super) fn update_state(&mut self, msg: Message) -> bool {

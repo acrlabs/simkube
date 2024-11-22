@@ -14,8 +14,8 @@ use crate::validation::{
 };
 
 #[fixture]
-fn test_app(mut test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) -> App {
-    test_validation_store.validate_trace(&mut annotated_trace);
+fn test_app(test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) -> App {
+    test_validation_store.validate_trace(&mut annotated_trace, false).unwrap();
     App {
         annotated_trace,
         event_list_state: ListState::default().with_selected(Some(0)),

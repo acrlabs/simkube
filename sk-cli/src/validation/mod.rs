@@ -1,20 +1,28 @@
 mod annotated_trace;
 mod status_field_populated;
+mod summary;
 mod validation_store;
 mod validator;
 
+use bytes::Bytes;
 use clap::{
     value_parser,
     Subcommand,
     ValueEnum,
+};
+use sk_core::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
 };
 use sk_core::prelude::*;
 
 pub use self::annotated_trace::{
     AnnotatedTrace,
     AnnotatedTraceEvent,
+    AnnotatedTracePatch,
+    PatchLocations,
 };
-pub use self::validation_store::ValidationStore;
+pub use self::validation_store::VALIDATORS;
 pub use self::validator::{
     ValidatorCode,
     ValidatorType,
@@ -36,6 +44,17 @@ pub enum ValidateSubcommand {
 pub struct CheckArgs {
     #[arg(long_help = "location of the input trace file")]
     pub trace_path: String,
+
+    #[arg(long, long_help = "fix all discovered issues")]
+    pub fix: bool,
+
+    #[arg(
+        short,
+        long,
+        long_help = "output path for modified trace (REQUIRED if --fix is set)",
+        required_if_eq("fix", "true")
+    )]
+    pub output: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -65,26 +84,25 @@ pub struct PrintArgs {
 }
 
 pub async fn cmd(subcommand: &ValidateSubcommand) -> EmptyResult {
-    let mut validators = ValidationStore::default();
     match subcommand {
         ValidateSubcommand::Check(args) => {
             let mut trace = AnnotatedTrace::new(&args.trace_path).await?;
-            validators.validate_trace(&mut trace);
-            print_summary(&trace, &validators)?;
+            let summary = VALIDATORS.validate_trace(&mut trace, args.fix)?;
+            if let Some(output_path) = &args.output {
+                let trace_data = trace.export()?;
+                let object_store = SkObjectStore::new(output_path)?;
+                object_store.put(Bytes::from(trace_data)).await?;
+            }
+            println!("{summary}");
         },
-        ValidateSubcommand::Explain(args) => validators.explain(&args.code)?,
-        ValidateSubcommand::Print(args) => validators.print(&args.format)?,
+        ValidateSubcommand::Explain(args) => VALIDATORS.explain(&args.code)?,
+        ValidateSubcommand::Print(args) => VALIDATORS.print(&args.format)?,
     }
     Ok(())
 }
 
-fn print_summary(trace: &AnnotatedTrace, validators: &ValidationStore) -> EmptyResult {
-    for (code, count) in trace.summary_iter() {
-        let name = validators.lookup(code)?.name;
-        println!("{name} ({code}): {count:.>30}");
-    }
-    Ok(())
-}
+#[cfg(test)]
+pub use self::validation_store::ValidationStore;
 
 #[cfg(test)]
 pub mod tests;

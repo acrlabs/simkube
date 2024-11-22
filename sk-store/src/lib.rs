@@ -57,6 +57,8 @@ pub struct TraceIterator<'a> {
     idx: usize,
 }
 
+const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
+
 #[derive(Deserialize, Serialize)]
 pub struct ExportedTrace {
     version: u16,

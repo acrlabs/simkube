@@ -9,7 +9,7 @@ use crate::{
     TraceEvent,
 };
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct TraceEventList(VecDeque<TraceEvent>);
 
 impl TraceEventList {
@@ -77,7 +77,6 @@ impl From<Vec<TraceEvent>> for TraceEventList {
     }
 }
 
-#[cfg(test)]
 impl FromIterator<TraceEvent> for TraceEventList {
     fn from_iter<T: IntoIterator<Item = TraceEvent>>(ii: T) -> Self {
         TraceEventList(ii.into_iter().collect())
