@@ -22,6 +22,12 @@ rust-version = "1.79"
 [profile.dev.package."*"]
 debug = false
 
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
+
 [workspace.dependencies]
 sk-api = { version = "2.0.0", path = "sk-api" }
 sk-core = { version = "2.0.0", path = "sk-core" }
