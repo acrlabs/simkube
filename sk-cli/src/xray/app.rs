@@ -16,9 +16,17 @@ pub(super) enum Mode {
 pub(super) enum Message {
     Deselect,
     Down,
+    PageDown,
+    PageUp,
     Quit,
     Select,
     Unknown,
+    Up,
+}
+
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub(super) enum JumpDir {
+    Down,
     Up,
 }
 
@@ -32,6 +40,8 @@ pub(super) struct App {
     pub(super) event_list_state: ListState,
     pub(super) object_list_state: ListState,
     pub(super) object_contents_list_state: ListState,
+
+    pub(super) jump: Option<JumpDir>,
 }
 
 impl App {
@@ -52,7 +62,18 @@ impl App {
     }
 
     pub(super) fn update_state(&mut self, msg: Message) -> bool {
+        self.jump = None;
+        let focused_list_state = match self.mode {
+            Mode::ObjectSelected => &mut self.object_contents_list_state,
+            Mode::EventSelected => &mut self.object_list_state,
+            Mode::RootView => &mut self.event_list_state,
+        };
         match msg {
+            Message::Down => focused_list_state.select_next(),
+            Message::Up => focused_list_state.select_previous(),
+            Message::PageDown => self.jump = Some(JumpDir::Down),
+            Message::PageUp => self.jump = Some(JumpDir::Up),
+
             Message::Deselect => match self.mode {
                 Mode::ObjectSelected => {
                     self.mode = Mode::EventSelected;
@@ -61,38 +82,33 @@ impl App {
                 Mode::EventSelected => self.mode = Mode::RootView,
                 Mode::RootView => self.running = false,
             },
-            Message::Down => match self.mode {
-                Mode::ObjectSelected => self.object_contents_list_state.select_next(),
-                Mode::EventSelected => self.object_list_state.select_next(),
-                Mode::RootView => self.event_list_state.select_next(),
-            },
-            Message::Quit => self.running = false,
             Message::Select => match self.mode {
                 Mode::EventSelected => {
-                    let i = self.selected_event_index();
+                    let i = self.highlighted_event_index();
                     if !self.annotated_trace.is_empty_at(i) {
                         self.mode = Mode::ObjectSelected;
                         self.object_contents_list_state.select(Some(0));
+                        *self.object_contents_list_state.offset_mut() = 0;
                     }
                 },
                 Mode::RootView => {
                     self.mode = Mode::EventSelected;
                     self.object_list_state.select(Some(0));
+                    *self.object_list_state.offset_mut() = 0;
                 },
                 _ => (),
             },
+
+            Message::Quit => self.running = false,
+
             Message::Unknown => (),
-            Message::Up => match self.mode {
-                Mode::ObjectSelected => self.object_contents_list_state.select_previous(),
-                Mode::EventSelected => self.object_list_state.select_previous(),
-                Mode::RootView => self.event_list_state.select_previous(),
-            },
         }
 
         false
     }
 
-    pub(super) fn selected_event_index(&self) -> usize {
+    pub(super) fn highlighted_event_index(&self) -> usize {
+        // "selected" in this context means "highlighted" in the xray context
         self.event_list_state.selected().unwrap() // there should always be a selected event
     }
 }

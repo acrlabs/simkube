@@ -100,12 +100,18 @@ impl TraceStore {
         self.export(start_ts, end_ts, &ExportFilters::default())
     }
 
+    pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
+        let exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceStoreError::ParseFailed)?;
+        Self::from_exported_trace(exported_trace, maybe_duration)
+    }
+
     // Note that _importing_ data into a trace store is lossy -- we don't store (or import) all of
     // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
     // information to be able to run a simulation off the trace store.
-    pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
-        let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceStoreError::ParseFailed)?;
-
+    pub fn from_exported_trace(
+        mut exported_trace: ExportedTrace,
+        maybe_duration: &Option<String>,
+    ) -> anyhow::Result<TraceStore> {
         if exported_trace.version != CURRENT_TRACE_FORMAT_VERSION {
             bail!("unsupported trace version: {}", exported_trace.version);
         }

@@ -127,4 +127,8 @@ impl ExportedTrace {
         tmp.append(&mut self.events);
         self.events = tmp;
     }
+
+    pub fn events(&self) -> Vec<TraceEvent> {
+        self.events.clone()
+    }
 }

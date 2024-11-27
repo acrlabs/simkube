@@ -13,7 +13,7 @@ use super::*;
 pub fn build_trace_data(has_start_marker: bool) -> Vec<u8> {
     // I want the trace data to be easily editable, so we load it from a plain-text JSON file and
     // then re-encode it into msgpack so we can pass the data to import
-    let trace_data_file = File::open("./src/tests/data/trace.json").unwrap();
+    let trace_data_file = File::open("../testdata/trace.json").unwrap();
     let reader = BufReader::new(trace_data_file);
     let mut exported_trace: ExportedTrace = serde_json::from_reader(reader).unwrap();
 
