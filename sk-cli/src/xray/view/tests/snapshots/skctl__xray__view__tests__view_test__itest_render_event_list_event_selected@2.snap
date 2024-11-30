@@ -1,5 +1,5 @@
 ---
-source: sk-cli/src/xray/tests/view_test.rs
+source: sk-cli/src/xray/view/tests/view_test.rs
 expression: cf
 ---
 CompletedFrame {
@@ -11,7 +11,7 @@ CompletedFrame {
             "│   00:00:01 (1 applied/0 deleted)                                             │",
             "│>> 00:00:02 (3 applied/0 deleted)                       1 error/0 warnings    │",
             "│++   + test-namespace/test_depl1                                              │",
-            "│     + test-namespace/test_depl2xxxxxxxxxxxxxxxxxxx...  1 error/0 warnings    │",
+            "│     + test-namespace/test_depl2xxxxxxxxxxxxxxxxxxxxxx...  1 error/0 warnings │",
             "│     + test-namespace/test_depl3xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx... │",
             "│   00:00:03 (0 applied/1 deleted)                                             │",
             "│                                                                              │",
@@ -37,7 +37,7 @@ CompletedFrame {
             x: 33, y: 4, fg: Reset, bg: Blue, underline: Reset, modifier: NONE,
             x: 79, y: 4, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
             x: 4, y: 5, fg: Reset, bg: Reset, underline: Reset, modifier: ITALIC,
-            x: 56, y: 5, fg: White, bg: Red, underline: Reset, modifier: NONE,
+            x: 59, y: 5, fg: White, bg: Red, underline: Reset, modifier: NONE,
             x: 79, y: 5, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
             x: 4, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: ITALIC,
             x: 79, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
