@@ -102,10 +102,7 @@ pub(super) fn format_list_entries<'a>(
             // error is present we create a separate span here.
             let (trunc_width, right_padding_width) = match err_span.width() {
                 0 => (width - LIST_PADDING, 0),
-                x => (
-                    width - (mid_padding_width + max_err_width + max_err_width - x + LIST_PADDING + LIST_PADDING),
-                    max_err_width - x + LIST_PADDING,
-                ),
+                x => (width - (mid_padding_width + max_err_width + LIST_PADDING), max_err_width - x + LIST_PADDING),
             };
             let right_padding_span = Span::styled(" ".repeat(right_padding_width), err_span.style);
 
