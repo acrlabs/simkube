@@ -26,6 +26,7 @@ sk-core = { workspace = true }
 tracing = { workspace = true }
 sk-store = { workspace = true, features = ["testutils"] }
 rand = { workspace = true }
+rand_distr = { workspace = true }
 
 # testutils dependencies
 mockall = { workspace = true, optional = true }

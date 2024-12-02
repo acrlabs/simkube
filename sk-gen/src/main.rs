@@ -1,5 +1,66 @@
 #![deny(rustdoc::broken_intra_doc_links)]
 //! `sk-gen` is a CLI tool for generating synthetic trace data for SimKube.
+//!
+//! # Overview:
+//! ## Core types
+//! [`Node`] represents a cluster state, containing a map from unique names to active
+//! [`Deployment`] states. `Node` implements [`Eq`] and [`Hash`], which we use to ensure that
+//! equivalent `Node`s are not duplicated in the graph.
+//!
+//! [`Deployment`] is a simplified representation of a Kubernetes deployment spec, containing only
+//! the fields we are considering.
+//!
+//! [`DeploymentAction`] (e.g. `CreateDeployment`, `DeleteDeployment`, `IncrementReplicas`,
+//! `DecrementReplicas`) can be performed on individual deployment instances.
+//!
+//! [`ClusterAction`] is a deploment name paired with a [`DeploymentAction`] to execute
+//! WARNING: Not all `DeploymentAction`s are valid for every `Deployment`
+//!       Simmilarly Not all `ClusterAction`s are valid for every `Node`
+//!       For instance, we cannot delete a `Deployment` that does not exist
+//!       simmilarly we cant increment/decrement the replicas of a `Deployment` that is not active.
+//!
+//! [`TraceEvent`] represents the Kubernetes API call which corresponds to a `ClusterAction`.
+//!
+//! [`Edge`] stores both a `ClusterAction` and the corresponding `TraceEvent`.
+//!
+//! [`Trace`] is a sequence of [`TraceEvent`]s along with some additional metadata. A `Trace` is
+//! read by SimKube to drive a simulation.
+//!
+//!
+//! ## The graph
+//!
+//! The Kubernetes cluster state graph is represented as a [`ClusterGraph`]. Walks of this graph map
+//! 1:1 to traces which can be read by SimKube.
+//!
+//! ### Parameters
+//! - [`trace_length`](Cli::trace_length): we construct the graph so as to contain all walks of
+//!   length `trace_length` starting from the initial `Node`.
+//! - `starting_state`: The initial [`Node`] from which to start the graph construction. We
+//!   presently use a `Node` with no active [`Deployment`]s.
+//! - `candidate_deployments`: A map from unique deployment names to corresponding initial
+//!   [`Deployment`] configurations which are added whenever a `CreateDeployment` action is
+//!   performed. We generate candidate deployments as `dep-1`, `dep-2`, etc. according to the
+//!   [`deployment_count`](Cli::deployment_count) argument.
+//!
+//! ### Construction
+//! - Starting from an initial [`Node`] with no active deployments, perform a breadth-first search.
+//! - For each node visited:
+//!   - Construct every [`ClusterAction`] applicable to the current `Node`, filtering for only those
+//!     which produce a valid next `Node`.
+//!   - Construct an [`Edge`] from the current `Node` to the next valid `Node`, recording both the
+//!     `ClusterAction` and the corresponding `TraceEvent`.
+//!   - Continue to a depth of `trace_length - 1` actions, such that the graph contains all walks on
+//!     `trace_length` nodes from the initial `Node`.
+//!
+//! ## Extracting traces from the graph
+//!
+//!
+//! [`Trace`] instances are obtained from the graph by enumerating all walks of length
+//! `trace_length` through the graph via a depth-first search, and extracting the [`TraceEvent`]
+//! from each [`Edge`].
+//!
+//! The graph generation and trace extraction steps are separated for conceptual simplicity, and in
+//! anticipation of stochastic methods for trace generation.
 
 mod output;
 
@@ -14,16 +75,11 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
-use k8s_openapi::api::apps::v1::Deployment;
-use k8s_openapi::apimachinery::pkg::api::resource::Quantity;
 use kube::api::DynamicObject;
 use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use sk_core::jsonutils::{
-    ordered_eq,
-    ordered_hash,
-};
+use serde_json::json;
 use sk_core::k8s::GVK;
 use sk_store::{
     TraceEvent,
@@ -37,20 +93,36 @@ use crate::output::{
     display_walks_and_traces,
     export_graphviz,
     gen_trace_event,
-    write_debug_info,
 };
 
+use rand_distr::{Poisson, Distribution};
+
+/// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
 
-const REPLICA_COUNT_CHANGE: i32 = 1;
-const REPLICA_COUNT_MIN: i32 = 0;
-const REPLICA_COUNT_MAX: i32 = i32::MAX;
+const REPLICA_COUNT_MIN: u32 = u32::MAX;
+const REPLICA_COUNT_MAX: u32 = 0;
+const REPLICA_COUNT_CHANGE: u32 = 1;
 
-const RESOURCE_SCALE_FACTOR: f64 = 2.0;
-const RESOURCE_SCALE_MIN: i64 = 1;
+const DEFAULT_MEMORY_COUNT: i64 = 1;
+const MEMORY_REQUEST_MIN: i64 = 1;
+const MEMORY_REQUEST_MAX: i64 = i64::MAX;
+const MEMORY_REQUEST_SCALE: f64 = 2.0;
+
+const MCPU_DEFAULT_COUNT: i64 = 1000;
+const MCPU_REQUEST_MIN: i64 = 1;
+const MCPU_REQUEST_MAX: i64 = i64::MAX;
+const MCPU_REQUEST_SCALE: f64 = 2.0;
+
+const DEFAULT_GPU_COUNT: i64 = 0;
+const GPU_REQUEST_MIN: i64 = 0;
+const GPU_REQUEST_MAX: i64 = i64::MAX;
+const GPU_REQUEST_STEP: i64 = 1;
+const GPU_MODEL_STRING: &str = "nvidia.com/gpu";
 
 const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.1;
+const RESOURCE_ACTION_PROBABILITY: f64 = 0.1;
 
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
@@ -65,12 +137,14 @@ struct Cli {
     ///
     /// A graph is constructed so as to contain all `trace_length`-walks from the starting state,
     /// then we enumerate all such walks.
-    #[arg(short = 'l', long, value_parser = clap::value_parser!(u64).range(2..))]
+    #[arg(short = 'l', long, value_parser = clap::value_parser!(u64).range(3..))]
     trace_length: u64,
 
-    /// Path to input trace file (msgpack).
+    /// Number of candidate deployments
+    ///
+    /// These are generated as `dep-1`, `dep-2`, ... `dep-N`.
     #[arg(short, long)]
-    input_trace: PathBuf,
+    deployment_count: usize,
 
     /// Number of sample walks to generate (if not specified, generates all possible walks)
     #[arg(short, long)]
@@ -92,153 +166,299 @@ struct Cli {
     display_walks: bool,
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
-enum ObjectAction {
-    Create,
-    Delete,
+//TODO: this code is pretty repetative is there any way to make a "scaling" trait or smth
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum MemoryAction {
+    Increase,
+    Decrease,
+    // TODO: Set?
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
-enum ActionType {
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum GpuAction {
     Increase,
     Decrease,
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
+enum CpuAction {
+    Increase,
+    Decrease,
+}
+
+#[derive(Copy, Clone, Hash, PartialEq, Eq, Debug)]
 enum ResourceAction {
-    Request { resource: String, action: ActionType },
-    Limit { resource: String, action: ActionType },
-    Claim,
+    Cpu(CpuAction),
+    Memory(MemoryAction),
+    Gpu(GpuAction),
 }
 
-#[derive(Clone, Hash, PartialEq, Eq, Debug)]
-enum ContainerAction {
-    Resource(ResourceAction),
-}
-
+/// Actions which can be applied to a [`Deployment`].
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 enum DeploymentAction {
-    ReplicaCount(ActionType),
-    Object(ObjectAction),
-    Container { name: String, action: ContainerAction },
+    IncrementReplicas,
+    DecrementReplicas,
+    CreateDeployment,
+    DeleteDeployment,
+    ResourceAction {
+        container_name: String,
+        action: ResourceAction,
+    },
 }
 
+/// An action to be applied to a [`Node`] on one of its active [`Deployment`]s.
+///
+/// Not all cluster actions are necessarily valid, even if they have a valid name. For instance, we
+/// cannot delete a deployment that does not actively exist in the cluster.
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct ClusterAction {
-    deployment_name: String,
-    deployment_action: DeploymentAction,
+    /// The unique name by which the target [`Deployment`] is identified in the
+    /// `candidate_deployments` map of [`ClusterGraph`].
+    target_name: String,
+    /// The [`Deployment`]-level action to perform on the target `Deployment`.
+    action_type: DeploymentAction,
+}
+
+//TODO: it really feels like we should be using newtypes here
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Requests {
+    memory_gb: i64, // TODO maybe we want float (or different units)
+    gpu_count: i64,
+    mili_cpu_count: i64,
+    //TODO: theres a corrisponding cpu limit here we might want to implement
 }
 
 
-#[derive(Clone, Debug)]
-struct Node {
-    deployments: BTreeMap<String, Deployment>,
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Container {
+    name: String,
+    image: String,
+    requests: Requests,
 }
 
-impl std::hash::Hash for Node {
-    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        ordered_hash(&serde_json::to_value(&self.deployments).unwrap()).hash(state);
+impl Container {
+    fn resource_action(&self, action: ResourceAction) -> Option<Self> {
+        match action {
+            ResourceAction::Cpu(cpu_action) => self.cpu_action(cpu_action), //TODO: consider self.requests.cpu(action)
+            ResourceAction::Memory(memory_action) => self.memory_action(memory_action),
+            ResourceAction::Gpu(gpu_action) => self.gpu_action(gpu_action),
+        }
     }
-}
 
-impl PartialEq for Node {
-    fn eq(&self, other: &Self) -> bool {
-        ordered_eq(
-            &serde_json::to_value(&self.deployments).unwrap(),
-            &serde_json::to_value(&other.deployments).unwrap(),
-        )
-    }
-}
+    fn memory_scale(&self, scale: f64) -> Option<Self> {
+        let new_memory = ((self.requests.memory_gb as f64) * scale) as i64;
 
-impl Eq for Node {}
-
-fn dynamic_object_to_deployment(dynamic_object: &DynamicObject) -> Result<Deployment> {
-    let json = serde_json::to_value(dynamic_object).expect("All dynamic objects are serializable");
-    // TODO: check explicitly that this is a deployment
-    let deployment = serde_json::from_value(json)?;
-    Ok(deployment)
-}
-
-fn deployment_to_dynamic_object(deployment: &Deployment) -> Result<DynamicObject> {
-    let json = serde_json::to_value(deployment).expect("All deployments are serializable");
-    let dynamic_object = serde_json::from_value(json).expect("DynamicObject should superset Deployment");
-    Ok(dynamic_object)
-}
-
-fn scale_quantity(quantity_str: &str, scale: f64) -> Option<String> {
-    // Parse number and suffix (e.g., "1048576" -> (1048576, ""))
-    let mut num_str = String::new();
-    let mut suffix = String::new();
-    let mut in_suffix = false;
-
-    for c in quantity_str.chars() {
-        if c.is_ascii_digit() || c == '.' {
-            if !in_suffix {
-                num_str.push(c);
-            } else {
-                return None; // Invalid format
-            }
+        if (MEMORY_REQUEST_MIN..MEMORY_REQUEST_MAX).contains(&new_memory) {
+            Some(Self {
+                requests: Requests { memory_gb: new_memory, ..self.requests.clone() },
+                ..self.clone()
+            })
         } else {
-            in_suffix = true;
-            suffix.push(c);
+            None
         }
     }
 
-    // Parse the number
-    let num: f64 = num_str.parse().ok()?;
-    let scaled = (num * scale) as i64;
+    fn cpu_scale(&self, scale: f64) -> Option<Self> {
+        let new_cpu = ((self.requests.mili_cpu_count as f64) * scale) as i64;
 
-    if scaled < RESOURCE_SCALE_MIN {
-        return None;
+        if (MCPU_REQUEST_MIN..MCPU_REQUEST_MAX).contains(&new_cpu) {
+            Some(Self {
+                requests: Requests { mili_cpu_count: new_cpu, ..self.requests.clone() },
+                ..self.clone()
+            })
+        } else {
+            None
+        }
     }
 
-    // Format back with the same suffix
-    Some(format!("{}{}", scaled, suffix))
+    fn gpu_step(&self, step: i64) -> Option<Self> {
+        let new_gpu = self.requests.gpu_count + step;
+        if new_gpu == self.requests.gpu_count {
+            None
+        } else if (GPU_REQUEST_MIN..GPU_REQUEST_MAX).contains(&new_gpu) {
+            Some(Self {
+                requests: Requests { gpu_count: new_gpu, ..self.requests.clone() },
+                ..self.clone()
+            })
+        } else {
+            None
+        }
+    }
+
+    //TODO: with newtypes the pattern could be self.memory.scale() which feels a bit better
+    fn memory_action(&self, action: MemoryAction) -> Option<Self> {
+        match action {
+            MemoryAction::Decrease => self.memory_scale(1.0 / MEMORY_REQUEST_SCALE),
+            MemoryAction::Increase => self.memory_scale(MEMORY_REQUEST_SCALE),
+        }
+    }
+
+    fn memory_display(&self) -> String {
+        format!("{}gb", self.requests.memory_gb)
+    }
+
+    fn cpu_action(&self, action: CpuAction) -> Option<Self> {
+        match action {
+            CpuAction::Decrease => self.cpu_scale(1.0 / MCPU_REQUEST_SCALE),
+            CpuAction::Increase => self.cpu_scale(MCPU_REQUEST_SCALE),
+        }
+    }
+
+    fn cpu_display(&self) -> String {
+        if self.requests.mili_cpu_count % 1000 != 0 {
+            format!("{}m", self.requests.mili_cpu_count)
+        } else {
+            format!("{}", self.requests.memory_gb)
+        }
+    }
+
+    fn gpu_action(&self, action: GpuAction) -> Option<Self> {
+        match action {
+            GpuAction::Decrease => self.gpu_step(-GPU_REQUEST_STEP),
+            GpuAction::Increase => self.gpu_step(GPU_REQUEST_STEP),
+        }
+    }
 }
 
-impl Node {
-    fn new() -> Self {
-        Self { deployments: BTreeMap::new() }
+/// The aspects of a Kubernetes deployment spec which we are considering in our generation.
+///
+/// We don't want to be lugging YAML around everywhere, especially when the graph gets very large.
+/// Defining our own representation also allows us to define exactly which fields we are
+/// considering, and how they change with respect to each [`DeploymentAction`].
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Deployment {
+    /// The name of the deployment, unique within the cluster (at least until namespace support is
+    /// added).
+    name: String,
+    /// The number of replicas of the deployment.
+    replica_count: u32,
+    containers: BTreeMap<String, Container>,
+}
+
+impl Deployment {
+    /// Creates a new deployment with a given name and replica count.
+    fn new(name: String, replica_count: u32, containers: BTreeMap<String, Container>) -> Self {
+        Self { name, replica_count, containers }
     }
 
-    fn from_trace_store(trace_store: &TraceStore) -> (Vec<Self>, BTreeMap<String, Deployment>) {
-        let mut candidate_objects = BTreeMap::new();
-
-        let mut node = Node::new();
-        let mut nodes = Vec::new();
-
-        for (event, _ts) in trace_store.iter() {
-            // TODO: add ts handling
-
-            for applied_obj in &event.applied_objs {
-                let name = applied_obj.metadata.name.as_ref().unwrap();
-
-                let deployment = dynamic_object_to_deployment(&applied_obj)
-                    .expect("All objects in imported trace should be deployments");
-                node.deployments.insert(name.clone(), deployment.clone());
-
-                if !candidate_objects.contains_key(name) {
-                    candidate_objects.insert(name.clone(), deployment.clone());
-                }
-            }
-
-            for deleted_obj in &event.deleted_objs {
-                node.deployments.remove(deleted_obj.metadata.name.as_ref().unwrap());
-            }
-
-            nodes.push(node.clone());
-        }
-        (nodes, candidate_objects)
-    }
-
-    fn create_deployment(&self, name: &str, candidate_deployment: &BTreeMap<String, Deployment>) -> Option<Self> {
-        let object = candidate_deployment.get(name)?;
+    fn resource_action(&self, container_name: String, action: ResourceAction) -> Option<Self> {
+        let container = self.containers.get(&container_name)?.resource_action(action)?;
 
         let mut next_state = self.clone();
-        next_state.deployments.insert(name.to_string(), object.clone());
+        next_state.containers.insert(container_name, container)?;
         Some(next_state)
     }
 
+    fn replica_count_increment(&self, change: u32) -> Option<Self> {
+        let new_count = self.replica_count.checked_add(change)?;
+
+        if new_count <= REPLICA_COUNT_MIN {
+            Some(Self { replica_count: new_count, ..self.clone() })
+        } else {
+            None
+        }
+    }
+
+    fn replica_count_decrement(&self, change: u32) -> Option<Self> {
+        let new_count = self.replica_count.checked_sub(change)?;
+
+        if REPLICA_COUNT_MAX < new_count {
+            Some(Self { replica_count: new_count, ..self.clone() })
+        } else {
+            None
+        }
+    }
+
+    /// Converts this deployment to a [`DynamicObject`].
+    ///
+    /// A [`DynamicObject`] represents a Kubernetes deployment spec, what we've been lovingly
+    /// calling "YAML".
+    fn to_dynamic_object(&self) -> DynamicObject {
+        DynamicObject {
+            metadata: kube::api::ObjectMeta {
+                namespace: Some("default".to_string()),
+                name: Some("min-dep".to_string()),
+                ..Default::default()
+            },
+            types: Some(kube::api::TypeMeta {
+                kind: "Deployment".to_string(),
+                api_version: "apps/v1".to_string(),
+            }),
+            data: json!({
+                "apiVersion": "apps/v1",
+                "kind": "Deployment",
+                "spec": {
+                    "replicas": self.replica_count,
+                    "selector": {
+                        "matchLabels": {
+                            "app": "minimal-app"
+                        }
+                    },
+                    "template": {
+                        "metadata": {
+                            "labels": {
+                                "app": "minimal-app"
+                            }
+                        },
+                        "spec": {
+                            "containers": self.containers.iter().map(|(_name, c)| {json! {
+                                {
+                                "name": c.name,
+                                "image": c.image,
+                                "limits": {
+                                    GPU_MODEL_STRING: format!("{}",c.requests.gpu_count)
+                                },
+                                "requests": {
+                                    "memory": c.memory_display(),
+                                    "cpu": c.cpu_display(),
+                                },
+                            }
+                            }}).collect::<Vec<_>>()
+                        }
+                    }
+                }
+            }),
+        }
+    }
+}
+
+/// A cluster state at an (unspecified) point in time. This tracks which of the candidate
+/// deployments are active and their state.
+#[derive(Clone, Hash, PartialEq, Eq, Debug)]
+struct Node {
+    /// The names of the active deployments in the cluster and their configurations.
+    ///
+    /// Assuming we are in the same namespace, the use of a map enforces that only one deployment
+    /// of each name may exist at once.
+    ///
+    /// To derive [`Hash`] for [`Node`], we use [`BTreeMap`] which implements `Hash` as our keys
+    /// (the deployment names) implement [`Ord`],
+    deployments: BTreeMap<String, Deployment>,
+    timestamp: u64 
+}
+
+impl Node {
+    /// Creates a new state with no active [`Deployment`]s.
+    ///
+    /// This can be revised in future to, for instance, start at the end of an existing trace.
+    fn new() -> Self {
+        Self { deployments: BTreeMap::new(), timestamp: 0 }
+    }
+
+    /// Attempts to create a [`Deployment`] in this state.
+    ///
+    /// Returns [`None`] if the deployment already exists.
+    fn create_deployment(&self, name: &str, candidate_deployments: &BTreeMap<String, Deployment>) -> Option<Self> {
+        let deployment = candidate_deployments.get(name)?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name.to_string(), deployment.clone());
+        Some(next_state)
+    }
+
+    /// Attempts to delete a [`Deployment`] from this state.
+    ///
+    /// Returns [`None`] if the deployment does not exist.
     fn delete_deployment(&self, name: &str) -> Option<Self> {
         if self.deployments.contains_key(name) {
             let mut next_state = self.clone();
@@ -249,96 +469,68 @@ impl Node {
         }
     }
 
-    fn change_replica_count(&self, name: String, change: i32) -> Option<Self> {
-        let replicas = self
+    /// Attempts to increment the replica count of an active [`Deployment`] in this state.
+    ///
+    /// Returns [`None`] if the deployment does not exist.
+    fn increment_replica_count(&self, name: String) -> Option<Self> {
+        let incremented_deployment = self.deployments.get(&name)?.replica_count_increment(REPLICA_COUNT_CHANGE)?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name, incremented_deployment);
+        Some(next_state)
+    }
+
+    /// Attempts to decrement the replica count of an active [`Deployment`] in this state.
+    ///
+    /// Returns [`None`] if the deployment does not exist.
+    fn decrement_replica_count(&self, name: String) -> Option<Self> {
+        let decremented_deployment = self.deployments.get(&name)?.replica_count_decrement(REPLICA_COUNT_CHANGE)?;
+
+        let mut next_state = self.clone();
+        next_state.deployments.insert(name, decremented_deployment);
+        Some(next_state)
+    }
+
+    fn resource_action(&self, deployment_name: String, container_name: String, action: ResourceAction) -> Option<Self> {
+        let modified_deployment = self
             .deployments
-            .get(&name)?
-            .clone()
-            .spec
-            .as_mut()
-            .and_then(|s| s.replicas.as_mut())
-            .map(|r| *r)
-            .unwrap_or(1);
-
-        let new_replicas = replicas.checked_add(change)?;
-
-        if new_replicas < REPLICA_COUNT_MIN || new_replicas > REPLICA_COUNT_MAX {
-            return None;
-        }
-
-        let mut deployment = self.deployments.get(&name)?.clone();
-        deployment.spec.as_mut().expect("All deployments should have a spec").replicas = Some(new_replicas);
+            .get(&deployment_name)?
+            .resource_action(container_name, action)?;
 
         let mut next_state = self.clone();
-        next_state.deployments.insert(name.clone(), deployment);
+        next_state.deployments.insert(deployment_name, modified_deployment);
         Some(next_state)
     }
 
-    fn resource_request(
-        &self,
-        deployment_name: String,
-        container_name: String,
-        action: ResourceAction,
-    ) -> Option<Self> {
-        let mut deployment = self.deployments.get(&deployment_name)?.clone();
-
-        let resources = deployment
-            .spec
-            .get_or_insert_with(Default::default)
-            .template
-            .spec
-            .get_or_insert_with(Default::default)
-            .containers
-            .iter_mut()
-            .find(|container| container.name == container_name)?
-            .resources
-            .get_or_insert_with(Default::default);
-
-        match action {
-            ResourceAction::Request { resource, action } => {
-                let requests = resources.requests.get_or_insert_with(BTreeMap::new);
-                if let Some(current) = requests.get(&resource) {
-                    let scale = match action {
-                        ActionType::Increase => RESOURCE_SCALE_FACTOR,
-                        ActionType::Decrease => 1.0 / RESOURCE_SCALE_FACTOR,
-                    };
-                    let new_value = scale_quantity(&current.0, scale)?;
-                    requests.insert(resource, Quantity(new_value));
-                }
-            },
-            ResourceAction::Limit { .. } => todo!(),
-            ResourceAction::Claim => todo!(),
-        }
-
-        let mut next_state = self.clone();
-        next_state.deployments.insert(deployment_name, deployment);
-        Some(next_state)
-    }
-
+    /// Attempts to perform a [`ClusterAction`] on this [`Node`] to obtain a next [`Node`].
+    ///
+    /// Returns [`None`] if the action is invalid.
     fn perform_action(
         &self,
-        ClusterAction { deployment_name, deployment_action: action_type }: ClusterAction,
+        ClusterAction { target_name: deployment_name, action_type }: ClusterAction,
         candidate_deployments: &BTreeMap<String, Deployment>,
     ) -> Option<Self> {
-        match action_type {
-            DeploymentAction::ReplicaCount(ActionType::Increase) => {
-                self.change_replica_count(deployment_name, REPLICA_COUNT_CHANGE)
-            },
-            DeploymentAction::ReplicaCount(ActionType::Decrease) => {
-                self.change_replica_count(deployment_name, -REPLICA_COUNT_CHANGE)
-            },
-            DeploymentAction::Object(ObjectAction::Create) => {
-                self.create_deployment(&deployment_name, candidate_deployments)
-            },
-            DeploymentAction::Object(ObjectAction::Delete) => self.delete_deployment(&deployment_name),
-            DeploymentAction::Container { name: container_name, action } => match action {
-                ContainerAction::Resource(resource_action) => {
-                    self.resource_request(deployment_name, container_name, resource_action)
-                },
-            },
+        let new_node = match action_type {
+            DeploymentAction::IncrementReplicas => self.increment_replica_count(deployment_name),
+            DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
+            DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
+            DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
+            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action)
+        };
+        if let Some(mut new_node) = new_node {
+            let poisson = Poisson::new(2.0).unwrap();
+            let wait_time = poisson.sample(&mut thread_rng());
+            new_node.timestamp = self.timestamp + wait_time as u64;
+            Some(new_node)
+        } else {
+            None
         }
     }
 
+    /// Enumerates at least all possible `ClusterAction` instances.
+    ///
+    /// Not all returned cluster actions are necessarily valid. [`Node::valid_action_states`] will
+    /// filter out all cluster actions which produce invalid `None` next states.
     fn enumerate_actions(&self, candidate_deployments: &BTreeMap<String, Deployment>) -> Vec<ClusterAction> {
         let mut actions = Vec::new();
 
@@ -348,60 +540,68 @@ impl Node {
             if self.deployments.contains_key(name) {
                 // already created, so we can delete
                 actions.push(ClusterAction {
-                    deployment_name: name.clone(),
-                    deployment_action: DeploymentAction::Object(ObjectAction::Delete),
+                    target_name: name.clone(),
+                    action_type: DeploymentAction::DeleteDeployment,
                 });
             } else {
                 // not already created, so we can create
                 actions.push(ClusterAction {
-                    deployment_name: name.clone(),
-                    deployment_action: DeploymentAction::Object(ObjectAction::Create),
+                    target_name: name.clone(),
+                    action_type: DeploymentAction::CreateDeployment,
                 });
             }
         }
 
         // across all active deployments, we can try to increment/decrement, saving bounds checks for later
-        for deployment in self.deployments.values() {
-            let Some(deployment_name) = deployment.metadata.name.clone() else {
-                continue;
-            };
-
+        for (name, deployment) in self.deployments.iter() {
             actions.push(ClusterAction {
-                deployment_name: deployment_name.clone(),
-                deployment_action: DeploymentAction::ReplicaCount(ActionType::Increase),
+                target_name: name.clone(),
+                action_type: DeploymentAction::IncrementReplicas,
             });
             actions.push(ClusterAction {
-                deployment_name: deployment_name.clone(),
-                deployment_action: DeploymentAction::ReplicaCount(ActionType::Decrease),
+                target_name: name.clone(),
+                action_type: DeploymentAction::DecrementReplicas,
             });
 
-            deployment
-                .spec
-                .as_ref()
-                .and_then(|s| s.template.spec.as_ref())
-                .map(|s| &s.containers)
-                .into_iter()
-                .flatten()
-                .flat_map(|container| {
-                    itertools::iproduct!([ActionType::Increase, ActionType::Decrease], ["memory", "cpu"]).map(
-                        |(action, resource)| ClusterAction {
-                            deployment_name: deployment_name.clone(),
-                            deployment_action: DeploymentAction::Container {
-                                name: container.name.clone(),
-                                action: ContainerAction::Resource(ResourceAction::Request {
-                                    resource: resource.to_string(),
-                                    action,
-                                }),
-                            },
+            //TODO: make this less repetative
+            for container_name in deployment.containers.keys() {
+                for memory_action in [MemoryAction::Decrease, MemoryAction::Increase] {
+                    actions.push(ClusterAction {
+                        target_name: name.clone(),
+                        action_type: DeploymentAction::ResourceAction {
+                            container_name: container_name.clone(),
+                            action: ResourceAction::Memory(memory_action),
                         },
-                    )
-                })
-                .for_each(|action| actions.push(action));
+                    });
+                }
+
+                for gpu_action in [GpuAction::Decrease, GpuAction::Increase] {
+                    actions.push(ClusterAction {
+                        target_name: name.clone(),
+                        action_type: DeploymentAction::ResourceAction {
+                            container_name: container_name.clone(),
+                            action: ResourceAction::Gpu(gpu_action),
+                        },
+                    });
+                }
+
+                for cpu_action in [CpuAction::Decrease, CpuAction::Increase] {
+                    actions.push(ClusterAction {
+                        target_name: name.clone(),
+                        action_type: DeploymentAction::ResourceAction {
+                            container_name: container_name.clone(),
+                            action: ResourceAction::Cpu(cpu_action),
+                        },
+                    });
+                }
+            }
         }
 
         actions
     }
 
+    /// Attempts all possible actions, returning a list of `(action, next_state)` pairs
+    /// corresponding to each action which produces a valid next state.
     fn valid_action_states(&self, candidate_deployments: &BTreeMap<String, Deployment>) -> Vec<(ClusterAction, Self)> {
         self.enumerate_actions(candidate_deployments)
             .into_iter()
@@ -413,20 +613,43 @@ impl Node {
     }
 }
 
+/// A directed transition between two [`Node`]s in the cluster.
+///
+/// It contains a [`ClusterAction`], the internal representation of the action, and stores the
+/// corresponding [`TraceEvent`].
 #[derive(Debug, Clone)]
 struct Edge {
+    /// The internal (condensed) representation of the action.
     action: ClusterAction,
+    /// The corresponding `TraceEvent` in a trace consumable by simkube.
+    ///
+    /// Storing this on the `Edge` lets us avoid the need to recompute the event on every walk which
+    /// traverses this edge.
     trace_event: TraceEvent,
 }
 
+/// A walk is a sequence of (incoming edge, node) pairs.
+/// The first node has no incoming edge.
 type Walk = Vec<(Option<Edge>, Node)>;
 
+/// A graph of cluster states in which [`Walk`]s map 1:1 with [`Trace`]s.
 struct ClusterGraph {
+    /// A map of unique deployment names to [`Deployment`] configurations.
+    ///
+    /// Each [`Deployment`] in this map represents the initial state of each deployment when
+    /// initialized by a `CreateDeployment`.
     candidate_deployments: BTreeMap<String, Deployment>,
+    /// The graph itself.
+    ///
+    /// Each [`Node`] is a cluster state and each [`Edge`] corresponds to a call to the Kubernetes
+    /// API.
     graph: DiGraph<Node, Edge>,
 }
 
 impl ClusterGraph {
+    /// Construct a new graph starting from a given (presently hard-coded) starting state.
+    /// This is achieved via a search over all state reachable within `trace_length` actions from
+    /// the starting state.
     fn new(candidate_deployments: BTreeMap<String, Deployment>, starting_state: Vec<Node>, trace_length: u64) -> Self {
         let mut cluster_graph = Self { candidate_deployments, graph: DiGraph::new() };
 
@@ -484,8 +707,13 @@ impl ClusterGraph {
         cluster_graph
     }
 
+    /// Generate all walks of `trace_length` starting from the first node in the graph.
+    ///
+    /// Returns a list of [`Walk`]s, where each is a list of `(incoming edge, node)` pairs.
+    /// The first node of each walk, and thus the first pair, has no incoming edge, but all
+    /// remaining pairs contain `Some` edge.
     fn generate_walks(&self, trace_length: u64) -> Vec<Walk> {
-        let start_nodes: Vec<NodeIndex> = self.graph.node_indices().take(1).collect();
+        let start_nodes: Vec<NodeIndex> = self.graph.node_indices().collect();
         let mut all_walks = Vec::new();
 
         // We use a depth-first search because eventually we may want to use stochastic methods which do not
@@ -514,6 +742,8 @@ impl ClusterGraph {
         all_walks
     }
 
+    /// Perform a depth-first search over all walks of length `walk_length` starting from
+    /// `current_node`.
     fn dfs_walks(&self, current_node: NodeIndex, walk_length: u64) -> Vec<Vec<NodeIndex>> {
         let mut walks = Vec::new();
 
@@ -523,6 +753,7 @@ impl ClusterGraph {
         walks
     }
 
+    /// Recursive helper for [`Self::dfs_walks`].
     fn dfs_walks_helper(
         &self,
         current_node: NodeIndex,
@@ -542,6 +773,7 @@ impl ClusterGraph {
         }
     }
 
+    /// Output a graphviz representation of the graph.
     fn to_graphviz(&self) -> String {
         let mut dot = String::new();
         writeln!(&mut dot, "digraph ClusterGraph {{").unwrap();
@@ -554,29 +786,7 @@ impl ClusterGraph {
             let label = node
                 .deployments
                 .iter()
-                .map(|(name, dep)| {
-                    let replicas = dep.spec.as_ref().and_then(|s| s.replicas.as_ref()).unwrap_or(&1);
-
-                    let resources = dep
-                        .spec
-                        .as_ref()
-                        .and_then(|s| s.template.spec.as_ref())
-                        .and_then(|s| s.containers.first())
-                        .and_then(|c| c.resources.as_ref())
-                        .map(|r| {
-                            let requests = r
-                                .requests
-                                .as_ref()
-                                .map(|reqs| {
-                                    reqs.iter().map(|(k, v)| format!("{}={}", k, v.0)).collect::<Vec<_>>().join(",")
-                                })
-                                .unwrap_or_default();
-                            format!(" [{}]", requests)
-                        })
-                        .unwrap_or_default();
-
-                    format!("{}: {}{}", name, replicas, resources)
-                })
+                .map(|(name, dep)| format!("{}: {}", name, dep.replica_count))
                 .collect::<Vec<_>>()
                 .join("\\n");
             writeln!(&mut dot, "  {} [label=\"{}\"];", node_index.index(), label).unwrap();
@@ -590,7 +800,7 @@ impl ClusterGraph {
                 edge.source().index(),
                 edge.target().index(),
                 format!("{:?}", action),
-                action.deployment_name.replace('"', "\\\"") // Escape any quotes in the name
+                action.target_name.replace('"', "\\\"") // Escape any quotes in the name
             )
             .unwrap();
         }
@@ -599,6 +809,7 @@ impl ClusterGraph {
         dot
     }
 
+    /// Generate n walks of length `walk_length` using weighted sampling.
     fn walks_with_sampling(&self, start_node: NodeIndex, walk_length: u64, num_samples: usize) -> Vec<Vec<NodeIndex>> {
         let mut rng = thread_rng();
         let mut samples = Vec::new();
@@ -617,11 +828,14 @@ impl ClusterGraph {
                     .iter()
                     .map(|&n| {
                         let edge = self.graph.edge_weight(self.graph.find_edge(current_node, n).unwrap()).unwrap();
-                        match edge.action.deployment_action {
-                            DeploymentAction::ReplicaCount(_) | DeploymentAction::Container { .. } => {
+                        match edge.action.action_type {
+                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => {
                                 SCALE_ACTION_PROBABILITY
                             },
-                            DeploymentAction::Object(_) => CREATE_DELETE_ACTION_PROBABILITY,
+                            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
+                                CREATE_DELETE_ACTION_PROBABILITY
+                            },
+                            DeploymentAction::ResourceAction { .. } => RESOURCE_ACTION_PROBABILITY,
                         }
                     })
                     .collect();
@@ -639,6 +853,7 @@ impl ClusterGraph {
         samples
     }
 
+    /// Generate n walks of length `trace_length` using weighted sampling.
     fn generate_n_walks_with_sampling(&self, trace_length: u64, num_samples: usize) -> Vec<Walk> {
         let walk_start_node = self.graph.node_indices().next().unwrap();
         let sampled_walks = self.walks_with_sampling(walk_start_node, trace_length, num_samples);
@@ -666,21 +881,53 @@ impl ClusterGraph {
     }
 }
 
+
+/// Generates `num_deployments` candidate deployments with names `dep-1`, `dep-2`, ..., `dep-n`.
+fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, Deployment> {
+    // Assume for simplicity all pods are running the same container
+    let mut default_containers = BTreeMap::new();
+
+    let default_container = Container {
+        name: "name".to_string(),
+        image: "nginx".to_string(),
+        requests: Requests {
+            memory_gb: DEFAULT_MEMORY_COUNT,
+            mili_cpu_count: MCPU_DEFAULT_COUNT,
+            gpu_count: DEFAULT_GPU_COUNT,
+        },
+    };
+
+    default_containers.insert(default_container.name.clone(), default_container);
+
+    (1..=num_deployments)
+        .map(|i| format!("dep-{i}"))
+        .map(|name| (name.clone(), Deployment::new(name, 1, default_containers.clone())))
+        .collect()
+}
+
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
-    let input_trace_data: Vec<u8> = std::fs::read(&cli.input_trace)?;
+    let candidate_deployments = generate_candidate_deployments(cli.deployment_count);
 
-    let trace = TraceStore::import(input_trace_data, &None)?;
+    // Hard-code the nodes resulting from an input trace at least until we have the capability to parse
+    // out a real trace
+    let target_name = candidate_deployments
+        .keys()
+        .next()
+        .expect("candidate_deployments should not be empty")
+        .clone();
 
-    let (nodes, candidate_deployments) = Node::from_trace_store(&trace);
+    let a = Node::new();
+    let b = a.create_deployment(&target_name, &candidate_deployments).unwrap();
+    let c = b.increment_replica_count(target_name.clone()).unwrap();
+    let d = c.decrement_replica_count(target_name.clone()).unwrap();
 
+    let starting_state = vec![a, b, c, d];
 
     // Construct the graph by searching all valid sequences of `trace_length`-1 actions from the
     // starting state for a total of `trace_length` nodes.
-    let starting_state = vec![nodes[nodes.len() - 1].clone()];
-    // let starting_state = nodes[..1].to_vec();
-    let graph = ClusterGraph::new(candidate_deployments.clone(), starting_state, cli.trace_length);
+    let graph = ClusterGraph::new(candidate_deployments, starting_state, cli.trace_length);
 
     // if the user provided a path for us to save the graphviz representation, do so
     if let Some(graph_output_file) = &cli.graph_output_file {
@@ -697,10 +944,6 @@ fn main() -> Result<()> {
 
         let traces: Vec<TraceStore> = walks.iter().map(tracestore_from_walk).collect();
 
-
-        if let Some(output_dir) = &cli.traces_output_dir {
-            write_debug_info(&candidate_deployments, &nodes, output_dir)?;
-        }
         display_walks_and_traces(&walks, &traces, &cli)?;
     }
 
@@ -736,4 +979,52 @@ fn tracestore_from_walk(walk: &Walk) -> TraceStore {
     }
 
     trace_store
+}
+
+fn deployment_to_dynamic_object(deployment: &Deployment) -> Result<DynamicObject> {
+    Ok(DynamicObject {
+        metadata: kube::api::ObjectMeta {
+            namespace: Some("default".to_string()),
+            name: Some(deployment.name.clone()),
+            ..Default::default()
+        },
+        types: Some(kube::api::TypeMeta {
+            kind: "Deployment".to_string(),
+            api_version: "apps/v1".to_string(),
+        }),
+        data: json!({
+            "apiVersion": "apps/v1",
+            "kind": "Deployment",
+            "spec": {
+                "replicas": deployment.replica_count,
+                "selector": {
+                    "matchLabels": {
+                        "app": deployment.name
+                    }
+                },
+                "template": {
+                    "metadata": {
+                        "labels": {
+                            "app": deployment.name
+                        }
+                    },
+                    "spec": {
+                        "containers": deployment.containers.iter().map(|(_name, c)| {json! {
+                            {
+                                "name": c.name,
+                                "image": c.image,
+                                "limits": {
+                                    GPU_MODEL_STRING: format!("{}", c.requests.gpu_count)
+                                },
+                                "requests": {
+                                    "memory": c.memory_display(),
+                                    "cpu": c.cpu_display(),
+                                },
+                            }
+                        }}).collect::<Vec<_>>()
+                    }
+                }
+            }
+        }),
+    })
 }
