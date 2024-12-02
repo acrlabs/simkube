@@ -13,13 +13,15 @@ use sk_api::v1::ExportFilters;
 use sk_core::k8s::ApiSet;
 use sk_core::prelude::*;
 use sk_store::watchers::{
-    DynObjWatcher,
-    PodWatcher,
+    DynObjHandler,
+    ObjWatcher,
+    PodHandler,
 };
 use sk_store::{
     TraceStore,
     TracerConfig,
 };
+use tokio::task::JoinSet;
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -53,27 +55,29 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     println!("Loading snapshot into store...");
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
-    let (dyn_obj_watcher, do_ready_rx) =
-        DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
-    let (pod_watcher, pod_ready_rx) = PodWatcher::new(client, store.clone(), apiset);
+    let mut js = JoinSet::new();
+    let mut do_ready_rxs = vec![];
+    for gvk in config.tracked_objects.keys() {
+        let (dyn_obj_handler, dyn_obj_stream) = DynObjHandler::new_with_stream(gvk, &mut apiset).await?;
+        let (dyn_obj_watcher, do_ready_rx) = ObjWatcher::new(dyn_obj_handler, dyn_obj_stream, store.clone());
+        do_ready_rxs.push(do_ready_rx);
+        js.spawn(dyn_obj_watcher.start());
+    }
 
-    let do_handle = tokio::spawn(dyn_obj_watcher.start());
-    let pod_handle = tokio::spawn(pod_watcher.start());
+    let (pod_handler, pod_stream) = PodHandler::new_with_stream(client, apiset);
+    let (pod_watcher, pod_ready_rx) = ObjWatcher::new(pod_handler, pod_stream, store.clone());
+    js.spawn(pod_watcher.start());
 
     // the receivers block until they get a message, so don't actually care about the value
-    let _ = do_ready_rx.recv();
+    for do_ready_rx in do_ready_rxs {
+        let _ = do_ready_rx.recv();
+    }
     let _ = pod_ready_rx.recv();
 
-    do_handle.abort();
-    pod_handle.abort();
-
-    // When I don't await the tasks, it seems like it hangs.  I'm not 100% this was actually
-    // the issue though, it seemed a bit erratic.
-    let _ = do_handle.await;
-    let _ = pod_handle.await;
+    js.shutdown().await;
 
     println!("Exporting snapshot data from store...");
-    let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![], true);
+    let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![]);
     let start_ts = UtcClock.now_ts();
     let end_ts = start_ts + 1;
     let data = store.lock().unwrap().export(start_ts, end_ts, &filters)?;

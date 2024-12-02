@@ -10,6 +10,7 @@ use clockabilly::{
     UtcClock,
 };
 use either::Either;
+use json_patch_ext::prelude::*;
 use kube::api::{
     DeleteParams,
     DynamicObject,
@@ -17,10 +18,8 @@ use kube::api::{
     PatchParams,
     PropagationPolicy,
 };
-use kube::ResourceExt;
 use serde_json::json;
 use sk_core::errors::*;
-use sk_core::jsonutils;
 use sk_core::k8s::{
     add_common_metadata,
     build_global_object_meta,
@@ -32,6 +31,7 @@ use sk_core::k8s::{
 use sk_core::macros::*;
 use sk_core::prelude::*;
 use tokio::time::sleep;
+use tracing::*;
 
 use super::*;
 
@@ -71,22 +71,14 @@ pub fn build_virtual_obj(
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
 
     if let Some(pod_spec_template_path) = maybe_pod_spec_template_path {
-        jsonutils::patch_ext::add(pod_spec_template_path, "metadata", &json!({}), &mut vobj.data, false)?;
-        jsonutils::patch_ext::add(
-            &format!("{}/metadata", pod_spec_template_path),
-            "annotations",
-            &json!({}),
+        patch_ext(
             &mut vobj.data,
-            false,
+            add_operation(
+                format_ptr!("{pod_spec_template_path}/metadata/annotations/{}", escape(ORIG_NAMESPACE_ANNOTATION_KEY)),
+                json!(original_ns),
+            ),
         )?;
-        jsonutils::patch_ext::add(
-            &format!("{}/metadata/annotations", pod_spec_template_path),
-            ORIG_NAMESPACE_ANNOTATION_KEY,
-            &json!(original_ns),
-            &mut vobj.data,
-            true,
-        )?;
-        jsonutils::patch_ext::remove("", "status", &mut vobj.data)?;
+        patch_ext(&mut vobj.data, remove_operation(format_ptr!("/status")))?;
 
         // We remove all container ports from the pod specification just before applying, because it is
         // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
@@ -94,11 +86,7 @@ pub fn build_virtual_obj(
         // reason to expose the ports.  We do this here because we still want the ports to be a part of
         // the podspec when we're computing its hash, i.e., changes to the container ports will still
         // result in changes to the pod in the trace/simulation
-        jsonutils::patch_ext::remove(
-            &format!("{}/spec/containers/*", pod_spec_template_path),
-            "ports",
-            &mut vobj.data,
-        )?;
+        patch_ext(&mut vobj.data, remove_operation(format_ptr!("{pod_spec_template_path}/spec/containers/*/ports")))?;
     }
 
     Ok(vobj)

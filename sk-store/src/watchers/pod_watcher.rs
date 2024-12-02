@@ -1,45 +1,30 @@
-use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::mem::take;
-use std::pin::Pin;
-use std::sync::mpsc::{
-    Receiver,
-    Sender,
-};
 use std::sync::{
-    mpsc,
     Arc,
     Mutex,
 };
 
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use async_trait::async_trait;
 use futures::{
-    Stream,
     StreamExt,
     TryStreamExt,
 };
-use kube::runtime::watcher::{
-    watcher,
-    Event,
-};
+use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
 use sk_core::k8s::{
     ApiSet,
-    KubeResourceExt,
     OwnersCache,
     PodLifecycleData,
 };
 use sk_core::prelude::*;
+use tracing::*;
 
-use crate::{
-    TraceStorable,
-    TraceStore,
+use crate::watchers::{
+    EventHandler,
+    ObjStream,
 };
-
-pub type PodStream = Pin<Box<dyn Stream<Item = anyhow::Result<Event<corev1::Pod>>> + Send>>;
+use crate::TraceStorable;
 
 // The PodWatcher object monitors incoming pod events and records the relevant ones to the object
 // store; becaues in clusters of any reasonable size, there are a) a lot of pods, and b) a lot of
@@ -51,128 +36,39 @@ pub type PodStream = Pin<Box<dyn Stream<Item = anyhow::Result<Event<corev1::Pod>
 // lifecycle data (currently start time and end time) have changed.  If so, we compute the
 // ownership chain for the pod, and forward that info on to the store.
 
-pub struct PodWatcher {
-    pod_stream: PodStream,
-
+pub struct PodHandler {
     // We store the list of owned pods in memory here, and cache the ownership chain for each pod;
     // This is a simpler data structure than what the object store needs, to allow for easy lookup
     // by pod name.  (The object store needs to store a bunch of extra metadata about sequence
     // number and pod hash and so forth).
     owned_pods: HashMap<String, PodLifecycleData>,
     owners_cache: OwnersCache,
-    store: Arc<Mutex<dyn TraceStorable + Send>>,
-
-    clock: Box<dyn Clockable + Send>,
-    is_ready: bool,
-    ready_tx: Sender<bool>,
 }
 
-impl PodWatcher {
+impl PodHandler {
     // We take ownership of the apiset here, meaning that this has to be created after the
     // DynamicObject watcher.  We need ownership because pod owner chains could contain arbitrary
     // object types (we don't necessarily know what they are until we see the pod).  The
     // DynamicObject watcher just needs to construct the relevant api clients once, when it creates
     // the watch streams, so it can yield when it's done.  If at some point in the future this
     // becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
-    pub fn new(client: kube::Client, store: Arc<Mutex<TraceStore>>, apiset: ApiSet) -> (PodWatcher, Receiver<bool>) {
+    pub fn new_with_stream(client: kube::Client, apiset: ApiSet) -> (Box<PodHandler>, ObjStream<corev1::Pod>) {
         let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
-        let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
-        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-
         (
-            PodWatcher {
-                pod_stream,
-
+            Box::new(PodHandler {
                 owned_pods: HashMap::new(),
                 owners_cache: OwnersCache::new(apiset),
-                store,
-
-                clock: UtcClock::boxed(),
-                is_ready: false,
-                ready_tx: tx,
-            },
-            rx,
+            }),
+            watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed(),
         )
     }
 
-    // This is not a reference because it needs to "own" itself when tokio spawns it
-    pub async fn start(mut self) {
-        while let Some(res) = self.pod_stream.next().await {
-            match res {
-                Ok(mut evt) => self.handle_pod_event(&mut evt).await,
-                Err(err) => {
-                    skerr!(err, "pod watcher received error on stream");
-                },
-            }
-        }
-    }
-
-    // We swallow errors inside handle_pod_lifecycle to make sure that, on a refresh event, if one
-    // pod update fails we can still process the remaining events.  If we use ? and return an error
-    // from handle_pod_event, then this function will bail after the first failed pod update.
-    pub(crate) async fn handle_pod_event(&mut self, evt: &mut Event<corev1::Pod>) {
-        match evt {
-            Event::Applied(pod) => {
-                let ns_name = pod.namespaced_name();
-                if let Err(err) = self.handle_pod_applied(&ns_name, pod).await {
-                    skerr!(err, "applied pod {} lifecycle data could not be stored", ns_name);
-                }
-            },
-            Event::Deleted(pod) => {
-                let ns_name = pod.namespaced_name();
-                let current_lifecycle_data = match self.owned_pods.get(&ns_name) {
-                    None => {
-                        warn!("pod {ns_name} deleted but not tracked, may have already been processed");
-                        return;
-                    },
-                    Some(data) => data.clone(),
-                };
-                if let Err(err) = self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data).await {
-                    skerr!(err, "deleted pod {} lifecycle data could not be stored", ns_name);
-                }
-            },
-            Event::Restarted(pods) => {
-                // We're essentially swapping the old data structure for the new one, and removing
-                // events from the old and putting them into the new.  Then we know that anything
-                // left in the old after we're done was deleted in the intervening period.  This
-                // lets us not have to track "object versions" or use a bit vector or something
-                // along those lines.
-                let mut old_owned_pods = take(&mut self.owned_pods);
-                for pod in pods {
-                    let ns_name = &pod.namespaced_name();
-                    if let Some(current_lifecycle_data) = old_owned_pods.remove(ns_name) {
-                        self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
-                    }
-                    if let Err(err) = self.handle_pod_applied(ns_name, pod).await {
-                        skerr!(err, "(watcher restart) applied pod {} lifecycle data could not be stored", ns_name);
-                    }
-                }
-
-                for (ns_name, current_lifecycle_data) in &old_owned_pods {
-                    // We don't have data on the deleted pods aside from the name, so we just pass
-                    // in `None` for the pod object.
-                    if let Err(err) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone()).await {
-                        skerr!(err, "(watcher restart) deleted pod {} lifecycle data could not be stored", ns_name);
-                    }
-                }
-
-                // When the watcher first starts up it does a List call, which (internally) gets
-                // converted into a "Restarted" event that contains all of the listed objects.
-                // Once we've handled this event the first time, we know we have a complete view of
-                // the cluster at startup time.
-                if !self.is_ready {
-                    self.is_ready = true;
-
-                    // unlike golang, sending is non-blocking
-                    if let Err(e) = self.ready_tx.send(true) {
-                        error!("failed to update podwatcher ready status: {e:?}")
-                    }
-                }
-            },
-        };
-    }
-
-    async fn handle_pod_applied(&mut self, ns_name: &str, pod: &corev1::Pod) -> EmptyResult {
+    async fn handle_pod_applied(
+        &mut self,
+        ns_name: &str,
+        pod: &corev1::Pod,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+    ) -> EmptyResult {
         let new_lifecycle_data = PodLifecycleData::new_for(pod)?;
         let current_lifecycle_data = self.owned_pods.get(ns_name);
 
@@ -184,7 +80,8 @@ impl PodWatcher {
         // PodLifecycleData::Empty < everything.
         if new_lifecycle_data > current_lifecycle_data {
             self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
-            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data).await?;
+            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data, store)
+                .await?;
         } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
                 "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
@@ -203,6 +100,8 @@ impl PodWatcher {
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
         current_lifecycle_data: PodLifecycleData,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+        ts: i64,
     ) -> EmptyResult {
         // Always remove the pod from our tracker, regardless of what else happens
         self.owned_pods.remove(ns_name);
@@ -219,12 +118,13 @@ impl PodWatcher {
             None => {
                 // We never store "empty" data so this unwrap should always succeed
                 let start_ts = current_lifecycle_data.start_ts().unwrap();
-                PodLifecycleData::Finished(start_ts, self.clock.now_ts())
+                PodLifecycleData::Finished(start_ts, ts)
             },
-            Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, self.clock.borrow())?,
+            Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, ts)?,
         };
 
-        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await
+        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data, store)
+            .await
     }
 
     async fn store_pod_lifecycle_data(
@@ -232,6 +132,7 @@ impl PodWatcher {
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
         lifecycle_data: &PodLifecycleData,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
     ) -> EmptyResult {
         // Before storing the lifecycle data, we need to compute the ownership chain so the store
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
@@ -243,34 +144,81 @@ impl PodWatcher {
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
-        // We don't expect the trace store to panic, but if it does, we should panic here too
-        let mut store = self.store.lock().unwrap();
-        store.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)
+        let mut s = store.lock().expect("trace store mutex poisoned");
+        s.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)
+    }
+}
+
+#[async_trait]
+impl EventHandler<corev1::Pod> for PodHandler {
+    async fn applied(
+        &mut self,
+        pod: &corev1::Pod,
+        _ts: i64,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+    ) -> EmptyResult {
+        let ns_name = pod.namespaced_name();
+        self.handle_pod_applied(&ns_name, pod, store).await
+    }
+
+    async fn deleted(
+        &mut self,
+        pod: &corev1::Pod,
+        ts: i64,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+    ) -> EmptyResult {
+        let ns_name = pod.namespaced_name();
+        let Some(current_lifecycle_data) = self.owned_pods.get(&ns_name) else {
+            warn!("pod {ns_name} deleted but not tracked, may have already been processed");
+            return Ok(());
+        };
+        self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data.clone(), store, ts)
+            .await
+    }
+
+    async fn initialized(
+        &mut self,
+        pods: &[corev1::Pod],
+        ts: i64,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
+    ) -> EmptyResult {
+        // We're essentially swapping the old data structure for the new one, and removing
+        // events from the old and putting them into the new.  Then we know that anything
+        // left in the old after we're done was deleted in the intervening period.  This
+        // lets us not have to track "object versions" or use a bit vector or something
+        // along those lines.
+        let mut old_owned_pods = take(&mut self.owned_pods);
+        for pod in pods {
+            let ns_name = &pod.namespaced_name();
+            if let Some(current_lifecycle_data) = old_owned_pods.remove(ns_name) {
+                self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
+            }
+            if let Err(err) = self.handle_pod_applied(ns_name, pod, store.clone()).await {
+                skerr!(err, "(watcher restart) applied pod {} lifecycle data could not be stored", ns_name);
+            }
+        }
+
+        for (ns_name, current_lifecycle_data) in &old_owned_pods {
+            // We don't have data on the deleted pods aside from the name, so we just pass
+            // in `None` for the pod object.
+            if let Err(err) = self
+                .handle_pod_deleted(ns_name, None, current_lifecycle_data.clone(), store.clone(), ts)
+                .await
+            {
+                skerr!(err, "(watcher restart) deleted pod {} lifecycle data could not be stored", ns_name);
+            }
+        }
+        Ok(())
     }
 }
 
 #[cfg(test)]
-impl PodWatcher {
+impl PodHandler {
     pub(crate) fn new_from_parts(
-        pod_stream: PodStream,
         owned_pods: HashMap<String, PodLifecycleData>,
         owners_cache: OwnersCache,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-        clock: Box<dyn Clockable + Send>,
-    ) -> (PodWatcher, Receiver<bool>) {
-        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-        (
-            PodWatcher {
-                pod_stream,
-                owned_pods,
-                owners_cache,
-                store,
-                clock,
-                is_ready: false,
-                ready_tx: tx,
-            },
-            rx,
-        )
+    ) -> PodHandler {
+        PodHandler { owned_pods, owners_cache }
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {

@@ -1,10 +1,6 @@
 use std::collections::HashMap;
 
-use json_patch::{
-    patch,
-    Patch,
-};
-use kube::api::TypeMeta;
+use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
@@ -15,7 +11,6 @@ use kube::core::{
     GroupVersionKind,
     GroupVersionResource,
 };
-use kube::ResourceExt;
 use mockall::predicate;
 use rocket::serde::json::Json;
 use sk_core::k8s::PodLifecycleData;
@@ -131,15 +126,15 @@ async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionRespo
     let mut store = MockTraceStore::new();
     let _ = store
         .expect_lookup_pod_lifecycle()
-        .with(predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
-        .returning(|_, _, _| PodLifecycleData::Finished(1, 2))
+        .with(predicate::always(), predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
+        .returning(|_, _, _, _| PodLifecycleData::Finished(1, 2))
         .once();
-    let _ = store.expect_has_obj().returning(move |o| o == owner_ns_name);
+    let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
 
     let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
 
     adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new()).await.unwrap();
     let mut json_pod = serde_json::to_value(&test_pod).unwrap();
     let pod_patch: Patch = serde_json::from_slice(&adm_resp.patch.unwrap()).unwrap();
-    patch(&mut json_pod, &pod_patch).unwrap();
+    patch_ext(&mut json_pod, pod_patch.0[0].clone()).unwrap();
 }

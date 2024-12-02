@@ -18,7 +18,6 @@ use sk_core::external_storage::{
 };
 use sk_core::k8s::{
     ApiSet,
-    KubeResourceExt,
     OwnersCache,
 };
 use sk_core::prelude::*;
@@ -32,6 +31,7 @@ use sk_store::{
 };
 use tokio::sync::Mutex;
 use tokio::time::sleep;
+use tracing::*;
 
 use crate::mutation::MutationData;
 use crate::runner::run_trace;

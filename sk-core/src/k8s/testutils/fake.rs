@@ -69,19 +69,7 @@ impl MockServerBuilder {
 
 pub fn make_fake_apiserver() -> (MockServerBuilder, kube::Client) {
     let builder = MockServerBuilder::new();
-    let config = kube::Config {
-        cluster_url: builder.url(),
-        default_namespace: "default".into(),
-        root_cert: None,
-        connect_timeout: None,
-        read_timeout: None,
-        write_timeout: None,
-        accept_invalid_certs: true,
-        auth_info: Default::default(),
-        proxy_url: None,
-        tls_server_name: None,
-    };
-
+    let config = kube::Config::new(builder.url());
     let client = kube::Client::try_from(config).unwrap();
     (builder, client)
 }

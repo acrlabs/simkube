@@ -20,13 +20,16 @@ use sk_core::k8s::ApiSet;
 use sk_core::logging;
 use sk_core::prelude::*;
 use sk_store::watchers::{
-    DynObjWatcher,
-    PodWatcher,
+    DynObjHandler,
+    ObjWatcher,
+    PodHandler,
 };
 use sk_store::{
     TraceStore,
     TracerConfig,
 };
+use tokio::task::JoinSet;
+use tracing::*;
 
 use crate::errors::ExportResponseError;
 
@@ -91,8 +94,17 @@ async fn run(args: Options) -> EmptyResult {
     let mut apiset = ApiSet::new(client.clone());
 
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
-    let (dyn_obj_watcher, _) = DynObjWatcher::new(store.clone(), &mut apiset, &config.tracked_objects).await?;
-    let (pod_watcher, _) = PodWatcher::new(client, store.clone(), apiset);
+
+    let mut js = JoinSet::new();
+    for gvk in config.tracked_objects.keys() {
+        let (dyn_obj_handler, dyn_obj_stream) = DynObjHandler::new_with_stream(gvk, &mut apiset).await?;
+        let (dyn_obj_watcher, _) = ObjWatcher::new(dyn_obj_handler, dyn_obj_stream, store.clone());
+        js.spawn(dyn_obj_watcher.start());
+    }
+
+    let (pod_handler, pod_stream) = PodHandler::new_with_stream(client, apiset);
+    let (pod_watcher, _) = ObjWatcher::new(pod_handler, pod_stream, store.clone());
+    js.spawn(pod_watcher.start());
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
@@ -100,8 +112,7 @@ async fn run(args: Options) -> EmptyResult {
         .manage(store.clone());
 
     tokio::select! {
-        res = tokio::spawn(dyn_obj_watcher.start()) => res.map_err(|e| e.into()),
-        res = tokio::spawn(pod_watcher.start()) => res.map_err(|e| e.into()),
+        _ = js.join_all() => Ok(()),
         res = tokio::spawn(server.launch()) => match res {
             Ok(r) => r.map(|_| ()).map_err(|err| err.into()),
             Err(err) => Err(err.into()),

@@ -5,16 +5,9 @@ use std::cmp::{
     Ordering,
 };
 
-use clockabilly::Clockable;
-use json_patch::{
-    AddOperation,
-    PatchOperation,
-};
-use kube::ResourceExt;
-use serde_json::Value;
+use tracing::*;
 
 use super::*;
-use crate::jsonutils;
 use crate::prelude::*;
 
 // A PodLifecycleData object is how we track the length of time a pod was running in a cluster.  It
@@ -115,10 +108,9 @@ impl PodLifecycleData {
     pub fn guess_finished_lifecycle(
         pod: &corev1::Pod,
         current_lifecycle_data: &PodLifecycleData,
-        clock: &(dyn Clockable + Send),
+        now: i64,
     ) -> anyhow::Result<PodLifecycleData> {
         let new_lifecycle_data = PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty);
-        let now = clock.now_ts();
 
         match new_lifecycle_data {
             PodLifecycleData::Finished(..) => Ok(new_lifecycle_data),
@@ -146,16 +138,6 @@ impl PodLifecycleData {
 
     pub fn finished(&self) -> bool {
         matches!(self, PodLifecycleData::Finished(..))
-    }
-
-    pub fn to_annotation_patch(&self) -> Option<PatchOperation> {
-        match self {
-            PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
-            PodLifecycleData::Finished(start_ts, end_ts) => Some(PatchOperation::Add(AddOperation {
-                path: format!("/metadata/annotations/{}", jsonutils::escape(LIFETIME_ANNOTATION_KEY)),
-                value: Value::String(format!("{}", end_ts - start_ts)),
-            })),
-        }
     }
 }
 

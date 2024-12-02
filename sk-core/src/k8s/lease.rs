@@ -6,8 +6,8 @@ use clockabilly::{
 };
 use k8s_openapi::api::coordination::v1 as coordinationv1;
 use kube::api::Patch;
-use kube::ResourceExt;
 use serde_json::json;
+use tracing::*;
 
 use crate::k8s::{
     build_object_meta,

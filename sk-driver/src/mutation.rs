@@ -1,17 +1,12 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-use json_patch::{
-    AddOperation,
-    Patch,
-    PatchOperation,
-};
+use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
     AdmissionReview,
 };
-use kube::ResourceExt;
 use rocket::serde::json::Json;
 use serde_json::{
     json,
@@ -19,10 +14,12 @@ use serde_json::{
 };
 use sk_core::jsonutils;
 use sk_core::k8s::{
-    KubeResourceExt,
     PodExt,
+    PodLifecycleData,
+    GVK,
 };
 use sk_core::prelude::*;
+use tracing::*;
 
 use crate::DriverContext;
 
@@ -88,24 +85,12 @@ pub async fn mutate_pod(
         return Ok(resp);
     }
 
-    let mut patches = vec![];
-    add_simulation_labels(ctx, pod, &mut patches)?;
+    let mut patches =
+        vec![add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.name))];
     add_lifecycle_annotation(ctx, pod, &owners, mut_data, &mut patches)?;
     add_node_selector_tolerations(pod, &mut patches)?;
 
     Ok(resp.with_patch(Patch(patches))?)
-}
-
-fn add_simulation_labels(ctx: &DriverContext, pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
-    if pod.metadata.labels.is_none() {
-        patches.push(PatchOperation::Add(AddOperation { path: "/metadata/labels".into(), value: json!({}) }));
-    }
-    patches.push(PatchOperation::Add(AddOperation {
-        path: format!("/metadata/labels/{}", jsonutils::escape(SIMULATION_LABEL_KEY)),
-        value: Value::String(ctx.name.clone()),
-    }));
-
-    Ok(())
 }
 
 fn add_lifecycle_annotation(
@@ -117,22 +102,20 @@ fn add_lifecycle_annotation(
 ) -> EmptyResult {
     if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
         for owner in owners {
+            let owner_gvk = GVK::from_owner_ref(owner)?;
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.store.has_obj(&owner_ns_name) {
+            if !ctx.store.has_obj(&owner_gvk, &owner_ns_name) {
                 continue;
             }
 
             let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
             let seq = mut_data.count(hash);
 
-            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_ns_name, hash, seq);
-            if let Some(patch) = lifecycle.to_annotation_patch() {
+            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
+            if let Some(patch) = to_annotation_patch(&lifecycle) {
                 info!("applying lifecycle annotations (hash={hash}, seq={seq})");
                 if pod.metadata.annotations.is_none() {
-                    patches.push(PatchOperation::Add(AddOperation {
-                        path: "/metadata/annotations".into(),
-                        value: json!({}),
-                    }));
+                    patches.push(add_operation(format_ptr!("/metadata/annotations"), json!({})));
                 }
                 patches.push(patch);
                 break;
@@ -147,16 +130,13 @@ fn add_lifecycle_annotation(
 
 fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
     if pod.spec()?.tolerations.is_none() {
-        patches.push(PatchOperation::Add(AddOperation { path: "/spec/tolerations".into(), value: json!([]) }));
+        patches.push(add_operation(format_ptr!("/spec/tolerations"), json!([])));
     }
-    patches.push(PatchOperation::Add(AddOperation {
-        path: "/spec/nodeSelector".into(),
-        value: json!({"type": "virtual"}),
-    }));
-    patches.push(PatchOperation::Add(AddOperation {
-        path: "/spec/tolerations/-".into(),
-        value: json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
-    }));
+    patches.push(add_operation(format_ptr!("/spec/nodeSelector"), json!({"type": "virtual"})));
+    patches.push(add_operation(
+        format_ptr!("/spec/tolerations/-"),
+        json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+    ));
 
     Ok(())
 }
@@ -168,5 +148,15 @@ fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
         // All that matters is that we keep the request UUID, which is in the TypeMeta
         request: None,
         response: Some(resp),
+    }
+}
+
+fn to_annotation_patch(pld: &PodLifecycleData) -> Option<PatchOperation> {
+    match pld {
+        PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
+        PodLifecycleData::Finished(start_ts, end_ts) => Some(add_operation(
+            format_ptr!("/metadata/annotations/{}", escape(LIFETIME_ANNOTATION_KEY)),
+            Value::String(format!("{}", end_ts - start_ts)),
+        )),
     }
 }

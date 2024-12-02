@@ -1,3 +1,5 @@
+import os
+
 import fireconfig as fire
 from constructs import Construct
 from fireconfig.types import Capability
@@ -45,8 +47,10 @@ class SkTracer(fire.AppPackage):
             .with_service_account_and_role_binding("view", True)
             .with_containers(container)
             .with_service()
-            .with_node_selector("type", "kind-worker")
         )
+
+        if os.getenv("KUSTOMIZE") is None:
+            self._depl = self._depl.with_node_selector("type", "kind-worker")
 
     def compile(self, chart: Construct):
         self._depl.build(chart)  # type: ignore

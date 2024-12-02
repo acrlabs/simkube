@@ -1,14 +1,12 @@
 use assertables::*;
-use kube::api::DynamicObject;
 use serde_json::json;
-use sk_core::k8s::testutils::test_deployment;
 use sk_store::TraceEvent;
 
 use super::*;
 
 #[rstest]
 fn test_status_field_populated(test_deployment: DynamicObject) {
-    let mut v = status_field_populated::validator();
+    let v = status_field_populated::validator();
     let mut evt = AnnotatedTraceEvent {
         data: TraceEvent {
             ts: 1,
@@ -23,7 +21,7 @@ fn test_status_field_populated(test_deployment: DynamicObject) {
 
 #[rstest]
 fn test_status_field_not_populated(test_deployment: DynamicObject) {
-    let mut v = status_field_populated::validator();
+    let v = status_field_populated::validator();
     let mut evt = AnnotatedTraceEvent {
         data: TraceEvent {
             ts: 1,

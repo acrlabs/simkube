@@ -1,4 +1,3 @@
-use kube::ResourceExt;
 use sk_api::v1::{
     Simulation,
     SimulationMetricsConfig,

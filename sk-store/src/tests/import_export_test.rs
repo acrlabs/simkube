@@ -7,37 +7,21 @@ use clockabilly::mock::MockUtcClock;
 use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::api::DynamicObject;
 use kube::runtime::watcher::Event;
 use kube::ResourceExt;
-use serde_json::json;
 use sk_api::v1::ExportFilters;
 use sk_core::macros::*;
 
 use super::*;
 use crate::watchers::{
-    DynObjWatcher,
-    KubeObjectStream,
+    DynObjHandler,
+    ObjStream,
+    ObjWatcher,
 };
 use crate::TraceStore;
 
-fn test_pod(idx: i64) -> DynamicObject {
-    DynamicObject {
-        metadata: metav1::ObjectMeta {
-            namespace: Some(TEST_NAMESPACE.into()),
-            name: Some(format!("pod{idx}").into()),
-            ..Default::default()
-        },
-        types: None,
-        data: json!({"spec": {}}),
-    }
-}
-
-fn test_daemonset_pod(idx: i64) -> DynamicObject {
-    let mut ds_pod = test_pod(idx + 100);
-    ds_pod.metadata.owner_references =
-        Some(vec![metav1::OwnerReference { kind: "DaemonSet".into(), ..Default::default() }]);
-    ds_pod
+fn d(idx: i64) -> DynamicObject {
+    test_deployment(&format!("depl{idx}"))
 }
 
 // Set up a test stream to ensure that imports and exports work correctly.
@@ -47,73 +31,63 @@ fn test_daemonset_pod(idx: i64) -> DynamicObject {
 //
 // This is a little subtle because the event that we're returning at state (ts_i, id) does not
 // actually _happen_ until time ts_{i+1}.
-fn test_stream(clock: MockUtcClock) -> KubeObjectStream {
-    stream::unfold((-1, 0), move |state| {
+fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
+    stream::unfold((-1, -1), move |state| {
         let mut c = clock.clone();
         async move {
             match state {
-                // Initial conditions: we create 10 regular pods and 5 daemonset pods
-                (-1, id) => {
-                    let mut pods: Vec<_> = (0..10).map(|i| test_pod(i)).collect();
-                    let ds_pods: Vec<_> = (0..5).map(|i| test_daemonset_pod(i)).collect();
-                    pods.extend(ds_pods);
-                    return Some((Ok(Event::Restarted(pods)), (0, id)));
+                // Initial conditions: we create 10 deployments
+                (-1, -1) => {
+                    return Some((Ok(Event::Init), (-1, 0)));
+                },
+
+                (-1, id) if id < 10 => {
+                    let obj = d(id);
+                    return Some((Ok(Event::InitApply(obj)), (-1, id + 1)));
+                },
+
+                (-1, 10) => {
+                    return Some((Ok(Event::InitDone), (0, 0)));
                 },
 
                 // We recreate one of the pods at time zero just to make sure there's
                 // no weird duplicate behaviours
                 (0, id) => {
-                    let pod = test_pod(id);
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(Event::Apply(obj)), (new_ts, id)));
                 },
 
                 // From times 10..20, we delete one of the regular pods
                 (5..=19, id) => {
-                    let pod = test_pod(id);
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok(Event::Delete(obj)), (new_ts, id + 1)));
                 },
 
                 // In times 20..25, we test the various filter options:
-                //  - two DS pods are created
                 //  - a kube-system pod is created
                 //  - a label-selector pod is created
                 //
                 // In the test below, all of these events should be filtered out
-                (20, id) => {
-                    let pod = test_daemonset_pod(7);
-                    let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
-                },
-                (21, id) => {
-                    let pod = test_daemonset_pod(8);
-                    let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
-                },
                 (22, id) => {
-                    let mut pod = test_pod(30);
-                    pod.metadata.namespace = Some("kube-system".into());
+                    let mut obj = d(30);
+                    obj.metadata.namespace = Some("kube-system".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
-                },
-                (23, id) => {
-                    let pod = test_daemonset_pod(1);
-                    let new_ts = c.advance(1);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id)));
+                    return Some((Ok(Event::Apply(obj)), (new_ts, id)));
                 },
                 (24, id) => {
-                    let mut pod = test_pod(31);
-                    pod.labels_mut().insert("foo".into(), "bar".into());
+                    let mut obj = d(31);
+                    obj.labels_mut().insert("foo".into(), "bar".into());
                     let new_ts = c.advance(1);
-                    return Some((Ok(Event::Applied(pod)), (new_ts, id)));
+                    return Some((Ok(Event::Apply(obj)), (new_ts, id)));
                 },
 
                 // Lastly we delete the remaining "regular" pods
                 (25..=55, id) => {
-                    let pod = test_pod(id);
+                    let obj = d(id);
                     let new_ts = c.advance(5);
-                    return Some((Ok(Event::Deleted(pod)), (new_ts, id + 1)));
+                    return Some((Ok(Event::Delete(obj)), (new_ts, id + 1)));
                 },
                 _ => None,
             }
@@ -135,7 +109,8 @@ async fn itest_export(#[case] duration: Option<String>) {
     let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
 
     // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let w = DynObjWatcher::new_from_parts(test_stream(*clock.clone()), s.clone(), clock);
+    let h = DynObjHandler::new(DEPL_GVK.clone());
+    let w = ObjWatcher::new_from_parts(h, test_stream(*clock.clone()), s.clone(), clock);
     w.start().await;
 
     // Next export the data with the chosen filters
@@ -145,7 +120,6 @@ async fn itest_export(#[case] duration: Option<String>) {
             match_labels: klabel!("foo" => "bar"),
             ..Default::default()
         }],
-        exclude_daemonsets: true,
     };
 
     let store = s.lock().unwrap();
@@ -155,8 +129,8 @@ async fn itest_export(#[case] duration: Option<String>) {
             // Confirm that the results match what we expect
             let new_store = TraceStore::import(data, &duration).unwrap();
             let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-            let expected_pods = store.objs_at(import_end_ts, &filter);
-            let actual_pods = new_store.objs_at(end_ts, &filter);
+            let expected_pods = store.sorted_objs_at(import_end_ts, &filter);
+            let actual_pods = new_store.sorted_objs_at(end_ts, &filter);
             println!("Expected pods: {:?}", expected_pods);
             println!("Actual pods: {:?}", actual_pods);
             assert_eq!(actual_pods, expected_pods);

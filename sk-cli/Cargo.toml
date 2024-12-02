@@ -13,18 +13,20 @@ testutils = []
 
 [dependencies]
 anyhow = { workspace = true }
+bytes = { workspace = true }
 chrono = { workspace = true }
 clockabilly = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 derive_setters = { workspace = true }
 dirs = { workspace = true }
-json-patch = { workspace = true }
+json-patch-ext = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 lazy_static = { workspace = true }
 ratatui = { workspace = true }
 reqwest = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }

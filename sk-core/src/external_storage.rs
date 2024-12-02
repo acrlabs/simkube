@@ -30,8 +30,6 @@ use std::path::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
-#[cfg(feature = "testutils")]
-use mockall::automock;
 use object_store::path::Path;
 use object_store::{
     DynObjectStore,
@@ -112,6 +110,9 @@ fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
 
     Ok(ObjectStoreScheme::parse(&url)?)
 }
+
+#[cfg(feature = "testutils")]
+use mockall::automock;
 
 #[cfg(test)]
 mod test {

@@ -6,10 +6,7 @@ use kube::discovery::{
     ApiCapabilities,
     Scope,
 };
-use kube::{
-    Resource,
-    ResourceExt,
-};
+use kube::Resource;
 use tracing::*;
 
 use super::*;

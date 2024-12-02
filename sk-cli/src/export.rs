@@ -60,7 +60,7 @@ pub struct Args {
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![], true);
+    let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![]);
     let req = ExportRequest::new(args.start_time, args.end_time, args.output_path.clone(), filters);
     let endpoint = format!("{}/export", args.tracer_address);
 

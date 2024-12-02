@@ -1,3 +1,10 @@
+use std::sync::{
+    Arc,
+    RwLock,
+};
+
+use json_patch_ext::prelude::*;
+
 use super::annotated_trace::AnnotatedTraceEvent;
 use super::validator::{
     Diagnostic,
@@ -35,6 +42,10 @@ impl Diagnostic for StatusFieldPopulated {
             .collect()
     }
 
+    fn fixes(&self) -> Vec<PatchOperation> {
+        vec![remove_operation(format_ptr!("/status"))]
+    }
+
     fn reset(&mut self) {}
 }
 
@@ -43,6 +54,6 @@ pub(super) fn validator() -> Validator {
         type_: ValidatorType::Warning,
         name: "status_field_populated",
         help: HELP,
-        diagnostic: Box::new(StatusFieldPopulated::default()),
+        diagnostic: Arc::new(RwLock::new(StatusFieldPopulated::default())),
     }
 }

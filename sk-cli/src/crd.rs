@@ -1,4 +1,3 @@
-use kube::CustomResourceExt;
 use sk_core::prelude::*;
 
 pub fn cmd() -> EmptyResult {

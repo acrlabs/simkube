@@ -5,7 +5,6 @@ use anyhow::anyhow;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
-use kube::ResourceExt;
 use object_store::ObjectStoreScheme;
 use reqwest::Url;
 use sk_api::prometheus::{
@@ -201,7 +200,7 @@ pub fn build_driver_job(
         secrets_list
             .iter()
             .map(|s| corev1::EnvFromSource {
-                secret_ref: Some(corev1::SecretEnvSource { name: Some(s.clone()), optional: Some(false) }),
+                secret_ref: Some(corev1::SecretEnvSource { name: s.clone(), optional: Some(false) }),
                 ..Default::default()
             })
             .collect()

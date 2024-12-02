@@ -18,7 +18,6 @@ use kube::api::{
     Patch,
 };
 use kube::runtime::controller::Action;
-use kube::ResourceExt;
 use serde_json::json;
 use sk_api::prometheus::*;
 use sk_api::v1::{
@@ -34,13 +33,13 @@ use sk_core::k8s::{
     is_terminal,
     metrics_ns,
     try_claim_lease,
-    KubeResourceExt,
     LeaseState,
 };
 use sk_core::prelude::*;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;
 use tokio::time::Duration;
+use tracing::*;
 
 use crate::cert_manager;
 use crate::context::SimulationContext;

@@ -16,20 +16,10 @@ pub struct ExportFilters {
     pub excluded_namespaces: Vec<String>,
     #[serde(rename = "excluded_labels")]
     pub excluded_labels: Vec<metav1::LabelSelector>,
-    #[serde(rename = "exclude_daemonsets")]
-    pub exclude_daemonsets: bool,
 }
 
 impl ExportFilters {
-    pub fn new(
-        excluded_namespaces: Vec<String>,
-        excluded_labels: Vec<metav1::LabelSelector>,
-        exclude_daemonsets: bool,
-    ) -> ExportFilters {
-        ExportFilters {
-            excluded_namespaces,
-            excluded_labels,
-            exclude_daemonsets,
-        }
+    pub fn new(excluded_namespaces: Vec<String>, excluded_labels: Vec<metav1::LabelSelector>) -> ExportFilters {
+        ExportFilters { excluded_namespaces, excluded_labels }
     }
 }

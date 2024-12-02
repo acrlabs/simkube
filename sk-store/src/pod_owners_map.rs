@@ -2,8 +2,14 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
 use sk_core::errors::*;
-use sk_core::k8s::PodLifecycleData;
-use sk_core::prelude::*;
+use sk_core::k8s::{
+    format_gvk_name,
+    PodLifecycleData,
+    GVK,
+};
+use tracing::*;
+
+use crate::TraceIndex;
 
 // The PodOwnersMap tracks lifecycle data for all pods that are owned by some object that we care
 // about (e.g., if we are tracking Deployments, the owners map will track the lifecycle data for
@@ -44,16 +50,16 @@ use sk_core::prelude::*;
 
 pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct PodOwnersMap {
-    m: HashMap<String, PodLifecyclesMap>,
-    index: HashMap<String, (String, u64, usize)>,
+    m: HashMap<(GVK, String), PodLifecyclesMap>,
+    index: HashMap<String, ((GVK, String), u64, usize)>,
 }
 
 impl PodOwnersMap {
     pub(crate) fn new_from_parts(
-        m: HashMap<String, PodLifecyclesMap>,
-        index: HashMap<String, (String, u64, usize)>,
+        m: HashMap<(GVK, String), PodLifecyclesMap>,
+        index: HashMap<String, ((GVK, String), u64, usize)>,
     ) -> PodOwnersMap {
         PodOwnersMap { m, index }
     }
@@ -64,20 +70,23 @@ impl PodOwnersMap {
 
     pub(crate) fn lifecycle_data_for<'a>(
         &'a self,
+        owner_gvk: &GVK,
         owner_ns_name: &str,
         pod_hash: u64,
     ) -> Option<&'a Vec<PodLifecycleData>> {
-        self.m.get(owner_ns_name)?.get(&pod_hash)
+        self.m.get(&(owner_gvk.clone(), owner_ns_name.into()))?.get(&pod_hash)
     }
 
     pub(crate) fn store_new_pod_lifecycle(
         &mut self,
-        ns_name: &str,
+        pod_ns_name: &str,
+        owner_gvk: &GVK,
         owner_ns_name: &str,
         hash: u64,
         lifecycle_data: &PodLifecycleData,
     ) {
-        let idx = match self.m.entry(owner_ns_name.into()) {
+        let owner_gvk_name = format_gvk_name(owner_gvk, owner_ns_name);
+        let idx = match self.m.entry((owner_gvk.clone(), owner_ns_name.into())) {
             Entry::Vacant(e) => {
                 e.insert([(hash, vec![lifecycle_data.clone()])].into());
                 0
@@ -89,30 +98,33 @@ impl PodOwnersMap {
             },
         };
 
-        info!("inserting pod {ns_name} owned by {owner_ns_name} with hash {hash}: {lifecycle_data:?}");
-        self.index.insert(ns_name.into(), (owner_ns_name.into(), hash, idx));
+        info!("inserting pod {pod_ns_name} owned by {owner_gvk_name} with hash {hash}: {lifecycle_data:?}");
+        self.index
+            .insert(pod_ns_name.into(), ((owner_gvk.clone(), owner_ns_name.into()), hash, idx));
     }
 
-    pub(crate) fn update_pod_lifecycle(&mut self, ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
-        match self.index.get(ns_name) {
-            None => bail!("pod {} not present in index", ns_name),
-            Some((owner_ns_name, hash, sequence_idx)) => {
+    pub(crate) fn update_pod_lifecycle(&mut self, pod_ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
+        match self.index.get(pod_ns_name) {
+            None => bail!("pod {} not present in index", pod_ns_name),
+            Some(((owner_gvk, owner_ns_name), hash, sequence_idx)) => {
                 let owner_entry = self
                     .m
-                    .get_mut(owner_ns_name)
-                    .ok_or(anyhow!("no owner entry for pod {}", ns_name))?;
-                let pods =
-                    owner_entry
-                        .get_mut(hash)
-                        .ok_or(anyhow!("no entry for pod {} matching hash {}", ns_name, hash))?;
+                    .get_mut(&(owner_gvk.clone(), owner_ns_name.into()))
+                    .ok_or(anyhow!("no owner entry for pod {}", pod_ns_name))?;
+                let pods = owner_entry.get_mut(hash).ok_or(anyhow!(
+                    "no entry for pod {} matching hash {}",
+                    pod_ns_name,
+                    hash
+                ))?;
                 let pod_entry = pods.get_mut(*sequence_idx).ok_or(anyhow!(
                     "no sequence index {} for pod {} matching hash {}",
                     sequence_idx,
-                    ns_name,
+                    pod_ns_name,
                     hash
                 ))?;
 
-                info!("updating pod {ns_name} owned by {owner_ns_name} with hash {hash}: {lifecycle_data:?}");
+                let owner_gvk_name = format_gvk_name(owner_gvk, owner_ns_name);
+                info!("updating pod {pod_ns_name} owned by {owner_gvk_name} with hash {hash}: {lifecycle_data:?}");
                 *pod_entry = lifecycle_data.clone();
                 Ok(())
             },
@@ -125,21 +137,24 @@ impl PodOwnersMap {
         &self,
         start_ts: i64,
         end_ts: i64,
-        index: &HashMap<String, u64>,
-    ) -> HashMap<String, PodLifecyclesMap> {
+        index: &TraceIndex,
+    ) -> HashMap<(GVK, String), PodLifecyclesMap> {
         self.m
             .iter()
             // The filtering is a little complicated here; if the owning object isn't in the index,
             // we discard it.  Also, if none of the pods belonging to the owning object land
             // within the given time window, we want to discard it.  Otherwise, we want to filter
             // down the list of pods to the ones that fall between the given time window.
-            .filter_map(|(owner, lifecycles_map)| {
-                if !index.contains_key(owner) {
+            .filter_map(|((owner_gvk, owner_ns_name), lifecycles_map)| {
+                if !index.contains(owner_gvk, owner_ns_name) {
                     return None;
                 }
 
                 // Note the question mark here, doing a bunch of heavy lifting
-                Some((owner.clone(), filter_lifecycles_map(start_ts, end_ts, lifecycles_map)?))
+                Some((
+                    (owner_gvk.clone(), owner_ns_name.clone()),
+                    filter_lifecycles_map(start_ts, end_ts, lifecycles_map)?,
+                ))
             })
             .collect()
     }
@@ -169,7 +184,7 @@ pub(crate) fn filter_lifecycles_map(
 
 #[cfg(test)]
 impl PodOwnersMap {
-    pub(crate) fn pod_owner_meta(&self, ns_name: &str) -> Option<&(String, u64, usize)> {
-        self.index.get(ns_name)
+    pub(crate) fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
+        self.index.get(pod_ns_name)
     }
 }
