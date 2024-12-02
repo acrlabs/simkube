@@ -79,6 +79,10 @@ use kube::api::DynamicObject;
 use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
+use rand_distr::{
+    Distribution,
+    Poisson,
+};
 use serde_json::json;
 use sk_core::k8s::GVK;
 use sk_store::{
@@ -94,8 +98,6 @@ use crate::output::{
     export_graphviz,
     gen_trace_event,
 };
-
-use rand_distr::{Poisson, Distribution};
 
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
@@ -123,7 +125,6 @@ const GPU_MODEL_STRING: &str = "nvidia.com/gpu";
 const SCALE_ACTION_PROBABILITY: f64 = 0.8;
 const CREATE_DELETE_ACTION_PROBABILITY: f64 = 0.1;
 const RESOURCE_ACTION_PROBABILITY: f64 = 0.1;
-
 
 // the clap crate allows us to define a CLI interface using a struct and some #[attributes]
 /// `sk-gen` is a CLI tool for generating synthetic trace data which is ingestible by SimKube.
@@ -227,7 +228,6 @@ struct Requests {
     mili_cpu_count: i64,
     //TODO: theres a corrisponding cpu limit here we might want to implement
 }
-
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug)]
 struct Container {
@@ -434,7 +434,7 @@ struct Node {
     /// To derive [`Hash`] for [`Node`], we use [`BTreeMap`] which implements `Hash` as our keys
     /// (the deployment names) implement [`Ord`],
     deployments: BTreeMap<String, Deployment>,
-    timestamp: u64 
+    timestamp: u64,
 }
 
 impl Node {
@@ -515,7 +515,9 @@ impl Node {
             DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
             DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
-            DeploymentAction::ResourceAction { container_name, action } => self.resource_action(deployment_name, container_name, action)
+            DeploymentAction::ResourceAction { container_name, action } => {
+                self.resource_action(deployment_name, container_name, action)
+            },
         };
         if let Some(mut new_node) = new_node {
             let poisson = Poisson::new(2.0).unwrap();
@@ -880,7 +882,6 @@ impl ClusterGraph {
             .collect()
     }
 }
-
 
 /// Generates `num_deployments` candidate deployments with names `dep-1`, `dep-2`, ..., `dep-n`.
 fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, Deployment> {

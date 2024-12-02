@@ -40,7 +40,6 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
         }
     }
 
-
     let applied_objs: Vec<DynamicObject> = applied_objs
         .iter()
         .map(|d| deployment_to_dynamic_object(d).expect("All applied objects should be valid deployments"))
