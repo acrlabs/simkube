@@ -95,12 +95,6 @@ use crate::output::{
     gen_trace_event,
 };
 
-use sk_core::k8s::GVK;
-use sk_store::{
-    TracerConfig,
-    TrackedObjectConfig,
-};
-
 use rand_distr::{Poisson, Distribution};
 
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
