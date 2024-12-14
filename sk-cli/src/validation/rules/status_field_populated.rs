@@ -4,12 +4,18 @@ use std::sync::{
 };
 
 use json_patch_ext::prelude::*;
+use lazy_static::lazy_static;
 
-use super::annotated_trace::AnnotatedTraceEvent;
-use super::validator::{
+use crate::validation::validator::{
+    CheckResult,
     Diagnostic,
     Validator,
     ValidatorType,
+};
+use crate::validation::{
+    AnnotatedTraceEvent,
+    AnnotatedTracePatch,
+    PatchLocations,
 };
 
 const HELP: &str = r#"Indicates that the status field of a Kubernetes object in
@@ -18,11 +24,18 @@ and shouldn't be applied "by hand".  This is probably "fine" but it would be
 better to clean them up (and also they take up a lot of space."#;
 
 #[derive(Default)]
-pub(super) struct StatusFieldPopulated {}
+pub struct StatusFieldPopulated {}
+
+lazy_static! {
+    static ref FIX: AnnotatedTracePatch = AnnotatedTracePatch {
+        locations: PatchLocations::Everywhere,
+        ops: vec![remove_operation(format_ptr!("/status"))],
+    };
+}
 
 impl Diagnostic for StatusFieldPopulated {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent) -> Vec<usize> {
-        event
+    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent) -> CheckResult {
+        Ok(event
             .data
             .applied_objs
             .iter()
@@ -35,21 +48,17 @@ impl Diagnostic for StatusFieldPopulated {
                     .get("status")
                     .is_some_and(|v| !v.is_null())
                 {
-                    return Some(i);
+                    return Some((i, vec![FIX.clone()]));
                 }
                 None
             })
-            .collect()
-    }
-
-    fn fixes(&self) -> Vec<PatchOperation> {
-        vec![remove_operation(format_ptr!("/status"))]
+            .collect())
     }
 
     fn reset(&mut self) {}
 }
 
-pub(super) fn validator() -> Validator {
+pub fn validator() -> Validator {
     Validator {
         type_: ValidatorType::Warning,
         name: "status_field_populated",

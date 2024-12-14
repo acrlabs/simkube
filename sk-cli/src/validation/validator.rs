@@ -1,3 +1,4 @@
+use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::fmt;
 use std::str::from_utf8;
 use std::sync::{
@@ -6,13 +7,15 @@ use std::sync::{
 };
 
 use anyhow::bail;
-use json_patch_ext::prelude::*;
 use serde::{
     Serialize,
     Serializer,
 };
 
-use super::annotated_trace::AnnotatedTraceEvent;
+use super::annotated_trace::{
+    AnnotatedTraceEvent,
+    AnnotatedTracePatch,
+};
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum ValidatorType {
@@ -54,9 +57,10 @@ impl fmt::Display for ValidatorCode {
     }
 }
 
+pub type CheckResult = anyhow::Result<BTreeMap<usize, Vec<AnnotatedTracePatch>>>;
+
 pub trait Diagnostic {
-    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> Vec<usize>;
-    fn fixes(&self) -> Vec<PatchOperation>;
+    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent) -> CheckResult;
     fn reset(&mut self);
 }
 
@@ -74,12 +78,8 @@ pub struct Validator {
 }
 
 impl Validator {
-    pub fn check_next_event(&self, a_event: &mut AnnotatedTraceEvent) -> Vec<usize> {
-        self.diagnostic.write().unwrap().check_next_event(a_event)
-    }
-
-    pub fn fixes(&self) -> Vec<PatchOperation> {
-        self.diagnostic.read().unwrap().fixes()
+    pub fn check_next_event(&self, event: &mut AnnotatedTraceEvent) -> CheckResult {
+        self.diagnostic.write().unwrap().check_next_event(event)
     }
 
     pub fn reset(&self) {

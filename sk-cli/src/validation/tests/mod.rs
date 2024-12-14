@@ -1,5 +1,4 @@
 mod annotated_trace_test;
-mod status_field_populated_test;
 mod validation_store_test;
 
 use std::collections::BTreeMap;
@@ -15,6 +14,7 @@ use sk_store::TraceEvent;
 
 use super::annotated_trace::AnnotatedTraceEvent;
 use super::validator::{
+    CheckResult,
     Diagnostic,
     Validator,
     ValidatorCode,
@@ -53,16 +53,18 @@ pub fn annotated_trace() -> AnnotatedTrace {
 struct TestDiagnostic {}
 
 impl Diagnostic for TestDiagnostic {
-    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> Vec<usize> {
+    fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent) -> CheckResult {
         if evt.data.applied_objs.len() > 1 && evt.data.applied_objs[1].data.get("foo").is_none() {
-            vec![1]
+            Ok(BTreeMap::from([(
+                1,
+                vec![AnnotatedTracePatch {
+                    locations: PatchLocations::Everywhere,
+                    ops: vec![add_operation(format_ptr!("/foo"), "bar".into())],
+                }],
+            )]))
         } else {
-            vec![]
+            Ok(BTreeMap::new())
         }
-    }
-
-    fn fixes(&self) -> Vec<PatchOperation> {
-        vec![add_operation(format_ptr!("/foo"), "bar".into())]
     }
 
     fn reset(&mut self) {}

@@ -15,8 +15,8 @@ fn test_status_field_populated(test_deployment: DynamicObject) {
         },
         ..Default::default()
     };
-    let indices = v.check_next_event(&mut evt);
-    assert_bag_eq!(indices, &[0]);
+    let annotations = v.check_next_event(&mut evt).unwrap();
+    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
 }
 
 #[rstest]
@@ -30,6 +30,6 @@ fn test_status_field_not_populated(test_deployment: DynamicObject) {
         },
         ..Default::default()
     };
-    let indices = v.check_next_event(&mut evt);
-    assert_is_empty!(indices);
+    let annotations = v.check_next_event(&mut evt).unwrap();
+    assert_is_empty!(annotations);
 }

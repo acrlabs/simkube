@@ -23,9 +23,9 @@ pub(super) fn make_event_spans(event: &AnnotatedTraceEvent, start_ts: i64) -> (S
         event.data.deleted_objs.len()
     ));
 
-    let (warnings, errs) = event.annotations.iter().fold((0, 0), |(mut w, mut e), codes| {
-        for code in codes {
-            match code.0 {
+    let (warnings, errs) = event.annotations.values().fold((0, 0), |(mut w, mut e), annotations| {
+        for a in annotations {
+            match a.code.0 {
                 ValidatorType::Warning => w += 1,
                 ValidatorType::Error => e += 1,
             }
@@ -52,13 +52,18 @@ pub(super) fn make_object_spans<'a>(
     event: &'a AnnotatedTraceEvent,
 ) -> (Span<'a>, Span<'a>) {
     let obj_span = Span::styled(format!("  {} {}", op, obj.namespaced_name()), Style::new().italic());
-    let (warnings, errs) = event.annotations[index].iter().fold((0, 0), |(mut w, mut e), code| {
-        match code.0 {
-            ValidatorType::Warning => w += 1,
-            ValidatorType::Error => e += 1,
-        }
-        (w, e)
-    });
+    let (warnings, errs) = event
+        .annotations
+        .get(&index)
+        .unwrap_or(&vec![])
+        .iter()
+        .fold((0, 0), |(mut w, mut e), a| {
+            match a.code.0 {
+                ValidatorType::Warning => w += 1,
+                ValidatorType::Error => e += 1,
+            }
+            (w, e)
+        });
     if warnings + errs == 0 {
         (obj_span, Span::default())
     } else {
