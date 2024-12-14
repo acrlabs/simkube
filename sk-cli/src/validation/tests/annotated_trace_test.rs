@@ -8,7 +8,7 @@ fn test_apply_patch_everywhere(mut annotated_trace: AnnotatedTrace) {
     annotated_trace
         .apply_patch(AnnotatedTracePatch {
             locations: PatchLocations::Everywhere,
-            op: add_operation(format_ptr!("/foo"), "bar".into()),
+            ops: vec![add_operation(format_ptr!("/foo"), "bar".into())],
         })
         .unwrap();
 
@@ -27,7 +27,7 @@ fn test_apply_patch_object_reference(mut annotated_trace: AnnotatedTrace) {
                 DEPL_GVK.into_type_meta(),
                 format!("{TEST_NAMESPACE}/test_depl1"),
             ),
-            op: add_operation(format_ptr!("/foo"), "bar".into()),
+            ops: vec![add_operation(format_ptr!("/foo"), "bar".into())],
         })
         .unwrap();
 

@@ -5,16 +5,14 @@ use lazy_static::lazy_static;
 use serde::Serialize;
 use sk_core::prelude::*;
 
+use super::rules::*;
 use super::summary::ValidationSummary;
 use super::validator::{
     Validator,
     ValidatorCode,
 };
 use super::{
-    status_field_populated,
     AnnotatedTrace,
-    AnnotatedTracePatch,
-    PatchLocations,
     PrintFormat,
 };
 
@@ -32,7 +30,7 @@ impl ValidationStore {
         let mut summary = ValidationSummary::default();
         let mut summary_populated = false;
         loop {
-            let s = trace.validate(&self.validators);
+            let s = trace.validate(&self.validators)?;
             if !summary_populated {
                 summary.annotations = s;
                 summary_populated = true;
@@ -42,25 +40,15 @@ impl ValidationStore {
                 break;
             }
 
-            let Some(next_error) = trace.get_next_error() else {
+            let Some(next_annotation) = trace.get_next_annotation() else {
                 break;
             };
 
-            let Some(op) = self
-                .validators
-                .get(&next_error)
-                .ok_or(anyhow!("validation error"))?
-                .fixes()
-                .first()
-                .cloned()
-            else {
-                println!("no fix available for {next_error}; continuing");
+            let Some(patch) = next_annotation.patches.first().cloned() else {
+                println!("no fix available for {}; continuing", next_annotation.code);
                 break;
             };
-            summary.patches += trace.apply_patch(AnnotatedTracePatch {
-                locations: PatchLocations::AffectedObjects(next_error),
-                op,
-            })?;
+            summary.patches += trace.apply_patch(patch)?;
         }
 
         Ok(summary)

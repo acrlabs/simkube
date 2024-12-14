@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::slice;
 
 use json_patch_ext::prelude::*;
@@ -18,35 +18,48 @@ use super::validator::{
     ValidatorCode,
 };
 
-#[derive(Clone, Default)]
-pub struct AnnotatedTraceEvent {
-    pub data: TraceEvent,
-    pub annotations: Vec<Vec<ValidatorCode>>,
-}
-
-impl AnnotatedTraceEvent {
-    pub fn new(data: TraceEvent) -> AnnotatedTraceEvent {
-        let annotations = vec![vec![]; data.len()];
-
-        AnnotatedTraceEvent { data, annotations }
-    }
-
-    pub fn clear_annotations(&mut self) {
-        self.annotations = vec![vec![]; self.data.len()];
-    }
-}
-
+#[derive(Clone, Debug)]
 pub enum PatchLocations {
-    #[allow(dead_code)]
     Everywhere,
-    AffectedObjects(ValidatorCode),
     #[allow(dead_code)]
     ObjectReference(TypeMeta, String),
 }
 
+#[derive(Clone, Debug)]
 pub struct AnnotatedTracePatch {
     pub locations: PatchLocations,
-    pub op: PatchOperation,
+    pub ops: Vec<PatchOperation>,
+}
+
+#[derive(Clone, Debug)]
+pub struct Annotation {
+    pub code: ValidatorCode,
+    // The annotation applies to a particular object within an event; the patches
+    // vector is a list of _possible_ (and probably mutually-exclusive) patches
+    // that we can apply to the object that will fix the validation issue.  The first
+    // patch in this list is the "recommended" fix, in that this is the one that will
+    // be applied by `skctl validate check --fix`
+    pub patches: Vec<AnnotatedTracePatch>,
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct AnnotatedTraceEvent {
+    pub data: TraceEvent,
+    // The annotations map is from "object index" to a list of problems/annotations
+    // that apply at that specific index (remember that the "object index" is interpreted
+    // as an applied object if it is less than data.applied_objs.len(), and as a deleted
+    // object otherwise.
+    pub annotations: BTreeMap<usize, Vec<Annotation>>,
+}
+
+impl AnnotatedTraceEvent {
+    pub fn new(data: TraceEvent) -> AnnotatedTraceEvent {
+        AnnotatedTraceEvent { data, ..Default::default() }
+    }
+
+    pub fn clear_annotations(&mut self) {
+        self.annotations.clear();
+    }
 }
 
 type AnnotationSummary = BTreeMap<ValidatorCode, usize>;
@@ -77,16 +90,9 @@ impl AnnotatedTrace {
     pub fn apply_patch(&mut self, patch: AnnotatedTracePatch) -> anyhow::Result<usize> {
         let mut count = 0;
         for event in self.events.iter_mut() {
-            for (i, obj) in event
-                .data
-                .applied_objs
-                .iter_mut()
-                .chain(event.data.deleted_objs.iter_mut())
-                .enumerate()
-            {
+            for obj in event.data.applied_objs.iter_mut().chain(event.data.deleted_objs.iter_mut()) {
                 let should_apply_here = match patch.locations {
                     PatchLocations::Everywhere => true,
-                    PatchLocations::AffectedObjects(code) => event.annotations[i].contains(&code),
                     PatchLocations::ObjectReference(ref type_, ref ns_name) => {
                         obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
                     },
@@ -94,7 +100,9 @@ impl AnnotatedTrace {
 
                 if should_apply_here {
                     count += 1;
-                    patch_ext(&mut obj.data, patch.op.clone())?;
+                    for op in &patch.ops {
+                        patch_ext(&mut obj.data, op.clone())?;
+                    }
                 }
             }
         }
@@ -110,32 +118,36 @@ impl AnnotatedTrace {
         trace.export_all()
     }
 
-    pub fn validate(&mut self, validators: &BTreeMap<ValidatorCode, Validator>) -> AnnotationSummary {
+    pub fn validate(&mut self, validators: &BTreeMap<ValidatorCode, Validator>) -> anyhow::Result<AnnotationSummary> {
         let mut summary = BTreeMap::new();
         for event in self.events.iter_mut() {
             event.clear_annotations();
             for (code, validator) in validators.iter() {
-                let affected_indices = validator.check_next_event(event);
-                let count = affected_indices.len();
+                let event_patches = validator.check_next_event(event)?;
+                let count = event_patches.len();
                 summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
 
-                for i in affected_indices {
-                    event.annotations[i].push(*code);
+                for (i, obj_patches) in event_patches {
+                    event
+                        .annotations
+                        .entry(i)
+                        .or_insert(vec![])
+                        .push(Annotation { code: *code, patches: obj_patches });
                 }
             }
         }
-        summary
+        Ok(summary)
     }
 
     pub fn get_event(&self, idx: usize) -> Option<&AnnotatedTraceEvent> {
         self.events.get(idx)
     }
 
-    pub fn get_next_error(&self) -> Option<ValidatorCode> {
+    pub fn get_next_annotation(&self) -> Option<&Annotation> {
         for event in &self.events {
-            for annotation in &event.annotations {
-                if let Some(code) = annotation.first() {
-                    return Some(*code);
+            for annotation_list in event.annotations.values() {
+                if let Some(annotation) = annotation_list.first() {
+                    return Some(annotation);
                 }
             }
         }
