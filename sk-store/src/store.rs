@@ -302,7 +302,7 @@ impl TraceStorable for TraceStore {
                 // of data that are unique to each pod that won't materially impact the behaviour?
                 // This does occur for example with coredns's volume mounts.  We may need to filter
                 // more things out from this and/or allow users to specify what is filtered out.
-                let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
+                let hash = jsonutils::hash(&serde_json::to_value(pod.stable_spec()?)?);
                 self.pod_owners
                     .store_new_pod_lifecycle(ns_name, &owner_gvk, &owner_ns_name, hash, lifecycle_data);
                 break;
