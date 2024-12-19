@@ -25,7 +25,7 @@ fn test_trace_config() -> TracerConfig {
                     ..Default::default()
                 },
             ),
-            (SA_GVK.clone(), Default::default()),
+            (SVC_ACCOUNT_GVK.clone(), Default::default()),
         ]),
     }
 }
