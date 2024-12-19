@@ -29,8 +29,8 @@ pub use crate::index::TraceIndex;
 use crate::pod_owners_map::PodLifecyclesMap;
 pub use crate::store::TraceStore;
 
-#[derive(Debug)]
-enum TraceAction {
+#[derive(Clone, Copy, Debug)]
+pub enum TraceAction {
     ObjectApplied,
     ObjectDeleted,
 }

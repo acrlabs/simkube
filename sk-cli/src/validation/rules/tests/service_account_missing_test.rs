@@ -12,8 +12,10 @@ use super::*;
 fn depl_event(test_deployment: DynamicObject, #[default("serviceAccount")] sa_key: &str) -> AnnotatedTraceEvent {
     AnnotatedTraceEvent {
         data: TraceEvent {
-            ts: 1,
-            applied_objs: vec![test_deployment.data(json!({"spec": {"template": {"spec": {sa_key: "foobar"}}}}))],
+            ts: 2,
+            applied_objs: vec![
+                test_deployment.data(json!({"spec": {"template": {"spec": {sa_key: TEST_SERVICE_ACCOUNT}}}}))
+            ],
             deleted_objs: vec![],
         },
         ..Default::default()
@@ -40,7 +42,7 @@ fn test_service_account_missing(test_deployment: DynamicObject, test_trace_confi
     let mut evt = depl_event(test_deployment, sa_key);
     let annotations = v.check_next_event(&mut evt, &test_trace_config).unwrap();
 
-    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
+    assert_eq!(annotations.get(&0).unwrap().len(), 2);
 }
 
 #[rstest]
@@ -53,7 +55,7 @@ fn test_service_account_missing_deleted(
     let mut v = ServiceAccountMissing::default();
     let mut sa_event_del = AnnotatedTraceEvent {
         data: TraceEvent {
-            ts: 0,
+            ts: 1,
             applied_objs: vec![],
             deleted_objs: vec![test_service_account],
         },
@@ -63,7 +65,7 @@ fn test_service_account_missing_deleted(
     v.check_next_event(&mut sa_event_del, &test_trace_config).unwrap();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
+    assert_eq!(annotations.get(&0).unwrap().len(), 2);
 }
 
 #[rstest]
@@ -76,7 +78,7 @@ fn test_service_account_not_missing(
     v.check_next_event(&mut sa_event, &test_trace_config).unwrap();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
+    assert_none!(annotations.get(&0));
 }
 
 #[rstest]
@@ -100,7 +102,7 @@ fn test_service_account_not_missing_same_evt(
     };
     let annotations = v.check_next_event(&mut depl_evt, &test_trace_config).unwrap();
 
-    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
+    assert_none!(annotations.get(&0));
 }
 
 #[rstest]
