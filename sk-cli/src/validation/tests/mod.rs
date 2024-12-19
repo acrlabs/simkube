@@ -46,7 +46,7 @@ pub fn annotated_trace() -> AnnotatedTrace {
             deleted_objs: vec![],
         }),
         AnnotatedTraceEvent::new(TraceEvent {
-            ts: 3,
+            ts: 5,
             applied_objs: vec![],
             deleted_objs: vec![test_deployment("test_depl1")],
         }),

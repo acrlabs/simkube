@@ -1,13 +1,16 @@
 use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
+use std::iter::once;
 use std::slice;
 
 use json_patch_ext::prelude::*;
+use serde_json::json;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
 };
 use sk_core::prelude::*;
 use sk_store::{
+    TraceAction,
     TraceEvent,
     TraceStorable,
     TraceStore,
@@ -18,11 +21,12 @@ use super::validator::{
     ValidatorCode,
 };
 
+
 #[derive(Clone, Debug)]
 pub enum PatchLocations {
     Everywhere,
-    #[allow(dead_code)]
     ObjectReference(TypeMeta, String),
+    InsertAt(i64, TraceAction, TypeMeta, metav1::ObjectMeta),
 }
 
 #[derive(Clone, Debug)]
@@ -70,7 +74,7 @@ pub struct AnnotatedTrace {
     base: TraceStore,
     patches: Vec<AnnotatedTracePatch>,
 
-    events: Vec<AnnotatedTraceEvent>,
+    pub(super) events: Vec<AnnotatedTraceEvent>,
 }
 
 impl AnnotatedTrace {
@@ -89,21 +93,10 @@ impl AnnotatedTrace {
 
     pub fn apply_patch(&mut self, patch: AnnotatedTracePatch) -> anyhow::Result<usize> {
         let mut count = 0;
-        for event in self.events.iter_mut() {
-            for obj in event.data.applied_objs.iter_mut().chain(event.data.deleted_objs.iter_mut()) {
-                let should_apply_here = match patch.locations {
-                    PatchLocations::Everywhere => true,
-                    PatchLocations::ObjectReference(ref type_, ref ns_name) => {
-                        obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
-                    },
-                };
-
-                if should_apply_here {
-                    count += 1;
-                    for op in &patch.ops {
-                        patch_ext(&mut obj.data, op.clone())?;
-                    }
-                }
+        for obj in self.matched_objects(&patch.locations) {
+            count += 1;
+            for op in &patch.ops {
+                patch_ext(&mut obj.data, op.clone())?;
             }
         }
         self.patches.push(patch);
@@ -185,6 +178,74 @@ impl AnnotatedTrace {
 
     pub fn start_ts(&self) -> Option<i64> {
         self.events.first().map(|evt| evt.data.ts)
+    }
+
+    fn object_iter_mut(&mut self) -> impl Iterator<Item = &mut DynamicObject> {
+        self.events
+            .iter_mut()
+            .flat_map(|e| e.data.applied_objs.iter_mut().chain(e.data.deleted_objs.iter_mut()))
+    }
+}
+
+impl<'a> AnnotatedTrace {
+    fn matched_objects(
+        &'a mut self,
+        locations: &'a PatchLocations,
+    ) -> Box<dyn Iterator<Item = &mut DynamicObject> + 'a> {
+        match locations {
+            PatchLocations::Everywhere => Box::new(self.object_iter_mut()),
+            PatchLocations::ObjectReference(ref type_, ref ns_name) => {
+                Box::new(self.object_iter_mut().filter(move |obj| {
+                    obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
+                }))
+            },
+            PatchLocations::InsertAt(relative_ts, action, type_meta, object_meta) => {
+                let insert_ts = self.start_ts().unwrap_or_default() + relative_ts;
+                let insert_idx = find_or_create_event_at_ts(&mut self.events, insert_ts);
+
+                let new_obj = DynamicObject {
+                    types: Some(type_meta.clone()),
+                    metadata: object_meta.clone(),
+                    data: json!({}),
+                };
+                let obj = match action {
+                    TraceAction::ObjectApplied => {
+                        self.events[insert_idx].data.applied_objs.push(new_obj);
+                        self.events[insert_idx].data.applied_objs.iter_mut().last().unwrap()
+                    },
+                    TraceAction::ObjectDeleted => {
+                        self.events[insert_idx].data.deleted_objs.push(new_obj);
+                        self.events[insert_idx].data.deleted_objs.iter_mut().last().unwrap()
+                    },
+                };
+                Box::new(once(obj))
+            },
+        }
+    }
+}
+
+pub(super) fn find_or_create_event_at_ts(events: &mut Vec<AnnotatedTraceEvent>, ts: i64) -> usize {
+    let new_event = AnnotatedTraceEvent {
+        data: TraceEvent { ts, ..Default::default() },
+        ..Default::default()
+    };
+    // Walk through the events list backwards until we find the first one less than the given ts
+    match events.iter().rposition(|e| e.data.ts <= ts) {
+        Some(i) => {
+            // If we found one, and the ts isn't equal, create an event with the specified
+            // timestamp; this goes at index i+1 since it needs to go after the lower (found) ts
+            if events[i].data.ts < ts {
+                events.insert(i + 1, new_event);
+                i + 1
+            } else {
+                i // otherwise the timestamp is equal so return this index
+            }
+        },
+        None => {
+            // In this case there are no events in the trace, so we add one at the beginning
+            events.push(new_event);
+            0
+        },
     }
 }
 

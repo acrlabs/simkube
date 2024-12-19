@@ -1,5 +1,5 @@
 ---
-source: sk-cli/src/xray/tests/view_test.rs
+source: sk-cli/src/xray/view/tests/view_test.rs
 expression: cf
 ---
 CompletedFrame {
@@ -10,7 +10,7 @@ CompletedFrame {
             "│>> 00:00:00 (0 applied/0 deleted)                                             │",
             "│   00:00:01 (1 applied/0 deleted)                                             │",
             "│   00:00:02 (3 applied/0 deleted)                       1 error/0 warnings    │",
-            "│   00:00:03 (0 applied/1 deleted)                                             │",
+            "│   00:00:05 (0 applied/1 deleted)                                             │",
             "│                                                                              │",
             "│                                                                              │",
             "│                                                                              │",
