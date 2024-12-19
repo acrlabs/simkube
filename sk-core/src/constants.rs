@@ -1,3 +1,7 @@
+use lazy_static::lazy_static;
+
+use crate::k8s::GVK;
+
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
@@ -28,11 +32,17 @@ pub const SK_LEASE_NAME: &str = "sk-lease";
 pub const RETRY_DELAY_SECONDS: u64 = 5;
 pub const ERROR_RETRY_DELAY_SECONDS: u64 = 30;
 
+// Kinds
+pub const SVC_ACCOUNT_KIND: &str = "ServiceAccount";
+
+// Built-in GVKs
+lazy_static! {
+    pub static ref SVC_ACCOUNT_GVK: GVK = GVK::new("", "v1", SVC_ACCOUNT_KIND);
+}
+
 #[cfg(feature = "testutils")]
 mod test_constants {
-    use lazy_static::lazy_static;
-
-    use crate::k8s::GVK;
+    use super::*;
 
     pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
     pub const TEST_DEPLOYMENT: &str = "the-deployment";
@@ -49,7 +59,6 @@ mod test_constants {
     lazy_static! {
         pub static ref DEPL_GVK: GVK = GVK::new("apps", "v1", "Deployment");
         pub static ref DS_GVK: GVK = GVK::new("apps", "v1", "DaemonSet");
-        pub static ref SA_GVK: GVK = GVK::new("", "v1", "ServiceAccount");
     }
 }
 

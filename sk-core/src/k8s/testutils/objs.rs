@@ -24,5 +24,5 @@ pub fn test_daemonset(#[default(TEST_DAEMONSET)] name: &str) -> DynamicObject {
 
 #[fixture]
 pub fn test_service_account(#[default(TEST_SERVICE_ACCOUNT)] name: &str) -> DynamicObject {
-    DynamicObject::new(&name, &ApiResource::from_gvk(&SA_GVK)).within(TEST_NAMESPACE)
+    DynamicObject::new(&name, &ApiResource::from_gvk(&SVC_ACCOUNT_GVK)).within(TEST_NAMESPACE)
 }
