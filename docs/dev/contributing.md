@@ -1,5 +1,4 @@
 <!--
-project: SimKube
 template: docs.html
 -->
 
@@ -139,6 +138,11 @@ In order to make `lib/testutils` accessible outside the `lib/` crate, they are n
 instead with an optional `testutils` feature.
 
 ## Making a PR
+
+> [!WARNING]
+> Due to the uncertain nature of copyright and IP law, this repository does not accept contributions that have been all
+> or partially generated with GitHub Copilot or other LLM-based code generation tools.  Please disable any such tools
+> before authoring changes to this project.
 
 Follow the standard process for opening a pull request.  Please provide a nice description of your contribution.  GitHub
 actions will run tests, linting, and build.  If there are any errors there, please fix them!  Once your tests are

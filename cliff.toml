@@ -16,7 +16,7 @@ Breaking changes are annotated with the ⚠️ symbol.
 # https://keats.github.io/tera/docs/#introduction
 body = """
 {% if version %}\
-    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+    ## {{version}} - {{ timestamp | date(format="%Y-%m-%d") }}
 {% else %}\
     ## [unreleased]
 {% endif %}\
@@ -35,14 +35,6 @@ footer = """
 """
 # remove the leading and trailing s
 trim = true
-# postprocessors
-postprocessors = [
-  # { pattern = '<REPO>', replace = "https://github.com/orhun/git-cliff" }, # replace repository URL
-]
-# render body even when there are no releases to process
-# render_always = true
-# output file path
-# output = "test.md"
 
 [git]
 # parse the commits based on https://www.conventionalcommits.org

@@ -1,7 +1,5 @@
 ---
 nav:
-  - Home: README.md
-  - FAQ: docs/faq.md
   - Getting Started:
       - Concepts: docs/intro/concepts.md
       - Installation: docs/intro/installation.md

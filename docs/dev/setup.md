@@ -1,5 +1,4 @@
 <!--
-project: SimKube
 template: docs.html
 -->
 
