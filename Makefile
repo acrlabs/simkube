@@ -28,9 +28,10 @@ extra: skctl
 # This is sorta subtle; the three "main" artifacts get built inside docker containers
 # to ensure that they are built against the right libs that they'll be running on in
 # the cluster.  So for those we share CARGO_HOME_ENV, which needs to be in $(BUILD_DIR)
-# so we have a known location for it.  This is _not_ built in a docker container so that
-# because it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
+# so we have a known location for it.  This is _not_ built in a docker container because
+# it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
 skctl:
+	cargo version
 	cargo build --target-dir=$(BUILD_DIR) -p=skctl --color=always
 	cp $(BUILD_DIR)/debug/skctl $(BUILD_DIR)/.
 
@@ -38,6 +39,7 @@ pre-image:
 	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
 
 build-docker:
+	cargo version
 	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) $(addprefix -p=,$(ARTIFACTS)) --color=always
 	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
 
@@ -45,6 +47,7 @@ test: unit itest
 
 .PHONY: unit
 unit:
+	cargo version
 	mkdir -p $(BUILD_DIR)/coverage
 	rm -f $(BUILD_DIR)/coverage/*.profraw
 	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) --features testutils -- --skip itest

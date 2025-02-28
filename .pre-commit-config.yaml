@@ -1,5 +1,13 @@
 ---
 repos:
+  - repo: local
+    hooks:
+      - id: python-path
+        name: check python path
+        language: system
+        entry: bash -c "which python"
+        always_run: true
+        verbose: true
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: v4.4.0
     hooks:
