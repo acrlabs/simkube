@@ -48,6 +48,7 @@ mod test_constants {
     pub const TEST_DEPLOYMENT: &str = "the-deployment";
     pub const TEST_DAEMONSET: &str = "the-daemonset";
     pub const TEST_SERVICE_ACCOUNT: &str = "the-service-account";
+    pub const TEST_SECRET: &str = "test-secret";
     pub const TEST_NAMESPACE: &str = "test-namespace";
     pub const TEST_SIM_NAME: &str = "test-sim";
     pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";

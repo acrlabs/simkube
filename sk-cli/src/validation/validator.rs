@@ -1,4 +1,3 @@
-use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::fmt;
 use std::str::from_utf8;
 use std::sync::{
@@ -68,7 +67,7 @@ impl Serialize for ValidatorCode {
     }
 }
 
-pub type CheckResult = anyhow::Result<BTreeMap<usize, Vec<AnnotatedTracePatch>>>;
+pub type CheckResult = anyhow::Result<Vec<(usize, Vec<AnnotatedTracePatch>)>>;
 
 pub trait Diagnostic {
     fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult;
