@@ -59,6 +59,19 @@ pub trait PodExt {
     fn status(&self) -> anyhow::Result<&corev1::PodStatus>;
 }
 
+pub trait OpenApiResourceExt {
+    fn type_meta() -> TypeMeta;
+}
+
+impl<T: k8s_openapi::Resource> OpenApiResourceExt for T {
+    fn type_meta() -> TypeMeta {
+        TypeMeta {
+            api_version: T::API_VERSION.into(),
+            kind: T::KIND.into(),
+        }
+    }
+}
+
 trait StartEndTimeable {
     fn start_ts(&self) -> anyhow::Result<Option<i64>>;
     fn end_ts(&self) -> anyhow::Result<Option<i64>>;

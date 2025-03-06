@@ -1,0 +1,175 @@
+use assertables::*;
+use json_patch_ext::PatchOperation::Remove;
+use serde_json::json;
+use sk_store::{
+    TraceAction,
+    TraceEvent,
+    TracerConfig,
+};
+
+use super::missing_resources::{
+    secret_envvar_validator,
+    service_account_validator,
+    MissingResource,
+    MissingResourceType,
+};
+use super::*;
+use crate::validation::validator::CheckResult;
+use crate::validation::PatchLocations;
+
+#[fixture]
+fn depl_event(test_deployment: DynamicObject, #[default("serviceAccount")] sa_key: &str) -> AnnotatedTraceEvent {
+    AnnotatedTraceEvent {
+        data: TraceEvent {
+            ts: 2,
+            applied_objs: vec![test_deployment.data(json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {"env": {"valueFrom": {"secretKeyRef": {"key": TEST_SECRET}}}}
+                            ],
+                            sa_key: TEST_SERVICE_ACCOUNT
+                        }
+                    }
+                }
+            }))],
+            deleted_objs: vec![],
+        },
+        ..Default::default()
+    }
+}
+
+#[fixture]
+fn sa_event(test_service_account: DynamicObject) -> AnnotatedTraceEvent {
+    AnnotatedTraceEvent {
+        data: TraceEvent {
+            ts: 0,
+            applied_objs: vec![test_service_account],
+            deleted_objs: vec![],
+        },
+        ..Default::default()
+    }
+}
+
+fn check_sa_event_annotations(annotations_result: CheckResult, keys: &[&str]) {
+    let annotations = annotations_result.unwrap();
+    // There should be one patch for each key
+    for (i, key) in keys.iter().enumerate() {
+        let (index, patch) = &annotations[i];
+
+        // Each patch should target the first object
+        assert_eq!(*index, 0);
+        // There should be two possible fixes for the element
+        assert_len_eq_x!(patch, 2);
+
+        // Check the first fix
+        assert_matches!(patch[0].locations, PatchLocations::ObjectReference(..));
+        assert_matches!(patch[0].ops[..], [Remove(..)]);
+        assert_eq!(patch[0].ops[0].path().as_str(), format!("/spec/template/spec/{key}"));
+
+        // Check the second fix
+        match &patch[1].locations {
+            PatchLocations::InsertAt(0, TraceAction::ObjectApplied, t, ..) => assert_eq!(t.kind, "ServiceAccount"),
+            _ => panic!("bad insert location"),
+        }
+        assert_matches!(patch[1].ops[..], []);
+    }
+}
+
+#[rstest]
+#[case("serviceAccount")]
+#[case("serviceAccountName")]
+fn test_service_account_missing(test_deployment: DynamicObject, test_trace_config: TracerConfig, #[case] sa_key: &str) {
+    let v = service_account_validator();
+    let mut evt = depl_event(test_deployment, sa_key);
+    let annotations = v.check_next_event(&mut evt, &test_trace_config);
+
+    check_sa_event_annotations(annotations, &[&sa_key])
+}
+
+#[rstest]
+fn test_service_account_missing_both_keys(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
+    let v = service_account_validator();
+    depl_event.data.applied_objs[0].data["spec"]["template"]["spec"]["serviceAccountName"] = "foobar".into();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config);
+
+    check_sa_event_annotations(annotations, &["serviceAccount", "serviceAccountName"])
+}
+
+#[rstest]
+fn test_service_account_missing_deleted(
+    mut depl_event: AnnotatedTraceEvent,
+    mut sa_event: AnnotatedTraceEvent,
+    test_service_account: DynamicObject,
+    test_trace_config: TracerConfig,
+) {
+    let v = service_account_validator();
+    let mut sa_event_del = AnnotatedTraceEvent {
+        data: TraceEvent {
+            ts: 1,
+            applied_objs: vec![],
+            deleted_objs: vec![test_service_account],
+        },
+        ..Default::default()
+    };
+    v.check_next_event(&mut sa_event, &test_trace_config).unwrap();
+    v.check_next_event(&mut sa_event_del, &test_trace_config).unwrap();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config);
+
+    check_sa_event_annotations(annotations, &["serviceAccount"])
+}
+
+#[rstest]
+fn test_service_account_not_missing(
+    mut depl_event: AnnotatedTraceEvent,
+    mut sa_event: AnnotatedTraceEvent,
+    test_trace_config: TracerConfig,
+) {
+    let v = service_account_validator();
+    v.check_next_event(&mut sa_event, &test_trace_config).unwrap();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
+
+    assert_none!(annotations.get(0));
+}
+
+#[rstest]
+fn test_service_account_not_missing_same_evt(
+    test_deployment: DynamicObject,
+    test_service_account: DynamicObject,
+    test_trace_config: TracerConfig,
+) {
+    let v = service_account_validator();
+    let mut depl_evt = AnnotatedTraceEvent {
+        data: TraceEvent {
+            ts: 1,
+            applied_objs: vec![
+                test_deployment
+                    .data(json!({"spec": {"template": {"spec": {"serviceAccountName": TEST_SERVICE_ACCOUNT}}}})),
+                test_service_account,
+            ],
+            deleted_objs: vec![],
+        },
+        ..Default::default()
+    };
+    let annotations = v.check_next_event(&mut depl_evt, &test_trace_config).unwrap();
+
+    assert_none!(annotations.get(0));
+}
+
+//#[rstest]
+// fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config:
+// TracerConfig) {     let v = secret_envvar_validator();
+//     let annotations = v.check_next_event(&mut depl_event, &test_trace_config);
+
+//     check_secret_event_annotations(annotations);
+// }
+
+#[rstest]
+fn test_missing_resources_reset() {
+    let mut v = MissingResource::<corev1::ServiceAccount>::new(vec!["foo", "bar"], MissingResourceType::TopLevel);
+    v.seen_resources.insert("asdf".into());
+    v.reset();
+
+    assert_is_empty!(v.seen_resources);
+}
