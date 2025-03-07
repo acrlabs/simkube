@@ -24,7 +24,7 @@ pub enum ValidatorType {
     Error,
 }
 
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct ValidatorCode(pub ValidatorType, pub usize);
 
 impl ValidatorCode {
@@ -55,6 +55,16 @@ impl fmt::Display for ValidatorCode {
             },
             self.1,
         )
+    }
+}
+
+impl Serialize for ValidatorCode {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        // reuse the display impl for serializing
+        serializer.serialize_str(&format!("{self}"))
     }
 }
 
