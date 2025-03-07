@@ -13,6 +13,7 @@ use corev1::{
 };
 use json_patch_ext::prelude::*;
 use k8s_openapi::Resource;
+use serde_json::json;
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
 use sk_store::{
@@ -34,12 +35,13 @@ use crate::validation::{
 
 // Defined as a macro so we can re-use it in format! macros
 macro_rules! resource_help {
-    ($res:expr) => {
+    ($res:expr, $typestr:literal) => {
         formatcp!(
-            r#"A Pod needs a {resource} that is not present in
+            r#"A Pod needs a {resource} {typestr} that is not present in
 the trace file.  The simulation will fail because pods cannot be created
 if the {resource} does not exist."#,
-            resource = $res
+            resource = $res,
+            typestr = $typestr,
         )
     };
 }
@@ -153,7 +155,16 @@ fn make_remove_add_patches(
             vec![remove_operation(env_index_path)]
         },
         MissingResourceType::TopLevel => vec![remove_operation(path)],
-        MissingResourceType::Volume => unimplemented!(),
+        MissingResourceType::Volume => {
+            // Rather than trying to remove the volume reference from all of the
+            // potential containers it might be present in, we just replace it
+            // with an empty dir volume.  These unwraps should be safe based on the
+            // paths we pass in from the validator (they're not user-generated in other words)
+            let (remove_path, _) = path.split_back().unwrap();
+            let (volume_root, _) = remove_path.split_back().unwrap();
+            let empty_dir_path = volume_root.with_trailing_token("emptyDir");
+            vec![remove_operation(remove_path.to_buf()), add_operation(empty_dir_path, json!({}))]
+        },
     };
     (
         AnnotatedTracePatch {
@@ -177,14 +188,14 @@ fn make_remove_add_patches(
 }
 
 fn get_env_index_path(path: &Pointer) -> PointerBuf {
-    let (mut seen_env, mut seen_index) = (false, false);
+    let (mut seen_parent, mut seen_index) = (false, false);
     PointerBuf::from_tokens(path.tokens().take_while(|t| {
         if seen_index {
             return false;
-        } else if seen_env {
+        } else if seen_parent {
             seen_index = true;
         } else if *t == Token::new("env") || *t == Token::new("envFrom") {
-            seen_env = true;
+            seen_parent = true;
         }
         true
     }))
@@ -194,7 +205,7 @@ pub fn service_account_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "service_account_missing",
-        help: resource_help!(ServiceAccount::KIND),
+        help: resource_help!(ServiceAccount::KIND, "resource"),
         diagnostic: Arc::new(RwLock::new(MissingResource::<ServiceAccount>::new(
             vec![
                 // serviceAccount is deprecated but still supported (for now)
@@ -210,7 +221,7 @@ pub fn secret_envvar_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "envvar_secret_missing",
-        help: resource_help!(Secret::KIND),
+        help: resource_help!(Secret::KIND, "environment variable"),
         diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
             vec!["/spec/containers/*/env/*/valueFrom/secretKeyRef/key", "/spec/containers/*/envFrom/*/secretRef/name"],
             MissingResourceType::EnvVar,
@@ -222,13 +233,37 @@ pub fn configmap_envvar_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "envvar_configmap_missing",
-        help: resource_help!(ConfigMap::KIND),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
+        help: resource_help!(ConfigMap::KIND, "environment variable"),
+        diagnostic: Arc::new(RwLock::new(MissingResource::<ConfigMap>::new(
             vec![
                 "/spec/containers/*/env/*/valueFrom/configMapKeyRef/key",
                 "/spec/containers/*/envFrom/*/configMapRef/name",
             ],
             MissingResourceType::EnvVar,
+        ))),
+    }
+}
+
+pub fn secret_volume_validator() -> Validator {
+    Validator {
+        type_: ValidatorType::Error,
+        name: "volume_secret_missing",
+        help: resource_help!(Secret::KIND, "volume"),
+        diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
+            vec!["/spec/volumes/*/secret/secretName"],
+            MissingResourceType::Volume,
+        ))),
+    }
+}
+
+pub fn configmap_volume_validator() -> Validator {
+    Validator {
+        type_: ValidatorType::Error,
+        name: "volume_configmap_missing",
+        help: resource_help!(ConfigMap::KIND, "volume"),
+        diagnostic: Arc::new(RwLock::new(MissingResource::<ConfigMap>::new(
+            vec!["/spec/volumes/*/configMap/name"],
+            MissingResourceType::Volume,
         ))),
     }
 }

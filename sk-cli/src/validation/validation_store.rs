@@ -101,6 +101,8 @@ impl ValidationStore {
         store.register(missing_resources::service_account_validator());
         store.register(missing_resources::secret_envvar_validator());
         store.register(missing_resources::configmap_envvar_validator());
+        store.register(missing_resources::secret_volume_validator());
+        store.register(missing_resources::configmap_volume_validator());
 
         store
     }
