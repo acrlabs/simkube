@@ -7,6 +7,7 @@ use std::sync::{
 
 use const_format::formatcp;
 use corev1::{
+    ConfigMap,
     Secret,
     ServiceAccount,
 };
@@ -116,6 +117,7 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
                 //    won't exist and can't actually _do_ anything anyways), or
                 // 2) add the resource object in at the beginning of the simulation
                 for (path, res) in matched_values {
+                    println!("{path:?}, {res}");
                     // if we're demanding a resource for a pod, we assume the resource is
                     // namespaced (may be an invalid assumption in the future)
                     let resource_ns = &obj.namespace().unwrap();
@@ -146,7 +148,10 @@ fn make_remove_add_patches(
     path: PointerBuf,
 ) -> (AnnotatedTracePatch, AnnotatedTracePatch) {
     let remove_ops = match missing_type {
-        MissingResourceType::EnvVar => unimplemented!(),
+        MissingResourceType::EnvVar => {
+            let env_index_path = get_env_index_path(&path);
+            vec![remove_operation(env_index_path)]
+        },
         MissingResourceType::TopLevel => vec![remove_operation(path)],
         MissingResourceType::Volume => unimplemented!(),
     };
@@ -171,6 +176,19 @@ fn make_remove_add_patches(
     )
 }
 
+fn get_env_index_path(path: &Pointer) -> PointerBuf {
+    let (mut seen_env, mut seen_index) = (false, false);
+    PointerBuf::from_tokens(path.tokens().take_while(|t| {
+        if seen_index {
+            return false;
+        } else if seen_env {
+            seen_index = true;
+        } else if *t == Token::new("env") || *t == Token::new("envFrom") {
+            seen_env = true;
+        }
+        true
+    }))
+}
 
 pub fn service_account_validator() -> Validator {
     Validator {
@@ -194,7 +212,22 @@ pub fn secret_envvar_validator() -> Validator {
         name: "envvar_secret_missing",
         help: resource_help!(Secret::KIND),
         diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
-            vec!["/spec/containers/*/env/*/valueFrom/secretKeyRef"],
+            vec!["/spec/containers/*/env/*/valueFrom/secretKeyRef/key", "/spec/containers/*/envFrom/*/secretRef/name"],
+            MissingResourceType::EnvVar,
+        ))),
+    }
+}
+
+pub fn configmap_envvar_validator() -> Validator {
+    Validator {
+        type_: ValidatorType::Error,
+        name: "envvar_configmap_missing",
+        help: resource_help!(ConfigMap::KIND),
+        diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
+            vec![
+                "/spec/containers/*/env/*/valueFrom/configMapKeyRef/key",
+                "/spec/containers/*/envFrom/*/configMapRef/name",
+            ],
             MissingResourceType::EnvVar,
         ))),
     }
