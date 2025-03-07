@@ -1,6 +1,7 @@
 use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 
 use anyhow::anyhow;
+use assertables::assert_all;
 use lazy_static::lazy_static;
 use serde::Serialize;
 use sk_core::prelude::*;
@@ -99,11 +100,15 @@ impl ValidationStore {
         store.register(status_field_populated::validator());
         store.register(missing_resources::service_account_validator());
         store.register(missing_resources::secret_envvar_validator());
+        store.register(missing_resources::configmap_envvar_validator());
 
         store
     }
 
     fn register(&mut self, v: Validator) {
+        // Runtime smoke test to make sure we don't have multiple validators with the same name
+        assert_all!(self.validators.iter(), |(_, other): (&ValidatorCode, &Validator)| other.name != v.name);
+
         let code = ValidatorCode(v.type_, self.validators.len());
         self.register_with_code(code, v);
     }

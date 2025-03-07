@@ -101,6 +101,15 @@ impl Validator {
     }
 }
 
+impl fmt::Debug for Validator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Validator")
+            .field("x", &self.type_)
+            .field("y", &self.name)
+            .finish()
+    }
+}
+
 fn flatten_str<S: Serializer>(s: &str, ser: S) -> Result<S::Ok, S::Error> {
     ser.serialize_str(&s.replace('\n', " "))
 }

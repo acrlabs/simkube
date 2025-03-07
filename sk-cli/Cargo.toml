@@ -13,6 +13,7 @@ testutils = []
 
 [dependencies]
 anyhow = { workspace = true }
+assertables = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 clockabilly = { workspace = true }
@@ -37,6 +38,5 @@ sk-store = { workspace = true }
 tokio = { workspace = true }
 
 [dev-dependencies]
-assertables = { workspace = true }
 insta = { workspace = true }
 rstest = { workspace = true }

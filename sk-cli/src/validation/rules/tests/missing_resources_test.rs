@@ -1,4 +1,5 @@
 use assertables::*;
+use json_patch_ext::prelude::*;
 use json_patch_ext::PatchOperation::Remove;
 use serde_json::json;
 use sk_store::{
@@ -26,9 +27,23 @@ fn depl_event(test_deployment: DynamicObject, #[default("serviceAccount")] sa_ke
                 "spec": {
                     "template": {
                         "spec": {
-                            "containers": [
-                                {"env": {"valueFrom": {"secretKeyRef": {"key": TEST_SECRET}}}}
-                            ],
+                            "containers": [{
+                                "env": [
+                                    {
+                                        "name": "SECRET1",
+                                        "valueFrom": {"secretKeyRef": {"key": "secretKey1"}},
+                                    },
+                                    {"name": "FOOENV", "value": "bar"},
+                                    {
+                                        "name": "SECRET2",
+                                        "valueFrom": {"secretKeyRef": {"key": "secretKey2"}},
+                                    },
+                                ],
+                                "envFrom": [
+                                    {"configMapRef": {"name": "fooconfig"}},
+                                    {"secretRef": {"name": "secretRef"}},
+                                ],
+                            }],
                             sa_key: TEST_SERVICE_ACCOUNT
                         }
                     }
@@ -157,13 +172,29 @@ fn test_service_account_not_missing_same_evt(
     assert_none!(annotations.get(0));
 }
 
-//#[rstest]
-// fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config:
-// TracerConfig) {     let v = secret_envvar_validator();
-//     let annotations = v.check_next_event(&mut depl_event, &test_trace_config);
+#[rstest]
+fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
+    // I'm using the service-account tests to check the various permutations in this code
+    // so I'm not going to re-duplicate them for secrets/etc.  Here I'm just checking that
+    // the produced patches are correct.
+    let v = secret_envvar_validator();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-//     check_secret_event_annotations(annotations);
-// }
+    assert_len_eq_x!(annotations, 3); // two secrets should be patched out
+
+    // both annotations should apply to the first object in the event
+    assert_eq!(annotations[0].0, 0);
+    assert_eq!(annotations[1].0, 0);
+    assert_eq!(annotations[2].0, 0);
+
+    // Check the secret paths -- this is a truly cursed set of indices
+    assert_eq!(annotations[0].1[0].ops[0], remove_operation(format_ptr!("/spec/template/spec/containers/0/env/0")));
+    assert_eq!(annotations[1].1[0].ops[0], remove_operation(format_ptr!("/spec/template/spec/containers/0/env/2")));
+    assert_eq!(
+        annotations[2].1[0].ops[0],
+        remove_operation(format_ptr!("/spec/template/spec/containers/0/envFrom/1"))
+    );
+}
 
 #[rstest]
 fn test_missing_resources_reset() {
