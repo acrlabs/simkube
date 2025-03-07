@@ -9,7 +9,10 @@ use sk_store::{
 };
 
 use super::missing_resources::{
+    configmap_envvar_validator,
+    configmap_volume_validator,
     secret_envvar_validator,
+    secret_volume_validator,
     service_account_validator,
     MissingResource,
     MissingResourceType,
@@ -38,13 +41,22 @@ fn depl_event(test_deployment: DynamicObject, #[default("serviceAccount")] sa_ke
                                         "name": "SECRET2",
                                         "valueFrom": {"secretKeyRef": {"key": "secretKey2"}},
                                     },
+                                    {
+                                        "name": "CONFIGMAP1",
+                                        "valueFrom": {"configMapKeyRef": {"key": "configMap"}},
+                                    },
                                 ],
                                 "envFrom": [
                                     {"configMapRef": {"name": "fooconfig"}},
                                     {"secretRef": {"name": "secretRef"}},
                                 ],
                             }],
-                            sa_key: TEST_SERVICE_ACCOUNT
+                            sa_key: TEST_SERVICE_ACCOUNT,
+                            "volumes": [
+                                {"name": "volume1", "hostPath": {}},
+                                {"name": "secretVolume", "secret": {"secretName": "secret"}},
+                                {"name": "configVolume", "configMap": {"name": "configMap"}},
+                            ],
                         }
                     }
                 }
@@ -172,17 +184,17 @@ fn test_service_account_not_missing_same_evt(
     assert_none!(annotations.get(0));
 }
 
+// I'm using the service-account tests to check the various permutations in this code
+// so I'm not going to re-duplicate them for secrets/etc.  Here I'm just checking that
+// the produced patches are correct.
 #[rstest]
 fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
-    // I'm using the service-account tests to check the various permutations in this code
-    // so I'm not going to re-duplicate them for secrets/etc.  Here I'm just checking that
-    // the produced patches are correct.
     let v = secret_envvar_validator();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_len_eq_x!(annotations, 3); // two secrets should be patched out
+    assert_len_eq_x!(annotations, 3); // three secrets should be patched out
 
-    // both annotations should apply to the first object in the event
+    // all annotations should apply to the first object in the event
     assert_eq!(annotations[0].0, 0);
     assert_eq!(annotations[1].0, 0);
     assert_eq!(annotations[2].0, 0);
@@ -193,6 +205,61 @@ fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_co
     assert_eq!(
         annotations[2].1[0].ops[0],
         remove_operation(format_ptr!("/spec/template/spec/containers/0/envFrom/1"))
+    );
+}
+
+#[rstest]
+fn test_configmap_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
+    let v = configmap_envvar_validator();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
+
+    assert_len_eq_x!(annotations, 2); // two configmaps should be patched out
+
+    // both annotations should apply to the first object in the event
+    assert_eq!(annotations[0].0, 0);
+    assert_eq!(annotations[1].0, 0);
+
+    // Check the configmap paths -- this is a truly cursed set of indices
+    assert_eq!(annotations[0].1[0].ops[0], remove_operation(format_ptr!("/spec/template/spec/containers/0/env/3")));
+    assert_eq!(
+        annotations[1].1[0].ops[0],
+        remove_operation(format_ptr!("/spec/template/spec/containers/0/envFrom/0"))
+    );
+}
+
+#[rstest]
+fn test_secret_volume_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
+    let v = secret_volume_validator();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
+
+    assert_len_eq_x!(annotations, 1); // one secret volume should be patched out
+
+    // the annotation should apply to the first object in the event
+    assert_eq!(annotations[0].0, 0);
+
+    // Check the secret paths -- this is a truly cursed set of indices
+    assert_eq!(annotations[0].1[0].ops[0], remove_operation(format_ptr!("/spec/template/spec/volumes/1/secret")));
+    assert_eq!(
+        annotations[0].1[0].ops[1],
+        add_operation(format_ptr!("/spec/template/spec/volumes/1/emptyDir"), json!({}))
+    );
+}
+
+#[rstest]
+fn test_configmap_volume_missing(mut depl_event: AnnotatedTraceEvent, test_trace_config: TracerConfig) {
+    let v = configmap_volume_validator();
+    let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
+
+    assert_len_eq_x!(annotations, 1); // one configmap volume should be patched out
+
+    // the annotation should apply to the first object in the event
+    assert_eq!(annotations[0].0, 0);
+
+    // Check the configmap paths -- this is a truly cursed set of indices
+    assert_eq!(annotations[0].1[0].ops[0], remove_operation(format_ptr!("/spec/template/spec/volumes/2/configMap")));
+    assert_eq!(
+        annotations[0].1[0].ops[1],
+        add_operation(format_ptr!("/spec/template/spec/volumes/2/emptyDir"), json!({}))
     );
 }
 
