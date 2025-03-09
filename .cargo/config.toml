@@ -1,2 +1,21 @@
 [build]
 target-dir = ".build"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
+
+[profile.skctl-dev]
+inherits = "dev"
+
+[profile.skctl-release]
+inherits = "release"
+
+[profile.test-cover]
+inherits = "test"
+incremental = false
