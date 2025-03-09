@@ -1,94 +1,52 @@
-ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
-
-COVERAGE_DIR=$(BUILD_DIR)/coverage
-CARGO_HOME_ENV=CARGO_HOME=$(BUILD_DIR)/cargo
-
-ifdef IN_CI
-CARGO_TEST_PREFIX=$(CARGO_HOME_ENV) CARGO_INCREMENTAL=0 RUSTFLAGS='-Cinstrument-coverage' LLVM_PROFILE_FILE='$(BUILD_DIR)/coverage/cargo-test-%p-%m.profraw'
-RUST_COVER_TYPE ?= lcov
-DOCKER_ARGS=
-else
-RUST_COVER_TYPE=markdown
-DOCKER_ARGS=-it --init
-endif
-
-RUST_COVER_FILE=$(COVERAGE_DIR)/rust-coverage.$(RUST_COVER_TYPE)
-APP_VERSION=$(shell tomlq -r .workspace.package.version Cargo.toml)
+ARTIFACTS=sk-ctrl sk-driver sk-tracer
 
 include build/base.mk
+include build/rust.mk
+include build/image.mk
 include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:1.79-bullseye
+CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
+COVERAGE_IGNORES+='sk-api/*' '*/testutils/*'
 
+ifndef IN_CI
+DOCKER_ARGS=-it --init
+endif
+
+build: main skctl
+	# deliberately override the basic rust rule
+	true
+
+.PHONY: build-docker
+build-docker: _version
+	$(CARGO) build $(addprefix -p=,$(ARTIFACTS)) --color=always
+	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
+
+.PHONY: main
 main:
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v $(BUILD_DIR):/build/.build:rw $(RUST_BUILD_IMAGE) make build-docker
-
-extra: skctl
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v /home/drmorr/src/acrl:/acrl:ro $(RUST_BUILD_IMAGE) make build-docker
 
 # This is sorta subtle; the three "main" artifacts get built inside docker containers
 # to ensure that they are built against the right libs that they'll be running on in
-# the cluster.  So for those we share CARGO_HOME_ENV, which needs to be in $(BUILD_DIR)
+# the cluster.  So for those we share CARGO_HOME, which needs to be in $(BUILD_DIR)
 # so we have a known location for it.  This is _not_ built in a docker container because
-# it's designed to run on the user's machine, so we don't use the custom CARGO_HOME_ENV
+# it's designed to run on the user's machine, so we don't use the custom CARGO_HOME
 skctl:
-	cargo version
-	cargo build --target-dir=$(BUILD_DIR) -p=skctl --color=always
-	cp $(BUILD_DIR)/debug/skctl $(BUILD_DIR)/.
+	cargo build --profile skctl-dev -p=skctl --color=always
+	cp $(BUILD_DIR)/skctl-dev/skctl $(BUILD_DIR)/.
 
-pre-image:
+
+IMAGE_DEPS += metrics_config
+
+.PHONY: metrics_config
+metrics_config:
 	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
 
-build-docker:
-	cargo version
-	$(CARGO_HOME_ENV) cargo build --target-dir=$(BUILD_DIR) $(addprefix -p=,$(ARTIFACTS)) --color=always
-	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
-
-test: unit itest
-
-.PHONY: unit
-unit:
-	cargo version
-	mkdir -p $(BUILD_DIR)/coverage
-	rm -f $(BUILD_DIR)/coverage/*.profraw
-	$(CARGO_TEST_PREFIX) cargo test $(CARGO_TEST) --features testutils -- --skip itest
-
-.PHONY: itest
-itest:
-	$(CARGO_TEST_PREFIX) cargo test itest --features testutils -- --nocapture --test-threads=1
-
-lint:
-	pre-commit run --all
-
-cover:
-	grcov . --binary-path $(BUILD_DIR)/debug/deps -s . -t $(RUST_COVER_TYPE) -o $(RUST_COVER_FILE) --branch \
-		--ignore '../*' \
-		--ignore '/*' \
-		--ignore '*/tests/*' \
-		--ignore '*_test.rs' \
-		--ignore 'sk-api/*' \
-		--ignore '*/testutils/*' \
-		--ignore '.build/*' \
-		--excl-line '#\[derive' \
-		--excl-start '#\[cfg\((test|feature = "testutils")'
-	@if [ "$(RUST_COVER_TYPE)" = "markdown" ]; then cat $(RUST_COVER_FILE); fi
-
-.PHONY: release publish
-release: NEW_APP_VERSION=$(subst v,,$(shell git cliff --bumped-version))
-release:
-	cargo set-version $(NEW_APP_VERSION)
-	git cliff -u --tag $(NEW_APP_VERSION) --prepend CHANGELOG.md
-	make kustomize
-	git commit -a -m "release: version v$(NEW_APP_VERSION)" && \
-		git tag v$(NEW_APP_VERSION)
-
-publish:
-	cargo ws publish --publish-as-is
+K8S_DEPS += crd
 
 .PHONY: crd
 crd: skctl
 	$(BUILD_DIR)/skctl crd > k8s/raw/simkube.io_simulations.yml
-
-pre-k8s:: crd
 
 .PHONY: validation_rules
 validation_rules: VALIDATION_FILE=sk-cli/src/validation/rules/README.md
