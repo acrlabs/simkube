@@ -58,15 +58,15 @@ struct TestDiagnostic {}
 impl Diagnostic for TestDiagnostic {
     fn check_next_event(&mut self, evt: &mut AnnotatedTraceEvent, _: &TracerConfig) -> CheckResult {
         if evt.data.applied_objs.len() > 1 && evt.data.applied_objs[1].data.get("foo").is_none() {
-            Ok(BTreeMap::from([(
+            Ok(vec![(
                 1,
                 vec![AnnotatedTracePatch {
                     locations: PatchLocations::Everywhere,
                     ops: vec![add_operation(format_ptr!("/foo"), "bar".into())],
                 }],
-            )]))
+            )])
         } else {
-            Ok(BTreeMap::new())
+            Ok(vec![])
         }
     }
 

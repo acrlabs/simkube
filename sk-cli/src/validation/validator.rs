@@ -1,4 +1,3 @@
-use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::fmt;
 use std::str::from_utf8;
 use std::sync::{
@@ -68,7 +67,7 @@ impl Serialize for ValidatorCode {
     }
 }
 
-pub type CheckResult = anyhow::Result<BTreeMap<usize, Vec<AnnotatedTracePatch>>>;
+pub type CheckResult = anyhow::Result<Vec<(usize, Vec<AnnotatedTracePatch>)>>;
 
 pub trait Diagnostic {
     fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult;
@@ -99,6 +98,15 @@ impl Validator {
 
     pub fn help(&self) -> String {
         self.help.replace('\n', " ")
+    }
+}
+
+impl fmt::Debug for Validator {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Validator")
+            .field("x", &self.type_)
+            .field("y", &self.name)
+            .finish()
     }
 }
 

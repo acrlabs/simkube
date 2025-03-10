@@ -16,7 +16,7 @@ fn test_status_field_populated(test_deployment: DynamicObject) {
         ..Default::default()
     };
     let annotations = v.check_next_event(&mut evt, &Default::default()).unwrap();
-    assert_eq!(annotations.keys().collect::<Vec<_>>(), vec![&0]);
+    assert_eq!(annotations.iter().map(|(i, _)| i).collect::<Vec<_>>(), vec![&0]);
 }
 
 #[rstest]
