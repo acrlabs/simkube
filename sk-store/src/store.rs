@@ -32,6 +32,11 @@ use crate::{
     CURRENT_TRACE_FORMAT_VERSION,
 };
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
 
 #[derive(Debug, Error)]
 pub enum TraceStoreError {
@@ -42,7 +47,7 @@ pub enum TraceStoreError {
     ParseFailed(#[from] rmp_serde::decode::Error),
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: TraceEventList,
@@ -60,6 +65,10 @@ pub struct TraceStore {
 impl TraceStore {
     pub fn new(config: TracerConfig) -> TraceStore {
         TraceStore { config, ..Default::default() }
+    }
+
+    pub fn events(&self) -> &TraceEventList {
+        &self.events
     }
 
     pub fn clone_with_events(&self, events: TraceEventList) -> TraceStore {

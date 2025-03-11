@@ -16,9 +16,8 @@ anyhow = { workspace = true }
 clockabilly = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
-k8s-openapi = { workspace = true }
 rmp-serde = { workspace = true }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
 sk-api = { workspace = true }
@@ -27,6 +26,8 @@ tracing = { workspace = true }
 sk-store = { workspace = true, features = ["testutils"] }
 rand = { workspace = true }
 rand_distr = { workspace = true }
+json-patch = "*"
+k8s-openapi = { workspace = true, features = ["v1_31"] }
 
 # testutils dependencies
 mockall = { workspace = true, optional = true }
@@ -35,6 +36,7 @@ petgraph = { version = "0.6.5", features = ["generate"] }
 regex.workspace = true
 tracing-subscriber = "0.3.18"
 itertools = "0.13.0"
+# kube-core = "0.97.0"
 
 [dev-dependencies]
 assertables = { workspace = true }

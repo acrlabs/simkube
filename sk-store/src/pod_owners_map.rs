@@ -1,6 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
+use serde::{Deserialize, Serialize};
 use sk_core::errors::*;
 use sk_core::k8s::{
     format_gvk_name,
@@ -50,7 +51,7 @@ use crate::TraceIndex;
 
 pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub(crate) struct PodOwnersMap {
     m: HashMap<(GVK, String), PodLifecyclesMap>,
     index: HashMap<String, ((GVK, String), u64, usize)>,

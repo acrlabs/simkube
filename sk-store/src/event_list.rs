@@ -9,7 +9,12 @@ use crate::{
     TraceEvent,
 };
 
-#[derive(Clone, Default)]
+use serde::{
+    Deserialize,
+    Serialize,
+};
+
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct TraceEventList(VecDeque<TraceEvent>);
 
 impl TraceEventList {
@@ -38,6 +43,10 @@ impl TraceEventList {
                 self.0.push_back(evt);
             },
         }
+    }
+
+    pub fn events(&self) -> &VecDeque<TraceEvent> {
+        &self.0
     }
 
     pub(crate) fn back(&self) -> Option<&TraceEvent> {
