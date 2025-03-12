@@ -6,9 +6,20 @@ use std::path::PathBuf;
 use anyhow::Result;
 use k8s_openapi::api::apps::v1::Deployment;
 use kube::api::DynamicObject;
-use sk_store::{TraceEvent, TraceStorable, TraceStore};
+use sk_store::{
+    TraceEvent,
+    TraceStorable,
+    TraceStore,
+};
 
-use crate::{deployment_to_dynamic_object, Cli, ClusterGraph, Node, Walk};
+use crate::{
+    deployment_to_dynamic_object,
+    Cli,
+    ClusterGraph,
+    DynamicObjectWrapper,
+    Node,
+    Walk,
+};
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
 /// `prev` to `next` state over `ts` seconds.
@@ -30,14 +41,10 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
         }
     }
 
-    let applied_objs: Vec<DynamicObject> = applied_objs
-        .iter()
-        .map(|d| deployment_to_dynamic_object(d).expect("All applied objects should be valid deployments"))
-        .collect();
-    let deleted_objs: Vec<DynamicObject> = deleted_objs
-        .iter()
-        .map(|d| deployment_to_dynamic_object(d).expect("All deleted objects should be valid deployments"))
-        .collect();
+    let applied_objs: Vec<DynamicObject> =
+        applied_objs.into_iter().map(|obj_wrapper| obj_wrapper.dynamic_object).collect();
+    let deleted_objs: Vec<DynamicObject> =
+        deleted_objs.into_iter().map(|obj_wrapper| obj_wrapper.dynamic_object).collect();
 
     TraceEvent { ts, applied_objs, deleted_objs }
 }

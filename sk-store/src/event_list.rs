@@ -1,17 +1,16 @@
 use std::collections::VecDeque;
 use std::ops::Index;
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sk_core::prelude::*;
 use tracing::*;
 
 use crate::{
     TraceAction,
     TraceEvent,
-};
-
-use serde::{
-    Deserialize,
-    Serialize,
 };
 
 #[derive(Clone, Default, Serialize, Deserialize)]

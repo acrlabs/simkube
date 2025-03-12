@@ -36,7 +36,6 @@ petgraph = { version = "0.6.5", features = ["generate"] }
 regex.workspace = true
 tracing-subscriber = "0.3.18"
 itertools = "0.13.0"
-# kube-core = "0.97.0"
 
 [dev-dependencies]
 assertables = { workspace = true }

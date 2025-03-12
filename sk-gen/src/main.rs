@@ -64,7 +64,12 @@
 
 mod output;
 
-use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
+use std::collections::{
+    BTreeMap,
+    HashMap,
+    HashSet,
+    VecDeque,
+};
 use std::fmt::Write;
 use std::fs::File;
 use std::io::BufReader;
@@ -72,20 +77,38 @@ use std::path::PathBuf;
 
 use anyhow::Result;
 use clap::Parser;
+use json_patch::diff;
 use kube::api::DynamicObject;
 use petgraph::prelude::*;
 use rand::distributions::WeightedIndex;
 use rand::prelude::*;
-use rand_distr::{Distribution, Poisson};
-use serde_json::json;
+use rand_distr::{
+    Distribution,
+    Poisson,
+};
+use serde::{
+    Deserialize,
+    Serialize,
+};
+use serde_json::{
+    json,
+    Value,
+};
 use sk_core::k8s::GVK;
-use sk_store::{TraceEvent, TraceStorable, TraceStore, TracerConfig, TrackedObjectConfig};
+use sk_store::{
+    ExportedTrace,
+    TraceEvent,
+    TraceStorable,
+    TraceStore,
+    TracerConfig,
+    TrackedObjectConfig,
+};
 
-use json_patch::diff;
-use serde::{Deserialize, Serialize};
-use serde_json::Value;
-
-use crate::output::{display_walks_and_traces, export_graphviz, gen_trace_event};
+use crate::output::{
+    display_walks_and_traces,
+    export_graphviz,
+    gen_trace_event,
+};
 
 /// The starting timestamp for the first [`TraceEvent`] in a generated [`Trace`].
 const BASE_TS: i64 = 1_728_334_068;
@@ -125,11 +148,10 @@ fn generate_diff(prev: &Node, next: &Node) -> Value {
 fn parse_trace_file(path: &PathBuf) -> Result<Vec<Node>> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
-    let trace_store: TraceStore = serde_json::from_reader(reader)?;
+    let exported_trace: ExportedTrace = serde_json::from_reader(reader)?;
 
     // convert the TraceStore into a sequence of Nodes
-    Ok(trace_store
-        .events()
+    Ok(exported_trace
         .events()
         .iter()
         .map(|trace_event| {
@@ -502,6 +524,7 @@ impl Node {
         ret.objects = objects;
         ret
     }
+
     /// Creates a new state with no active [`Deployment`]s.
     ///
     /// This can be revised in future to, for instance, start at the end of an existing trace.
@@ -559,8 +582,9 @@ impl Node {
     //     Some(next_state)
     // }
 
-    // fn resource_action(&self, deployment_name: String, container_name: String, action: ResourceAction) -> Option<Self> {
-    //     let modified_deployment = self.objects.get(&deployment_name)?.resource_action(container_name, action)?;
+    // fn resource_action(&self, deployment_name: String, container_name: String, action: ResourceAction) ->
+    // Option<Self> {     let modified_deployment =
+    // self.objects.get(&deployment_name)?.resource_action(container_name, action)?;
 
     //     let mut next_state = self.clone();
     //     next_state.objects.insert(deployment_name, modified_deployment);
@@ -580,9 +604,9 @@ impl Node {
             // DeploymentAction::DecrementReplicas => self.decrement_replica_count(deployment_name),
             DeploymentAction::CreateDeployment => self.create_deployment(&deployment_name, candidate_deployments),
             DeploymentAction::DeleteDeployment => self.delete_deployment(&deployment_name),
-            _ => unimplemented!(), // DeploymentAction::ResourceAction { container_name, action } => {
-                                   //     self.resource_action(deployment_name, container_name, action)
-                                   // },
+            _ => unimplemented!(), /* DeploymentAction::ResourceAction { container_name, action } => {
+                                    *     self.resource_action(deployment_name, container_name, action)
+                                    * }, */
         };
         if let Some(mut new_node) = new_node {
             let poisson = Poisson::new(2.0).unwrap();
@@ -977,14 +1001,15 @@ fn generate_candidate_deployments(num_deployments: usize) -> BTreeMap<String, Dy
 
     default_containers.insert(default_container.name.clone(), default_container);
 
-    // use kube_core::discovery::APIResource;
-    // (1..=num_deployments).map(|i| format!("obj-{i}")).map(|name| {
-    //     let gvk = kube_core::discovery::APIResource;
-    //     let api_resource: APIResource = APIResource::from_gvk();
-    //     let obj = todo!(); // DynamicObject::new(&name, api_resource);
-    //     (name, DynamicObjectWrapper::from(obj))
-    // }).collect();
-    todo!()
+    (1..=num_deployments)
+        .map(|i| format!("obj-{i}"))
+        .map(|name| {
+            let gvk = kube::core::gvk::GroupVersionKind::gvk("group", "v1", "Deployment");
+            let api_resource = kube::core::discovery::ApiResource::from_gvk(&gvk);
+            let obj = DynamicObject::new(&name, &api_resource);
+            (name, obj.into())
+        })
+        .collect()
 }
 
 fn main() -> Result<()> {
@@ -1067,7 +1092,7 @@ fn tracestore_from_walk(walk: &Walk) -> TraceStore {
     trace_store
 }
 
-fn deployment_to_dynamic_object(deployment: &Deployment) -> Result<DynamicObject> {
+fn deployment_to_dynamic_object(deployment: &Deployment) -> Result<DynamicObjectWrapper> {
     Ok(DynamicObject {
         metadata: kube::api::ObjectMeta {
             namespace: Some("default".to_string()),
@@ -1112,5 +1137,6 @@ fn deployment_to_dynamic_object(deployment: &Deployment) -> Result<DynamicObject
                 }
             }
         }),
-    })
+    }
+    .into())
 }

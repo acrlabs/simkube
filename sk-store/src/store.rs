@@ -5,6 +5,10 @@ use clockabilly::{
     Clockable,
     UtcClock,
 };
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
@@ -30,11 +34,6 @@ use crate::{
     TraceIterator,
     TraceStorable,
     CURRENT_TRACE_FORMAT_VERSION,
-};
-
-use serde::{
-    Deserialize,
-    Serialize,
 };
 
 
