@@ -4,7 +4,6 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use anyhow::Result;
-use k8s_openapi::api::apps::v1::Deployment;
 use kube::api::DynamicObject;
 use sk_store::{
     TraceEvent,
@@ -13,12 +12,12 @@ use sk_store::{
 };
 
 use crate::{
-    deployment_to_dynamic_object,
     Cli,
     ClusterGraph,
     DynamicObjectWrapper,
     Node,
     Walk,
+    K8sObject,
 };
 
 /// Generate the simkube-consumable trace event (i.e. applied/deleted objects) to get from
@@ -27,24 +26,24 @@ pub(crate) fn gen_trace_event(ts: i64, prev: &Node, next: &Node) -> TraceEvent {
     let mut applied_objs = Vec::new();
     let mut deleted_objs = Vec::new();
 
-    for (name, deployment) in &prev.objects {
+    for (name, object) in &prev.objects {
         if !next.objects.contains_key(name) {
-            deleted_objs.push(deployment.clone());
-        } else if deployment != &next.objects[name] {
-            applied_objs.push(next.objects[name].clone());
+            deleted_objs.push(object.current_state().dynamic_object);
+        } else if object.current_state().dynamic_object != next.objects[name].current_state().dynamic_object {  
+            applied_objs.push(next.objects[name].current_state().dynamic_object);
         }
     }
 
-    for (name, deployment) in &next.objects {
+    for (name, object) in &next.objects {
         if !prev.objects.contains_key(name) {
-            applied_objs.push(deployment.clone());
+            applied_objs.push(object.current_state().dynamic_object);
         }
     }
 
     let applied_objs: Vec<DynamicObject> =
         applied_objs.into_iter().map(|obj_wrapper| obj_wrapper.dynamic_object).collect();
     let deleted_objs: Vec<DynamicObject> =
-        deleted_objs.into_iter().map(|obj_wrapper| obj_wrapper.dynamic_object).collect();
+        deleted_objs.into_iter().map(|obj_wrapper| obj_wrapper.current_state().dynamic_object).collect();
 
     TraceEvent { ts, applied_objs, deleted_objs }
 }
@@ -110,17 +109,17 @@ pub(crate) fn export_graphviz(graph: &ClusterGraph, output_file: &PathBuf) -> Re
     Ok(())
 }
 
-/// Writes debug information about deployments and nodes to files
+/// Writes debug information about objects and nodes to files
 pub(crate) fn write_debug_info(
-    candidate_deployments: &BTreeMap<String, Deployment>,
+    candidate_objects: &BTreeMap<String, DynamicObjectWrapper>,
     nodes: &[Node],
     output_dir: &PathBuf,
 ) -> Result<()> {
     std::fs::create_dir_all(output_dir)?;
 
     std::fs::write(
-        output_dir.join("candidate_deployments.json"),
-        serde_json::to_string_pretty(&candidate_deployments)?,
+        output_dir.join("candidate_objects.json"),
+        serde_json::to_string_pretty(&candidate_objects)?,
     )?;
 
     for (i, node) in nodes.iter().enumerate() {
