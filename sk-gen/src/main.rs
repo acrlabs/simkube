@@ -72,6 +72,7 @@ use std::collections::{
 };
 use std::fmt::Write;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::BufReader;
 use std::path::PathBuf;
 
@@ -476,6 +477,7 @@ impl Deployment {
     }
 }
 
+
 /// A cluster state at an (unspecified) point in time. This tracks which of the candidate
 /// deployments are active and their state.
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Serialize)]
@@ -488,13 +490,34 @@ struct Node {
     ///
     /// To derive [`Hash`] for [`Node`], we use [`BTreeMap`] which implements `Hash` as our keys
     /// (the deployment names) implement [`Ord`],
-    objects: BTreeMap<String, DynamicObjectWrapper>,
+    objects: BTreeMap<String, Box<dyn K8sObject>>,
     timestamp: u64,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct DynamicObjectWrapper {
     dynamic_object: DynamicObject,
+}
+
+struct DynamicAction {
+    // P(this action or deletion | object is being acted upon)
+    probability: f64,
+    dynamic_action_type: DynamicActionType,
+}
+
+enum DynamicActionType {
+    /// Create or modify
+    Create {
+        applied: DynamicObject,
+    },
+    Delete, 
+}
+
+trait K8sObject {
+    // TODO intialization parameterization
+    fn new_boxed() -> Box<Self> where Self: Sized;
+    fn current_state(&self) -> DynamicObjectWrapper;
+    fn enumerate_actions(&self) -> Vec<DynamicAction>;
 }
 
 impl From<DynamicObject> for DynamicObjectWrapper {
