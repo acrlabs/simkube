@@ -2,22 +2,11 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 
 use json_patch_ext::prelude::*;
-use kube::core::admission::{
-    AdmissionRequest,
-    AdmissionResponse,
-    AdmissionReview,
-};
+use kube::core::admission::{AdmissionRequest, AdmissionResponse, AdmissionReview};
 use rocket::serde::json::Json;
-use serde_json::{
-    json,
-    Value,
-};
+use serde_json::{json, Value};
 use sk_core::jsonutils;
-use sk_core::k8s::{
-    PodExt,
-    PodLifecycleData,
-    GVK,
-};
+use sk_core::k8s::{PodExt, PodLifecycleData, GVK};
 use sk_core::prelude::*;
 use tracing::*;
 

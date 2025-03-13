@@ -2,10 +2,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::ops::Not;
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sk_core::k8s::GVK;
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]

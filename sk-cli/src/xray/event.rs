@@ -1,10 +1,4 @@
-use ratatui::crossterm::event::{
-    read,
-    Event,
-    KeyCode,
-    KeyEventKind,
-    KeyModifiers,
-};
+use ratatui::crossterm::event::{read, Event, KeyCode, KeyEventKind, KeyModifiers};
 
 use super::Message;
 

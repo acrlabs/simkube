@@ -22,20 +22,13 @@
 /// Set the `GOOGLE_SERVICE_ACCOUNT` environment variable to the path for your service account JSON
 /// file (if you're running inside a container, you'll need that file injected as well).  Pass in a
 /// URL like `gs://bucket/path/to/resource`.
-use std::path::{
-    absolute,
-    PathBuf,
-};
+use std::path::{absolute, PathBuf};
 
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
 use object_store::path::Path;
-use object_store::{
-    DynObjectStore,
-    ObjectStoreScheme,
-    PutPayload,
-};
+use object_store::{DynObjectStore, ObjectStoreScheme, PutPayload};
 use reqwest::Url;
 
 use crate::errors::*;

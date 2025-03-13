@@ -1,11 +1,5 @@
-use clockabilly::{
-    DateTime,
-    Local,
-};
-use parse_datetime_fork::{
-    parse_datetime,
-    parse_datetime_at_date,
-};
+use clockabilly::{DateTime, Local};
+use parse_datetime_fork::{parse_datetime, parse_datetime_at_date};
 
 pub fn duration_to_ts(tstr: &str) -> anyhow::Result<i64> {
     Ok(parse_datetime(tstr)?.timestamp())

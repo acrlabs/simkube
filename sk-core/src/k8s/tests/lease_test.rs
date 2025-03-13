@@ -1,8 +1,5 @@
 use clockabilly::mock::MockUtcClock;
-use clockabilly::{
-    Clockable,
-    DateTime,
-};
+use clockabilly::{Clockable, DateTime};
 // can't import prelude because that doesn't include "PATCH" for some reason
 use httpmock::Method::*;
 use k8s_openapi::api::coordination::v1 as coordinationv1;

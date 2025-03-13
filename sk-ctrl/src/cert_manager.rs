@@ -2,10 +2,7 @@ use std::collections::BTreeMap;
 
 use kube::discovery::ApiResource;
 use schemars::JsonSchema;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sk_core::k8s::build_object_meta;
 use sk_core::macros::*;
 use sk_core::prelude::*;

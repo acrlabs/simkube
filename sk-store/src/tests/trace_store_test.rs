@@ -257,7 +257,6 @@ fn test_recreate_index_with_deleted_obj(mut tracer: TraceStore) {
     assert_eq!(tracer.events[1].ts, ts[1]);
 }
 
-
 #[rstest]
 fn test_recreate_index_two_obj_types(mut tracer: TraceStore) {
     let obj_names_1 = vec!["obj1", "obj2", "obj3"];

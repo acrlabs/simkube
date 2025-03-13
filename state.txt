@@ -1,0 +1,2718 @@
+dynamic_object_json_str: []
+jq_script: double_memory
+[sk-gen/src/main.rs:433:27] String::from_utf8_lossy(&output.stdout).into_owned() = "[]\n"
+[sk-gen/src/main.rs:436:9] &output = "[]\n"
+dynamic_object_json_str: []
+jq_script: halve_memory
+[sk-gen/src/main.rs:433:27] String::from_utf8_lossy(&output.stdout).into_owned() = "[]\n"
+[sk-gen/src/main.rs:436:9] &output = "[]\n"
+[sk-gen/src/main.rs:329:27] next_action_fn(&state_graph[node_idx]) = []
+dynamic_object_json_str: [
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "compose-post-service"
+      },
+      "name": "compose-post-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "compose-post-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "compose-post-service",
+            "service": "compose-post-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "ComposePostService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "compose-post-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "compose-post-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "compose-post-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "compose-post-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "compose-post-service"
+              },
+              "name": "compose-post-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "home-timeline-redis"
+      },
+      "name": "home-timeline-redis",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "home-timeline-redis"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "home-timeline-redis",
+            "service": "home-timeline-redis"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "/social-network-microservices/config/redis.conf"
+              ],
+              "image": "docker.io/library/redis:6.2.4",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "home-timeline-redis",
+              "ports": [
+                {
+                  "containerPort": 6379,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/redis.conf",
+                  "name": "home-timeline-redis-config",
+                  "subPath": "redis.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "home-timeline-redis",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "home-timeline-redis"
+              },
+              "name": "home-timeline-redis-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "home-timeline-service"
+      },
+      "name": "home-timeline-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "home-timeline-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "home-timeline-service",
+            "service": "home-timeline-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "HomeTimelineService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "home-timeline-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "home-timeline-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "home-timeline-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "home-timeline-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "home-timeline-service"
+              },
+              "name": "home-timeline-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "jaeger"
+      },
+      "name": "jaeger",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "jaeger"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "jaeger",
+            "service": "jaeger"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "COLLECTOR_ZIPKIN_HTTP_PORT",
+                  "value": "9411"
+                }
+              ],
+              "image": "docker.io/jaegertracing/all-in-one:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "jaeger",
+              "ports": [
+                {
+                  "containerPort": 5775,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 6831,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 6832,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 5778,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 16686,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 14268,
+                  "protocol": "TCP"
+                },
+                {
+                  "containerPort": 9411,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "jaeger-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "jaeger-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "jaeger",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "jaeger"
+              },
+              "name": "jaeger-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "media-frontend"
+      },
+      "name": "media-frontend",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "media-frontend"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "media-frontend",
+            "service": "media-frontend"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "fqdn_suffix",
+                  "value": ".dsb.svc.cluster.local"
+                }
+              ],
+              "image": "docker.io/yg397/media-frontend:xenial",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "media-frontend",
+              "ports": [
+                {
+                  "containerPort": 8081,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/usr/local/openresty/nginx/conf/nginx.conf",
+                  "name": "media-frontend-config",
+                  "subPath": "nginx.conf"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "media-frontend-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "media-frontend-config",
+                  "subPath": "service-config.json"
+                },
+                {
+                  "mountPath": "/usr/local/openresty/nginx/lua-scripts",
+                  "name": "lua-scripts"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "media-frontend",
+          "initContainers": [
+            {
+              "args": [
+                "-c",
+                "git clone https://github.com/delimitrou/DeathStarBench.git /DeathStarBench && cp -r /DeathStarBench/socialNetwork/media-frontend/lua-scripts/* /lua-scripts/"
+              ],
+              "command": [
+                "/bin/sh"
+              ],
+              "image": "docker.io/alpine/git:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "alpine-container",
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/lua-scripts",
+                  "name": "lua-scripts"
+                }
+              ]
+            }
+          ],
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "media-frontend"
+              },
+              "name": "media-frontend-config"
+            },
+            {
+              "emptyDir": {},
+              "name": "lua-scripts"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "media-memcached"
+      },
+      "name": "media-memcached",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "media-memcached"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "media-memcached",
+            "service": "media-memcached"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "image": "docker.io/library/memcached:1.6.7",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "media-memcached",
+              "ports": [
+                {
+                  "containerPort": 11211,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "media-memcached-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "media-memcached-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "media-memcached",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "media-memcached"
+              },
+              "name": "media-memcached-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "media-mongodb"
+      },
+      "name": "media-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "media-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "media-mongodb",
+            "service": "media-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "media-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "media-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "media-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "media-mongodb"
+              },
+              "name": "media-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "media-service"
+      },
+      "name": "media-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "media-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "media-service",
+            "service": "media-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "MediaService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "media-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "media-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "media-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "media-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "media-service"
+              },
+              "name": "media-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "nginx-thrift"
+      },
+      "name": "nginx-thrift",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "nginx-thrift"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "nginx-thrift",
+            "service": "nginx-thrift"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "env": [
+                {
+                  "name": "fqdn_suffix",
+                  "value": ".dsb.svc.cluster.local"
+                }
+              ],
+              "image": "docker.io/yg397/openresty-thrift:xenial",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "nginx-thrift",
+              "ports": [
+                {
+                  "containerPort": 8080,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/usr/local/openresty/nginx/jaeger-config.json",
+                  "name": "nginx-thrift-config",
+                  "subPath": "jaeger-config.json"
+                },
+                {
+                  "mountPath": "/usr/local/openresty/nginx/conf/nginx.conf",
+                  "name": "nginx-thrift-config",
+                  "subPath": "nginx.conf"
+                },
+                {
+                  "mountPath": "/usr/local/openresty/nginx/lua-scripts",
+                  "name": "lua-scripts"
+                },
+                {
+                  "mountPath": "/usr/local/openresty/lualib/thrift",
+                  "name": "lua-thrift"
+                },
+                {
+                  "mountPath": "/usr/local/openresty/nginx/pages",
+                  "name": "pages"
+                },
+                {
+                  "mountPath": "/gen-lua",
+                  "name": "gen-lua"
+                },
+                {
+                  "mountPath": "/keys",
+                  "name": "keys"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "nginx-thrift",
+          "initContainers": [
+            {
+              "args": [
+                "-c",
+                "git clone https://github.com/delimitrou/DeathStarBench.git /DeathStarBench && cp -r /DeathStarBench/socialNetwork/gen-lua/* /gen-lua/ && cp -r /DeathStarBench/socialNetwork/docker/openresty-thrift/lua-thrift/* /lua-thrift/ && cp -r /DeathStarBench/socialNetwork/nginx-web-server/lua-scripts/* /lua-scripts/ && cp -r /DeathStarBench/socialNetwork/nginx-web-server/pages/* /pages/ && cp /DeathStarBench/socialNetwork/keys/* /keys/"
+              ],
+              "command": [
+                "/bin/sh"
+              ],
+              "image": "docker.io/alpine/git:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "alpine-container",
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/lua-scripts",
+                  "name": "lua-scripts"
+                },
+                {
+                  "mountPath": "/lua-thrift",
+                  "name": "lua-thrift"
+                },
+                {
+                  "mountPath": "/pages",
+                  "name": "pages"
+                },
+                {
+                  "mountPath": "/gen-lua",
+                  "name": "gen-lua"
+                },
+                {
+                  "mountPath": "/keys",
+                  "name": "keys"
+                }
+              ]
+            }
+          ],
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "nginx-thrift"
+              },
+              "name": "nginx-thrift-config"
+            },
+            {
+              "emptyDir": {},
+              "name": "lua-scripts"
+            },
+            {
+              "emptyDir": {},
+              "name": "pages"
+            },
+            {
+              "emptyDir": {},
+              "name": "gen-lua"
+            },
+            {
+              "emptyDir": {},
+              "name": "lua-thrift"
+            },
+            {
+              "emptyDir": {},
+              "name": "keys"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "post-storage-memcached"
+      },
+      "name": "post-storage-memcached",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "post-storage-memcached"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "post-storage-memcached",
+            "service": "post-storage-memcached"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "image": "docker.io/library/memcached:1.6.7",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "post-storage-memcached",
+              "ports": [
+                {
+                  "containerPort": 11211,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "post-storage-memcached-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "post-storage-memcached-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "post-storage-memcached",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "post-storage-memcached"
+              },
+              "name": "post-storage-memcached-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "post-storage-mongodb"
+      },
+      "name": "post-storage-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "post-storage-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "post-storage-mongodb",
+            "service": "post-storage-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "post-storage-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "post-storage-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "post-storage-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "post-storage-mongodb"
+              },
+              "name": "post-storage-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "post-storage-service"
+      },
+      "name": "post-storage-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "post-storage-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "post-storage-service",
+            "service": "post-storage-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "PostStorageService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "post-storage-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "post-storage-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "post-storage-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "post-storage-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "post-storage-service"
+              },
+              "name": "post-storage-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "social-graph-mongodb"
+      },
+      "name": "social-graph-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "social-graph-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "social-graph-mongodb",
+            "service": "social-graph-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "social-graph-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "social-graph-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "social-graph-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "social-graph-mongodb"
+              },
+              "name": "social-graph-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "social-graph-redis"
+      },
+      "name": "social-graph-redis",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "social-graph-redis"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "social-graph-redis",
+            "service": "social-graph-redis"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "/social-network-microservices/config/redis.conf"
+              ],
+              "image": "docker.io/library/redis:6.2.4",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "social-graph-redis",
+              "ports": [
+                {
+                  "containerPort": 6379,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/redis.conf",
+                  "name": "social-graph-redis-config",
+                  "subPath": "redis.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "social-graph-redis",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "social-graph-redis"
+              },
+              "name": "social-graph-redis-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "social-graph-service"
+      },
+      "name": "social-graph-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "social-graph-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "social-graph-service",
+            "service": "social-graph-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "SocialGraphService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "social-graph-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "social-graph-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "social-graph-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "social-graph-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "social-graph-service"
+              },
+              "name": "social-graph-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "text-service"
+      },
+      "name": "text-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "text-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "text-service",
+            "service": "text-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "TextService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "text-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "text-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "text-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "text-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "text-service"
+              },
+              "name": "text-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "unique-id-service"
+      },
+      "name": "unique-id-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "unique-id-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "unique-id-service",
+            "service": "unique-id-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "UniqueIdService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "unique-id-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "unique-id-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "unique-id-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "unique-id-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "unique-id-service"
+              },
+              "name": "unique-id-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "url-shorten-memcached"
+      },
+      "name": "url-shorten-memcached",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "url-shorten-memcached"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "url-shorten-memcached",
+            "service": "url-shorten-memcached"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "image": "docker.io/library/memcached:1.6.7",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "url-shorten-memcached",
+              "ports": [
+                {
+                  "containerPort": 11211,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "url-shorten-memcached-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "url-shorten-memcached-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "url-shorten-memcached",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "url-shorten-memcached"
+              },
+              "name": "url-shorten-memcached-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "url-shorten-mongodb"
+      },
+      "name": "url-shorten-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "url-shorten-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "url-shorten-mongodb",
+            "service": "url-shorten-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "url-shorten-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "url-shorten-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "url-shorten-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "url-shorten-mongodb"
+              },
+              "name": "url-shorten-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "url-shorten-service"
+      },
+      "name": "url-shorten-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "url-shorten-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "url-shorten-service",
+            "service": "url-shorten-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "UrlShortenService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "url-shorten-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "url-shorten-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "url-shorten-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "url-shorten-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "url-shorten-service"
+              },
+              "name": "url-shorten-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-memcached"
+      },
+      "name": "user-memcached",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-memcached"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-memcached",
+            "service": "user-memcached"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "image": "docker.io/library/memcached:1.6.7",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-memcached",
+              "ports": [
+                {
+                  "containerPort": 11211,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "user-memcached-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "user-memcached-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-memcached",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-memcached"
+              },
+              "name": "user-memcached-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-mention-service"
+      },
+      "name": "user-mention-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-mention-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-mention-service",
+            "service": "user-mention-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "UserMentionService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-mention-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "user-mention-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "user-mention-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-mention-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-mention-service"
+              },
+              "name": "user-mention-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-mongodb"
+      },
+      "name": "user-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-mongodb",
+            "service": "user-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "user-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-mongodb"
+              },
+              "name": "user-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-service"
+      },
+      "name": "user-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-service",
+            "service": "user-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "UserService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "user-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "user-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-service"
+              },
+              "name": "user-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-timeline-mongodb"
+      },
+      "name": "user-timeline-mongodb",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-timeline-mongodb"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-timeline-mongodb",
+            "service": "user-timeline-mongodb"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "--config",
+                "/social-network-microservices/config/mongod.conf"
+              ],
+              "image": "docker.io/library/mongo:4.4.6",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-timeline-mongodb",
+              "ports": [
+                {
+                  "containerPort": 27017,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/mongod.conf",
+                  "name": "user-timeline-mongodb-config",
+                  "subPath": "mongod.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-timeline-mongodb",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-timeline-mongodb"
+              },
+              "name": "user-timeline-mongodb-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-timeline-redis"
+      },
+      "name": "user-timeline-redis",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-timeline-redis"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-timeline-redis",
+            "service": "user-timeline-redis"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "args": [
+                "/social-network-microservices/config/redis.conf"
+              ],
+              "image": "docker.io/library/redis:6.2.4",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-timeline-redis",
+              "ports": [
+                {
+                  "containerPort": 6379,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/redis.conf",
+                  "name": "user-timeline-redis-config",
+                  "subPath": "redis.conf"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-timeline-redis",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-timeline-redis"
+              },
+              "name": "user-timeline-redis-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  },
+  {
+    "apiVersion": "apps/v1",
+    "kind": "Deployment",
+    "metadata": {
+      "annotations": {
+        "meta.helm.sh/release-name": "dsb-social-network",
+        "meta.helm.sh/release-namespace": "dsb"
+      },
+      "labels": {
+        "app.kubernetes.io/managed-by": "Helm",
+        "service": "user-timeline-service"
+      },
+      "name": "user-timeline-service",
+      "namespace": "dsb"
+    },
+    "spec": {
+      "progressDeadlineSeconds": 600,
+      "replicas": 1,
+      "revisionHistoryLimit": 10,
+      "selector": {
+        "matchLabels": {
+          "service": "user-timeline-service"
+        }
+      },
+      "strategy": {
+        "rollingUpdate": {
+          "maxSurge": "25%",
+          "maxUnavailable": "25%"
+        },
+        "type": "RollingUpdate"
+      },
+      "template": {
+        "metadata": {
+          "creationTimestamp": null,
+          "labels": {
+            "app": "user-timeline-service",
+            "service": "user-timeline-service"
+          }
+        },
+        "spec": {
+          "containers": [
+            {
+              "command": [
+                "UserTimelineService"
+              ],
+              "image": "docker.io/deathstarbench/social-network-microservices:latest",
+              "imagePullPolicy": "IfNotPresent",
+              "name": "user-timeline-service",
+              "ports": [
+                {
+                  "containerPort": 9090,
+                  "protocol": "TCP"
+                }
+              ],
+              "resources": {
+                "requests": {
+                  "cpu": "1",
+                  "memory": "1Gi"
+                }
+              },
+              "terminationMessagePath": "/dev/termination-log",
+              "terminationMessagePolicy": "File",
+              "volumeMounts": [
+                {
+                  "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                  "name": "user-timeline-service-config",
+                  "subPath": "jaeger-config.yml"
+                },
+                {
+                  "mountPath": "/social-network-microservices/config/service-config.json",
+                  "name": "user-timeline-service-config",
+                  "subPath": "service-config.json"
+                }
+              ]
+            }
+          ],
+          "dnsPolicy": "ClusterFirst",
+          "hostname": "user-timeline-service",
+          "restartPolicy": "Always",
+          "schedulerName": "default-scheduler",
+          "securityContext": {},
+          "terminationGracePeriodSeconds": 30,
+          "volumes": [
+            {
+              "configMap": {
+                "defaultMode": 420,
+                "name": "user-timeline-service"
+              },
+              "name": "user-timeline-service-config"
+            }
+          ]
+        }
+      }
+    },
+    "status": {}
+  }
+]
+jq_script: double_memory
+jq: error (at <stdin>:2700): null (null) cannot be matched, as it is not a string
+[sk-gen/src/main.rs:433:27] String::from_utf8_lossy(&output.stdout).into_owned() = ""
+[sk-gen/src/main.rs:436:9] &output = ""
+
+thread 'main' panicked at sk-gen/src/main.rs:440:14:
+called `Result::unwrap()` on an `Err` value: Error("EOF while parsing a value", line: 1, column: 0)
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace

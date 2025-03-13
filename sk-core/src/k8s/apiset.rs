@@ -1,10 +1,7 @@
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 
-use kube::api::{
-    ApiResource,
-    DynamicObject,
-};
+use kube::api::{ApiResource, DynamicObject};
 use kube::discovery::ApiCapabilities;
 
 use crate::k8s::GVK;

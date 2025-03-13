@@ -1,16 +1,9 @@
 use std::collections::HashMap;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 use clockabilly::mock::MockUtcClock;
 use mockall::predicate;
-use sk_core::k8s::{
-    ApiSet,
-    OwnersCache,
-    PodLifecycleData,
-};
+use sk_core::k8s::{ApiSet, OwnersCache, PodLifecycleData};
 use sk_core::prelude::*;
 
 use super::*;

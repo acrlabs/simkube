@@ -2,12 +2,7 @@ use std::fs;
 
 use clap::crate_version;
 use sk_api::prometheus::PrometheusRemoteWrite;
-use sk_api::v1::{
-    SimulationDriverConfig,
-    SimulationHooksConfig,
-    SimulationMetricsConfig,
-    SimulationSpec,
-};
+use sk_api::v1::{SimulationDriverConfig, SimulationHooksConfig, SimulationMetricsConfig, SimulationSpec};
 use sk_core::prelude::*;
 
 const DRIVER_IMAGE: &str = "quay.io/appliedcomputing/sk-driver";

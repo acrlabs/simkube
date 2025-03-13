@@ -1,21 +1,12 @@
 use clockabilly::mock::MockUtcClock;
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::{Clockable, UtcClock};
 use httpmock::Method::*;
 use sk_api::v1::SimulationRootSpec;
 use sk_core::k8s::build_lease;
 
-use super::helpers::{
-    build_driver_context,
-    build_trace_data,
-};
+use super::helpers::{build_driver_context, build_trace_data};
 use super::*;
-use crate::runner::{
-    build_virtual_ns,
-    cleanup_trace,
-};
+use crate::runner::{build_virtual_ns, cleanup_trace};
 
 // Must match the namespace in tests/data/trace.json
 const TEST_NS_NAME: &str = "default";

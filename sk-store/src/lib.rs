@@ -9,21 +9,12 @@ pub mod watchers;
 use std::collections::HashMap;
 
 use kube::api::DynamicObject;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sk_core::errors::*;
-use sk_core::k8s::{
-    PodLifecycleData,
-    GVK,
-};
+use sk_core::k8s::{PodLifecycleData, GVK};
 use sk_core::prelude::*;
 
-pub use crate::config::{
-    TracerConfig,
-    TrackedObjectConfig,
-};
+pub use crate::config::{TracerConfig, TrackedObjectConfig};
 pub use crate::event_list::TraceEventList;
 pub use crate::index::TraceIndex;
 use crate::pod_owners_map::PodLifecyclesMap;

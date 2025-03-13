@@ -2,33 +2,18 @@ mod mutation;
 mod runner;
 
 use std::env;
-use std::net::{
-    IpAddr,
-    Ipv4Addr,
-};
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Parser;
 use rocket::config::TlsConfig;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
-use sk_core::k8s::{
-    ApiSet,
-    OwnersCache,
-};
+use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
+use sk_core::k8s::{ApiSet, OwnersCache};
 use sk_core::prelude::*;
-use sk_core::{
-    hooks,
-    logging,
-};
-use sk_store::{
-    TraceStorable,
-    TraceStore,
-};
+use sk_core::{hooks, logging};
+use sk_store::{TraceStorable, TraceStore};
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;

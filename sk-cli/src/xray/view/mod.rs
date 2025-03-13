@@ -1,31 +1,13 @@
 mod helpers;
 
-use std::cmp::{
-    max,
-    min,
-};
-use std::iter::{
-    once,
-    repeat,
-};
+use std::cmp::{max, min};
+use std::iter::{once, repeat};
 
 use ratatui::prelude::*;
-use ratatui::widgets::{
-    Block,
-    Borders,
-    Clear,
-    List,
-    ListState,
-    Padding,
-    Paragraph,
-};
+use ratatui::widgets::{Block, Borders, Clear, List, ListState, Padding, Paragraph};
 
 use self::helpers::*;
-use super::app::{
-    App,
-    JumpDir,
-    Mode,
-};
+use super::app::{App, JumpDir, Mode};
 
 const MIN_TWO_PANEL_WIDTH: u16 = 120;
 

@@ -1,17 +1,11 @@
 use std::collections::VecDeque;
 use std::ops::Index;
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::{
-    TraceAction,
-    TraceEvent,
-};
+use crate::{TraceAction, TraceEvent};
 
 #[derive(Clone, Default, Serialize, Deserialize)]
 pub struct TraceEventList(VecDeque<TraceEvent>);

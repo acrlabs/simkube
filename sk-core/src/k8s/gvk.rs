@@ -3,13 +3,7 @@ use std::fmt;
 use std::ops::Deref;
 
 use kube::api::GroupVersionKind;
-use serde::{
-    de,
-    Deserialize,
-    Deserializer,
-    Serialize,
-    Serializer,
-};
+use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::errors::*;
 use crate::prelude::*;
@@ -127,10 +121,7 @@ impl<'de> Deserialize<'de> for GVK {
 mod test {
     use assertables::*;
     use rstest::*;
-    use serde::de::value::{
-        Error as SerdeError,
-        StrDeserializer,
-    };
+    use serde::de::value::{Error as SerdeError, StrDeserializer};
     use serde::de::IntoDeserializer;
 
     use super::*;

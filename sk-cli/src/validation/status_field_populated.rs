@@ -1,16 +1,9 @@
-use std::sync::{
-    Arc,
-    RwLock,
-};
+use std::sync::{Arc, RwLock};
 
 use json_patch_ext::prelude::*;
 
 use super::annotated_trace::AnnotatedTraceEvent;
-use super::validator::{
-    Diagnostic,
-    Validator,
-    ValidatorType,
-};
+use super::validator::{Diagnostic, Validator, ValidatorType};
 
 const HELP: &str = r#"Indicates that the status field of a Kubernetes object in
 the trace is non-empty; status fields are updated by their controlling objects

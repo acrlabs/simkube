@@ -1,9 +1,6 @@
 use std::env;
 
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::{Clockable, UtcClock};
 use either::for_both;
 use httpmock::prelude::*;
 use kube::runtime::controller::Action;

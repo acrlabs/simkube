@@ -3,10 +3,7 @@ use lazy_static::lazy_static;
 use ratatui::prelude::*;
 use sk_core::prelude::*;
 
-use crate::validation::{
-    AnnotatedTraceEvent,
-    ValidatorType,
-};
+use crate::validation::{AnnotatedTraceEvent, ValidatorType};
 
 pub(super) const LIST_PADDING: usize = 3;
 lazy_static! {

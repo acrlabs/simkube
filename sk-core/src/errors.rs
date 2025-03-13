@@ -1,15 +1,8 @@
 pub use std::backtrace::Backtrace;
 
-pub use anyhow::{
-    anyhow,
-    bail,
-    ensure,
-};
+pub use anyhow::{anyhow, bail, ensure};
 pub use paste::paste;
-pub use regex::{
-    Regex,
-    RegexBuilder,
-};
+pub use regex::{Regex, RegexBuilder};
 pub use thiserror::Error;
 
 pub type EmptyResult = anyhow::Result<()>;
@@ -104,7 +97,4 @@ macro_rules! skerr {
     };
 }
 
-pub use {
-    err_impl,
-    skerr,
-};
+pub use {err_impl, skerr};

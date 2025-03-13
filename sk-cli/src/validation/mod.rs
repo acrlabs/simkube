@@ -5,28 +5,13 @@ mod validation_store;
 mod validator;
 
 use bytes::Bytes;
-use clap::{
-    value_parser,
-    Subcommand,
-    ValueEnum,
-};
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
+use clap::{value_parser, Subcommand, ValueEnum};
+use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
 use sk_core::prelude::*;
 
-pub use self::annotated_trace::{
-    AnnotatedTrace,
-    AnnotatedTraceEvent,
-    AnnotatedTracePatch,
-    PatchLocations,
-};
+pub use self::annotated_trace::{AnnotatedTrace, AnnotatedTraceEvent, AnnotatedTracePatch, PatchLocations};
 pub use self::validation_store::VALIDATORS;
-pub use self::validator::{
-    ValidatorCode,
-    ValidatorType,
-};
+pub use self::validator::{ValidatorCode, ValidatorType};
 
 #[derive(Subcommand)]
 pub enum ValidateSubcommand {

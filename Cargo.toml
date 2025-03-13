@@ -5,7 +5,8 @@ members = [
     "sk-cli",
     "sk-core",
     "sk-ctrl",
-    "sk-driver", "sk-gen",
+    "sk-driver",
+    "sk-gen",
     "sk-store",
     "sk-tracer",
 ]

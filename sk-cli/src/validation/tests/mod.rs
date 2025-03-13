@@ -3,10 +3,7 @@ mod status_field_populated_test;
 mod validation_store_test;
 
 use std::collections::BTreeMap;
-use std::sync::{
-    Arc,
-    RwLock,
-};
+use std::sync::{Arc, RwLock};
 
 use json_patch_ext::prelude::*;
 use rstest::*;
@@ -14,12 +11,7 @@ use sk_core::prelude::*;
 use sk_store::TraceEvent;
 
 use super::annotated_trace::AnnotatedTraceEvent;
-use super::validator::{
-    Diagnostic,
-    Validator,
-    ValidatorCode,
-    ValidatorType,
-};
+use super::validator::{Diagnostic, Validator, ValidatorCode, ValidatorType};
 use super::*;
 
 const TEST_VALIDATOR_CODE: ValidatorCode = ValidatorCode(ValidatorType::Error, 9999);

@@ -12,10 +12,7 @@ pub use apiset::*;
 pub use gvk::*;
 pub use lease::*;
 pub use owners::OwnersCache;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 pub use sim::*;
 pub use util::*;
 

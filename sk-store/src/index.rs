@@ -1,14 +1,8 @@
 use std::collections::HashMap;
 use std::mem::take;
 
-use serde::{
-    Deserialize,
-    Serialize,
-};
-use sk_core::k8s::{
-    format_gvk_name,
-    GVK,
-};
+use serde::{Deserialize, Serialize};
+use sk_core::k8s::{format_gvk_name, GVK};
 
 #[derive(Clone, Default, Deserialize, Serialize)]
 pub struct TraceIndex {

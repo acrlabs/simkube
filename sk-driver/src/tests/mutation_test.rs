@@ -1,16 +1,8 @@
 use std::collections::HashMap;
 
 use json_patch_ext::prelude::*;
-use kube::core::admission::{
-    AdmissionRequest,
-    AdmissionResponse,
-    AdmissionReview,
-    Operation,
-};
-use kube::core::{
-    GroupVersionKind,
-    GroupVersionResource,
-};
+use kube::core::admission::{AdmissionRequest, AdmissionResponse, AdmissionReview, Operation};
+use kube::core::{GroupVersionKind, GroupVersionResource};
 use mockall::predicate;
 use rocket::serde::json::Json;
 use sk_core::k8s::PodLifecycleData;

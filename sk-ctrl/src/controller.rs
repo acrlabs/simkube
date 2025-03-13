@@ -2,39 +2,20 @@ use std::env;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use anyhow::{
-    anyhow,
-    bail,
-};
-use clockabilly::{
-    DateTime,
-    Utc,
-};
+use anyhow::{anyhow, bail};
+use clockabilly::{DateTime, Utc};
 use either::Either;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
-use kube::api::{
-    ListParams,
-    Patch,
-};
+use kube::api::{ListParams, Patch};
 use kube::runtime::controller::Action;
 use serde_json::json;
 use sk_api::prometheus::*;
-use sk_api::v1::{
-    Simulation,
-    SimulationRoot,
-    SimulationState,
-};
+use sk_api::v1::{Simulation, SimulationRoot, SimulationState};
 use sk_core::constants::*;
 use sk_core::errors::*;
 use sk_core::hooks;
-use sk_core::k8s::{
-    build_simulation_root,
-    is_terminal,
-    metrics_ns,
-    try_claim_lease,
-    LeaseState,
-};
+use sk_core::k8s::{build_simulation_root, is_terminal, metrics_ns, try_claim_lease, LeaseState};
 use sk_core::prelude::*;
 use tokio::runtime::Handle;
 use tokio::task::block_in_place;

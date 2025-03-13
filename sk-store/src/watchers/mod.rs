@@ -2,25 +2,12 @@ mod dyn_obj_watcher;
 mod pod_watcher;
 
 use std::pin::Pin;
-use std::sync::mpsc::{
-    Receiver,
-    Sender,
-};
-use std::sync::{
-    mpsc,
-    Arc,
-    Mutex,
-};
+use std::sync::mpsc::{Receiver, Sender};
+use std::sync::{mpsc, Arc, Mutex};
 
 use async_trait::async_trait;
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
-use futures::{
-    Stream,
-    StreamExt,
-};
+use clockabilly::{Clockable, UtcClock};
+use futures::{Stream, StreamExt};
 use kube::runtime::watcher::Event;
 use sk_core::errors::*;
 use tracing::*;

@@ -12,7 +12,7 @@ edition.workspace = true
 testutils = ["dep:mockall"]
 
 [dependencies]
-anyhow = { workspace = true }
+anyhow.workspace = true
 clockabilly = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
@@ -24,18 +24,28 @@ sk-api = { workspace = true }
 sk-core = { workspace = true }
 tracing = { workspace = true }
 sk-store = { workspace = true, features = ["testutils"] }
-rand = { workspace = true }
-rand_distr = { workspace = true }
+rand.workspace = true
+rand_distr.workspace = true
 json-patch = "*"
 k8s-openapi = { workspace = true, features = ["v1_31"] }
 
 # testutils dependencies
 mockall = { workspace = true, optional = true }
 clap = { workspace = true, features = ["derive"] }
-petgraph = { version = "0.6.5", features = ["generate"] }
+petgraph = { version = "0.6.5", features = ["all", "generate", "serde", "serde_derive"] }
 regex.workspace = true
 tracing-subscriber = "0.3.18"
 itertools = "0.13.0"
+ndarray = "0.16.1"
+ndarray-rand = "0.15.0"
+metis = "0.2.2"
+rustfft = "6.2.0"
+ordered-float = { version = "5.0.0", features = ["serde"] }
+tokei = "12.1.2"
+jaq = "2.1.1"
+jaq-core = "2.1.1"
+jaq-std = "2.1.0"
+jaq-json = { version = "1.1.1", features = ["serde_json"] }
 
 [dev-dependencies]
 assertables = { workspace = true }

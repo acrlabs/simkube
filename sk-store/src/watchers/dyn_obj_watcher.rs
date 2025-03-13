@@ -1,27 +1,14 @@
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use futures::{
-    StreamExt,
-    TryStreamExt,
-};
+use futures::{StreamExt, TryStreamExt};
 use kube::runtime::watcher::watcher;
 use kube::runtime::WatchStreamExt;
 use sk_core::errors::*;
-use sk_core::k8s::{
-    sanitize_obj,
-    ApiSet,
-    GVK,
-};
+use sk_core::k8s::{sanitize_obj, ApiSet, GVK};
 use sk_core::prelude::*;
 
-use crate::watchers::{
-    EventHandler,
-    ObjStream,
-};
+use crate::watchers::{EventHandler, ObjStream};
 use crate::TraceStorable;
 
 // Watch a (customizable) list of objects.  Since we don't know what these object types will be at

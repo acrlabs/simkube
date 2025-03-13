@@ -1,23 +1,11 @@
 use std::fs::File;
-use std::io::{
-    BufRead,
-    Write,
-};
-use std::path::{
-    Path,
-    PathBuf,
-};
-use std::{
-    fs,
-    io,
-};
+use std::io::{BufRead, Write};
+use std::path::{Path, PathBuf};
+use std::{fs, io};
 
 use anyhow::anyhow;
 use clap::value_parser;
-use clap_complete::{
-    generate,
-    Shell,
-};
+use clap_complete::{generate, Shell};
 use sk_core::prelude::*;
 
 #[derive(clap::Args)]

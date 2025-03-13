@@ -1,16 +1,10 @@
 use std::fmt;
 use std::str::from_utf8;
-use std::sync::{
-    Arc,
-    RwLock,
-};
+use std::sync::{Arc, RwLock};
 
 use anyhow::bail;
 use json_patch_ext::prelude::*;
-use serde::{
-    Serialize,
-    Serializer,
-};
+use serde::{Serialize, Serializer};
 
 use super::annotated_trace::AnnotatedTraceEvent;
 

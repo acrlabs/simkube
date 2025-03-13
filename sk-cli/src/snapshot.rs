@@ -1,26 +1,13 @@
 use std::fs::File;
 use std::io::Write;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::{Clockable, UtcClock};
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::ApiSet;
 use sk_core::prelude::*;
-use sk_store::watchers::{
-    DynObjHandler,
-    ObjWatcher,
-    PodHandler,
-};
-use sk_store::{
-    TraceStore,
-    TracerConfig,
-};
+use sk_store::watchers::{DynObjHandler, ObjWatcher, PodHandler};
+use sk_store::{TraceStore, TracerConfig};
 use tokio::task::JoinSet;
 
 #[derive(clap::Args)]

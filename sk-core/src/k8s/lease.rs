@@ -1,18 +1,10 @@
-use clockabilly::{
-    Clockable,
-    DateTime,
-    Utc,
-    UtcClock,
-};
+use clockabilly::{Clockable, DateTime, Utc, UtcClock};
 use k8s_openapi::api::coordination::v1 as coordinationv1;
 use kube::api::Patch;
 use serde_json::json;
 use tracing::*;
 
-use crate::k8s::{
-    build_object_meta,
-    KubernetesError,
-};
+use crate::k8s::{build_object_meta, KubernetesError};
 use crate::prelude::*;
 
 #[derive(Debug, Eq, PartialEq)]

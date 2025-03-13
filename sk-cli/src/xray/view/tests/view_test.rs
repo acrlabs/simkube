@@ -8,15 +8,8 @@ use ratatui::widgets::ListState;
 use sk_store::ExportedTrace;
 
 use super::*;
-use crate::validation::tests::{
-    annotated_trace,
-    test_validation_store,
-};
-use crate::validation::{
-    AnnotatedTrace,
-    AnnotatedTraceEvent,
-    ValidationStore,
-};
+use crate::validation::tests::{annotated_trace, test_validation_store};
+use crate::validation::{AnnotatedTrace, AnnotatedTraceEvent, ValidationStore};
 use crate::xray::view::jump_list_state;
 
 #[fixture]

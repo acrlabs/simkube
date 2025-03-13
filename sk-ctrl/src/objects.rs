@@ -8,18 +8,11 @@ use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use object_store::ObjectStoreScheme;
 use reqwest::Url;
 use sk_api::prometheus::{
-    Prometheus,
-    PrometheusPodMetadata,
-    PrometheusRemoteWriteWriteRelabelConfigs as WriteRelabelConfigs,
-    PrometheusSpec,
+    Prometheus, PrometheusPodMetadata, PrometheusRemoteWriteWriteRelabelConfigs as WriteRelabelConfigs, PrometheusSpec,
 };
 use sk_api::v1::SimulationMetricsConfig;
 use sk_core::k8s::{
-    build_containment_label_selector,
-    build_global_object_meta,
-    build_object_meta,
-    metrics_ns,
-    metrics_svc_account,
+    build_containment_label_selector, build_global_object_meta, build_object_meta, metrics_ns, metrics_svc_account,
 };
 use sk_core::macros::*;
 use sk_core::prelude::*;

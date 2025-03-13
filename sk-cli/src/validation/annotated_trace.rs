@@ -2,21 +2,11 @@ use std::collections::BTreeMap;
 use std::slice;
 
 use json_patch_ext::prelude::*;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
+use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
 use sk_core::prelude::*;
-use sk_store::{
-    TraceEvent,
-    TraceStorable,
-    TraceStore,
-};
+use sk_store::{TraceEvent, TraceStorable, TraceStore};
 
-use super::validator::{
-    Validator,
-    ValidatorCode,
-};
+use super::validator::{Validator, ValidatorCode};
 
 #[derive(Clone, Default)]
 pub struct AnnotatedTraceEvent {

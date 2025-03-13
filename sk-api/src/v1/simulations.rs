@@ -1,13 +1,7 @@
-use clockabilly::{
-    DateTime,
-    Utc,
-};
+use clockabilly::{DateTime, Utc};
 use kube::CustomResource;
 use schemars::JsonSchema;
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use serde::{Deserialize, Serialize};
 
 use crate::prometheus::PrometheusRemoteWrite;
 

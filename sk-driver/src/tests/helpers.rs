@@ -2,10 +2,7 @@ use std::fs::File;
 use std::io::BufReader;
 use std::sync::Arc;
 
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_store::{ExportedTrace, TraceEvent};
 use tokio::sync::Mutex;
 
 use super::*;

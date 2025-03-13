@@ -6,17 +6,8 @@ use serde::Serialize;
 use sk_core::prelude::*;
 
 use super::summary::ValidationSummary;
-use super::validator::{
-    Validator,
-    ValidatorCode,
-};
-use super::{
-    status_field_populated,
-    AnnotatedTrace,
-    AnnotatedTracePatch,
-    PatchLocations,
-    PrintFormat,
-};
+use super::validator::{Validator, ValidatorCode};
+use super::{status_field_populated, AnnotatedTrace, AnnotatedTracePatch, PatchLocations, PrintFormat};
 
 #[derive(Serialize)]
 pub struct ValidationStore {

@@ -1,29 +1,16 @@
 use std::collections::HashMap;
 use std::mem::take;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
-use futures::{
-    StreamExt,
-    TryStreamExt,
-};
+use futures::{StreamExt, TryStreamExt};
 use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
-use sk_core::k8s::{
-    ApiSet,
-    OwnersCache,
-    PodLifecycleData,
-};
+use sk_core::k8s::{ApiSet, OwnersCache, PodLifecycleData};
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::watchers::{
-    EventHandler,
-    ObjStream,
-};
+use crate::watchers::{EventHandler, ObjStream};
 use crate::TraceStorable;
 
 // The PodWatcher object monitors incoming pod events and records the relevant ones to the object

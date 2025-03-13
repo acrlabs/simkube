@@ -1,22 +1,11 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
-use serde::{
-    Deserialize,
-    Serialize,
-};
+use clockabilly::{Clockable, UtcClock};
+use serde::{Deserialize, Serialize};
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
-use sk_core::k8s::{
-    build_deletable,
-    PodExt,
-    PodLifecycleData,
-    GVK,
-};
+use sk_core::k8s::{build_deletable, PodExt, PodLifecycleData, GVK};
 use sk_core::prelude::*;
 use sk_core::time::duration_to_ts_from;
 use thiserror::Error;
@@ -26,16 +15,9 @@ use crate::config::TracerConfig;
 use crate::filter::filter_event;
 use crate::pod_owners_map::PodOwnersMap;
 use crate::{
-    ExportedTrace,
-    TraceAction,
-    TraceEvent,
-    TraceEventList,
-    TraceIndex,
-    TraceIterator,
-    TraceStorable,
+    ExportedTrace, TraceAction, TraceEvent, TraceEventList, TraceIndex, TraceIterator, TraceStorable,
     CURRENT_TRACE_FORMAT_VERSION,
 };
-
 
 #[derive(Debug, Error)]
 pub enum TraceStoreError {

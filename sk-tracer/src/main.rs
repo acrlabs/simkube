@@ -1,10 +1,7 @@
 mod errors;
 
 use std::ops::Deref;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::{Arc, Mutex};
 
 use bytes::Bytes;
 use clap::Parser;
@@ -12,22 +9,12 @@ use kube::Client;
 use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
+use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
 use sk_core::k8s::ApiSet;
 use sk_core::logging;
 use sk_core::prelude::*;
-use sk_store::watchers::{
-    DynObjHandler,
-    ObjWatcher,
-    PodHandler,
-};
-use sk_store::{
-    TraceStore,
-    TracerConfig,
-};
+use sk_store::watchers::{DynObjHandler, ObjWatcher, PodHandler};
+use sk_store::{TraceStore, TracerConfig};
 use tokio::task::JoinSet;
 use tracing::*;
 

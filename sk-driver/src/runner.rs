@@ -1,32 +1,15 @@
 use std::cmp::max;
 use std::time::Duration;
 
-use anyhow::{
-    anyhow,
-    bail,
-};
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use anyhow::{anyhow, bail};
+use clockabilly::{Clockable, UtcClock};
 use either::Either;
 use json_patch_ext::prelude::*;
-use kube::api::{
-    DeleteParams,
-    DynamicObject,
-    Patch,
-    PatchParams,
-    PropagationPolicy,
-};
+use kube::api::{DeleteParams, DynamicObject, Patch, PatchParams, PropagationPolicy};
 use serde_json::json;
 use sk_core::errors::*;
 use sk_core::k8s::{
-    add_common_metadata,
-    build_global_object_meta,
-    build_simulation_root,
-    try_update_lease,
-    ApiSet,
-    GVK,
+    add_common_metadata, build_global_object_meta, build_simulation_root, try_update_lease, ApiSet, GVK,
 };
 use sk_core::macros::*;
 use sk_core::prelude::*;
