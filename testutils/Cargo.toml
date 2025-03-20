@@ -1,0 +1,24 @@
+[package]
+name = "sk-testutils"
+description = "test utilities for SimKube"
+publish = false
+version = "0.0.0"
+edition.workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+async-trait = { workspace = true }
+bytes = { workspace = true }
+clockabilly = { workspace = true, features = ["mock"] }
+http = { workspace = true }
+httpmock = { workspace = true }
+k8s-openapi = { workspace = true }
+kube = { workspace = true }
+lazy_static = { workspace = true }
+mockall = { workspace = true }
+object_store = { workspace = true }
+rstest = { workspace = true }
+sk-api = { workspace = true }
+sk-core = { workspace = true }
+sk-store = { workspace = true }
+serde_json = { workspace = true }

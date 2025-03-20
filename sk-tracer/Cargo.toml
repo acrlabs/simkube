@@ -8,9 +8,6 @@ license-file.workspace = true
 readme.workspace = true
 edition.workspace = true
 
-[features]
-testutils = []
-
 [dependencies]
 anyhow = { workspace = true }
 bytes = { workspace = true }
@@ -30,4 +27,6 @@ url = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
-sk-core = { workspace = true, features = ["testutils"] }
+sk-core = { workspace = true, features = ["mock"] }
+sk-store = { workspace = true, features = ["mock"] }
+sk-testutils = { workspace = true }

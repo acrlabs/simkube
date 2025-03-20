@@ -14,7 +14,6 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 
 use super::*;
-use crate::mock::MockTraceStore;
 
 const START_TS: i64 = 1234;
 const END_TS: i64 = 5678;

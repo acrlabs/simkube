@@ -21,7 +21,8 @@ The SimKube repo is organized as follows:
     /sk-ctrl   - Rust code for the `sk-ctrl` Kubernetes controller
     /sk-driver - Rust code for the `sk-driver` Simulation runner
     /sk-store  - Rust code for the tracer object store
-    /sk-tracer    - Rust code for the `sk-tracer` Kubernetes object
+    /sk-tracer - Rust code for the `sk-tracer` Kubernetes object
+    /testutils - helper functions for tests
 ```
 
 In general, code that is specific to a single artifact should go in the subdirectory for that artifact, but code that
@@ -122,7 +123,7 @@ builds.
 
 ### Writing new tests
 
-There is a suite of utility functions for tests in `lib/testutils` that provide additional fixtures and helper
+There is a suite of utility functions for tests in `/testutils` that provide additional fixtures and helper
 functions for writing tests.  Feel free to add more utilities in here if it would be helpful.
 
 Tests should in most cases be put into a separate submodule called `tests` and included with a
@@ -133,9 +134,6 @@ mod tests;
 ```
 
 block at the bottom of the main module.
-
-In order to make `lib/testutils` accessible outside the `lib/` crate, they are not included with `#[cfg(test)]`, but
-instead with an optional `testutils` feature.
 
 ## Making a PR
 

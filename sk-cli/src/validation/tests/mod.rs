@@ -14,6 +14,7 @@ use sk_store::{
     TraceEvent,
     TracerConfig,
 };
+use sk_testutils::*;
 
 use super::annotated_trace::AnnotatedTraceEvent;
 use super::validator::{
@@ -87,4 +88,16 @@ fn test_validator() -> Validator {
 pub fn test_validation_store(test_validator: Validator) -> ValidationStore {
     let validators = BTreeMap::from([(TEST_VALIDATOR_CODE, test_validator)]);
     ValidationStore { validators }
+}
+
+pub fn annotated_trace_from_json(trace_type: &str) -> AnnotatedTrace {
+    let exported_trace = exported_trace_from_json(trace_type);
+    AnnotatedTrace::new_with_events(
+        exported_trace
+            .events()
+            .iter()
+            .cloned()
+            .map(|e| AnnotatedTraceEvent::new(e))
+            .collect(),
+    )
 }

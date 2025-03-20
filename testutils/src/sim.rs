@@ -1,7 +1,8 @@
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use rstest::*;
 use sk_api::v1::*;
 
-use crate::prelude::*;
+use crate::constants::*;
 
 #[fixture]
 pub fn test_sim() -> Simulation {

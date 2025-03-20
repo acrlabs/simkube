@@ -1,5 +1,6 @@
 mod missing_resources_test;
 mod status_field_populated_test;
+mod validate_all_test;
 
 use std::collections::HashMap;
 
@@ -9,6 +10,7 @@ use sk_store::{
     TracerConfig,
     TrackedObjectConfig,
 };
+use sk_testutils::*;
 
 use super::*;
 use crate::validation::validator::Diagnostic;

@@ -59,15 +59,6 @@ pub struct TraceIterator<'a> {
 
 const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
 
-#[derive(Deserialize, Serialize)]
-pub struct ExportedTrace {
-    version: u16,
-    config: TracerConfig,
-    events: Vec<TraceEvent>,
-    index: TraceIndex,
-    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
-}
-
 pub trait TraceStorable {
     fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) -> EmptyResult;
     fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult;
@@ -87,10 +78,31 @@ pub trait TraceStorable {
     fn iter(&self) -> TraceIterator<'_>;
 }
 
+#[derive(Deserialize, Serialize)]
+pub struct ExportedTrace {
+    version: u16,
+    config: TracerConfig,
+    events: Vec<TraceEvent>,
+    index: TraceIndex,
+    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
+}
+
+impl ExportedTrace {
+    pub fn prepend_event(&mut self, event: TraceEvent) {
+        let mut tmp = vec![event];
+        tmp.append(&mut self.events);
+        self.events = tmp;
+    }
+
+    pub fn events(&self) -> Vec<TraceEvent> {
+        self.events.clone()
+    }
+}
+
 #[cfg(test)]
 mod tests;
 
-#[cfg(feature = "testutils")]
+#[cfg(feature = "mock")]
 pub mod mock {
     use mockall::mock;
 
@@ -117,18 +129,5 @@ pub mod mock {
             fn end_ts(&self) -> Option<i64>;
             fn iter<'a>(&'a self) -> TraceIterator<'a>;
         }
-    }
-}
-
-#[cfg(feature = "testutils")]
-impl ExportedTrace {
-    pub fn prepend_event(&mut self, event: TraceEvent) {
-        let mut tmp = vec![event];
-        tmp.append(&mut self.events);
-        self.events = tmp;
-    }
-
-    pub fn events(&self) -> Vec<TraceEvent> {
-        self.events.clone()
     }
 }

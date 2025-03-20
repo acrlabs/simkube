@@ -119,7 +119,6 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
                 //    won't exist and can't actually _do_ anything anyways), or
                 // 2) add the resource object in at the beginning of the simulation
                 for (path, res) in matched_values {
-                    println!("{path:?}, {res}");
                     // if we're demanding a resource for a pod, we assume the resource is
                     // namespaced (may be an invalid assumption in the future)
                     let resource_ns = &obj.namespace().unwrap();

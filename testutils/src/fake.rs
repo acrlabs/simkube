@@ -29,7 +29,7 @@ impl MockServerBuilder {
 
     pub fn assert(&self) {
         for id in &self.mock_ids {
-            print!("checking assertions for mock {id}\n");
+            println!("checking assertions for mock {id}");
             Mock::new(*id, &self.server).assert()
         }
     }

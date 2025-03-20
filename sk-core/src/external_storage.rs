@@ -30,6 +30,8 @@ use std::path::{
 use anyhow::anyhow;
 use async_trait::async_trait;
 use bytes::Bytes;
+#[cfg(feature = "mock")]
+use mockall::automock;
 use object_store::path::Path;
 use object_store::{
     DynObjectStore,
@@ -40,7 +42,7 @@ use reqwest::Url;
 
 use crate::errors::*;
 
-#[cfg_attr(feature = "testutils", automock)]
+#[cfg_attr(feature = "mock", automock)]
 #[async_trait]
 pub trait ObjectStoreWrapper {
     fn scheme(&self) -> ObjectStoreScheme;
@@ -110,9 +112,6 @@ fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
 
     Ok(ObjectStoreScheme::parse(&url)?)
 }
-
-#[cfg(feature = "testutils")]
-use mockall::automock;
 
 #[cfg(test)]
 mod test {

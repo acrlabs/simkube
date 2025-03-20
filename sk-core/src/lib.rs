@@ -26,8 +26,6 @@ pub mod prelude {
 
     pub use crate::constants::*;
     pub use crate::errors::EmptyResult;
-    #[cfg(feature = "testutils")]
-    pub use crate::k8s::testutils::*;
     pub use crate::k8s::{
         KubeResourceExt,
         OpenApiResourceExt,

@@ -1,11 +1,6 @@
-use std::fs::File;
-use std::io::BufReader;
 use std::sync::Arc;
 
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_store::TraceEvent;
 use tokio::sync::Mutex;
 
 use super::*;
@@ -13,9 +8,7 @@ use super::*;
 pub fn build_trace_data(has_start_marker: bool) -> Vec<u8> {
     // I want the trace data to be easily editable, so we load it from a plain-text JSON file and
     // then re-encode it into msgpack so we can pass the data to import
-    let trace_data_file = File::open("../testdata/trace.json").unwrap();
-    let reader = BufReader::new(trace_data_file);
-    let mut exported_trace: ExportedTrace = serde_json::from_reader(reader).unwrap();
+    let mut exported_trace = exported_trace_from_json("trace");
 
     if has_start_marker {
         exported_trace.prepend_event(TraceEvent {
