@@ -5,6 +5,7 @@ mod pod_lifecycle_test;
 mod util_test;
 
 use rstest::*;
+use sk_testutils::*;
 use tracing_test::traced_test;
 
 use super::*;

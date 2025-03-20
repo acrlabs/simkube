@@ -79,6 +79,3 @@ trait StartEndTimeable {
 
 #[cfg(test)]
 pub mod tests;
-
-#[cfg(feature = "testutils")]
-pub mod testutils;

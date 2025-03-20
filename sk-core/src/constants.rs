@@ -39,28 +39,3 @@ pub const SVC_ACCOUNT_KIND: &str = "ServiceAccount";
 lazy_static! {
     pub static ref SVC_ACCOUNT_GVK: GVK = GVK::new("", "v1", SVC_ACCOUNT_KIND);
 }
-
-#[cfg(feature = "testutils")]
-mod test_constants {
-    use super::*;
-
-    pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
-    pub const TEST_DEPLOYMENT: &str = "the-deployment";
-    pub const TEST_DAEMONSET: &str = "the-daemonset";
-    pub const TEST_SERVICE_ACCOUNT: &str = "the-service-account";
-    pub const TEST_NAMESPACE: &str = "test-namespace";
-    pub const TEST_SIM_NAME: &str = "test-sim";
-    pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
-    pub const TEST_DRIVER_NAME: &str = "sk-test-driver-12345";
-    pub const TEST_DRIVER_ROOT_NAME: &str = "sk-test-driver-12345-root";
-    pub const TEST_VIRT_NS_PREFIX: &str = "virt-test";
-    pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
-
-    lazy_static! {
-        pub static ref DEPL_GVK: GVK = GVK::new("apps", "v1", "Deployment");
-        pub static ref DS_GVK: GVK = GVK::new("apps", "v1", "DaemonSet");
-    }
-}
-
-#[cfg(feature = "testutils")]
-pub use test_constants::*;

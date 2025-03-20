@@ -9,7 +9,7 @@ readme.workspace = true
 edition.workspace = true
 
 [features]
-testutils = ["dep:http", "dep:httpmock", "dep:mockall", "dep:rstest"]
+mock = []
 
 [dependencies]
 anyhow = { workspace = true }
@@ -35,13 +35,13 @@ tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 url = { workspace = true }
 
-# testutils dependencies
-http = { workspace = true, optional = true }
-httpmock = { workspace = true,  optional = true }
-mockall = { workspace = true, optional = true }
-rstest = { workspace = true, optional = true }
+# mock dependencies
+mockall = { workspace = true }
 
 [dev-dependencies]
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
+httpmock = { workspace = true }
+rstest = { workspace = true }
+sk-testutils = { workspace = true }
 tracing-test = { workspace = true }

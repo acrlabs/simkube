@@ -68,6 +68,7 @@ pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
 #[cfg(test)]
 mod test {
     use rstest::*;
+    use sk_testutils::*;
     use tracing_test::*;
 
     use super::*;

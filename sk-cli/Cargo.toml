@@ -8,9 +8,6 @@ license-file.workspace = true
 readme.workspace = true
 edition.workspace = true
 
-[features]
-testutils = []
-
 [dependencies]
 anyhow = { workspace = true }
 assertables = { workspace = true }
@@ -40,3 +37,4 @@ tokio = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true }
 rstest = { workspace = true }
+sk-testutils = { workspace = true }

@@ -1,20 +1,16 @@
-use std::fs::File;
-use std::io::BufReader;
-
 use insta::assert_debug_snapshot;
 use ratatui::backend::TestBackend;
 use ratatui::prelude::*;
 use ratatui::widgets::ListState;
-use sk_store::ExportedTrace;
 
 use super::*;
 use crate::validation::tests::{
     annotated_trace,
+    annotated_trace_from_json,
     test_validation_store,
 };
 use crate::validation::{
     AnnotatedTrace,
-    AnnotatedTraceEvent,
     ValidationStore,
 };
 use crate::xray::view::jump_list_state;
@@ -31,18 +27,7 @@ fn test_app(test_validation_store: ValidationStore, mut annotated_trace: Annotat
 
 #[fixture]
 fn test_app_large(test_validation_store: ValidationStore) -> App {
-    let trace_data_file = File::open("../testdata/large_trace.json").unwrap();
-    let reader = BufReader::new(trace_data_file);
-    let exported_trace: ExportedTrace = serde_json::from_reader(reader).unwrap();
-    let annotated_trace = AnnotatedTrace::new_with_events(
-        exported_trace
-            .events()
-            .iter()
-            .cloned()
-            .map(|e| AnnotatedTraceEvent::new(e))
-            .collect(),
-    );
-
+    let annotated_trace = annotated_trace_from_json("large_trace");
     test_app(test_validation_store, annotated_trace)
 }
 

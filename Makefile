@@ -13,9 +13,9 @@ ifndef IN_CI
 DOCKER_ARGS=-it --init
 endif
 
+# deliberately override the basic rust rule
 build: main skctl
-	# deliberately override the basic rust rule
-	true
+	@true
 
 .PHONY: build-docker
 build-docker: _version
@@ -24,7 +24,7 @@ build-docker: _version
 
 .PHONY: main
 main:
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw -v /home/drmorr/src/acrl:/acrl:ro $(RUST_BUILD_IMAGE) make build-docker
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) make build-docker
 
 # This is sorta subtle; the three "main" artifacts get built inside docker containers
 # to ensure that they are built against the right libs that they'll be running on in

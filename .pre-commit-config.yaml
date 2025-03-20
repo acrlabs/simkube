@@ -7,6 +7,7 @@ repos:
         language: system
         entry: bash -c "which python"
         always_run: true
+        exclude: ".*"
         verbose: true
   - repo: "https://github.com/pre-commit/pre-commit-hooks"
     rev: v4.4.0
@@ -31,6 +32,7 @@ repos:
           - /tmp/cargo
           - --
           - -Dwarnings
+          - -Aclippy::new_without_default
   - repo: "https://github.com/futuretech6/pre-commit-rust-nightly"
     rev: v1.1
     hooks:
