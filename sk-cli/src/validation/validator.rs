@@ -112,8 +112,8 @@ impl Validator {
 impl fmt::Debug for Validator {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Validator")
-            .field("x", &self.type_)
-            .field("y", &self.name)
+            .field("type", &self.type_)
+            .field("name", &self.name)
             .finish()
     }
 }
