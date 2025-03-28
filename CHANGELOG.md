@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.1.0 - 2025-03-28
+
+### 🚀 Features
+
+- Fix issues discovered by validation
+- Page up/down navigation keys for skctl xray
+- Annotations in `skctl validate` include possible patches instead of just affected indices
+- Service_account_missing validation check
+- InsertAt patch location, secondary patch for service_account_missing
+- Secret and configmap envvar validation checks
+- Secret and configmap volume validation checks
+
+### 🐛 Bug Fixes
+
+- Misaligned error display in skctl xray
+- Validation serialization to yaml/json
+- Validator debug output
+
 
 ## v2.0.0 - 2024-11-20
 
