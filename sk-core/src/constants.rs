@@ -8,10 +8,18 @@ pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
 pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 
 // Common annotations and labels for SimKube
-pub const LIFETIME_ANNOTATION_KEY: &str = "simkube.io/lifetime-seconds";
 pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "simkube.io/original-namespace";
 pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
+pub const POD_SPEC_STABLE_HASH_KEY: &str = "simkube.io/pod-spec-stable-hash";
+pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
+
+// Lifecycle management labels and annotations
+pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.kwok.io/stage-complete";
+pub const KWOK_STAGE_COMPLETE_TIMESTAMP_KEY: &str = "simkube.kwok.io/stage-complete-time";
+pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.kwok.io/stage-error-time";
+
+// Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
 
 // Taint/toleration key

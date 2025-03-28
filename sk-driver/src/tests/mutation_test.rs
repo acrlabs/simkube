@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use clockabilly::mock::MockUtcClock;
+use insta::assert_debug_snapshot;
 use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
@@ -28,7 +30,7 @@ fn ctx(
     let (_, client) = make_fake_apiserver();
     let mut owners = HashMap::new();
     owners.insert(test_pod.namespaced_name(), pod_owners);
-    let cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
+    let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
     build_driver_context(Arc::new(Mutex::new(cache)), Arc::new(store))
 }
 
@@ -106,35 +108,54 @@ async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_res
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
     let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
     test_pod.owner_references_mut().push(owner);
-    adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new()).await.unwrap();
+    adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
+        .await
+        .unwrap();
     assert_eq!(adm_resp.patch, None);
 }
 
-#[rstest]
-#[tokio::test]
-async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse) {
-    test_pod
-        .annotations_mut()
-        .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
-    let root = metav1::OwnerReference {
-        name: TEST_DRIVER_ROOT_NAME.into(),
-        ..Default::default()
-    };
-    let depl = metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() };
+mod itest {
+    use super::*;
 
-    let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
-    let mut store = MockTraceStore::new();
-    let _ = store
-        .expect_lookup_pod_lifecycle()
-        .with(predicate::always(), predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
-        .returning(|_, _, _, _| PodLifecycleData::Finished(1, 2))
-        .once();
-    let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
+    #[rstest]
+    #[case(true)]
+    #[case(false)]
+    #[tokio::test]
+    async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse, #[case] running: bool) {
+        set_snapshot_suffix!("{running}");
+        test_pod
+            .annotations_mut()
+            .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
+        if running {
+            test_pod.status.get_or_insert_default().phase = Some("Running".into());
+        }
+        let root = metav1::OwnerReference {
+            name: TEST_DRIVER_ROOT_NAME.into(),
+            ..Default::default()
+        };
+        let depl = metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() };
 
-    let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
+        let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
+        let mut store = MockTraceStore::new();
+        if running {
+            let _ = store
+                .expect_lookup_pod_lifecycle()
+                .with(predicate::always(), predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
+                .returning(|_, _, _, _| PodLifecycleData::Finished(0, 42))
+                .once();
+            let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
+        }
 
-    adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new()).await.unwrap();
-    let mut json_pod = serde_json::to_value(&test_pod).unwrap();
-    let pod_patch: Patch = serde_json::from_slice(&adm_resp.patch.unwrap()).unwrap();
-    patch_ext(&mut json_pod, pod_patch.0[0].clone()).unwrap();
+        let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
+
+        adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
+            .await
+            .unwrap();
+        let mut json_pod = serde_json::to_value(&test_pod).unwrap();
+        let pod_patch: Patch = serde_json::from_slice(&adm_resp.patch.unwrap()).unwrap();
+        for p in pod_patch.0 {
+            patch_ext(&mut json_pod, p).unwrap();
+        }
+        assert_debug_snapshot!(json_pod);
+    }
 }

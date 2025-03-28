@@ -25,7 +25,7 @@ const TEST_NS_NAME: &str = "default";
 async fn test_cleanup_trace_error() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
@@ -53,7 +53,7 @@ async fn test_cleanup_trace_error() {
 async fn test_cleanup_trace_timeout() {
     let (fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
@@ -74,7 +74,7 @@ async fn test_cleanup_trace_timeout() {
 async fn test_cleanup_trace() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
     let store = Arc::new(TraceStore::new(Default::default()));
     let ctx = build_driver_context(cache, store);
@@ -104,7 +104,7 @@ mod itest {
     #[tokio::test]
     async fn test_driver_run(#[case] has_start_marker: bool) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
-        let cache = Arc::new(Mutex::new(OwnersCache::new(ApiSet::new(client.clone()))));
+        let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
         let trace_data = build_trace_data(has_start_marker);
         let store = Arc::new(TraceStore::import(trace_data, &None).unwrap());

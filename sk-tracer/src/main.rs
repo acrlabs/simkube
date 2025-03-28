@@ -16,7 +16,7 @@ use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
 };
-use sk_core::k8s::ApiSet;
+use sk_core::k8s::DynamicApiSet;
 use sk_core::logging;
 use sk_core::prelude::*;
 use sk_store::watchers::{
@@ -91,7 +91,7 @@ async fn run(args: Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
 
     let client = Client::try_default().await.expect("failed to create kube client");
-    let mut apiset = ApiSet::new(client.clone());
+    let mut apiset = DynamicApiSet::new(client.clone());
 
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
 

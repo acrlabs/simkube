@@ -1,4 +1,3 @@
-#[cfg(test)]
 #[macro_export]
 macro_rules! set_snapshot_suffix {
     ($($expr:expr),*) => {

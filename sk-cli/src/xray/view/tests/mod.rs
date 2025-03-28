@@ -1,8 +1,7 @@
-mod helpers;
 mod view_test;
 
 use rstest::*;
+use sk_testutils::*;
 
 use super::*;
-use crate::set_snapshot_suffix;
 use crate::xray::app::*;

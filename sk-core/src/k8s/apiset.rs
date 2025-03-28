@@ -11,16 +11,16 @@ use crate::k8s::GVK;
 
 // An ApiSet object caches a list of ApiResources returned by the k8s server so that we don't have
 // to repeatedly make "discovery" calls against the apiserver.
-pub struct ApiSet {
+pub struct DynamicApiSet {
     client: kube::Client,
     resources: HashMap<GVK, (ApiResource, ApiCapabilities)>,
     apis: HashMap<GVK, kube::Api<DynamicObject>>,
     namespaced_apis: HashMap<(GVK, String), kube::Api<DynamicObject>>,
 }
 
-impl ApiSet {
-    pub fn new(client: kube::Client) -> ApiSet {
-        ApiSet {
+impl DynamicApiSet {
+    pub fn new(client: kube::Client) -> DynamicApiSet {
+        DynamicApiSet {
             client,
             resources: HashMap::new(),
             apis: HashMap::new(),

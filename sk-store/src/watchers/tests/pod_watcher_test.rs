@@ -7,7 +7,7 @@ use std::sync::{
 use clockabilly::mock::MockUtcClock;
 use mockall::predicate;
 use sk_core::k8s::{
-    ApiSet,
+    DynamicApiSet,
     OwnersCache,
     PodLifecycleData,
 };
@@ -50,7 +50,7 @@ fn make_pod_handler_store(
 
     let (_, client) = make_fake_apiserver();
     (
-        PodHandler::new_from_parts(stored_pods, OwnersCache::new(ApiSet::new(client))),
+        PodHandler::new_from_parts(stored_pods, OwnersCache::new(DynamicApiSet::new(client))),
         Arc::new(Mutex::new(store)),
     )
 }
@@ -292,7 +292,7 @@ async fn test_handle_event_restarted(mut clock: Box<MockUtcClock>) {
         (pod_names[3].clone(), vec![]),
     ]);
 
-    let cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
+    let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
     let mut h = PodHandler::new_from_parts(pod_lifecycles, cache);
 
     h.initialized(&[update_pod0, update_pod1], now, Arc::new(Mutex::new(store)))
