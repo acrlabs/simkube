@@ -125,8 +125,15 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
                     let resource_name = res.as_str().unwrap();
 
                     if !self.seen_resources.contains(&format!("{resource_ns}/{resource_name}")) {
-                        let (remove_patch, add_patch) =
-                            make_remove_add_patches(T::type_meta(), self.type_, resource_ns, resource_name, path);
+                        let (remove_patch, add_patch) = make_remove_add_patches(
+                            obj.types.clone().unwrap(),
+                            obj.namespaced_name(),
+                            T::type_meta(),
+                            self.type_,
+                            resource_ns,
+                            resource_name,
+                            path,
+                        );
                         patches.push((i, vec![remove_patch, add_patch]));
                     }
                 }
@@ -142,10 +149,12 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
 }
 
 fn make_remove_add_patches(
-    type_meta: TypeMeta,
+    reference_object_type_meta: TypeMeta,
+    reference_object_ns_name: String,
+    missing_type_meta: TypeMeta,
     missing_type: MissingResourceType,
-    resource_ns: &str,
-    resource_name: &str,
+    missing_resource_ns: &str,
+    missing_resource_name: &str,
     path: PointerBuf,
 ) -> (AnnotatedTracePatch, AnnotatedTracePatch) {
     let remove_ops = match missing_type {
@@ -167,17 +176,17 @@ fn make_remove_add_patches(
     };
     (
         AnnotatedTracePatch {
-            locations: PatchLocations::ObjectReference(type_meta.clone(), format!("{resource_ns}/{resource_name}")),
+            locations: PatchLocations::ObjectReference(reference_object_type_meta.clone(), reference_object_ns_name),
             ops: remove_ops,
         },
         AnnotatedTracePatch {
             locations: PatchLocations::InsertAt(
                 0,
                 TraceAction::ObjectApplied,
-                type_meta,
+                missing_type_meta,
                 metav1::ObjectMeta {
-                    namespace: Some(resource_ns.into()),
-                    name: Some(resource_name.into()),
+                    namespace: Some(missing_resource_ns.into()),
+                    name: Some(missing_resource_name.into()),
                     ..Default::default()
                 },
             ),

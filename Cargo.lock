@@ -1965,9 +1965,9 @@ dependencies = [
 
 [[package]]
 name = "json-patch-ext"
-version = "0.2.1"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "67c8bdc1a7845443a2acabd983887e5e0ace784174848bdf4e80733ba543204c"
+checksum = "37fe1fe3d9d51b91f291b8591bf46d7ee6eacd3f39eee3f3c53a7c8aba6c5991"
 dependencies = [
  "json-patch",
  "jsonptr",

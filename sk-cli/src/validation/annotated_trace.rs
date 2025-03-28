@@ -52,7 +52,7 @@ pub struct AnnotatedTraceEvent {
     // The annotations map is from "object index" to a list of problems/annotations
     // that apply at that specific index (remember that the "object index" is interpreted
     // as an applied object if it is less than data.applied_objs.len(), and as a deleted
-    // object otherwise.
+    // object otherwise).
     pub annotations: BTreeMap<usize, Vec<Annotation>>,
 }
 
@@ -253,5 +253,22 @@ pub(super) fn find_or_create_event_at_ts(events: &mut Vec<AnnotatedTraceEvent>, 
 impl AnnotatedTrace {
     pub fn new_with_events(events: Vec<AnnotatedTraceEvent>) -> AnnotatedTrace {
         AnnotatedTrace { events, ..Default::default() }
+    }
+
+    pub fn new_from_test_json(trace_type: &str) -> AnnotatedTrace {
+        let exported_trace = sk_testutils::exported_trace_from_json(trace_type);
+        let annotated_events = exported_trace
+            .events()
+            .iter()
+            .cloned()
+            .map(|e| AnnotatedTraceEvent::new(e))
+            .collect();
+        let base = TraceStore::from_exported_trace(exported_trace, &None).unwrap();
+
+        AnnotatedTrace {
+            base,
+            events: annotated_events,
+            ..Default::default()
+        }
     }
 }

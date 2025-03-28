@@ -6,7 +6,6 @@ use ratatui::widgets::ListState;
 use super::*;
 use crate::validation::tests::{
     annotated_trace,
-    annotated_trace_from_json,
     test_validation_store,
 };
 use crate::validation::{
@@ -27,7 +26,7 @@ fn test_app(test_validation_store: ValidationStore, mut annotated_trace: Annotat
 
 #[fixture]
 fn test_app_large(test_validation_store: ValidationStore) -> App {
-    let annotated_trace = annotated_trace_from_json("large_trace");
+    let annotated_trace = AnnotatedTrace::new_from_test_json("large_trace");
     test_app(test_validation_store, annotated_trace)
 }
 
