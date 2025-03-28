@@ -3,6 +3,7 @@ mod fake;
 mod objs;
 mod pods;
 mod sim;
+mod snapshot;
 mod traces;
 
 pub use constants::*;

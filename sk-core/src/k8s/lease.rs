@@ -101,7 +101,7 @@ pub async fn try_update_lease(
     client: kube::Client,
     sim: &Simulation,
     lease_ns: &str,
-    lease_duration: i64,
+    lease_duration: u64,
 ) -> EmptyResult {
     try_update_lease_with_clock(client, sim, lease_ns, lease_duration, UtcClock::boxed()).await
 }
@@ -110,7 +110,7 @@ pub(super) async fn try_update_lease_with_clock(
     client: kube::Client,
     sim: &Simulation,
     lease_ns: &str,
-    lease_duration: i64,
+    lease_duration: u64,
     clock: Box<dyn Clockable + Send>,
 ) -> EmptyResult {
     let lease_api = kube::Api::<coordinationv1::Lease>::namespaced(client.clone(), lease_ns);

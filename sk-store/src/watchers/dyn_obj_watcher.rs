@@ -13,7 +13,7 @@ use kube::runtime::WatchStreamExt;
 use sk_core::errors::*;
 use sk_core::k8s::{
     sanitize_obj,
-    ApiSet,
+    DynamicApiSet,
     GVK,
 };
 use sk_core::prelude::*;
@@ -36,7 +36,7 @@ pub struct DynObjHandler {
 impl DynObjHandler {
     pub async fn new_with_stream(
         gvk: &GVK,
-        apiset: &mut ApiSet,
+        apiset: &mut DynamicApiSet,
     ) -> anyhow::Result<(Box<DynObjHandler>, ObjStream<DynamicObject>)> {
         // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
         // it will prevent the tracer from starting up

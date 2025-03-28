@@ -1,0 +1,35 @@
+---
+source: sk-driver/src/tests/mutation_test.rs
+expression: json_pod
+---
+Object {
+    "apiVersion": String("v1"),
+    "kind": String("Pod"),
+    "metadata": Object {
+        "annotations": Object {
+            "simkube.io/original-namespace": String("test-namespace"),
+            "simkube.io/pod-sequence-number": String("0"),
+            "simkube.io/pod-spec-stable-hash": String("17506812802394981455"),
+        },
+        "labels": Object {
+            "foo": String("bar"),
+            "simkube.io/simulation": String("sk-test-driver-12345"),
+        },
+        "name": String("the-pod"),
+        "namespace": String("test-namespace"),
+    },
+    "spec": Object {
+        "containers": Array [],
+        "nodeSelector": Object {
+            "type": String("virtual"),
+        },
+        "tolerations": Array [
+            Object {
+                "effect": String("NoSchedule"),
+                "key": String("kwok-provider"),
+                "operator": String("Exists"),
+            },
+        ],
+    },
+    "status": Object {},
+}

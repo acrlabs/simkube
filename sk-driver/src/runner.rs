@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::time::Duration;
 
 use anyhow::{
@@ -25,7 +24,7 @@ use sk_core::k8s::{
     build_global_object_meta,
     build_simulation_root,
     try_update_lease,
-    ApiSet,
+    DynamicApiSet,
     GVK,
 };
 use sk_core::macros::*;
@@ -34,6 +33,7 @@ use tokio::time::sleep;
 use tracing::*;
 
 use super::*;
+use crate::util::compute_step_size;
 
 pub const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
 
@@ -96,7 +96,7 @@ pub fn build_virtual_obj(
 pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
-    let mut apiset = ApiSet::new(client.clone());
+    let mut apiset = DynamicApiSet::new(client.clone());
 
     let root_obj = if let Some(root) = roots_api.get_opt(&ctx.root_name).await? {
         warn!("Driver root {} already exists; continuing...", ctx.root_name);
@@ -106,11 +106,9 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         roots_api.create(&Default::default(), &root_obj).await?
     };
 
-    let speed = ctx.sim.spec.driver.speed;
-
     let mut sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
     let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
-    let sim_duration = sim_end_ts - sim_ts;
+    let sim_duration = compute_step_size(&ctx, sim_ts, sim_end_ts);
 
     try_update_lease(client.clone(), &ctx.sim, &ctx.ctrl_ns, sim_duration).await?;
 
@@ -152,9 +150,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         }
 
         if let Some(next_ts) = maybe_next_ts {
-            let simulation_normal_step_duration = max(0, next_ts - sim_ts) as f64;
-            let sleep_duration = (simulation_normal_step_duration / speed) as u64;
-
+            let sleep_duration = compute_step_size(&ctx, sim_ts, next_ts);
             info!("next event happens in {sleep_duration} seconds, sleeping");
             debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
 

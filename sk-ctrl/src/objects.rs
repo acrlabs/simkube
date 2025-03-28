@@ -151,8 +151,8 @@ pub fn build_mutating_webhook(
             rules: Some(vec![admissionv1::RuleWithOperations {
                 api_groups: Some(vec!["".into()]),
                 api_versions: Some(vec!["v1".into()]),
-                operations: Some(vec!["CREATE".into()]),
-                resources: Some(vec!["pods".into()]),
+                operations: Some(vec!["CREATE".into(), "UPDATE".into()]),
+                resources: Some(vec!["pods".into(), "pods/status".into()]),
                 scope: Some("Namespaced".into()),
             }]),
             ..Default::default()

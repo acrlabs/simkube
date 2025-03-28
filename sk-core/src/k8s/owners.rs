@@ -10,20 +10,20 @@ use kube::Resource;
 use tracing::*;
 
 use super::*;
-use crate::k8s::ApiSet;
+use crate::k8s::DynamicApiSet;
 use crate::prelude::*;
 
 pub struct OwnersCache {
-    apiset: ApiSet,
+    apiset: DynamicApiSet,
     owners: HashMap<String, Vec<metav1::OwnerReference>>,
 }
 
 impl OwnersCache {
-    pub fn new(apiset: ApiSet) -> OwnersCache {
+    pub fn new(apiset: DynamicApiSet) -> OwnersCache {
         OwnersCache { apiset, owners: HashMap::new() }
     }
 
-    pub fn new_from_parts(apiset: ApiSet, owners: HashMap<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
+    pub fn new_from_parts(apiset: DynamicApiSet, owners: HashMap<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
         OwnersCache { apiset, owners }
     }
 

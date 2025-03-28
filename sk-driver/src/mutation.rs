@@ -1,6 +1,11 @@
 use std::collections::HashMap;
 use std::sync::Mutex;
+use std::time::Duration;
 
+use clockabilly::{
+    Clockable,
+    UtcClock,
+};
 use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
@@ -21,6 +26,7 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 use tracing::*;
 
+use crate::util::compute_step_size;
 use crate::DriverContext;
 
 pub struct MutationData {
@@ -39,7 +45,6 @@ impl MutationData {
 }
 
 #[rocket::post("/", data = "<body>")]
-#[instrument(parent=None, skip_all)]
 pub async fn handler(
     ctx: &rocket::State<DriverContext>,
     body: Json<AdmissionReview<corev1::Pod>>,
@@ -56,23 +61,27 @@ pub async fn handler(
 
     let mut resp = AdmissionResponse::from(&req);
     if let Some(pod) = &req.object {
-        resp = mutate_pod(ctx, resp, pod, mut_data).await.unwrap_or_else(|err| {
-            error!("could not perform mutation, blocking pod object: {err:?}");
-            AdmissionResponse::from(&req).deny(err)
-        });
+        resp = mutate_pod(ctx, resp, pod, mut_data, UtcClock::boxed())
+            .await
+            .unwrap_or_else(|err| {
+                error!("could not perform mutation, blocking pod object: {err:?}");
+                AdmissionResponse::from(&req).deny(err)
+            });
     }
 
     Json(into_pod_review(resp))
 }
 
-// TODO when we get the pod object, the final name hasn't been filled in yet; make sure this
-// doesn't cause any problems
+// the instrument wrapper seems to mess with the coverage data
 #[instrument(skip_all, fields(pod.namespaced_name=pod.namespaced_name()))]
 pub async fn mutate_pod(
     ctx: &DriverContext,
     resp: AdmissionResponse,
+    // TODO when we get the pod object, the final name hasn't been filled in yet;
+    // make sure this doesn't cause any problems
     pod: &corev1::Pod,
     mut_data: &MutationData,
+    clock: Box<dyn Clockable + Send>,
 ) -> anyhow::Result<AdmissionResponse> {
     // enclose in a block so we release the mutex when we're done
     let owners = {
@@ -81,51 +90,46 @@ pub async fn mutate_pod(
     };
 
     if !owners.iter().any(|o| o.name == ctx.root_name) {
-        info!("pod not owned by simulation, no mutation performed");
+        debug!("pod not owned by simulation, no mutation performed");
         return Ok(resp);
     }
 
-    let mut patches =
-        vec![add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.name))];
-    add_lifecycle_annotation(ctx, pod, &owners, mut_data, &mut patches)?;
-    add_node_selector_tolerations(pod, &mut patches)?;
+    let hash = match pod.annotations().get(POD_SPEC_STABLE_HASH_KEY) {
+        Some(hash_str) => hash_str.parse::<u64>()?,
+        None => jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?),
+    };
+    let seq = match pod.annotations().get(POD_SEQUENCE_NUMBER_KEY) {
+        Some(seq_str) => seq_str.parse::<usize>()?,
+        None => mut_data.count(hash),
+    };
+    info!("mutating pod (hash={hash}, seq={seq})");
 
+    let mut patches = vec![];
+    add_empty_labels_annotations(pod, &mut patches);
+    if !pod.labels_contains_key(SIMULATION_LABEL_KEY) {
+        info!("first time seeing pod, adding tracking annotations");
+        patches.push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.name)));
+        add_node_selector_tolerations(pod, &mut patches)?;
+        add_pod_hash_annotations(hash, seq, &mut patches);
+    }
+    if matches!(pod.status.as_ref(), Some(corev1::PodStatus{phase: Some(phase), ..}) if phase == "Running")
+        && !pod.labels_contains_key(KWOK_STAGE_COMPLETE_KEY)
+    {
+        add_lifecycle_fields(ctx, pod, &owners, hash, seq, &mut patches, clock)?;
+    }
+
+    // We can't use json_patch_ext stuff here because the AdmissionResponse is a part of Kubernetes
+    // and doesn't know anything at all about our custom json_patch extensions
     Ok(resp.with_patch(Patch(patches))?)
 }
 
-fn add_lifecycle_annotation(
-    ctx: &DriverContext,
-    pod: &corev1::Pod,
-    owners: &Vec<metav1::OwnerReference>,
-    mut_data: &MutationData,
-    patches: &mut Vec<PatchOperation>,
-) -> EmptyResult {
-    if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
-        for owner in owners {
-            let owner_gvk = GVK::from_owner_ref(owner)?;
-            let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.store.has_obj(&owner_gvk, &owner_ns_name) {
-                continue;
-            }
-
-            let hash = jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?);
-            let seq = mut_data.count(hash);
-
-            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
-            if let Some(patch) = to_annotation_patch(&lifecycle) {
-                info!("applying lifecycle annotations (hash={hash}, seq={seq})");
-                if pod.metadata.annotations.is_none() {
-                    patches.push(add_operation(format_ptr!("/metadata/annotations"), json!({})));
-                }
-                patches.push(patch);
-                break;
-            } else {
-                warn!("no pod lifecycle data found");
-            }
-        }
+fn add_empty_labels_annotations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) {
+    if pod.metadata.labels.is_none() {
+        patches.push(add_operation(format_ptr!("/metadata/labels"), json!({})));
     }
-
-    Ok(())
+    if pod.metadata.annotations.is_none() {
+        patches.push(add_operation(format_ptr!("/metadata/annotations"), json!({})));
+    }
 }
 
 fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
@@ -141,6 +145,70 @@ fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOpera
     Ok(())
 }
 
+fn add_pod_hash_annotations(hash: u64, seq: usize, patches: &mut Vec<PatchOperation>) {
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(POD_SPEC_STABLE_HASH_KEY)),
+        json!(format!("{hash}")),
+    ));
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(POD_SEQUENCE_NUMBER_KEY)),
+        json!(format!("{seq}")),
+    ));
+}
+
+fn add_lifecycle_fields(
+    ctx: &DriverContext,
+    pod: &corev1::Pod,
+    owners: &[metav1::OwnerReference],
+    hash: u64,
+    seq: usize,
+    patches: &mut Vec<PatchOperation>,
+    clock: Box<dyn Clockable + Send>,
+) -> EmptyResult {
+    if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
+        for owner in owners {
+            let owner_gvk = GVK::from_owner_ref(owner)?;
+            let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
+            if !ctx.store.has_obj(&owner_gvk, &owner_ns_name) {
+                continue;
+            }
+            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
+            if let Some(patch) = to_completion_time_annotation(ctx, &lifecycle, &*clock) {
+                info!("applying lifecycle annotations");
+                patches.push(add_operation(
+                    format_ptr!("/metadata/labels/{}", escape(KWOK_STAGE_COMPLETE_KEY)),
+                    json!("true"),
+                ));
+                patches.push(patch);
+                break;
+            } else {
+                warn!("no pod lifecycle data found");
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn to_completion_time_annotation(
+    ctx: &DriverContext,
+    pld: &PodLifecycleData,
+    clock: &(dyn Clockable + Send),
+) -> Option<PatchOperation> {
+    match pld {
+        PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
+        PodLifecycleData::Finished(start_ts, end_ts) => {
+            let duration_secs = compute_step_size(ctx, *start_ts, *end_ts);
+            let duration = Duration::from_secs(duration_secs);
+            let abs_end_ts = clock.now() + duration;
+            Some(add_operation(
+                format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_COMPLETE_TIMESTAMP_KEY)),
+                Value::String(abs_end_ts.to_rfc3339()),
+            ))
+        },
+    }
+}
+
 // Have to duplicate this fn because AdmissionResponse::into_review uses the dynamic API
 fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
     AdmissionReview {
@@ -148,15 +216,5 @@ fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
         // All that matters is that we keep the request UUID, which is in the TypeMeta
         request: None,
         response: Some(resp),
-    }
-}
-
-fn to_annotation_patch(pld: &PodLifecycleData) -> Option<PatchOperation> {
-    match pld {
-        PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
-        PodLifecycleData::Finished(start_ts, end_ts) => Some(add_operation(
-            format_ptr!("/metadata/annotations/{}", escape(LIFETIME_ANNOTATION_KEY)),
-            Value::String(format!("{}", end_ts - start_ts)),
-        )),
     }
 }

@@ -13,7 +13,7 @@ use futures::{
 use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
 use sk_core::k8s::{
-    ApiSet,
+    DynamicApiSet,
     OwnersCache,
     PodLifecycleData,
 };
@@ -52,7 +52,7 @@ impl PodHandler {
     // DynamicObject watcher just needs to construct the relevant api clients once, when it creates
     // the watch streams, so it can yield when it's done.  If at some point in the future this
     // becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
-    pub fn new_with_stream(client: kube::Client, apiset: ApiSet) -> (Box<PodHandler>, ObjStream<corev1::Pod>) {
+    pub fn new_with_stream(client: kube::Client, apiset: DynamicApiSet) -> (Box<PodHandler>, ObjStream<corev1::Pod>) {
         let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
         (
             Box::new(PodHandler {

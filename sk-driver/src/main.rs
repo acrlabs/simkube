@@ -1,5 +1,6 @@
 mod mutation;
 mod runner;
+mod util;
 
 use std::env;
 use std::net::{
@@ -17,7 +18,7 @@ use sk_core::external_storage::{
     SkObjectStore,
 };
 use sk_core::k8s::{
-    ApiSet,
+    DynamicApiSet,
     OwnersCache,
 };
 use sk_core::prelude::*;
@@ -86,16 +87,15 @@ async fn run(opts: Options) -> EmptyResult {
 
     let client = kube::Client::try_default().await?;
     let sim_api: kube::Api<Simulation> = kube::Api::all(client.clone());
-    let sim = sim_api.get(&opts.sim_name).await?;
 
+    let sim = sim_api.get(&opts.sim_name).await?;
     let root_name = format!("{name}-root");
 
     let object_store = SkObjectStore::new(&opts.trace_path)?;
     let trace_data = object_store.get().await?.to_vec();
-
     let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
 
-    let apiset = ApiSet::new(client.clone());
+    let apiset = DynamicApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
     let ctx = DriverContext {
         name,
@@ -113,20 +113,21 @@ async fn run(opts: Options) -> EmptyResult {
         tls: Some(TlsConfig::from_paths(&opts.cert_path, &opts.key_path)),
         ..Default::default()
     };
-    let server = rocket::custom(&rkt_config)
+    let mutation_server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![mutation::handler])
         .manage(MutationData::new())
         .manage(ctx.clone());
-
-    let server_task = tokio::spawn(server.launch());
-
-    // Give the mutation handler a bit of time to come online before starting the sim
+    let mutation_task = tokio::spawn(mutation_server.launch());
+    // Give the mutation handler and stage controller a bit of time to come online before starting the
+    // sim
     sleep(Duration::from_secs(5)).await;
+
+    let runner_task = tokio::spawn(run_trace(ctx.clone(), client));
 
     hooks::execute(&ctx.sim, hooks::Type::PreRun).await?;
     tokio::select! {
-        res = server_task => Err(anyhow!("server terminated: {res:#?}")),
-        res = tokio::spawn(run_trace(ctx.clone(), client)) => {
+        res = mutation_task => Err(anyhow!("mutation server terminated: {res:#?}")),
+        res = runner_task => {
             match res {
                 Ok(r) => r,
                 Err(err) => Err(err.into()),

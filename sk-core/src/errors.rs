@@ -1,4 +1,5 @@
 pub use std::backtrace::Backtrace;
+use std::ops::Deref;
 
 pub use anyhow::{
     anyhow,
@@ -17,6 +18,23 @@ pub type EmptyResult = anyhow::Result<()>;
 pub const BUILD_DIR: &str = "/.build/";
 pub const RUSTC_DIR: &str = "/rustc/";
 pub const GLIBC: &str = "glibc";
+
+// This is sortof a stupid hack, because anyhow::Error doesn't derive from
+// std::error::Error, but the reconcile functions require you to return a
+// result that derives from std::error::Error.  So we just wrap the anyhow,
+// and then implement deref for it so we can get back to the underlying error
+// wherever we actually care.
+#[derive(Debug, Error)]
+#[error(transparent)]
+pub struct AnyhowError(#[from] anyhow::Error);
+
+impl Deref for AnyhowError {
+    type Target = anyhow::Error;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
 
 // This macro creates an enum which derives from thiserror::Error, and also
 // creates constructor functions in snake case for each of the enum variants

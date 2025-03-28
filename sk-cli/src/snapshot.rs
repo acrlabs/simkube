@@ -10,7 +10,7 @@ use clockabilly::{
     UtcClock,
 };
 use sk_api::v1::ExportFilters;
-use sk_core::k8s::ApiSet;
+use sk_core::k8s::DynamicApiSet;
 use sk_core::prelude::*;
 use sk_store::watchers::{
     DynObjHandler,
@@ -51,7 +51,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     println!("Connecting to kubernetes cluster...");
     let client = kube::Client::try_default().await?;
-    let mut apiset = ApiSet::new(client.clone());
+    let mut apiset = DynamicApiSet::new(client.clone());
 
     println!("Loading snapshot into store...");
     let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));

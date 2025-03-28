@@ -28,7 +28,7 @@ async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
 
     let (_, client) = make_fake_apiserver();
     let owners = HashMap::from([(test_pod.namespaced_name(), expected_owners.clone())]);
-    let mut cache = OwnersCache::new_from_parts(ApiSet::new(client), owners);
+    let mut cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
 
     let res = cache.compute_owner_chain(&test_pod).await.unwrap();
     assert_eq!(res, expected_owners);
@@ -92,7 +92,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
     });
     fake_apiserver.build();
 
-    let mut cache = OwnersCache::new(ApiSet::new(client));
+    let mut cache = OwnersCache::new(DynamicApiSet::new(client));
 
     test_pod.owner_references_mut().push(rsref.clone());
     let res = cache.compute_owner_chain(&test_pod).await.unwrap();

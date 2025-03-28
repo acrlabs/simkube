@@ -17,6 +17,10 @@ macro_rules! filter_volumes {
 
 // Helper functions to get references to a pod's spec and status objects
 impl PodExt for corev1::Pod {
+    fn labels_contains_key(&self, key: &str) -> bool {
+        self.metadata.labels.as_ref().unwrap_or(&Default::default()).contains_key(key)
+    }
+
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec> {
         match self.spec.as_ref() {
             None => bail!(KubernetesError::field_not_found("pod spec")),
