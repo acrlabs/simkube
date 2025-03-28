@@ -1,3 +1,36 @@
+// The annotated trace code is actually fairly complex; we need to take a trace (which already has
+// several layers of nesting) and also append annotations about which events and which objects
+// within those events are failing validation.
+//
+// The structure of an annotated trace is as follows:
+//    - path (read-only): the location of the original trace
+//    - base (read-only): the imported/parsed trace located at `path`; we store the base trace data
+//      so that we can recompute a fixed/patched version by iteratively applying all the patches in
+//      order on-demand
+//    - patches (read-write): the list of patches applied to the original trace value; this will
+//      allow us in the future to "undo" patches, by walking back up the list and recomputing the
+//      events
+//    - events (read-write): the computed list of (annotated) events after all the patches have been
+//      applied
+//
+// In addition to the event data (timestamp, applied objects, and deleted objects), an annotated
+// event contains a set of annotations indicating which objects failed some validation check.
+// Throughout this code, we use the convention that the annotation index can be between 0 and
+// applied_objs.len() + deleted_objs.len(), where if the index is larger than applied_objs.len(),
+// you must subtract applied_objs.len() and use the resulting value to index into deleted_objs.
+//
+// Because each object can fail multiple different validation checks, the "value" for a particular
+// object index is a vector of annotations, where an annotation contains a ValidatorCode (which can
+// be used to look up more information about the failed check), together with a list of _possible_
+// (and probably mutually-exclusive) patches that we can apply to the object that will fix the
+// validation issue.  The first patch in this list is the "recommended" fix, in that this is the
+// one that will be applied by `skctl validate check --fix`.  The others may also solve the
+// problem, but are probably not what most users want; we may show these in skctl xray eventually.
+//
+// Lastly, an individual patch applies in one or more locations in the trace (for example, all
+// deployments with a particular name), and has one or more operations (that is, json-patch
+// operations) that need to be applied at that location.
+
 use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::iter::once;
 use std::slice;
@@ -24,8 +57,13 @@ use super::validator::{
 
 #[derive(Clone, Debug)]
 pub enum PatchLocations {
+    // Everywhere applies to every object in the trace
     Everywhere,
+    // ObjectReference applies to objects matching a particular type and namespaced name
     ObjectReference(TypeMeta, String),
+    // InsertAt takes a particular timestamp, and inserts a new event at that timestamp with a
+    // given action (apply or delete); the object is given by its TypeMeta and ObjectMeta; if you
+    // need to modify its data, you should also include a json_patch object that modifies the root
     InsertAt(i64, TraceAction, TypeMeta, metav1::ObjectMeta),
 }
 
@@ -38,21 +76,14 @@ pub struct AnnotatedTracePatch {
 #[derive(Clone, Debug)]
 pub struct Annotation {
     pub code: ValidatorCode,
-    // The annotation applies to a particular object within an event; the patches
-    // vector is a list of _possible_ (and probably mutually-exclusive) patches
-    // that we can apply to the object that will fix the validation issue.  The first
-    // patch in this list is the "recommended" fix, in that this is the one that will
-    // be applied by `skctl validate check --fix`
     pub patches: Vec<AnnotatedTracePatch>,
 }
 
 #[derive(Clone, Debug, Default)]
 pub struct AnnotatedTraceEvent {
     pub data: TraceEvent,
-    // The annotations map is from "object index" to a list of problems/annotations
-    // that apply at that specific index (remember that the "object index" is interpreted
-    // as an applied object if it is less than data.applied_objs.len(), and as a deleted
-    // object otherwise).
+    // Maybe overkill, but we use a BTreeMap instead of Vector so that we can easily skip over
+    // objects in the trace event that don't have any annotations
     pub annotations: BTreeMap<usize, Vec<Annotation>>,
 }
 

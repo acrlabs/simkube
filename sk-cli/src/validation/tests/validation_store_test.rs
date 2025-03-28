@@ -18,7 +18,7 @@ fn test_validate_trace(test_validation_store: ValidationStore, mut annotated_tra
     }
 
     assert_eq!(*summary.annotations.get(&TEST_VALIDATOR_CODE).unwrap(), 1);
-    assert_eq!(summary.patches, 0);
+    assert_eq!(summary.applied_count, 0);
 }
 
 #[rstest]
@@ -35,5 +35,5 @@ fn test_fix_trace(test_validation_store: ValidationStore, mut annotated_trace: A
     }
 
     assert_eq!(*summary.annotations.get(&TEST_VALIDATOR_CODE).unwrap(), 1);
-    assert_eq!(summary.patches, 5);
+    assert_eq!(summary.applied_count, 5);
 }

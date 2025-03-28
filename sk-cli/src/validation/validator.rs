@@ -67,6 +67,14 @@ impl Serialize for ValidatorCode {
     }
 }
 
+// The CheckResult from a single validator for a specific event is a vector of (object index, patch
+// list) tuples; the object index follows the "applied objects, then deleted objects" convention,
+// and the patch list is the list of potential fixes for this specific issue.
+//
+// This makes it easier for a particular validator to find _multiple_ issues with a single object;
+// for example, a pod could have multiple missing config-map volumes.  In this setting, validator
+// can just stick multiple tuples referencing the same index in the list.  They'll get all
+// aggregated together in the next layer up.
 pub type CheckResult = anyhow::Result<Vec<(usize, Vec<AnnotatedTracePatch>)>>;
 
 pub trait Diagnostic {
