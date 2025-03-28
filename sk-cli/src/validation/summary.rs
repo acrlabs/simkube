@@ -9,7 +9,7 @@ const WIDTH: usize = 70;
 #[derive(Debug, Default)]
 pub struct ValidationSummary {
     pub annotations: BTreeMap<ValidatorCode, usize>,
-    pub patches: usize,
+    pub applied_count: usize,
 }
 
 impl fmt::Display for ValidationSummary {
@@ -27,9 +27,9 @@ impl fmt::Display for ValidationSummary {
             writeln!(f, "{left} {} {right}", ".".repeat(mid_width))?;
         }
 
-        if self.patches > 0 {
+        if self.applied_count > 0 {
             writeln!(f, "{}", "-".repeat(WIDTH))?;
-            writeln!(f, "Patches applied: {}", self.patches)?;
+            writeln!(f, "Patches applied: {}", self.applied_count)?;
             writeln!(f, "0 problems remaining")?;
         }
         Ok(())

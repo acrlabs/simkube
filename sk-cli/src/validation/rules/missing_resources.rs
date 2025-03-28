@@ -50,7 +50,6 @@ if the {resource} does not exist."#,
 pub(super) enum MissingResourceType {
     EnvVar,
     TopLevel,
-    #[allow(dead_code)]
     Volume,
 }
 
@@ -148,6 +147,8 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
     }
 }
 
+// Make the two possible patches described above for the missing resource: either delete the
+// reference to it, or add the resource at the beginning of the trace
 fn make_remove_add_patches(
     reference_object_type_meta: TypeMeta,
     reference_object_ns_name: String,
