@@ -1,0 +1,107 @@
+---
+source: sk-cli/src/validation/rules/tests/validate_all_test.rs
+expression: snapshot
+---
+Validation errors found:
+----------------------------------------------------------------------
+status_field_populated (W0000) ..................................... 1
+service_account_missing (E0001) .................................... 2
+envvar_secret_missing (E0002) ...................................... 2
+envvar_configmap_missing (E0003) ................................... 2
+volume_secret_missing (E0004) ...................................... 1
+volume_configmap_missing (E0005) ................................... 1
+----------------------------------------------------------------------
+Patches applied: 8
+0 problems remaining
+
+
+[
+    TraceEvent {
+        ts: 1709241485,
+        applied_objs: [
+            DynamicObject {
+                types: Some(
+                    TypeMeta {
+                        api_version: "apps/v1",
+                        kind: "Deployment",
+                    },
+                ),
+                metadata: ObjectMeta {
+                    annotations: None,
+                    creation_timestamp: None,
+                    deletion_grace_period_seconds: None,
+                    deletion_timestamp: None,
+                    finalizers: None,
+                    generate_name: None,
+                    generation: None,
+                    labels: None,
+                    managed_fields: None,
+                    name: Some(
+                        "test-deployment",
+                    ),
+                    namespace: Some(
+                        "default",
+                    ),
+                    owner_references: None,
+                    resource_version: None,
+                    self_link: None,
+                    uid: None,
+                },
+                data: Object {
+                    "spec": Object {
+                        "template": Object {
+                            "metadata": Object {
+                                "labels": Object {
+                                    "app": String("test-app"),
+                                },
+                            },
+                            "spec": Object {
+                                "containers": Array [
+                                    Object {
+                                        "env": Array [
+                                            Object {
+                                                "name": String("env1"),
+                                                "value": String("foo"),
+                                            },
+                                        ],
+                                        "envFrom": Array [],
+                                        "name": String("test-container"),
+                                        "volumeMounts": Array [
+                                            Object {
+                                                "mountPath": String("/etc/baz"),
+                                                "name": String("config-map-volume"),
+                                            },
+                                            Object {
+                                                "mountPath": String("/etc/foo"),
+                                                "name": String("empty-dir-volume"),
+                                            },
+                                            Object {
+                                                "mountPath": String("/etc/bar"),
+                                                "name": String("secret-volume"),
+                                            },
+                                        ],
+                                    },
+                                ],
+                                "volumes": Array [
+                                    Object {
+                                        "emptyDir": Object {},
+                                        "name": String("empty-dir-volume"),
+                                    },
+                                    Object {
+                                        "emptyDir": Object {},
+                                        "name": String("config-map-volume"),
+                                    },
+                                    Object {
+                                        "emptyDir": Object {},
+                                        "name": String("secret-volume"),
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        ],
+        deleted_objs: [],
+    },
+]

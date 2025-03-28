@@ -6,7 +6,7 @@ use super::VALIDATORS;
 
 const WIDTH: usize = 70;
 
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct ValidationSummary {
     pub annotations: BTreeMap<ValidatorCode, usize>,
     pub patches: usize,

@@ -1,6 +1,7 @@
 use assertables::*;
 use json_patch_ext::prelude::*;
 use json_patch_ext::PatchOperation::Remove;
+use k8s_openapi::api::apps::v1::Deployment;
 use serde_json::json;
 use sk_store::{
     TraceAction,
@@ -91,7 +92,13 @@ fn check_sa_event_annotations(annotations_result: CheckResult, keys: &[&str]) {
         assert_len_eq_x!(patch, 2);
 
         // Check the first fix
-        assert_matches!(patch[0].locations, PatchLocations::ObjectReference(..));
+        match &patch[0].locations {
+            PatchLocations::ObjectReference(tm, ns_name) => {
+                assert_eq!(tm, &Deployment::type_meta());
+                assert_eq!(ns_name, &format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}"));
+            },
+            _ => panic!("unexpected location variant"),
+        }
         assert_matches!(patch[0].ops[..], [Remove(..)]);
         assert_eq!(patch[0].ops[0].path().as_str(), format!("/spec/template/spec/{key}"));
 
