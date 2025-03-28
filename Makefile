@@ -7,7 +7,7 @@ include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:1.79-bullseye
 CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
-COVERAGE_IGNORES+='sk-api/*' '*/testutils/*'
+COVERAGE_IGNORES+='sk-api/*' 'testutils/*'
 
 ifndef IN_CI
 DOCKER_ARGS=-it --init
