@@ -44,16 +44,16 @@ pub struct SimulationMetricsConfig {
     pub remote_write_configs: Vec<PrometheusRemoteWrite>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationHook {
     pub cmd: String,
-    pub args: Vec<String>,
+    pub args: Option<Vec<String>>,
     pub send_sim: Option<bool>,
     pub ignore_failure: Option<bool>,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Eq, JsonSchema, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationHooksConfig {
     pub pre_start_hooks: Option<Vec<SimulationHook>>,

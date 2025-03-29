@@ -28,6 +28,7 @@ reqwest = { workspace = true }
 schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 sk-api = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
@@ -39,6 +40,7 @@ url = { workspace = true }
 mockall = { workspace = true }
 
 [dev-dependencies]
+assert_fs = { workspace = true }
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }

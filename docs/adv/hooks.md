@@ -50,6 +50,11 @@ following, using the `--hooks` CLI argument:
 cat simkube/examples/hooks/example.yml
 ```
 
+Note that you can specify multiple hooks files, separated by a colon, as in
+`config/hooks/default.yml:config/hooks/autoscaler.yml`.  This will merge the four different types of hooks specified in
+each hook file _in order_; in other words, hooks from earlier files in the list will run before hooks from later files
+in the list.
+
 Otherwise, you can specify the hooks as part of the Simulation custom resource object.
 
 ## Running hooks

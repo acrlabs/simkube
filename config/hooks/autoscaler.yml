@@ -2,20 +2,9 @@
 preStartHooks:
   - cmd: kubectl
     args:
-      - create
-      - namespace
-      - monitoring-hd
-    # this command will fail if the namespace already exists
-    ignoreFailure: true
-  - cmd: kubectl
-    args:
       - apply
       - -f
-      - /metrics-cfg/autoscaler-podmonitor-hd.yml
-      - -f
-      - /metrics-cfg/kube-state-metrics-svcmonitor-hd.yml
-      - -f
-      - /metrics-cfg/cadvisor-svcmonitor-hd.yml
+      - /config/metrics/autoscaler-podmonitor-hd.yml
 preRunHooks:
   - cmd: kubectl
     args:
@@ -43,9 +32,3 @@ postRunHooks:
       - kube-system
       - -l
       - app.kubernetes.io/component=autoscaler
-postStopHooks:
-  - cmd: kubectl
-    args:
-      - delete
-      - namespace
-      - monitoring-hd

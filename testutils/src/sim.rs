@@ -24,12 +24,12 @@ pub fn test_sim() -> Simulation {
             hooks: Some(SimulationHooksConfig {
                 pre_start_hooks: Some(vec![SimulationHook {
                     cmd: "echo".into(),
-                    args: vec!["foo".into()],
+                    args: Some(vec!["foo".into()]),
                     ..Default::default()
                 }]),
                 pre_run_hooks: Some(vec![SimulationHook {
                     cmd: "foo".into(),
-                    args: vec!["bar".into(), "baz".into()],
+                    args: Some(vec!["bar".into(), "baz".into()]),
                     ..Default::default()
                 }]),
                 ..Default::default()

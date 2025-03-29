@@ -36,11 +36,12 @@ skctl:
 	cp $(BUILD_DIR)/skctl-dev/skctl $(BUILD_DIR)/.
 
 
-IMAGE_DEPS += metrics_config
+IMAGE_DEPS += copy-config
 
-.PHONY: metrics_config
-metrics_config:
-	cp -r examples/metrics $(BUILD_DIR)/metrics-cfg
+.PHONY: copy-config
+copy-config:
+	rm -rf $(BUILD_DIR)/config
+	cp -r config $(BUILD_DIR)/config
 
 K8S_DEPS += crd
 

@@ -63,6 +63,8 @@ url = "2.5.3"
 
 # test dependencies
 sk-testutils = { path = "testutils" }
+
+assert_fs = "1.1.2"
 http = "1.1.0"
 httpmock = "0.6.8"
 hyper = "1.5.0"
