@@ -1,0 +1,9 @@
+---
+trackedObjects:
+  apps/v1.Deployment:
+    podSpecTemplatePath: /spec/template
+  apps/v1.StatefulSet:
+    podSpecTemplatePath: /spec/template
+  batch/v1.CronJob:
+    podSpecTemplatePath: /spec/jobTemplate/spec/template
+    trackLifecycle: true
