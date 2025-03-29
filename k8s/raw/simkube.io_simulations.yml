@@ -68,6 +68,7 @@ spec:
                         args:
                           items:
                             type: string
+                          nullable: true
                           type: array
                         cmd:
                           type: string
@@ -78,7 +79,6 @@ spec:
                           nullable: true
                           type: boolean
                       required:
-                      - args
                       - cmd
                       type: object
                     nullable: true
@@ -89,6 +89,7 @@ spec:
                         args:
                           items:
                             type: string
+                          nullable: true
                           type: array
                         cmd:
                           type: string
@@ -99,7 +100,6 @@ spec:
                           nullable: true
                           type: boolean
                       required:
-                      - args
                       - cmd
                       type: object
                     nullable: true
@@ -110,6 +110,7 @@ spec:
                         args:
                           items:
                             type: string
+                          nullable: true
                           type: array
                         cmd:
                           type: string
@@ -120,7 +121,6 @@ spec:
                           nullable: true
                           type: boolean
                       required:
-                      - args
                       - cmd
                       type: object
                     nullable: true
@@ -131,6 +131,7 @@ spec:
                         args:
                           items:
                             type: string
+                          nullable: true
                           type: array
                         cmd:
                           type: string
@@ -141,7 +142,6 @@ spec:
                           nullable: true
                           type: boolean
                       required:
-                      - args
                       - cmd
                       type: object
                     nullable: true

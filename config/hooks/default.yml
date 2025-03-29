@@ -1,0 +1,29 @@
+---
+preStartHooks:
+  - cmd: kubectl
+    args:
+      - create
+      - namespace
+      - monitoring-hd
+    # this command will fail if the namespace already exists
+    ignoreFailure: true
+  - cmd: kubectl
+    args:
+      - apply
+      - -f
+      - /config/kwok
+      - -f
+      - /config/metrics/kube-state-metrics-svcmonitor-hd.yml
+      - -f
+      - /config/metrics/cadvisor-svcmonitor-hd.yml
+postStopHooks:
+  - cmd: kubectl
+    args:
+      - delete
+      - -f
+      - /config/kwok
+  - cmd: kubectl
+    args:
+      - delete
+      - namespace
+      - monitoring-hd

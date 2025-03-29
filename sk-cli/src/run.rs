@@ -1,18 +1,17 @@
-use std::fs;
-
 use clap::crate_version;
+use serde::Serialize;
 use sk_api::prometheus::PrometheusRemoteWrite;
 use sk_api::v1::{
     SimulationDriverConfig,
-    SimulationHooksConfig,
     SimulationMetricsConfig,
     SimulationSpec,
 };
+use sk_core::hooks::merge_hooks;
 use sk_core::prelude::*;
 
 const DRIVER_IMAGE: &str = "quay.io/appliedcomputing/sk-driver";
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Debug, Serialize)]
 #[command(disable_help_flag = true, disable_version_flag = true)]
 pub struct Args {
     #[arg(long_help = "name of the simulation to run")]
@@ -71,8 +70,13 @@ pub struct Args {
     #[arg(long, long_help = "namespace to launch sk-driver in", default_value = "simkube")]
     pub driver_namespace: String,
 
-    #[arg(long, long_help = "name of file with simulation hooks")]
-    pub hooks: Option<String>,
+    #[arg(
+        long,
+        long_help = "list of simulation hook files to apply in order",
+        default_value = "config/hooks/default.yml:config/hooks/autoscaler.yml",
+        value_delimiter = ':'
+    )]
+    pub hooks: Option<Vec<String>>,
 
     #[arg(
         long,
@@ -147,15 +151,17 @@ pub struct Args {
     // We override help and version here so that it shows up in its own help group at the bottom
     // See https://github.com/clap-rs/clap/issues/4367 and https://github.com/clap-rs/clap/issues/4831
     // for more details.
+    #[serde(skip)]
     #[arg(short, long, long_help="Print help (see a summary with '-h')", action = clap::ArgAction::Help, help_heading = "Help")]
     pub help: (),
 
+    #[serde(skip)]
     #[arg(short='V', long, long_help="Print version", action = clap::ArgAction::Version, help_heading = "Help")]
     pub version: (),
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    println!("running simulation {}...", args.name);
+    println!("running simulation with configuration:\n\n---\n{}", serde_yaml::to_string(args)?);
 
     let metrics_config = (!args.disable_metrics).then_some(SimulationMetricsConfig {
         namespace: Some(args.metrics_namespace.clone()),
@@ -171,10 +177,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             .map_or(vec![], |url| vec![PrometheusRemoteWrite { url, ..Default::default() }]),
     });
 
-    let mut hooks: Option<SimulationHooksConfig> = None;
-    if let Some(f) = args.hooks.as_ref() {
-        hooks = serde_yaml::from_slice(&fs::read(f)?)?;
-    }
+    let hooks = merge_hooks(&args.hooks)?;
 
     let sim = Simulation::new(
         &args.name,
