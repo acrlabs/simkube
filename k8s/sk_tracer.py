@@ -6,13 +6,10 @@ from fireconfig.types import Capability
 
 SERVER_PORT = 7777
 TRACER_CONFIG_PATH = "tracer-config.yml"
-TRACER_CONFIG_YML = """---
-trackedObjects:
-  apps/v1.Deployment:
-    podSpecTemplatePath: /spec/template
-  v1.ServiceAccount: {}
-  v1.ConfigMap: {}
-"""
+
+tracer_config = open("../config/tracer-config.yml", "r", encoding="utf-8")
+TRACER_CONFIG_YML = tracer_config.read()
+tracer_config.close()
 CONFIGMAP_NAME = "tracer-config"
 
 

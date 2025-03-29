@@ -40,8 +40,11 @@ data:
     trackedObjects:
       apps/v1.Deployment:
         podSpecTemplatePath: /spec/template
-      v1.ServiceAccount: {}
-      v1.ConfigMap: {}
+      apps/v1.StatefulSet:
+        podSpecTemplatePath: /spec/template
+      batch/v1.CronJob:
+        podSpecTemplatePath: /spec/jobTemplate/spec/template
+        trackLifecycle: true
 ---
 apiVersion: apps/v1
 kind: Deployment
