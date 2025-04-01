@@ -19,7 +19,7 @@ documentation = "https://appliedcomputing.io/simkube/"
 license-file = "LICENSE"
 readme = "README.md"
 edition = "2021"
-rust-version = "1.79"
+rust-version = "1.83"
 
 [workspace.dependencies]
 sk-api = { version = "2.1.0", path = "sk-api" }

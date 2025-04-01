@@ -8,7 +8,7 @@ use serde_json as json;
 
 struct HashableJsonValue<'a>(&'a json::Value);
 
-impl<'a> Hash for HashableJsonValue<'a> {
+impl Hash for HashableJsonValue<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         match self.0 {
             json::Value::Null => None::<()>.hash(state),

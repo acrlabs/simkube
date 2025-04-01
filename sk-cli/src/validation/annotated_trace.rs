@@ -222,7 +222,7 @@ impl<'a> AnnotatedTrace {
     fn matched_objects(
         &'a mut self,
         locations: &'a PatchLocations,
-    ) -> Box<dyn Iterator<Item = &mut DynamicObject> + 'a> {
+    ) -> Box<dyn Iterator<Item = &'a mut DynamicObject> + 'a> {
         match locations {
             PatchLocations::Everywhere => Box::new(self.object_iter_mut()),
             PatchLocations::ObjectReference(ref type_, ref ns_name) => {

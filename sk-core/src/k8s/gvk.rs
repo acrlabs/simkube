@@ -87,7 +87,7 @@ impl Serialize for GVK {
 
 struct GVKVisitor;
 
-impl<'de> de::Visitor<'de> for GVKVisitor {
+impl de::Visitor<'_> for GVKVisitor {
     type Value = GVK;
 
     fn expecting(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
