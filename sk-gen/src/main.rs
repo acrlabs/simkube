@@ -704,6 +704,25 @@ struct Edge {
 /// The first node has no incoming edge.
 type Walk = Vec<(Option<Edge>, Node)>;
 
+/// Trait for calculating probability/distance for edges in the graph
+trait Distance {
+    fn probability(&self) -> f64;
+}
+
+impl Distance for Edge {
+    fn probability(&self) -> f64 {
+        match self.action.action_type {
+            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => {
+                SCALE_ACTION_PROBABILITY
+            },
+            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
+                CREATE_DELETE_ACTION_PROBABILITY
+            },
+            DeploymentAction::ResourceAction { .. } => RESOURCE_ACTION_PROBABILITY,
+        }
+    }
+}
+
 /// A graph of cluster states in which [`Walk`]s map 1:1 with [`Trace`]s.
 struct ClusterGraph {
     /// A map of unique deployment names to [`Deployment`] configurations.
@@ -907,15 +926,7 @@ impl ClusterGraph {
                     .iter()
                     .map(|&n| {
                         let edge = self.graph.edge_weight(self.graph.find_edge(current_node, n).unwrap()).unwrap();
-                        match edge.action.action_type {
-                            DeploymentAction::IncrementReplicas | DeploymentAction::DecrementReplicas => {
-                                SCALE_ACTION_PROBABILITY
-                            },
-                            DeploymentAction::CreateDeployment | DeploymentAction::DeleteDeployment => {
-                                CREATE_DELETE_ACTION_PROBABILITY
-                            },
-                            DeploymentAction::ResourceAction { .. } => RESOURCE_ACTION_PROBABILITY,
-                        }
+                        edge.probability()
                     })
                     .collect();
 
