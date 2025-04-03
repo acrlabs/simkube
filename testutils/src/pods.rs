@@ -59,15 +59,15 @@ fn build_container_state_finished(t1: i64, t2: i64) -> Option<corev1::ContainerS
 }
 
 fn add_container_with_status(pod: &mut corev1::Pod, state: Option<corev1::ContainerState>, init_container: bool) {
-    let spec = pod.spec.get_or_insert(Default::default());
-    let status = pod.status.get_or_insert(Default::default());
+    let spec = pod.spec.get_or_insert_default();
+    let status = pod.status.get_or_insert_default();
     let (name, containers, statuses) = if init_container {
-        let containers = spec.init_containers.get_or_insert(vec![]);
-        let statuses = status.init_container_statuses.get_or_insert(vec![]);
+        let containers = spec.init_containers.get_or_insert_default();
+        let statuses = status.init_container_statuses.get_or_insert_default();
         (format!("{}-{}", INIT_CONTAINER_PREFIX, containers.len()), containers, statuses)
     } else {
         let containers = &mut spec.containers;
-        let statuses = status.container_statuses.get_or_insert(vec![]);
+        let statuses = status.container_statuses.get_or_insert_default();
         (format!("{}-{}", CONTAINER_PREFIX, containers.len()), containers, statuses)
     };
 
