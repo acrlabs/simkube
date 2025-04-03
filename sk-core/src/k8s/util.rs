@@ -11,11 +11,11 @@ pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::Obje
 where
     K: Resource<DynamicType = ()>,
 {
-    let labels = &mut meta.labels.get_or_insert(BTreeMap::new());
+    let labels = &mut meta.labels.get_or_insert_default();
     labels.insert(SIMULATION_LABEL_KEY.into(), sim_name.into());
     labels.insert(APP_KUBERNETES_IO_NAME_KEY.into(), meta.name.clone().unwrap());
 
-    meta.owner_references.get_or_insert(vec![]).push(metav1::OwnerReference {
+    meta.owner_references.get_or_insert_default().push(metav1::OwnerReference {
         api_version: K::api_version(&()).into(),
         kind: K::kind(&()).into(),
         name: owner.name_any(),

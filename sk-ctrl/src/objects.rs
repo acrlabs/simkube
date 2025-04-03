@@ -62,7 +62,7 @@ pub fn build_prometheus(
         cfg.remote_timeout.get_or_insert("30s".into());
 
         // Every metric we write should have the simkube_meta label on it for easy filtering
-        cfg.write_relabel_configs.get_or_insert(vec![]).push(WriteRelabelConfigs {
+        cfg.write_relabel_configs.get_or_insert_default().push(WriteRelabelConfigs {
             source_labels: Some(vec![METRICS_NAME_LABEL.into()]), // match every metric
             target_label: Some(SIMKUBE_META_LABEL.into()),
             replacement: Some(sim.name_any()),
@@ -126,7 +126,7 @@ pub fn build_mutating_webhook(
     let owner = metaroot;
     let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner);
     if ctx.opts.use_cert_manager {
-        metadata.annotations.get_or_insert(BTreeMap::new()).insert(
+        metadata.annotations.get_or_insert_default().insert(
             "cert-manager.io/inject-ca-from".into(),
             format!("{}/{}", sim.spec.driver.namespace, DRIVER_CERT_NAME),
         );
