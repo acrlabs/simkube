@@ -34,3 +34,6 @@ rmp-serde = { workspace = true }
 sk-store = { workspace = true, features = ["mock"] }
 sk-testutils = { workspace = true }
 tracing-test = { workspace = true }
+
+[lints]
+workspace = true

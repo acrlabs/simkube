@@ -247,6 +247,7 @@ pub fn min_some<T: Ord>(o1: Option<T>, o2: Option<T>) -> Option<T> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use rstest::*;
 

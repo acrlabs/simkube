@@ -128,6 +128,7 @@ use mockall::automock;
 mod tests;
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 impl<T: Clone> ObjWatcher<T> {
     pub fn new_from_parts(
         handler: Box<dyn EventHandler<T> + Send>,

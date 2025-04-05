@@ -32,3 +32,6 @@ httpmock = { workspace = true }
 rstest = { workspace = true }
 sk-testutils = { workspace = true }
 tracing-test = { workspace = true }
+
+[lints]
+workspace = true

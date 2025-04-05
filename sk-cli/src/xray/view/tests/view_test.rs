@@ -74,62 +74,66 @@ fn test_jump_list_state_up(
     assert_eq!(list_state.selected().unwrap(), expected_selected);
 }
 
-#[rstest]
-#[case::first(0)]
-#[case::last(3)]
-fn itest_render_event_list(mut test_app: App, #[case] index: usize) {
-    set_snapshot_suffix!("{index}");
-    test_app.event_list_state.select(Some(index));
-    let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
-    let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();
-    assert_debug_snapshot!(cf);
-}
+mod itest {
+    use super::*;
 
-#[rstest]
-#[case::first(0)]
-#[case::middle(2)]
-#[case::last(3)]
-fn itest_render_event_list_event_selected(mut test_app: App, #[case] index: usize) {
-    set_snapshot_suffix!("{index}");
-    test_app.mode = Mode::EventSelected;
-    test_app.event_list_state.select(Some(index));
-    test_app.object_list_state.select(Some(0));
-    let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
-    let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();
-    assert_debug_snapshot!(cf);
-}
+    #[rstest]
+    #[case::first(0)]
+    #[case::last(3)]
+    fn test_render_event_list(mut test_app: App, #[case] index: usize) {
+        set_snapshot_suffix!("{index}");
+        test_app.event_list_state.select(Some(index));
+        let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();
+        assert_debug_snapshot!(cf);
+    }
 
-#[rstest]
-#[case::top_1(0, 0)]
-#[case::top_2(10, 0)]
-#[case::bottom_1(80, 80)]
-#[case::bottom_2(88, 80)]
-#[case::bottom_3(88, 88)]
-fn itest_render_large_event_list(mut test_app_large: App, #[case] selected: usize, #[case] offset: usize) {
-    set_snapshot_suffix!("{selected}.{offset}");
-    test_app_large.event_list_state.select(Some(selected));
-    *test_app_large.event_list_state.offset_mut() = offset;
-    let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
-    let cf = term.draw(|frame| view(&mut test_app_large, frame)).unwrap();
-    assert_debug_snapshot!(cf);
-}
+    #[rstest]
+    #[case::first(0)]
+    #[case::middle(2)]
+    #[case::last(3)]
+    fn test_render_event_list_event_selected(mut test_app: App, #[case] index: usize) {
+        set_snapshot_suffix!("{index}");
+        test_app.mode = Mode::EventSelected;
+        test_app.event_list_state.select(Some(index));
+        test_app.object_list_state.select(Some(0));
+        let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();
+        assert_debug_snapshot!(cf);
+    }
 
-#[rstest]
-#[case::top_1(1, 0)]
-#[case::top_2(3, 0)]
-#[case::bottom_1(80, 80)]
-#[case::bottom_2(88, 80)]
-#[case::bottom_3(88, 88)]
-fn itest_render_large_event_list_event_selected(
-    mut test_app_large: App,
-    #[case] selected: usize,
-    #[case] offset: usize,
-) {
-    set_snapshot_suffix!("{selected}.{offset}");
-    test_app_large.mode = Mode::EventSelected;
-    test_app_large.event_list_state.select(Some(selected));
-    *test_app_large.event_list_state.offset_mut() = offset;
-    let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
-    let cf = term.draw(|frame| view(&mut test_app_large, frame)).unwrap();
-    assert_debug_snapshot!(cf);
+    #[rstest]
+    #[case::top_1(0, 0)]
+    #[case::top_2(10, 0)]
+    #[case::bottom_1(80, 80)]
+    #[case::bottom_2(88, 80)]
+    #[case::bottom_3(88, 88)]
+    fn test_render_large_event_list(mut test_app_large: App, #[case] selected: usize, #[case] offset: usize) {
+        set_snapshot_suffix!("{selected}.{offset}");
+        test_app_large.event_list_state.select(Some(selected));
+        *test_app_large.event_list_state.offset_mut() = offset;
+        let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let cf = term.draw(|frame| view(&mut test_app_large, frame)).unwrap();
+        assert_debug_snapshot!(cf);
+    }
+
+    #[rstest]
+    #[case::top_1(1, 0)]
+    #[case::top_2(3, 0)]
+    #[case::bottom_1(80, 80)]
+    #[case::bottom_2(88, 80)]
+    #[case::bottom_3(88, 88)]
+    fn test_render_large_event_list_event_selected(
+        mut test_app_large: App,
+        #[case] selected: usize,
+        #[case] offset: usize,
+    ) {
+        set_snapshot_suffix!("{selected}.{offset}");
+        test_app_large.mode = Mode::EventSelected;
+        test_app_large.event_list_state.select(Some(selected));
+        *test_app_large.event_list_state.offset_mut() = offset;
+        let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let cf = term.draw(|frame| view(&mut test_app_large, frame)).unwrap();
+        assert_debug_snapshot!(cf);
+    }
 }

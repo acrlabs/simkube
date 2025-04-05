@@ -114,6 +114,7 @@ fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use rstest::*;
 

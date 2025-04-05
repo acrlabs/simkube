@@ -183,6 +183,7 @@ pub(crate) fn filter_lifecycles_map(
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 impl PodOwnersMap {
     pub(crate) fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
         self.index.get(pod_ns_name)

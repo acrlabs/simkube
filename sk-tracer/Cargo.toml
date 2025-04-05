@@ -30,3 +30,6 @@ rstest = { workspace = true }
 sk-core = { workspace = true, features = ["mock"] }
 sk-store = { workspace = true, features = ["mock"] }
 sk-testutils = { workspace = true }
+
+[lints]
+workspace = true
