@@ -357,6 +357,7 @@ impl<'a> Iterator for TraceIterator<'a> {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use super::*;
 

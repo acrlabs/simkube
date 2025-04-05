@@ -86,33 +86,15 @@ jobs:
           submodules: recursive
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
-      - name: Install grcov
-        run: |
-          curl -LO https://github.com/mozilla/grcov/releases/download/v0.8.18/grcov-x86_64-unknown-linux-gnu.tar.bz2
-          tar -xjf grcov-x86_64-unknown-linux-gnu.tar.bz2
-          mv grcov /usr/local/bin
-      - name: Add llvm-tools
-        run: rustup component add llvm-tools-preview
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@cargo-nextest
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       - name: Test
         run: make test cover
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
-        with:
-          name: rust-coverage
-          path: .build/coverage/rust-coverage.lcov
-
-  check-coverage:
-    runs-on: ubuntu-latest
-    needs:
-      - test
-    steps:
-      - name: Check out repo and build scripts
-        uses: actions/checkout@v4
-        with:
-          submodules: recursive
-      - name: Download coverage
-        uses: actions/download-artifact@v4
-      - name: Check coverage
         uses: codecov/codecov-action@v3
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
+          files: codecov.json
+          fail_ci_if_error: true

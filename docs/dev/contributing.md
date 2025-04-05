@@ -112,14 +112,11 @@ Code coverage is checked whenever you open a PR using [CodeCov](https://about.co
 comment showing you coverage changes and provide a link to a dashboard with more detailed information about what is and
 is not covered.
 
-If you'd like to generate coverage reports locally, it is a little more complicated:
+If you'd like to generate coverage reports locally, simply set the `WITH_COVERAGE` variable:
 
 ```
-WITH_COVERAGE=1 RUST_COVER_TYPE=markdown make test-rust cover-rust
+WITH_COVERAGE=1 make test
 ```
-
-You will have to rebuild your binaries because generating coverage information is incompatible with incremental
-builds.
 
 ### Writing new tests
 
@@ -134,6 +131,26 @@ mod tests;
 ```
 
 block at the bottom of the main module.
+
+Tests in a separate test directory are automatically excluded from code coverage metrics.  If instead the test is
+colocated with the source code, you can exclude it from code coverage metrics with the following block:
+
+```rust
+#[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
+mod tests {
+    ...
+}
+```
+
+### Integration tests
+
+We don't use the native rust/Cargo integration tests because we want to be able to assert on internal state in an
+integration test, which native Rust integration tests don't allow.  Instead, integration tests should be placed in a
+separate `itest` submodule within the `tests` submodule; they will be automatically run separately from the unit tests.
+There's no hard-and-fast rule as to what an integration test is versus a unit test, but in general if it's testing a
+"complete set" of functionality or a feature, it's probably an integration test.  All snapshot (`cargo insta`) tests
+should be integration tests.
 
 ## Making a PR
 

@@ -75,3 +75,6 @@ tracing-test = "0.2.5"
 version = "0.97.0"
 features = ["client", "derive", "runtime", "rustls-tls", "admission", "unstable-runtime"]
 default-features = false
+
+[workspace.lints.rust]
+unexpected_cfgs = { level = "allow", check-cfg = ['cfg(coverage,coverage_nightly)'] }

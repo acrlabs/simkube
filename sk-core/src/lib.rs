@@ -1,3 +1,4 @@
+#![cfg_attr(coverage, feature(coverage_attribute))]
 pub mod constants;
 pub mod errors;
 pub mod external_storage;

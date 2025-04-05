@@ -91,6 +91,7 @@ impl EventHandler<DynamicObject> for DynObjHandler {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 impl DynObjHandler {
     pub fn new(gvk: GVK) -> Box<DynObjHandler> {
         Box::new(DynObjHandler { gvk })

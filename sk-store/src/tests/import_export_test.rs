@@ -96,45 +96,49 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
     .boxed()
 }
 
-#[rstest]
-#[case::full_trace(None)]
-#[case::partial_trace(Some("10s".into()))]
-#[traced_test]
-#[tokio::test]
-async fn itest_export(#[case] duration: Option<String>) {
-    let clock = MockUtcClock::boxed(0);
+mod itest {
+    use super::*;
 
-    // Since we're just generating the results from the stream and not actually querying any
-    // Kubernetes internals or whatever, the TracerConfig is empty.
-    let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
+    #[rstest]
+    #[case::full_trace(None)]
+    #[case::partial_trace(Some("10s".into()))]
+    #[traced_test]
+    #[tokio::test]
+    async fn itest_export(#[case] duration: Option<String>) {
+        let clock = MockUtcClock::boxed(0);
 
-    // First build up the stream of test data and run the watcher (this advances time to the "end")
-    let h = DynObjHandler::new(DEPL_GVK.clone());
-    let w = ObjWatcher::new_from_parts(h, test_stream(*clock.clone()), s.clone(), clock);
-    w.start().await;
+        // Since we're just generating the results from the stream and not actually querying any
+        // Kubernetes internals or whatever, the TracerConfig is empty.
+        let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
 
-    // Next export the data with the chosen filters
-    let filter = ExportFilters {
-        excluded_namespaces: vec!["kube-system".into()],
-        excluded_labels: vec![metav1::LabelSelector {
-            match_labels: klabel!("foo" => "bar"),
-            ..Default::default()
-        }],
-    };
+        // First build up the stream of test data and run the watcher (this advances time to the "end")
+        let h = DynObjHandler::new(DEPL_GVK.clone());
+        let w = ObjWatcher::new_from_parts(h, test_stream(*clock.clone()), s.clone(), clock);
+        w.start().await;
 
-    let store = s.lock().unwrap();
-    let (start_ts, end_ts) = (15, 46);
-    match store.export(start_ts, end_ts, &filter) {
-        Ok(data) => {
-            // Confirm that the results match what we expect
-            let new_store = TraceStore::import(data, &duration).unwrap();
-            let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-            let expected_pods = store.sorted_objs_at(import_end_ts, &filter);
-            let actual_pods = new_store.sorted_objs_at(end_ts, &filter);
-            println!("Expected pods: {:?}", expected_pods);
-            println!("Actual pods: {:?}", actual_pods);
-            assert_eq!(actual_pods, expected_pods);
-        },
-        Err(e) => panic!("failed with error: {}", e),
-    };
+        // Next export the data with the chosen filters
+        let filter = ExportFilters {
+            excluded_namespaces: vec!["kube-system".into()],
+            excluded_labels: vec![metav1::LabelSelector {
+                match_labels: klabel!("foo" => "bar"),
+                ..Default::default()
+            }],
+        };
+
+        let store = s.lock().unwrap();
+        let (start_ts, end_ts) = (15, 46);
+        match store.export(start_ts, end_ts, &filter) {
+            Ok(data) => {
+                // Confirm that the results match what we expect
+                let new_store = TraceStore::import(data, &duration).unwrap();
+                let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
+                let expected_pods = store.sorted_objs_at(import_end_ts, &filter);
+                let actual_pods = new_store.sorted_objs_at(end_ts, &filter);
+                println!("Expected pods: {:?}", expected_pods);
+                println!("Actual pods: {:?}", actual_pods);
+                assert_eq!(actual_pods, expected_pods);
+            },
+            Err(e) => panic!("failed with error: {}", e),
+        };
+    }
 }

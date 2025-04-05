@@ -1,3 +1,4 @@
+#![cfg_attr(coverage, feature(coverage_attribute))]
 mod config;
 mod event_list;
 mod filter;
@@ -103,6 +104,7 @@ impl ExportedTrace {
 mod tests;
 
 #[cfg(feature = "mock")]
+#[cfg_attr(coverage, coverage(off))]
 pub mod mock {
     use mockall::mock;
 

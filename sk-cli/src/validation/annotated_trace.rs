@@ -281,6 +281,7 @@ pub(super) fn find_or_create_event_at_ts(events: &mut Vec<AnnotatedTraceEvent>, 
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 impl AnnotatedTrace {
     pub fn new_with_events(events: Vec<AnnotatedTraceEvent>) -> AnnotatedTrace {
         AnnotatedTrace { events, ..Default::default() }

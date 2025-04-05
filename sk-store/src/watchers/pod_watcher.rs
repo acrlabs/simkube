@@ -213,6 +213,7 @@ impl EventHandler<corev1::Pod> for PodHandler {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 impl PodHandler {
     pub(crate) fn new_from_parts(
         owned_pods: HashMap<String, PodLifecycleData>,

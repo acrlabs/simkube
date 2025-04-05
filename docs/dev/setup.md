@@ -14,6 +14,9 @@ In addition to the project prerequisites, you will need to have the following in
 
 - [pre-commit](https://pre-commit.com)
 - Nightly version of rustfmt
+- [cargo-nextext](https://nexte.st) for running tests
+- Nightly version of [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) for running tests
+- [cargo-insta](https://insta.rs/docs/quickstart/) (only needed for updating/adding new snapshot tests)
 
 SimKube uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests from definitions located
 in `./k8s/`.  If you want to make changes to the generated Kubernetes manifests, you will need to install the

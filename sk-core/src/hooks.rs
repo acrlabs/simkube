@@ -66,6 +66,7 @@ pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
 }
 
 #[cfg(test)]
+#[cfg_attr(coverage, coverage(off))]
 mod test {
     use rstest::*;
     use sk_testutils::*;
