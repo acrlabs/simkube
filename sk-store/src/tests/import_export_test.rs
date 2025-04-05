@@ -104,7 +104,7 @@ mod itest {
     #[case::partial_trace(Some("10s".into()))]
     #[traced_test]
     #[tokio::test]
-    async fn itest_export(#[case] duration: Option<String>) {
+    async fn test_export(#[case] duration: Option<String>) {
         let clock = MockUtcClock::boxed(0);
 
         // Since we're just generating the results from the stream and not actually querying any
