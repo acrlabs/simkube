@@ -1,0 +1,15 @@
+{
+  "command_args": [
+    ".build/release/sk-gen",
+    "-v",
+    "error",
+    "-i",
+    "/Users/hmerrilees/school/sp25/clinic/repos/simkube/dsb-socialnetwork-scaling.trace",
+    "--trace-length",
+    "2",
+    "--num-samples",
+    "100"
+  ],
+  "timestamp": "2025-04-29T21:43:48.182731+00:00",
+  "version": "2.0.0"
+}

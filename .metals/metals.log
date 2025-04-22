@@ -1,0 +1,11 @@
+2025.04.29 02:51:58 INFO  Started: Metals version 1.5.2 in folders '/Users/hmerrilees/school/sp25/clinic/repos/simkube' for client Cursor 1.96.2.
+2025.04.29 02:52:04 INFO  Shutting down server
+2025.04.29 02:52:04 INFO  shutting down Metals
+2025.04.29 02:52:05 INFO  Exiting server
+2025.04.29 02:55:56 INFO  Started: Metals version 1.5.2 in folders '/Users/hmerrilees/school/sp25/clinic/repos/simkube' for client Cursor 1.96.2.
+2025.04.29 02:55:59 INFO  Attempting to connect to the build server...
+2025.04.29 02:55:59 INFO  Running BSP server List(/opt/homebrew/bin/scala-cli, bsp, --json-options, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-options-v2.json, --json-launcher-options, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-launcher-options.json, --envs-file, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-envs.json, /Users/hmerrilees/school/sp25/clinic/repos/simkube)
+2025.04.29 02:55:59 INFO  tracing is disabled for protocol BSP, to enable tracing of incoming and outgoing JSON messages create an empty file at /Users/hmerrilees/school/sp25/clinic/repos/simkube/.metals/bsp.trace.json or /Users/hmerrilees/Library/Caches/org.scalameta.metals/bsp.trace.json
+2025.04.29 02:55:59 INFO  time: Connected to build server in 1.02s
+2025.04.29 02:55:59 INFO  Connected to Build server: scala-cli v1.6.1
+2025.04.29 02:56:01 INFO  time: indexed workspace in 1.94s

@@ -1,15 +1,26 @@
 #![deny(rustdoc::broken_intra_doc_links)]
+#![deny(clippy::all, clippy::pedantic)]
 
 use petgraph::dot::Dot;
 use sk_core::jsonutils::{ordered_eq, ordered_hash};
+use sk_store::TraceStorable;
+use load::{Arena, Loader};
+
+use tracing_subscriber::filter::Directive;
+use tracing_subscriber::EnvFilter;
 mod contraction_hierarchies;
 mod output;
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::fs::File;
-use std::hash::{Hash, Hasher};
+use std::hash::Hash;
 use std::io::Write;
 use std::path::PathBuf;
+use std::time::SystemTime;
+use chrono::{DateTime, Utc};
+use rand::thread_rng;
+use rand::distributions::{Distribution, WeightedIndex};
+use indicatif::{ProgressBar, ProgressStyle};
 
 use anyhow::Result;
 
@@ -21,10 +32,13 @@ use ordered_float::OrderedFloat;
 use petgraph::prelude::*;
 use serde::{Deserialize, Serialize};
 use sk_core::k8s::GVK;
-use sk_store::{ExportedTrace, TraceEvent};
+use sk_store::{ExportedTrace, TraceEvent, TraceIndex, TraceStore, TracerConfig, TrackedObjectConfig};
 use jaq_core::{load, Compiler, Ctx, FilterT, RcIter};
 use jaq_json::{Val, Error as JaqError};
 use serde_json::Value as JsonValue;
+use tracing::{info, debug, error, warn, instrument};
+use sk_core::logging;
+use daft::Diffable;
 
 use crate::contraction_hierarchies::CHEdge;
 
@@ -35,14 +49,24 @@ struct Cli {
     num_samples: usize,
     #[arg(short = 'l', long)]
     trace_length: u64,
+    #[arg(short = 'e', long, default_value_t = 3)]
+    enumeration_steps: u64,
     #[arg(short, long)]
     input_traces: Vec<PathBuf>,
-    #[arg(short = 'g', long)]
-    graph_output_file: Option<PathBuf>,
-    #[arg(short = 'o', long)]
-    traces_output_dir: PathBuf,
-    #[arg(short = 'v', long)]
-    verbose: bool,
+    #[arg(short, long, default_value = "info")]
+    verbosity: String,
+    #[arg(long, default_value_t = 0.5, value_parser = parse_contraction_strength)]
+    contraction_strength: f64,
+}
+
+/// Custom parser for contraction_strength to enforce range [0.0, 1.0]
+fn parse_contraction_strength(s: &str) -> Result<f64, String> {
+    let val: f64 = s.parse().map_err(|_| format!("'{}' isn't a valid float number", s))?;
+    if (0.0..=1.0).contains(&val) {
+        Ok(val)
+    } else {
+        Err(format!("value must be between 0.0 and 1.0, got: {}", val))
+    }
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Serialize, Deserialize)]
@@ -61,7 +85,7 @@ struct ObjectKey {
 
 impl From<&DynamicObject> for ObjectKey {
     fn from(value: &DynamicObject) -> Self {
-        let gvk = GVK::from_dynamic_obj(&value).unwrap();
+        let gvk = GVK::from_dynamic_obj(value).unwrap();
         let name = value.meta().name.clone().unwrap();
         ObjectKey { name, gvk }
     }
@@ -85,13 +109,14 @@ impl PartialOrd for ObjectKey {
 }
 
 #[derive(Clone, Hash, PartialEq, Eq, Debug, Serialize)]
-struct Node {
+pub(crate) struct Node {
     object_type: ObjectType,
     objects: BTreeMap<ObjectKey, DynamicObjectNewType>,
     ts: i64,
 }
 
 impl Node {
+    #[instrument(level = "debug", skip(self, patch), fields(patch_ts = patch.ts))]
     fn apply_patch(&self, patch: &TraceEvent) -> Result<Node> {
         if patch.ts < self.ts {
             return Err(anyhow::anyhow!("patch is earlier than node timestamp"));
@@ -113,14 +138,50 @@ impl Node {
         );
 
         for obj in patch.applied_objs.iter() {
-            next_node.objects.insert(ObjectKey::from(obj), obj.clone().into());
+            let key = ObjectKey::from(obj);
+            
+            // if object already exists, merge the fields rather than overwriting
+            if let Some(existing_obj) = next_node.objects.get(&key) {
+                let existing_json = serde_json::to_value(&existing_obj.dynamic_object).unwrap();
+                let new_json = serde_json::to_value(obj).unwrap();
+                
+                // start with existing object and update with new fields
+                if let (serde_json::Value::Object(existing_map), serde_json::Value::Object(new_map)) = (existing_json.clone(), new_json) {
+                    let mut merged = existing_map;
+                    for (k, v) in new_map {
+                        merged.insert(k, v);
+                    }
+                    
+                    if let Ok(merged_obj) = serde_json::from_value(serde_json::Value::Object(merged)) {
+                        next_node.objects.insert(key, DynamicObjectNewType { dynamic_object: merged_obj });
+                    } else {
+                        next_node.objects.insert(key, obj.clone().into());
+                    }
+                } else {
+                    panic!("failed to merge objects: {existing_json:?}");
+                }
+            } else {
+                // if object doesn't exist yet, simply insert it
+                next_node.objects.insert(key, obj.clone().into());
+            }
         }
 
-        for obj in patch.deleted_objs.iter() {
+        for obj in &patch.deleted_objs {
             next_node.objects.remove(&ObjectKey::from(obj));
         }
 
         Ok(next_node)
+    }
+    
+
+    /// Creates a new state with no active objects.
+    #[instrument]
+    fn new() -> Self {
+        Self { 
+            objects: BTreeMap::new(), 
+            ts: 0,
+            object_type: ObjectType::Synthetic
+        }
     }
 }
 
@@ -173,14 +234,11 @@ struct Edge {
     action: Action,
 }
 
+// Implementing Distance trait from contraction_hierarchies/ch.rs
 impl Distance for Edge {
-    fn probability(&self) -> ordered_float::OrderedFloat<f64> {
-        self.action.probability.into()
+    fn probability(&self) -> OrderedFloat<f64> {
+        self.action.probability
     }
-}
-
-pub trait NextStateFn {
-    fn next_states(&self, node: &Node) -> Vec<Action>; // TODO either vec is empty or enforce probabilities sum to 1.0
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -213,36 +271,66 @@ impl Eq for DynamicObjectNewType {}
 
 impl std::hash::Hash for DynamicObjectNewType {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        // TODO: fields should be placed in a deterministic order before hashing
-        let json = serde_json::to_string(&self.dynamic_object).unwrap();
-        json.hash(state);
+        ordered_hash(&serde_json::to_value(&self.dynamic_object).unwrap()).hash(state);
     }
 }
 
-struct Simulation<F>
-where
-    F: Fn(&Node) -> Vec<Action>,
-{
-    state_graph: DiGraph<Node, Edge>,
-    next_action_fn: F,
-}
+struct Simulation;
 
-impl<F> Simulation<F>
-where
-    F: Fn(&Node) -> Vec<Action>,
+impl Simulation
 {
-    fn new(next_action_fn: F, input_traces: Vec<Vec<TraceEvent>>) -> Self {
-        // TODO: rectify clone overuse
-
+    #[instrument(skip(next_action_fn, input_traces), fields(input_traces_count = input_traces.len()))]
+    fn run<F>(next_action_fn: F, input_traces: Vec<Vec<TraceEvent>>) -> Result<()> 
+    where
+        F: Fn(&Node) -> Vec<Action> + Clone,
+    {
         let args = Cli::parse();
+        let output_dir = create_timestamped_output_dir()?;
 
+        // Phase 1: Graph Construction
+        let (mut state_graph, mut node_to_index) = Self::construct_graph(input_traces)?;
+        info!("Constructed initial graph from traces: {} nodes, {} edges", state_graph.node_count(), state_graph.edge_count());
+
+        // Phase 2: Graph Expansion
+        Self::expand_graph(&mut state_graph, &mut node_to_index, next_action_fn, args.enumeration_steps)?;
+        info!("Expanded graph: {} nodes", state_graph.node_count());
+        info!("Expanded graph: {} nodes, {} edges", state_graph.node_count(), state_graph.edge_count());
+        
+        // Write expanded graph before contraction
+        let graphable_expanded = state_graph.map(
+            |i, n| format!("{} -- {:?}", i.index(), n.object_type),
+            |i, e| format!(
+                "{} -- {:?} {}",
+                i.index(),
+                e.object_type,
+                match &e.action.message {
+                    Some(m) => format!(" {m}"),
+                    None => String::new(),
+                },
+            ),
+        );
+        let state_graph_dot = Dot::new(&graphable_expanded);
+        let state_graph_str = format!("{state_graph_dot}");
+        write_dot_file(&output_dir, "expanded_state_graph.dot", &state_graph_str)?;
+
+
+        // Phase 3: Graph Contraction
+        let processed_core_graph = Self::contract_graph(state_graph, &output_dir)?;
+        info!("Contracted graph (processed core): {} nodes", processed_core_graph.node_count());
+
+
+        // Phase 4: Trace Generation
+        Self::generate_traces(&processed_core_graph, &output_dir, args.num_samples, args.trace_length)?;
+
+        Ok(())
+    }
+    
+    #[instrument(skip(input_traces), fields(input_traces_count = input_traces.len()))]
+    fn construct_graph(input_traces: Vec<Vec<TraceEvent>>) -> Result<(DiGraph<Node, Edge>, HashMap<Node, NodeIndex>)> {
         let mut state_graph = DiGraph::new();
-
         let mut node_to_index: HashMap<Node, NodeIndex> = HashMap::new();
 
         // Import traces and add to state graph
-
-        // TODO: extract into separate trace_import function
         for trace in input_traces {
             let mut trace = trace.into_iter();
 
@@ -251,7 +339,7 @@ where
             };
 
             for deleted_object in first_event.deleted_objs.iter() {
-                eprint!("Warning: ignoring deleted object in first event of trace: {:?}", deleted_object);
+                warn!("Ignoring deleted object in first event of trace: {:?}", deleted_object);
             }
 
             let objects = first_event
@@ -267,146 +355,464 @@ where
             };
 
             // Turn each event of the trace into a Node and add Edges
-
             for event in trace {
-                let next_node = current_node.apply_patch(&event).unwrap();
+                let next_node = current_node.apply_patch(&event)?;
 
                 let edge = Edge {
                     object_type: ObjectType::Observed,
                     action: Action {
                         patch: event.into(),
-                        probability: 1.0.into(),                           // TODO
-                        message: Some("generated from trace".to_string()), // TODO: include file of origin, perhaps in an enum field of{Synthetic, Observed {file: "..."}}
+                        probability: OrderedFloat(1.0),
+                        message: Some("generated from trace".to_string()), // TODO: include file of origin for multi trace import disambiguation, perhaps in an enum field of{Synthetic, Observed {file: "..."}}
                     },
                 };
 
-                // TODO: this is probably redundant, maybe we could track the node index instead
-                let current_node_index = node_to_index
+                let current_node_index = *node_to_index
                     .entry(current_node.clone())
-                    .or_insert(
-                        state_graph.add_node(current_node.clone()), // TODO make sure this doesn't run when the entry is found
-                    )
-                    .clone();
+                    .or_insert_with(|| state_graph.add_node(current_node.clone()));
 
-                let next_node_index = node_to_index
+                let next_node_index = *node_to_index
                     .entry(next_node.clone())
-                    .or_insert(
-                        state_graph.add_node(next_node.clone()), // TODO make sure this doesn't run when the entry is found
-                    )
-                    .clone();
+                    .or_insert_with(|| state_graph.add_node(next_node.clone()));
 
-                state_graph.add_edge(current_node_index, next_node_index, edge);
+                state_graph.update_edge(current_node_index, next_node_index, edge); // Use update_edge to avoid duplicates if trace revisits state
                 current_node = next_node;
             }
         }
+        Ok((state_graph, node_to_index))
+    }
 
-        // Enumerate actions against observed state graph
-        let starting_state = state_graph.node_indices();
+    #[instrument(skip(graph), fields(nodes = graph.node_count(), edges = graph.edge_count()))]
+    fn normalize_edge_probabilities(graph: &mut DiGraph<Node, Edge>) {
+        use petgraph::visit::EdgeRef;
+        use petgraph::Direction;
+        
+        // Process each node in the graph
+        for node_idx in graph.node_indices() {
+            // Collect outgoing edges and their indices
+            let outgoing_edge_ids: Vec<_> = graph.edges_directed(node_idx, Direction::Outgoing)
+                .map(|edge| (edge.id(), edge.weight().action.probability.into_inner()))
+                .collect();
+            
+            if outgoing_edge_ids.is_empty() {
+                continue; // Skip nodes with no outgoing edges
+            }
+            
+            // Calculate sum of outgoing probabilities
+            let total_probability: f64 = outgoing_edge_ids.iter().map(|(_, prob)| *prob).sum();
+            
+            // Skip normalization if total is 0 (would cause division by zero)
+            if total_probability == 0.0 {
+                debug!("Node {:?} has outgoing edges but total probability is 0", node_idx);
+                continue;
+            }
+            
+            // Normalize each edge's probability
+            for (edge_idx, prob) in outgoing_edge_ids {
+                if let Some(edge_weight) = graph.edge_weight_mut(edge_idx) {
+                    let normalized_prob = prob / total_probability;
+                    edge_weight.action.probability = OrderedFloat(normalized_prob);
+                }
+            }
+        }
+    }
 
+    #[instrument(skip(graph, node_to_index, next_action_fn), fields(initial_nodes = graph.node_count(), enumeration_steps))]
+    fn expand_graph<F>(
+        graph: &mut DiGraph<Node, Edge>, 
+        node_to_index: &mut HashMap<Node, NodeIndex>, 
+        next_action_fn: F, 
+        enumeration_steps: u64
+    ) -> Result<()>
+    where
+        F: Fn(&Node) -> Vec<Action>,
+    {
+        let starting_nodes: Vec<NodeIndex> = graph.node_indices().collect(); // Collect indices before iteration
         let mut bfs_queue: VecDeque<(u64, NodeIndex)> = VecDeque::new();
-        for node in starting_state {
-            bfs_queue.push_back((1, node));
+        for node_idx in starting_nodes {
+            bfs_queue.push_back((0, node_idx)); // Start depth at 0 for initial nodes
         }
-        let mut visited = HashSet::new();
+        let mut current_layer: Vec<NodeIndex> = graph.node_indices().collect(); // Start with all existing nodes
+        let mut next_layer: Vec<NodeIndex> = Vec::new();
+        let mut visited_in_expansion = HashSet::new(); // Track nodes visited *during this expansion*
+        let mut depth = 0u64;
+    
+        while !current_layer.is_empty() && depth < enumeration_steps {
+            info!("Expanding graph at depth: {}. Nodes in current layer: {}", depth, current_layer.len());
+            
+            // Create a progress bar for this layer
+            let pb = ProgressBar::new(current_layer.len() as u64);
+            pb.set_style(ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} nodes ({percent}%) - {msg}")
+                .unwrap()
+                .progress_chars("#>-"));
+            pb.set_message(format!("Layer {}", depth));
+    
+            for (index, current_idx) in std::mem::take(&mut current_layer).into_iter().enumerate() { // Process and clear current_layer
+                // Update progress
+                pb.set_position(index as u64);
+    
+                // Check visited *before* processing neighbors to avoid redundant work
+                // Add returns true if the value was not already present.
+                if !visited_in_expansion.insert(current_idx) {
+                    debug!("Skipping already visited node {:?} at depth {}", current_idx, depth);
+                    continue;
+                }
+    
+                let current_node_data = match graph.node_weight(current_idx) {
+                     Some(node) => node.clone(),
+                     None => {
+                        warn!("Node index {:?} not found in graph during expansion at depth {}", current_idx, depth);
+                        continue;
+                     }
+                };
 
-        let mut first = true;
 
-        while let Some((depth, node_idx)) = bfs_queue.pop_front() {
-            if depth >= args.trace_length {
-                continue;
+                let actions = next_action_fn(&current_node_data);
+                pb.set_message(format!("Layer {} - expanding node with {} actions", depth, actions.len()));
+                let before_node_count = graph.node_count();
+   
+                for action in actions {
+                    debug!("Applying action '{:?}' to node {:?}", action.message.as_deref().unwrap_or("N/A"), current_idx);
+                    let mut next_node_data = match current_node_data.apply_patch(&action.patch) {
+                        Ok(node) => node,
+                        Err(e) => {
+                            warn!("Skipping invalid action generated by next_action_fn: {:?}. Error: {}", action.message, e);
+                            continue;
+                        }
+                    };
+    
+                    // Nodes generated during expansion are always Synthetic
+                    next_node_data.object_type = ObjectType::Synthetic;
+    
+                    let next_idx = {
+                        let entry = node_to_index.entry(next_node_data.clone());
+                        *entry.or_insert_with(|| {
+                            let new_idx = graph.add_node(next_node_data);
+                            debug!("Added new synthetic node {:?} (derived from {:?}) at depth {}", new_idx, current_idx, depth);
+                            new_idx
+                        })
+                    };
+    
+                    // Add edge regardless of whether the node was new or existing
+                    let edge = Edge { object_type: ObjectType::Synthetic, action };
+                    debug!("Adding/Updating synthetic edge from {:?} to {:?} (action: '{:?}')",
+                           current_idx, next_idx, edge.action.message.as_deref().unwrap_or("N/A"));
+                    graph.update_edge(current_idx, next_idx, edge);
+    
+                    // If this neighbor hasn't been visited *in this expansion* and we are within depth limit,
+                    // add it to the next layer to be processed.
+                    if !visited_in_expansion.contains(&next_idx) && (depth + 1) < enumeration_steps {
+                        // Avoid adding duplicates to the next_layer itself
+                        // (Could happen if multiple nodes in current_layer point to the same next_idx)
+                        // A simple linear scan is fine if layers aren't enormous, otherwise use a HashSet.
+                        if !next_layer.contains(&next_idx) {
+                             debug!("Adding node {:?} to next layer (depth {})", next_idx, depth + 1);
+                             next_layer.push(next_idx);
+                        }
+                    }
+                }
+                let added_node_count = graph.node_count() - before_node_count;
+                pb.set_message(format!("Layer {} - Added {} nodes", depth, added_node_count));
             }
-
-            let not_previously_seen = visited.insert(node_idx.clone());
-            if !not_previously_seen {
-                continue;
-            }
-
-            let current_node = &state_graph[node_idx].clone();
-
-            for action in next_action_fn(&state_graph[node_idx]) {
-                let next_node = current_node
-                    .apply_patch(&action.patch)
-                    .expect("next_action_fn: F should generate only valid actions.");
-
-                let next_idx = *node_to_index
-                    .entry(next_node.clone())
-                    .or_insert(state_graph.add_node(next_node.clone()));
-
-                bfs_queue.push_back((depth + 1, next_idx.clone()));
-
-                let edge = Edge { object_type: ObjectType::Synthetic, action };
-
-                state_graph.add_edge(node_idx, next_idx, edge); // TODO, is adding duplicate edges between the same nodes intended?
-            }
+            
+            // Finalize the progress bar
+            pb.finish_with_message(format!("Layer {} completed - {} nodes in next layer", depth, next_layer.len()));
+            
+            // Prepare for the next iteration
+            depth += 1;            
+            current_layer = std::mem::take(&mut next_layer); // next_layer becomes current_layer
+            // next_layer is now empty, ready for the next depth
         }
+    
+        // Normalize outgoing edge probabilities for each node after expansion is complete
+        info!("Normalizing edge probabilities after expansion");
+        Self::normalize_edge_probabilities(graph);
+        
+        info!("Expansion finished at depth {}. Final graph node count: {}", depth, graph.node_count());
+        Ok(())
+    }
 
-        println!("state_graph: {} nodes", state_graph.node_count());
-
-        let graphable = state_graph.map(
-            |i, n| {
-                format!("{} -- {:?}", i.index(), n.object_type)
-            },
-            |i, e| {
-                format!(
-                    "{} -- {:?} {}",
-                    i.index(),
-                    e.object_type,
-                    match &e.action.message {
-                        Some(m) => format!(" {m}"),
-                        None => String::new(),
-                    },
-                )
-            },
-        );
-        let state_graph_dot = Dot::new(&graphable);
-        let mut file = File::create("state_graph.dot").unwrap();
-        use std::io::Write;
-        write!(file, "{}", format!("{}", state_graph_dot)).unwrap();
-
+    #[instrument(skip(state_graph), fields(nodes = state_graph.node_count()))]
+    fn contract_graph(state_graph: DiGraph<Node, Edge>, output_dir: &PathBuf) -> Result<DiGraph<Node, Edge>> {
+        let args = Cli::parse(); // Need access to args for contraction_strength
+        let total_nodes = state_graph.node_count();
+        
         // conduct CH
         let heuristic_graph = crate::contraction_hierarchies::HeuristicGraph::new(state_graph.clone());
         let contraction_order = heuristic_graph.contraction_order();
-        let contraction_order = contraction_order[0..contraction_order.len()/2].to_vec();
-        let core_graph_num = contraction_order.len() - 1;
+        
+        // Calculate the target number of contractions based on strength
+        let num_contractions_target = (total_nodes as f64 * args.contraction_strength).round() as usize;
+        // Ensure we don't try to contract more nodes than available in the order
+        let core_graph_iteration = num_contractions_target.min(contraction_order.len());
+        info!("Targeting core graph after {} contractions (strength: {}, total nodes: {})", 
+              core_graph_iteration, args.contraction_strength, total_nodes);
 
-        let mut ch = crate::contraction_hierarchies::CH::new(state_graph, contraction_order.into_iter());
+        let mut ch = crate::contraction_hierarchies::CH::new(state_graph.clone(), contraction_order.into_iter()); // Pass full order
 
-        let core_graph = ch.core_graph(core_graph_num).unwrap();
-        let contraction_hierarchy = ch.contraction_hierarchy().unwrap();
-        // write core graph
+        // Create a progress bar for the contraction process
+        let pb = ProgressBar::new(core_graph_iteration as u64);
+        pb.set_style(ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.yellow/blue}] {pos}/{len} contractions ({percent}%) - {msg}")
+            .unwrap()
+            .progress_chars("=>-"));
+        pb.set_message("Starting graph contraction");
 
-        // write core graph dot to a file
+        // Track progress within the closure
+        let mut contracted_count = 0;
+        
+        // Get the core graph at the calculated iteration with progress tracking
+        let core_graph_result = ch.core_graph_with_progress(core_graph_iteration, |current_iteration| {
+            contracted_count = current_iteration;
+            pb.set_position(current_iteration as u64);
+            pb.set_message(format!("Contracted {} nodes", current_iteration));
+        })?;
+        
+        pb.finish_with_message(format!("Contraction complete: {} nodes contracted", contracted_count));
+        
+        info!("Obtained core graph with {} nodes, {} edges", core_graph_result.node_count(), core_graph_result.edge_count());
 
+        // Process the core_graph_result (which is Graph<CHNode, CHEdge>)
+        // The existing filter_map logic works for this structure
+        let processed_graph = core_graph_result.filter_map(|_node_idx, node| {
+            match node {
+                 // Keep original nodes, map Contracted nodes back to original if needed (core_graph should handle this based on iteration)
+                CHNode::Original { node } | CHNode::Contracted { node, .. } => Some(node.clone()), 
+            }
+        }, |edge_idx, edge| {
+             match edge {
+                CHEdge::Original { edge } => Some(edge.clone()),
+                CHEdge::Shortcut { edges, nodes, .. } => {
+                     // Check if this shortcut should be included based on the core_graph logic (it should be if returned by core_graph)
+                     // The processing logic to reconstruct the action remains the same.
+                     let message_opt = Some(edges.iter()
+                        .filter_map(|edge| edge.action.message.clone())
+                        .collect::<Vec<_>>()
+                        .join(" -> "))
+                        .filter(|s| !s.is_empty());
 
-        let graphable = core_graph.map(
-            |i, n| {
+                     // Need the graph the edge belongs to, to get node data - use core_graph_result
+                     let graph_ref = &core_graph_result; 
+                    
+                     // Calculate the resulting state change of the shortcut
+                     let start_node_idx = nodes.first()?; 
+                     let start_node_data = match &graph_ref[*start_node_idx] {
+                         // We expect Original or Contracted here from core_graph output
+                         CHNode::Original { node } | CHNode::Contracted { node, .. } => node,
+                     };
 
-                match n {
-                    CHNode::Original { node } => format!("{} -- Original {:?}", i.index(), node.object_type),
-                    CHNode::Contracted { node, iteration } => format!("{} -- Contracted {:?}", i.index(), node.object_type),
-                }
-            },
-            |i, e| {
+                    let mut current_node_state = start_node_data.clone();
+                    let mut final_ts = start_node_data.ts;
 
-                match e {
-                    CHEdge::Original { edge } => format!("{:?}", edge.action.message),
-                    CHEdge::Shortcut { edges, nodes, iteration } => format!("{} -- Shortcut {:?}", i.index(), edges.iter().map(|e| e.action.message.clone()).collect::<Vec<_>>()),
-                    CHEdge::Orphaned { edge, iteration } => format!("{} -- Orphaned {:?}", i.index(), edge.action.message),
-                }
+                    // Apply the patches from the *original* edges stored in the shortcut
+                    for shortcut_edge_original in edges {
+                        match current_node_state.apply_patch(&shortcut_edge_original.action.patch) {
+                            Ok(next_node) => {
+                                current_node_state = next_node;
+                                final_ts = current_node_state.ts; 
+                            }
+                            Err(e) => {
+                                error!("Error applying patch from original edge within shortcut {:?}: {}. Skipping shortcut edge.", edge_idx, e);
+                                return None; 
+                            }
+                        }
+                    }
 
-            },
+                    // Use the *original* start node state and the *final* state after all shortcut patches
+                    let (applied_objs, deleted_objs) = diff_objects(&start_node_data.objects, &current_node_state.objects);
+                    
+                    let combined_patch = TraceEvent {
+                        ts: final_ts, 
+                        applied_objs,
+                        deleted_objs,
+                    };
+
+                    // Calculate probability from component edges instead of using stored surprisal
+                    let probability = edges.iter()
+                        .map(|edge| edge.action.probability.into_inner())
+                        .product::<f64>()
+                        .into();
+
+                    Some(Edge {
+                        object_type: ObjectType::Synthetic, 
+                        action: Action {
+                            patch: combined_patch.into(),
+                            probability,
+                            message: message_opt,
+                        },
+                    })
+                },
+                CHEdge::Orphaned { .. } => None, // Remove orphaned edges
+            }
+        });
+
+        info!("Processed core graph: {} nodes, {} edges", processed_graph.node_count(), processed_graph.edge_count());
+
+        // Visualize the processed graph (the one used for sampling)
+        let processed_graph_pretty = processed_graph.map(
+            |i, n| format!("{} -- {:?}", i.index(), n.object_type),
+            |i, e| format!(
+                "{} -- {:?} P={:.2e} {}", // Show probability
+                i.index(),
+                e.object_type,
+                e.action.probability.into_inner(),
+                match &e.action.message {
+                    Some(m) => m.clone(),
+                    None => String::from("[no message]"),
+                },
+            ),
         );
+        let processed_graph_dot = Dot::new(&processed_graph_pretty);
+        write_dot_file(output_dir, "processed_sample_graph.dot", &format!("{processed_graph_dot}"))?;
 
-        let core_graph_dot = Dot::new(&graphable);
-        let mut file = File::create("core_graph.dot").unwrap();
-        write!(file, "{}", format!("{}", core_graph_dot)).unwrap();
+        Ok(processed_graph)
+    }
 
-        // sample traces
 
-        todo!()
+    #[instrument(skip(graph), fields(nodes = graph.node_count(), num_samples, trace_length))]
+    fn generate_traces(graph: &DiGraph<Node, Edge>, output_dir: &PathBuf, num_samples: usize, trace_length: u64) -> Result<()> {
+        let start_node = match graph.node_indices().next() {
+            Some(idx) => {
+                info!("Starting trace generation from the first node in the graph.");
+                idx
+            }
+            None => {
+                error!("Cannot generate traces: The graph is empty.");
+                return Ok(()); // Nothing to do if graph is empty
+            }
+        };
+        
+        // Sample walks through the graph
+        info!("Starting trace sampling from node index: {:?}", start_node);
+        let walks = Self::walks_with_sampling(graph, start_node, trace_length, num_samples);
+        info!("Generated {} walks", walks.len());
+        
+        // Create a progress bar for trace file generation
+        let pb = ProgressBar::new(walks.len() as u64);
+        pb.set_style(ProgressStyle::default_bar()
+            .template("{spinner:.green} [{elapsed_precise}] [{bar:40.green/blue}] {pos}/{len} traces ({percent}%) - {msg}")
+            .unwrap()
+            .progress_chars("#>-"));
+        pb.set_message("Generating trace files");
+        
+        // Convert walks to traces and write to files
+        for (i, walk) in walks.iter().enumerate() {
+            if walk.len() <= 1 {
+                warn!("Skipping empty or single-node walk {i}");
+                pb.set_message(format!("Skipped walk {i} (too short)"));
+                pb.inc(1);
+                continue;
+            }
+            let trace_path = output_dir.join(format!("trace_{i}.json"));
+            Self::generate_trace_file(graph, walk, &trace_path)?;
+            pb.set_message(format!("Generated trace_{i}.json"));
+            pb.inc(1);
+        }
+        
+        pb.finish_with_message(format!("Completed trace generation: {} files created", walks.len()));
+        Ok(())
+    }
+    
+    #[instrument(skip(graph, walk))]
+    fn generate_trace_file(graph: &DiGraph<Node, Edge>, walk: &[NodeIndex], path: &PathBuf) -> Result<()> {
+        let mut trace_events = Vec::new();
+
+        // Iterate through pairs of nodes in the walk to find edges
+        for window in walk.windows(2) {
+            let u = window[0];
+            let v = window[1];
+            match graph.find_edge(u, v) {
+                 Some(edge_index) => {
+                     match graph.edge_weight(edge_index) {
+                         Some(edge) => trace_events.push(edge.action.patch.trace_event.clone()),
+                         None => { // Should not happen if find_edge succeeded
+                             error!("Edge index {:?} found but has no weight between {:?} and {:?}", edge_index, u, v);
+                             return Err(anyhow::anyhow!("Inconsistent graph state: edge weight missing"));
+                         }
+                     }
+                 }
+                 None => {
+                    // This indicates a potential issue either in walk generation or the graph structure
+                     error!("No edge found between consecutive nodes {:?} and {:?} in walk. Walk: {:?}", u, v, walk);
+                    // Depending on desired behavior, we could either error out or just log and continue
+                     return Err(anyhow::anyhow!("Invalid walk: missing edge between consecutive nodes"));
+                 }
+            }
+        }
+        
+        if trace_events.is_empty() {
+             warn!("Generated walk resulted in zero trace events for path: {}. Walk: {:?}", path.display(), walk);
+             // Decide if an empty file should be created or not. Let's skip it.
+             return Ok(());
+        }
+
+        let exported_trace = tracestore_from_events(&trace_events);
+         
+        let file = File::create(path)?; // Propagate error
+        serde_json::to_writer_pretty(&file, &exported_trace)?; // Propagate error
+        Ok(())
+    }
+    
+    #[instrument(skip(graph), fields(start_node = start_node.index(), walk_length, num_samples))]
+    fn walks_with_sampling(graph: &DiGraph<Node, Edge>, start_node: NodeIndex, walk_length: u64, num_samples: usize) -> Vec<Vec<NodeIndex>> {
+        let mut rng = thread_rng();
+        let mut samples = Vec::new();
+        
+        for _ in 0..num_samples {
+            let mut current_walk = vec![start_node];
+            let mut current_node = start_node;
+            
+            for _ in 1..walk_length {
+                let neighbors: Vec<_> = graph.neighbors(current_node).collect();
+                if neighbors.is_empty() {
+                    break;
+                }
+                
+                let weights: Vec<f64> = neighbors
+                    .iter()
+                    .filter_map(|&n| graph.find_edge(current_node, n)) // Find edge index first
+                    .filter_map(|edge_idx| graph.edge_weight(edge_idx)) // Get edge weight
+                    .map(|edge| edge.action.probability.into_inner().max(0.0)) // Ensure probability is non-negative
+                    .collect();
+                
+                // Check if there are valid neighbors with positive total probability
+                let total_weight: f64 = weights.iter().sum();
+                if neighbors.is_empty() || total_weight <= 0.0 {
+                    debug!("Stopping walk at node {:?}: no outgoing edges with positive probability.", current_node);
+                    break; // Stop walk if no valid next step
+                }
+
+                let dist = match WeightedIndex::new(&weights) {
+                    Ok(d) => d,
+                    Err(e) => {
+                        error!("Failed to create WeightedIndex at node {:?} (weights: {:?}): {}. Stopping walk.", current_node, weights, e);
+                         break; // Stop walk if distribution fails
+                    }
+                };
+                
+                let next_neighbor_index = dist.sample(&mut rng);
+                // Ensure the sampled index is valid for the neighbors list
+                let next_node = match neighbors.get(next_neighbor_index) {
+                     Some(&node) => node,
+                     None => {
+                         error!("WeightedIndex sampled invalid index {} for neighbors (len {}). Stopping walk.", next_neighbor_index, neighbors.len());
+                         break;
+                     }
+                };
+
+                current_walk.push(next_node);
+                current_node = next_node;
+            }
+            
+            samples.push(current_walk);
+        }
+        
+        samples
     }
 }
 
+#[instrument(skip(node), fields(object_count = node.objects.len()))]
 fn next_action_fn(node: &Node) -> Vec<Action> {
     let double_memory_script = r#" [
         range(0; length) as $i |
@@ -422,7 +828,8 @@ fn next_action_fn(node: &Node) -> Vec<Action> {
         ([ .[] | . ] |
         .[$i].spec.template.spec.containers[0].resources.requests.memory |=
             (capture("(?<num>^[0-9]+)(?<unit>.*)")
-            | "\((.num | tonumber) / 2)\(.unit)")
+            | ((.num | tonumber) / 2) as $halved_value
+            | "\(($halved_value | floor))\(.unit)")
         ) as $modified_list
         |
         ($modified_list[$i].spec.template.spec.containers[0].resources.requests.memory
@@ -524,43 +931,37 @@ fn next_action_fn(node: &Node) -> Vec<Action> {
         .into_iter()
         .flat_map(|(action_message, jq_script)| {
             let message = Some(action_message.to_string());
-            println!("message: {:?}", message);
+            debug!("message: {:?}", message);
 
-            // Parse and execute the jaq filter
             let program = load::File { code: jq_script, path: () };
             
-            use load::{Arena, Loader};
             let arena = Arena::default();
             let loader = Loader::new(jaq_std::defs().chain(jaq_json::defs()));
             
-            // Load the filter modules
             let modules = match loader.load(&arena, program) {
                 Ok(modules) => modules,
                 Err(err) => {
-                    eprintln!("Failed to load jaq script for action '{}': {:?}", action_message, err);
+                    error!("Failed to load jaq script for action '{}': {:?}", action_message, err);
                     return Vec::new();
                 }
             };
             
-            // Compile the filter
             let filter = match Compiler::default()
                 .with_funs(jaq_std::funs().chain(jaq_json::funs()))
                 .compile(modules) {
                     Ok(filter) => filter,
                     Err(err) => {
-                        eprintln!("Failed to compile jaq script for action '{}': {:?}", action_message, err);
+                        warn!("Failed to compile jaq script for action '{}': {:?}", action_message, err);
                         return Vec::new();
                     }
                 };
             
             let inputs = RcIter::new(core::iter::empty());
             
-            // Run the filter with our input
-            let mut output = filter.run((Ctx::new([], &inputs), Val::from(objects_json.clone())));
+            let jq_output = filter.run((Ctx::new([], &inputs), Val::from(objects_json.clone())));
             
-            // Collect all results
             let mut results = Vec::new();
-            while let Some(result) = output.next() {
+            for result in jq_output {
                 match result {
                     Ok(val) => {
                         match serde_json::from_value::<Vec<Vec<DynamicObject>>>(val.into()) {
@@ -568,18 +969,17 @@ fn next_action_fn(node: &Node) -> Vec<Action> {
                                 results.push(dynamic_object_list);
                             },
                             Err(e) => {
-                                eprintln!("Error deserializing jaq result for action '{}': {}. Input was {} objects", 
+                                error!("Error deserializing jaq result for action '{}': {}. Input was {} objects", 
                                     action_message, e, node.objects.len());
                             }
                         }
                     },
                     Err(e) => {
-                        eprintln!("Error running jaq filter for action '{}': {}", action_message, e);
+                        error!("Error running jaq filter for action '{}': {}", action_message, e);
                     }
                 }
             }
             
-            // If we have multiple results, just take the first one for simplicity
             let objects_list = results.into_iter().flat_map(|dynamic_object_list| {
                 dynamic_object_list
                     .into_iter()
@@ -595,36 +995,62 @@ fn next_action_fn(node: &Node) -> Vec<Action> {
             objects_list
                 .into_iter()
                 .map(|objects| {
-                    // Find created or updated objects
-                    let applied_objs = objects
-                        .iter()
-                        .filter(|(key, new_value)| {
-                            node.objects.get(key).map_or(true, |old_value| old_value != *new_value)
-                        })
-                        .map(|(_, obj)| obj.dynamic_object.clone())
-                        .collect::<Vec<_>>();
-
-                    // Find deleted objects
-                    let deleted_objs = node
-                        .objects
-                        .iter()
-                        .filter(|(key, _)| !objects.contains_key(key))
-                        .map(|(_, obj)| obj.dynamic_object.clone())
-                        .collect::<Vec<_>>();
+                    let (applied_objs, deleted_objs) = diff_objects(&node.objects, &objects);
 
                     Action {
                         patch: TraceEvent { ts: node.ts + 1, applied_objs, deleted_objs }.into(),
-                        probability: 1.0.into(), // TODO
+                        probability: OrderedFloat(1.0), // TODO
                         message: message.clone(),
                     }
                 })
-                .collect::<Vec<_>>()
+                .collect()
         })
         .collect()
 }
 
+#[instrument]
+fn create_timestamped_output_dir() -> Result<PathBuf> {
+    let base_dir = PathBuf::from("runs");
+
+    std::fs::create_dir_all(&base_dir)?;
+    let now: DateTime<Utc> = SystemTime::now().into();
+    
+    // Use RFC 3339 for lexographical ordering and replace colons with hyphens for filesystem compatibility
+    let timestamp = now.to_rfc3339().replace(':', "-").replace('.', "-");
+    
+    let output_dir = base_dir.join(timestamp);
+    std::fs::create_dir_all(&output_dir)?;
+    
+    let metadata = serde_json::json!({
+        "timestamp": now.to_rfc3339(),
+        "version": env!("CARGO_PKG_VERSION"),
+        "command_args": std::env::args().collect::<Vec<_>>(),
+    });
+    
+    let metadata_path = output_dir.join("metadata.json");
+    let mut file = File::create(metadata_path)?;
+    file.write_all(serde_json::to_string_pretty(&metadata)?.as_bytes())?;
+    
+    Ok(output_dir)
+}
+
+#[instrument(skip(dot_content))]
+fn write_dot_file(output_dir: &PathBuf, filename: &str, dot_content: &str) -> Result<PathBuf> {
+    let file_path = output_dir.join(filename);
+    let mut file = File::create(&file_path)?;
+    write!(file, "{dot_content}")?;
+    
+    debug!("Graph written to: {}", file_path.display());
+    
+    Ok(file_path)
+}
+
+#[instrument]
 fn main() -> Result<()> {
     let args = Cli::parse();
+    
+    // Set up standard logging with verbosity from command line
+    logging::setup(&args.verbosity);
 
     let input_traces = args
         .input_traces
@@ -636,7 +1062,74 @@ fn main() -> Result<()> {
         })
         .collect();
 
-    let simulation = Simulation::new(next_action_fn, input_traces);
 
-    Ok(())
+   Simulation::run(next_action_fn, input_traces)
+
 }
+
+
+#[instrument(skip(events), fields(event_count = events.len()))]
+fn tracestore_from_events(events: &[TraceEvent]) -> TraceStore {
+
+    let config = TracerConfig {
+        tracked_objects: HashMap::from([(
+            GVK::new("apps", "v1", "Deployment"),
+            TrackedObjectConfig {
+                track_lifecycle: false,
+                pod_spec_template_path: None,
+            },
+        )]),
+    };
+
+    let mut trace_store = TraceStore::new(config);
+
+
+    for (ts, trace_event) in events.iter().enumerate() {
+        for obj in trace_event.applied_objs.clone() {
+            trace_store.create_or_update_obj(&obj, ts as i64, None).unwrap(); // TODO check on maybe_old_hash
+        }
+
+        for obj in trace_event.deleted_objs.clone() {
+            trace_store.delete_obj(&obj, ts as i64).unwrap();
+        }
+    }
+
+    trace_store
+}
+
+// Helper to compute applied (created/updated) and deleted objects using daft's diff on BTreeMaps.
+fn diff_objects<'a>(before: &'a BTreeMap<ObjectKey, DynamicObjectNewType>, after: &'a BTreeMap<ObjectKey, DynamicObjectNewType>) -> (Vec<DynamicObject>, Vec<DynamicObject>) {
+    let diff = before.diff(after);
+
+    // Added keys => created objects, push the new value.
+    let mut applied: Vec<DynamicObject> = diff
+        .added
+        .values()
+        .map(|v| v.dynamic_object.clone())
+        .collect();
+
+    // Removed keys => deleted objects, push the old value.
+    let deleted: Vec<DynamicObject> = diff
+        .removed
+        .values()
+        .map(|v| v.dynamic_object.clone())
+        .collect();
+
+    // Modified => same key present but value changed; treat as updated, push the *after* value.
+    applied.extend(
+        diff
+            .modified_values()
+            .map(|leaf| leaf.after.dynamic_object.clone()),
+    );
+
+    (applied, deleted)
+}
+
+impl Diffable for DynamicObjectNewType {
+    type Diff<'daft> = daft::Leaf<&'daft DynamicObjectNewType>; // Stop diffing at a leaf
+
+    fn diff<'daft>(&'daft self, other: &'daft Self) -> Self::Diff<'daft> {
+        daft::Leaf { before: self, after: other }
+    }
+}
+

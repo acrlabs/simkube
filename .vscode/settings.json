@@ -1,5 +1,8 @@
 {
     "conventionalCommits.scopes": [
         "sk-gen"
-    ]
+    ],
+    "files.watcherExclude": {
+        "**/target": true
+    }
 }

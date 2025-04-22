@@ -1,11 +1,8 @@
-#![feature(let_chains)]
-
 use super::utils::dijkstra;
 use ordered_float::Float;
 
 use anyhow::{Context, Result};
 use ordered_float::OrderedFloat;
-use petgraph::visit::EdgeRef;
 use petgraph::{graph::NodeIndex, Graph};
 use std::hash::Hash;
 
@@ -25,12 +22,10 @@ impl<Node> CHNode<Node> {
 /// A wrapper on Node which lets us mark a node as contracted with respect to a particular iteration.
 #[derive(Clone)]
 pub enum CHEdge<Edge> {
-    Original {
-        edge: Edge,
-    },
+    Original { edge: Edge },
     Shortcut {
-        edges: Vec<Edge>,      // Store edges instead of edge indices
-        nodes: Vec<NodeIndex>, // Store all intermediate nodes in the path
+        edges: Vec<Edge>,
+        nodes: Vec<NodeIndex>,
         iteration: usize,
     },
     Orphaned {
@@ -51,7 +46,7 @@ impl<Edge: std::fmt::Debug + Distance> std::fmt::Debug for CHEdge<Edge> {
         match self {
             CHEdge::Original { edge } => f.debug_struct("Original").field("edge", edge).finish(),
             CHEdge::Shortcut { edges, nodes, iteration } => {
-                let probability = self.probability().into_inner();
+                let probability = self.probability().into_inner(); // Calculate probability from surprisal
 
                 f.debug_struct("Shortcut")
                     .field("edges", edges)
@@ -78,12 +73,40 @@ pub trait Distance {
     }
 }
 
+/// Merge two surprisal weights  (w  =  –ln P)  using log-sum-exp
+#[inline]
+fn merge_surprisal(w_old: OrderedFloat<f64>,
+                   w_add: OrderedFloat<f64>) -> OrderedFloat<f64> {
+    use std::f64;
+
+    // Handle "edge did not exist yet"
+    if w_old.into_inner().is_infinite() {
+        return w_add;
+    }
+
+    // log-sum-exp  ⇒  w_new = w_min – ln(1 + e^{–Δ})
+    let delta  = Float::abs(w_old - w_add);
+    let w_min  = Float::min(w_old, w_add);
+    w_min - ((-delta).exp().ln_1p())
+}
+
 impl<E: Distance> Distance for CHEdge<E> {
     fn probability(&self) -> OrderedFloat<f64> {
         match self {
-            CHEdge::Original { edge } => edge.probability(),
-            CHEdge::Shortcut { edges, nodes: _, iteration: _ } => edges.iter().map(|edge| edge.probability()).product(),
-            CHEdge::Orphaned { edge: _, iteration: _ } => OrderedFloat::from(0.0),
+            Self::Original { edge }      => edge.probability(),
+            Self::Shortcut { edges, .. } => edges.iter().map(|edge| edge.probability()).product(),
+            Self::Orphaned { .. }        => OrderedFloat(0.0),
+        }
+    }
+
+    fn surprisal(&self) -> OrderedFloat<f64> {
+        match self {
+            Self::Original { edge }      => edge.surprisal(),
+            Self::Shortcut { edges, .. } => {
+                // Sum the surprisal values of all component edges
+                edges.iter().map(|edge| edge.surprisal()).sum()
+            },
+            Self::Orphaned { .. }        => OrderedFloat(f64::INFINITY),
         }
     }
 }
@@ -312,42 +335,106 @@ where
             };
 
             if should_add_shortcut {
-                // Find the probability of the path through the contracted node
-                // This is the "destroyed" probability we want to capture
-                let mut destroyed_edges = Vec::new();
+                // Find the edges forming the path through the contracted node (x -> node_index -> y)
+                // Keep track of the original edges for bookkeeping if needed later
+                let mut path_edges = Vec::new();
+                let mut path_surprisals = Vec::new();
 
-                // Get edge from x to node_index if it exists
+                // Get edge from x to node_index
                 if let Some(in_edge_idx) = self.graph.find_edge(x, node_index) {
-                    match &self.graph[in_edge_idx].clone() {
-                        CHEdge::Original { edge } => destroyed_edges.push(edge.clone()),
-                        CHEdge::Orphaned { edge, .. } => destroyed_edges.push(edge.clone()),
-                        _ => {},
+                    // Need to clone the edge weight to get its original value before potential orphaning
+                    let edge_weight = self.graph[in_edge_idx].clone();
+                    match edge_weight {
+                        CHEdge::Original { edge } | CHEdge::Orphaned { edge, .. } => {
+                            path_surprisals.push(edge.surprisal());
+                            path_edges.push(edge);
+                        }
+                        CHEdge::Shortcut { edges, .. } => {
+                            // If the incoming edge is already a shortcut, use its aggregated surprisal
+                            path_surprisals.push(edges.iter().map(|edge| edge.surprisal()).sum());
+                            path_edges.extend(edges); // Keep original edges if needed
+                        }
                     }
+                } else {
+                    // Handle cases where the edge might not exist (shouldn't happen with correct neighbor iteration?)
+                    // Consider adding error handling or logging here if necessary.
+                    // For now, assume infinite surprisal (zero probability) if an edge is missing.
+                    path_surprisals.push(OrderedFloat(f64::INFINITY));
                 }
 
-                // Get edge from node_index to y if it exists
+
+                // Get edge from node_index to y
                 if let Some(out_edge_idx) = self.graph.find_edge(node_index, y) {
-                    match &self.graph[out_edge_idx].clone() {
-                        CHEdge::Original { edge } => destroyed_edges.push(edge.clone()),
-                        CHEdge::Orphaned { edge, .. } => destroyed_edges.push(edge.clone()),
-                        _ => {},
+                     // Need to clone the edge weight
+                    let edge_weight = self.graph[out_edge_idx].clone();
+                     match edge_weight {
+                        CHEdge::Original { edge } | CHEdge::Orphaned { edge, .. } => {
+                            path_surprisals.push(edge.surprisal());
+                            path_edges.push(edge);
+                        }
+                        CHEdge::Shortcut { edges, .. } => {
+                            // If the outgoing edge is already a shortcut, use its aggregated surprisal
+                            path_surprisals.push(edges.iter().map(|edge| edge.surprisal()).sum());
+                            path_edges.extend(edges); // Keep original edges if needed
+                        }
                     }
+                } else {
+                    // Handle missing edge case
+                     path_surprisals.push(OrderedFloat(f64::INFINITY));
                 }
 
-                // Add the shortcut edge to represent the destroyed path
-                self.graph.add_edge(
-                    x,
-                    y,
-                    CHEdge::Shortcut {
-                        edges: destroyed_edges,
-                        nodes: vec![x, node_index, y],
-                        iteration: self.num_contractions,
-                    },
-                );
-                // println!(
-                //     "Added shortcut edge from {x:?} to {y:?} in iteration {} for destroyed path",
-                //     self.num_contractions
-                // );
+
+                // Calculate the total surprisal for the new shortcut path (x -> node_index -> y)
+                // Since surprisal is additive (-ln(P1*P2) = -lnP1 - lnP2), we sum the surprisals.
+                let w_add: OrderedFloat<f64> = path_surprisals.iter().sum();
+
+
+                 // Do we already have an edge x → y (that is not orphaned)?
+                if let Some(eidx) = self.graph.find_edge(x, y)
+                           .filter(|&e| !matches!(self.graph[e], CHEdge::Orphaned { .. }))
+                {
+                    // --- merge with existing ---
+                    let w_old = self.graph[eidx].surprisal(); // Get surprisal using the trait method
+                    let w_new = merge_surprisal(w_old, w_add);
+
+                    if let CHEdge::Shortcut { edges, nodes, .. } = &mut self.graph[eidx] {
+                        // Update existing Shortcut
+                        *edges = path_edges;
+                        nodes.push(node_index); // Simple append for now
+                    } else {
+                        // Existing edge is Original - convert it to a Shortcut
+                        // Clone the original edge data before overwriting
+                         if let CHEdge::Original { edge } = self.graph[eidx].clone() {
+                            *self.graph.edge_weight_mut(eidx).unwrap() = CHEdge::Shortcut {
+                                edges: path_edges,
+                                nodes: vec![x, node_index, y],
+                                iteration: self.num_contractions,
+                            };
+                         } else {
+                             // This case should ideally not be reached if the filter works correctly,
+                             // but handle defensively. Could log an error.
+                             eprintln!("Warning: Found non-Original, non-Orphaned edge that wasn't a Shortcut during merge at iteration {}", self.num_contractions);
+                              // Fallback: create a new shortcut anyway? Or panic?
+                              // For now, let's overwrite with a new shortcut based on w_add
+                              *self.graph.edge_weight_mut(eidx).unwrap() = CHEdge::Shortcut {
+                                edges: path_edges,
+                                nodes: vec![x, node_index, y],
+                                iteration: self.num_contractions,
+                              };
+                         }
+                    }
+                } else {
+                    // --- no edge yet: create one ---
+                     self.graph.add_edge(
+                        x,
+                        y,
+                        CHEdge::Shortcut {
+                            edges: path_edges,
+                            nodes: vec![x, node_index, y],
+                            iteration: self.num_contractions,
+                        },
+                     );
+                }
             }
         }
         self.num_contractions += 1;
@@ -361,6 +448,21 @@ where
                 .next_contraction(&self.graph)
                 .context("No more contractions to perform")?;
             self.contract(next_contraction)?;
+        }
+        Ok(self)
+    }
+
+    fn contract_to_with_progress<F>(&mut self, iteration: usize, mut progress_callback: F) -> Result<&mut Self> 
+    where
+        F: FnMut(usize),
+    {
+        while self.num_contractions < iteration {
+            let next_contraction = self
+                .heuristic
+                .next_contraction(&self.graph)
+                .context("No more contractions to perform")?;
+            self.contract(next_contraction)?;
+            progress_callback(self.num_contractions);
         }
         Ok(self)
     }
@@ -385,8 +487,8 @@ where
                 },
             },
             |_, e| match e {
-                CHEdge::Original { .. } => Some(e.clone()),
-                CHEdge::Shortcut { edges, iteration, .. } => {
+                CHEdge::Original { .. } | CHEdge::Orphaned { .. } => Some(e.clone()),
+                CHEdge::Shortcut { iteration, .. } => {
                     if *iteration <= i {
                         // TODO check off-by-one
                         Some(e.clone())
@@ -394,7 +496,40 @@ where
                         None
                     }
                 },
-                CHEdge::Orphaned { .. } => Some(e.clone()), // Include orphaned edges in the core graph
+            },
+        ))
+    }
+
+    pub fn core_graph_with_progress<F>(&mut self, i: usize, progress_callback: F) -> Result<Graph<CHNode<N>, CHEdge<E>>>
+    where
+        N: Clone,
+        E: Clone,
+        F: FnMut(usize),
+    {
+        self.contract_to_with_progress(i, progress_callback)?;
+
+        Ok(self.graph.filter_map(
+            |_, n| match n {
+                CHNode::Original { node } => Some(CHNode::Original { node: node.clone() }),
+                CHNode::Contracted { node, iteration } => {
+                    if *iteration > i {
+                        // TODO check off-by-one
+                        Some(CHNode::Original { node: node.clone() })
+                    } else {
+                        Some(n.clone())
+                    }
+                },
+            },
+            |_, e| match e {
+                CHEdge::Original { .. } | CHEdge::Orphaned { .. } => Some(e.clone()),
+                CHEdge::Shortcut { iteration, .. } => {
+                    if *iteration <= i {
+                        // TODO check off-by-one
+                        Some(e.clone())
+                    } else {
+                        None
+                    }
+                },
             },
         ))
     }

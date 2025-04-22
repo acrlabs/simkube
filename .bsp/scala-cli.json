@@ -1,0 +1,20 @@
+{
+  "name": "scala-cli",
+  "argv": [
+    "/opt/homebrew/bin/scala-cli",
+    "bsp",
+    "--json-options",
+    "/Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-options-v2.json",
+    "--json-launcher-options",
+    "/Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-launcher-options.json",
+    "--envs-file",
+    "/Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-envs.json",
+    "/Users/hmerrilees/school/sp25/clinic/repos/simkube"
+  ],
+  "version": "1.6.1",
+  "bspVersion": "2.1.1",
+  "languages": [
+    "scala",
+    "java"
+  ]
+}

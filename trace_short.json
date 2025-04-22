@@ -1,0 +1,223 @@
+{
+  "version": 2,
+  "config": {
+    "trackedObjects": {
+      "apps/v1.Deployment": {
+        "podSpecTemplatePath": "/spec/template"
+      }
+    }
+  },
+  "events": [
+    {
+      "ts": 1710892138,
+      "applied_objs": [],
+      "deleted_objs": []
+    },
+    {
+      "ts": 1710892138,
+      "applied_objs": [
+        {
+          "apiVersion": "apps/v1",
+          "kind": "Deployment",
+          "metadata": {
+            "annotations": {
+              "meta.helm.sh/release-name": "dsb-social-network",
+              "meta.helm.sh/release-namespace": "dsb"
+            },
+            "labels": {
+              "app.kubernetes.io/managed-by": "Helm",
+              "service": "user-timeline-service"
+            },
+            "name": "user-timeline-service",
+            "namespace": "dsb"
+          },
+          "spec": {
+            "replicas": 1,
+            "selector": {
+              "matchLabels": {
+                "service": "user-timeline-service"
+              }
+            },
+            "template": {
+              "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                  "app": "user-timeline-service",
+                  "service": "user-timeline-service"
+                }
+              },
+              "spec": {
+                "volumes": [
+                  {
+                    "name": "user-timeline-service-config",
+                    "configMap": {
+                      "name": "user-timeline-service",
+                      "defaultMode": 420
+                    }
+                  }
+                ],
+                "containers": [
+                  {
+                    "name": "user-timeline-service",
+                    "image": "docker.io/deathstarbench/social-network-microservices:latest",
+                    "command": [
+                      "UserTimelineService"
+                    ],
+                    "ports": [
+                      {
+                        "containerPort": 9090,
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "1",
+                        "memory": "1Gi"
+                      }
+                    },
+                    "volumeMounts": [
+                      {
+                        "name": "user-timeline-service-config",
+                        "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                        "subPath": "jaeger-config.yml"
+                      },
+                      {
+                        "name": "user-timeline-service-config",
+                        "mountPath": "/social-network-microservices/config/service-config.json",
+                        "subPath": "service-config.json"
+                      }
+                    ],
+                    "terminationMessagePath": "/dev/termination-log",
+                    "terminationMessagePolicy": "File",
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "restartPolicy": "Always",
+                "terminationGracePeriodSeconds": 30,
+                "dnsPolicy": "ClusterFirst",
+                "securityContext": {},
+                "hostname": "user-timeline-service",
+                "schedulerName": "default-scheduler"
+              }
+            },
+            "strategy": {
+              "type": "RollingUpdate",
+              "rollingUpdate": {
+                "maxUnavailable": "25%",
+                "maxSurge": "25%"
+              }
+            },
+            "revisionHistoryLimit": 10,
+            "progressDeadlineSeconds": 600
+          },
+          "status": {}
+        },
+        {
+          "apiVersion": "apps/v1",
+          "kind": "Deployment",
+          "metadata": {
+            "annotations": {
+              "meta.helm.sh/release-name": "dsb-social-network",
+              "meta.helm.sh/release-namespace": "dsb"
+            },
+            "labels": {
+              "app.kubernetes.io/managed-by": "Helm",
+              "service": "media-service"
+            },
+            "name": "media-service",
+            "namespace": "dsb"
+          },
+          "spec": {
+            "replicas": 1,
+            "selector": {
+              "matchLabels": {
+                "service": "media-service"
+              }
+            },
+            "template": {
+              "metadata": {
+                "creationTimestamp": null,
+                "labels": {
+                  "app": "media-service",
+                  "service": "media-service"
+                }
+              },
+              "spec": {
+                "volumes": [
+                  {
+                    "name": "media-service-config",
+                    "configMap": {
+                      "name": "media-service",
+                      "defaultMode": 420
+                    }
+                  }
+                ],
+                "containers": [
+                  {
+                    "name": "media-service",
+                    "image": "docker.io/deathstarbench/social-network-microservices:latest",
+                    "command": [
+                      "MediaService"
+                    ],
+                    "ports": [
+                      {
+                        "containerPort": 9090,
+                        "protocol": "TCP"
+                      }
+                    ],
+                    "resources": {
+                      "requests": {
+                        "cpu": "1",
+                        "memory": "1Gi"
+                      }
+                    },
+                    "volumeMounts": [
+                      {
+                        "name": "media-service-config",
+                        "mountPath": "/social-network-microservices/config/jaeger-config.yml",
+                        "subPath": "jaeger-config.yml"
+                      },
+                      {
+                        "name": "media-service-config",
+                        "mountPath": "/social-network-microservices/config/service-config.json",
+                        "subPath": "service-config.json"
+                      }
+                    ],
+                    "terminationMessagePath": "/dev/termination-log",
+                    "terminationMessagePolicy": "File",
+                    "imagePullPolicy": "IfNotPresent"
+                  }
+                ],
+                "restartPolicy": "Always",
+                "terminationGracePeriodSeconds": 30,
+                "dnsPolicy": "ClusterFirst",
+                "securityContext": {},
+                "hostname": "media-service",
+                "schedulerName": "default-scheduler"
+              }
+            },
+            "strategy": {
+              "type": "RollingUpdate",
+              "rollingUpdate": {
+                "maxUnavailable": "25%",
+                "maxSurge": "25%"
+              }
+            },
+            "revisionHistoryLimit": 10,
+            "progressDeadlineSeconds": 600
+          },
+          "status": {}
+        }
+      ],
+      "deleted_objs": []
+    }
+  ],
+  "index": {
+    "apps/v1.Deployment": {
+      "dsb/user-timeline-service": 15858556048943196710,
+      "dsb/media-service": 1936906990887670479
+    }
+  },
+  "pod_lifecycles": {}
+}
+
