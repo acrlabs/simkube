@@ -56,7 +56,7 @@ serde = "1.0.215"
 serde_json = "1.0.132"
 serde_yaml = "0.9.34"
 thiserror = "1.0.69"
-tokio = { version = "1.41.1", features = ["io-util", "macros", "process", "rt-multi-thread", "signal"] }
+tokio = { version = "1.44.2", features = ["io-util", "macros", "process", "rt-multi-thread", "signal"] }
 tracing = "0.1.40"
 tracing-subscriber = { version = "0.3.18", features = ["env-filter"] }
 url = "2.5.3"
