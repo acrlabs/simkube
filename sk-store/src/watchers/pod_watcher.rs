@@ -194,7 +194,7 @@ impl EventHandler<corev1::Pod> for PodHandler {
                 self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
             }
             if let Err(err) = self.handle_pod_applied(ns_name, pod, store.clone()).await {
-                skerr!(err, "(watcher restart) applied pod {} lifecycle data could not be stored", ns_name);
+                error!("(watcher restart) applied pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
             }
         }
 
@@ -205,9 +205,11 @@ impl EventHandler<corev1::Pod> for PodHandler {
                 .handle_pod_deleted(ns_name, None, current_lifecycle_data.clone(), store.clone(), ts)
                 .await
             {
-                skerr!(err, "(watcher restart) deleted pod {} lifecycle data could not be stored", ns_name);
+                error!("(watcher restart) deleted pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
             }
         }
+
+        // _this_ function can't error, but other impls (e.g., DynObjWatcher) do
         Ok(())
     }
 }
