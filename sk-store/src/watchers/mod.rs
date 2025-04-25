@@ -82,9 +82,16 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
             let ts = self.clock.now_ts();
             match res {
                 Ok(ref evt) => self.handle_event(evt, ts).await.unwrap_or_else(|err| {
-                    skerr!(err, "could not handle event");
+                    // This error is "sortof" OK, in the sense that if we can't handle a single
+                    // event, the tracer can potentially keep going on other events, so we don't
+                    // display a stack trace here.
+                    error!("could not handle event:\n\n{err}\n");
                 }),
                 Err(err) => {
+                    // However, if there's a fundamental error getting something from the stream,
+                    // the tracer can still maybe attempt to keep going, but that indicates
+                    // somthing more problematic and program-stopping is going on, so we display a
+                    // stack trace (using skerr).
                     skerr!(err, "pod watcher received error on stream");
                 },
             }
