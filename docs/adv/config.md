@@ -18,16 +18,19 @@ example config that tells sk-tracer to watch Deployments, Jobs, and StatefulSets
 ```yaml
 trackedObjects:
   apps/v1.Deployment:
-    podSpecTemplatePath: /spec/template
+    podSpecTemplatePaths:
+      - /spec/template
   batch/v1.Job:
-    podSpecTemplatePath: /spec/template
+    podSpecTemplatePaths:
+      - /spec/template
   apps/v1.StatefulSet:
-    podSpecTemplatePath: /spec/template
+    podSpecTemplatePaths:
+      - /spec/template
 ```
 
 > [!NOTE]
 > SimKube does some sanitization of the resources it watches, which is why it needs to know where the
-> `podSpecTemplatePath` is; especially for custom resources, the path to the `podSpecTemplate` is not necessarily
+> `podSpecTemplatePaths` is; especially for custom resources, the path to the `podSpecTemplate` is not necessarily
 > standard or well-known.  In a future version of SimKube we'll make this parameter optional for all "standard"
 > Kubernetes objects.
 

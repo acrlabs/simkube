@@ -270,6 +270,47 @@ fn test_configmap_volume_missing(mut depl_event: AnnotatedTraceEvent, test_trace
     );
 }
 
+fn add_service_account_to_pod_spec(obj: &mut DynamicObject, pod_spec_template_key: &str) {
+    obj.data
+        .as_object_mut()
+        .unwrap()
+        .get_mut("spec")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .get_mut(pod_spec_template_key)
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .get_mut("spec")
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert("serviceAccount".into(), json!(TEST_SERVICE_ACCOUNT));
+}
+
+#[rstest]
+fn test_multiple_pod_spec_templates(test_trace_config_two_pods: TracerConfig, mut test_two_pods_obj: DynamicObject) {
+    let v = service_account_validator();
+    add_service_account_to_pod_spec(&mut test_two_pods_obj, "template1");
+    add_service_account_to_pod_spec(&mut test_two_pods_obj, "template2");
+
+    let mut evt = AnnotatedTraceEvent {
+        data: TraceEvent {
+            ts: 2,
+            applied_objs: vec![test_two_pods_obj],
+            deleted_objs: vec![],
+        },
+        ..Default::default()
+    };
+
+    let annotations = v.check_next_event(&mut evt, &test_trace_config_two_pods).unwrap();
+
+    assert_len_eq_x!(annotations, 2);
+    assert_eq!(annotations[0].1[0].ops[0].path().as_str(), "/spec/template1/spec/serviceAccount");
+    assert_eq!(annotations[1].1[0].ops[0].path().as_str(), "/spec/template2/spec/serviceAccount");
+}
+
 #[rstest]
 fn test_missing_resources_reset() {
     let mut v = MissingResource::<corev1::ServiceAccount>::new(vec!["foo", "bar"], MissingResourceType::TopLevel);

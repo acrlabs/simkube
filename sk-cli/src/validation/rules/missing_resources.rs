@@ -103,37 +103,39 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
         let mut patches = vec![];
         for (i, obj) in event.data.applied_objs.iter().enumerate() {
             let gvk = GVK::from_dynamic_obj(obj)?;
-            if let Some(pod_spec_template_path) = config.pod_spec_template_path(&gvk) {
-                let ptrs: Vec<_> = self
-                    .ptrs
-                    .iter()
-                    .map(|pstr| format_ptr!("{pod_spec_template_path}{pstr}"))
-                    .collect();
-                let matched_values = ptrs.iter().flat_map(|ptr| matches(ptr, &obj.data));
+            if let Some(pod_spec_template_paths) = config.pod_spec_template_paths(&gvk) {
+                for pod_spec_template_path in pod_spec_template_paths {
+                    let ptrs: Vec<_> = self
+                        .ptrs
+                        .iter()
+                        .map(|pstr| format_ptr!("{pod_spec_template_path}{pstr}"))
+                        .collect();
+                    let matched_values = ptrs.iter().flat_map(|ptr| matches(ptr, &obj.data));
 
-                // If this obj references a resource that doesn't exist at this point in
-                // time, there are two possible fixes:
-                //
-                // 1) remove the reference to the resource from the pod template spec (recommended, because the pod
-                //    won't exist and can't actually _do_ anything anyways), or
-                // 2) add the resource object in at the beginning of the simulation
-                for (path, res) in matched_values {
-                    // if we're demanding a resource for a pod, we assume the resource is
-                    // namespaced (may be an invalid assumption in the future)
-                    let resource_ns = &obj.namespace().unwrap();
-                    let resource_name = res.as_str().unwrap();
+                    // If this obj references a resource that doesn't exist at this point in
+                    // time, there are two possible fixes:
+                    //
+                    // 1) remove the reference to the resource from the pod template spec (recommended, because the pod
+                    //    won't exist and can't actually _do_ anything anyways), or
+                    // 2) add the resource object in at the beginning of the simulation
+                    for (path, res) in matched_values {
+                        // if we're demanding a resource for a pod, we assume the resource is
+                        // namespaced (may be an invalid assumption in the future)
+                        let resource_ns = &obj.namespace().unwrap();
+                        let resource_name = res.as_str().unwrap();
 
-                    if !self.seen_resources.contains(&format!("{resource_ns}/{resource_name}")) {
-                        let (remove_patch, add_patch) = make_remove_add_patches(
-                            obj.types.clone().unwrap(),
-                            obj.namespaced_name(),
-                            T::type_meta(),
-                            self.type_,
-                            resource_ns,
-                            resource_name,
-                            path,
-                        );
-                        patches.push((i, vec![remove_patch, add_patch]));
+                        if !self.seen_resources.contains(&format!("{resource_ns}/{resource_name}")) {
+                            let (remove_patch, add_patch) = make_remove_add_patches(
+                                obj.types.clone().unwrap(),
+                                obj.namespaced_name(),
+                                T::type_meta(),
+                                self.type_,
+                                resource_ns,
+                                resource_name,
+                                path,
+                            );
+                            patches.push((i, vec![remove_patch, add_patch]));
+                        }
                     }
                 }
             }

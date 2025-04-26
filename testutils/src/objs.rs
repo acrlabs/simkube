@@ -27,3 +27,28 @@ pub fn test_daemonset(#[default(TEST_DAEMONSET)] name: &str) -> DynamicObject {
 pub fn test_service_account(#[default(TEST_SERVICE_ACCOUNT)] name: &str) -> DynamicObject {
     DynamicObject::new(name, &ApiResource::from_gvk(&SVC_ACCOUNT_GVK)).within(TEST_NAMESPACE)
 }
+
+#[fixture]
+pub fn test_two_pods_obj() -> DynamicObject {
+    DynamicObject {
+        types: Some(TypeMeta {
+            api_version: "fake/v1".into(),
+            kind: "TwoPods".into(),
+        }),
+        metadata: metav1::ObjectMeta {
+            namespace: Some(TEST_NAMESPACE.into()),
+            name: Some("two-pod-object".into()),
+            ..Default::default()
+        },
+        data: json!({
+            "spec": {
+                "template1": {
+                    "spec": {"containers": [{"ports": [42]}]},
+                },
+                "template2": {
+                    "spec": {"containers": [{"ports": [42]}]},
+                },
+            }
+        }),
+    }
+}

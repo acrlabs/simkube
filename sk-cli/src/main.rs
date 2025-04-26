@@ -14,6 +14,7 @@ use clap::{
     Parser,
     Subcommand,
 };
+use sk_core::logging;
 use sk_core::prelude::*;
 
 use crate::validation::ValidateSubcommand;
@@ -27,6 +28,9 @@ use crate::validation::ValidateSubcommand;
 struct SkCommandRoot {
     #[command(subcommand)]
     subcommand: SkSubcommand,
+
+    #[arg(short, long, default_value = "warn")]
+    verbosity: String,
 }
 
 #[derive(Subcommand)]
@@ -63,6 +67,7 @@ enum SkSubcommand {
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
+    logging::setup_for_cli(&args.verbosity);
 
     match &args.subcommand {
         SkSubcommand::Completions(args) => completions::cmd(args, SkCommandRoot::command()),

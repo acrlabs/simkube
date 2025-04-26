@@ -28,7 +28,8 @@ The config file referenced should be in the same format as expected by `sk-trace
 # config.yml
 trackedObjects:
   apps/v1.Deployment:
-    podSpecTemplatePath: /spec/template
+    podSpecTemplatePaths:
+      - /spec/template
 ```
 
 ## Step 2: Create some virtual nodes

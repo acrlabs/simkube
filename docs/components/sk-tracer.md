@@ -19,7 +19,7 @@ sk-tracer --help
 ```yaml
 trackedObjects:
   <gvk for object>:
-    podSpecTemplatePath: /json/patch/path/to/pod/template/spec
+    podSpecTemplatePaths: /json/patch/path/to/pod/template/spec
     trackLifecycle: true/false (optional)
 ```
 
@@ -29,13 +29,13 @@ Kubernetes scheduler:
 ```yaml
 trackedObjects:
   apps/v1.Deployment:
-    podSpecTemplatePath: /spec/template
+    podSpecTemplatePaths: /spec/template
   batch.volcano.sh/v1alpha1.Job:
-    podSpecTemplatePath: /spec/tasks/*/template
+    podSpecTemplatePaths: /spec/tasks/*/template
     trackLifecycle: true
 ```
 
-The `podSpecTemplatePath` field uses a non-standard extension to the [JSONPatch](https://jsonpatch.com) specification.
+The `podSpecTemplatePaths` field uses a non-standard extension to the [JSONPatch](https://jsonpatch.com) specification.
 Specifically, if the value at a particular location in the patch path is an array, you can specify `*` to indicate that
 it should apply to all elements of the array.  It is a type error if the value is not an array.
 

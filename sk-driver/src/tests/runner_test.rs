@@ -4,6 +4,7 @@ use clockabilly::{
     UtcClock,
 };
 use httpmock::Method::*;
+use serde_json::json;
 use sk_api::v1::SimulationRootSpec;
 use sk_core::k8s::build_lease;
 
@@ -14,11 +15,60 @@ use super::helpers::{
 use super::*;
 use crate::runner::{
     build_virtual_ns,
+    build_virtual_obj,
     cleanup_trace,
 };
 
 // Must match the namespace in tests/data/trace.json
 const TEST_NS_NAME: &str = "default";
+
+#[rstest]
+#[tokio::test]
+async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
+    let (_, client) = make_fake_apiserver();
+    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+
+    let store = Arc::new(TraceStore::new(Default::default()));
+    let ctx = build_driver_context(cache, store);
+
+    let pod_spec_template_paths = Some(vec!["/spec/template1".into(), "/spec/template2".into()]);
+
+    let virtual_ns = format!("virtual-{TEST_NAMESPACE}");
+    let vobj = build_virtual_obj(
+        &ctx,
+        &test_sim_root,
+        TEST_NAMESPACE,
+        &virtual_ns,
+        &test_two_pods_obj,
+        pod_spec_template_paths.as_deref(),
+    )
+    .unwrap();
+
+    assert_eq!(vobj.metadata.namespace.unwrap(), virtual_ns);
+    assert_eq!(
+        vobj.data,
+        json!({
+            "spec": {
+                "template1": {
+                    "metadata": {
+                        "annotations": {
+                            ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
+                        },
+                    },
+                    "spec": {"containers": [{}]},
+                },
+                "template2": {
+                    "metadata": {
+                        "annotations": {
+                            ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
+                        },
+                    },
+                    "spec": {"containers": [{}]},
+                },
+            }
+        })
+    );
+}
 
 #[rstest]
 #[tokio::test]
