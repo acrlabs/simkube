@@ -14,7 +14,8 @@ fn tracer() -> TraceStore {
             DEPL_GVK.clone(),
             TrackedObjectConfig {
                 track_lifecycle: true,
-                pod_spec_template_path: Some("/spec/template".into()),
+                pod_spec_template_paths: Some(vec!["/spec/template".into()]),
+                ..Default::default()
             },
         )]),
     })

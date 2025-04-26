@@ -62,31 +62,39 @@ pub fn build_virtual_obj(
     original_ns: &str,
     virtual_ns: &str,
     obj: &DynamicObject,
-    maybe_pod_spec_template_path: Option<&str>,
+    maybe_pod_spec_template_paths: Option<&[String]>,
 ) -> anyhow::Result<DynamicObject> {
     let owner = root;
     let mut vobj = obj.clone();
     add_common_metadata(&ctx.name, owner, &mut vobj.metadata);
     vobj.metadata.namespace = Some(virtual_ns.into());
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
+    patch_ext(&mut vobj.data, remove_operation(format_ptr!("/status")))?;
 
-    if let Some(pod_spec_template_path) = maybe_pod_spec_template_path {
-        patch_ext(
-            &mut vobj.data,
-            add_operation(
-                format_ptr!("{pod_spec_template_path}/metadata/annotations/{}", escape(ORIG_NAMESPACE_ANNOTATION_KEY)),
-                json!(original_ns),
-            ),
-        )?;
-        patch_ext(&mut vobj.data, remove_operation(format_ptr!("/status")))?;
+    if let Some(pod_spec_template_paths) = maybe_pod_spec_template_paths {
+        for pod_spec_template_path in pod_spec_template_paths {
+            patch_ext(
+                &mut vobj.data,
+                add_operation(
+                    format_ptr!(
+                        "{pod_spec_template_path}/metadata/annotations/{}",
+                        escape(ORIG_NAMESPACE_ANNOTATION_KEY)
+                    ),
+                    json!(original_ns),
+                ),
+            )?;
 
-        // We remove all container ports from the pod specification just before applying, because it is
-        // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
-        // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no
-        // reason to expose the ports.  We do this here because we still want the ports to be a part of
-        // the podspec when we're computing its hash, i.e., changes to the container ports will still
-        // result in changes to the pod in the trace/simulation
-        patch_ext(&mut vobj.data, remove_operation(format_ptr!("{pod_spec_template_path}/spec/containers/*/ports")))?;
+            // We remove all container ports from the pod specification just before applying, because it is
+            // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
+            // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no
+            // reason to expose the ports.  We do this here because we still want the ports to be a part of
+            // the podspec when we're computing its hash, i.e., changes to the container ports will still
+            // result in changes to the pod in the trace/simulation
+            patch_ext(
+                &mut vobj.data,
+                remove_operation(format_ptr!("{pod_spec_template_path}/spec/containers/*/ports")),
+            )?;
+        }
     }
 
     Ok(vobj)
@@ -126,7 +134,7 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
                 ns_api.create(&Default::default(), &vns).await?;
             }
 
-            let pod_spec_template_path = ctx.store.config().pod_spec_template_path(&gvk);
+            let pod_spec_template_path = ctx.store.config().pod_spec_template_paths(&gvk);
             let vobj = build_virtual_obj(&ctx, &root_obj, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
             info!("applying object {}", vobj.namespaced_name());
