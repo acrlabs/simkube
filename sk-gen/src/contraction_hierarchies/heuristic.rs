@@ -1,5 +1,9 @@
-use petgraph::graph::{Graph, NodeIndex};
 use std::collections::HashMap;
+
+use petgraph::graph::{
+    Graph,
+    NodeIndex,
+};
 
 pub fn nested_dissection_contraction_order<N, E>(graph: Graph<N, E>) -> Vec<NodeIndex> {
     let heuristic_graph = HeuristicGraph { graph };
@@ -16,20 +20,14 @@ impl<N, E> HeuristicGraph<N, E> {
     }
 
     pub fn contraction_order(&self) -> Vec<NodeIndex> {
-        self.generate_partition_tree(self.graph.node_indices().collect())
-            .to_vec()
+        self.generate_partition_tree(self.graph.node_indices().collect()).to_vec()
     }
 
     pub fn generate_partition_tree(&self, nodes: Vec<NodeIndex>) -> PartitionTreeNode {
         if nodes.len() <= 1 {
-            return PartitionTreeNode {
-                a: None,
-                b: None,
-                separator: nodes,
-            };
+            return PartitionTreeNode { a: None, b: None, separator: nodes };
         }
 
-        // Map each node to an index for METIS.
         let mut node_to_metis = HashMap::new();
         let mut metis_to_node = Vec::with_capacity(nodes.len());
         for (i, &node) in nodes.iter().enumerate() {
@@ -56,11 +54,8 @@ impl<N, E> HeuristicGraph<N, E> {
 
         // Partition the graph into a, b
         let mut part = vec![0; nodes.len()];
-        let metis_graph =
-            metis::Graph::new(1, 2, &xadj, &adjncy).expect("Failed to create METIS graph");
-        metis_graph
-            .part_recursive(&mut part)
-            .expect("Failed to partition graph");
+        let metis_graph = metis::Graph::new(1, 2, &xadj, &adjncy).expect("Failed to create METIS graph");
+        metis_graph.part_recursive(&mut part).expect("Failed to partition graph");
 
         let mut a = Vec::new();
         let mut b = Vec::new();

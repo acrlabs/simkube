@@ -2,7 +2,10 @@ mod ch;
 mod heuristic;
 mod utils;
 
-pub use ch::Distance;
-pub use ch::CH;
+pub use ch::{
+    CHEdge,
+    CHNode,
+    Distance,
+    CH,
+};
 pub use heuristic::HeuristicGraph;
-pub use ch::{CHEdge, CHNode};

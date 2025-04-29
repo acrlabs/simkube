@@ -733,12 +733,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "codesnake"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2205f7f6d3de68ecf4c291c789b3edf07b6569268abd0188819086f71ae42225"
-
-[[package]]
 name = "colorchoice"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1242,15 +1236,6 @@ dependencies = [
  "log",
  "regex",
  "termcolor",
-]
-
-[[package]]
-name = "env_logger"
-version = "0.10.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cd405aab171cb85d6735e5c8d9db038c17d3ca007a4d2c25f337935c3d90580"
-dependencies = [
- "log",
 ]
 
 [[package]]
@@ -2304,27 +2289,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
 
 [[package]]
-name = "jaq"
-version = "2.1.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "827f8c49f5cc7b1e64f8f174e6cc53401c3fbafd119170912ed2c87e737c77e7"
-dependencies = [
- "codesnake",
- "env_logger 0.10.2",
- "hifijson",
- "is-terminal",
- "jaq-core",
- "jaq-json",
- "jaq-std",
- "log",
- "memmap2",
- "mimalloc",
- "tempfile",
- "unicode-width 0.1.14",
- "yansi",
-]
-
-[[package]]
 name = "jaq-core"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2641,16 +2605,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8355be11b20d696c8f18f6cc018c4e372165b1fa8126cef092399c9951984ffa"
 
 [[package]]
-name = "libmimalloc-sys"
-version = "0.1.42"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec9d6fac27761dabcd4ee73571cdb06b7022dc99089acbe5435691edffaac0f4"
-dependencies = [
- "cc",
- "libc",
-]
-
-[[package]]
 name = "libnghttp2-sys"
 version = "0.1.11+1.64.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2809,15 +2763,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "769ee6be814b21c52afcc631f07051f578487d642f3e89a45f2a086fd94fffa9"
 dependencies = [
  "cc",
-]
-
-[[package]]
-name = "mimalloc"
-version = "0.1.46"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "995942f432bbb4822a7e9c3faa87a695185b0d09273ba85f097b54f4e458f2af"
-dependencies = [
- "libmimalloc-sys",
 ]
 
 [[package]]
@@ -4677,7 +4622,6 @@ dependencies = [
  "futures",
  "indicatif",
  "itertools 0.13.0",
- "jaq",
  "jaq-core",
  "jaq-json",
  "jaq-std",
@@ -4692,6 +4636,7 @@ dependencies = [
  "petgraph",
  "rand 0.8.5",
  "rand_distr",
+ "rayon",
  "regex",
  "rmp-serde",
  "rstest",
@@ -5198,7 +5143,7 @@ dependencies = [
  "dashmap",
  "dirs 3.0.2",
  "encoding_rs_io",
- "env_logger 0.8.4",
+ "env_logger",
  "grep-searcher",
  "ignore",
  "log",

@@ -7,3 +7,7 @@ target
 *.mp
 
 .dot
+
+runs
+
+flamegraph*.svg

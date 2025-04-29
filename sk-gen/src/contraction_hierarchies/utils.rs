@@ -1,11 +1,24 @@
-// copied FROM petgraph::algo::dijkstra and petgraph::scored TO ADD PREDECESSOR RETURN, only change: uncommented existing predecessor code and added to the return type
+// copied FROM petgraph::algo::dijkstra and petgraph::scored TO ADD PREDECESSOR RETURN, only change:
+// uncommented existing predecessor code and added to the return type
+
+use std::cmp::Ordering;
+use std::collections::hash_map::Entry::{
+    Occupied,
+    Vacant,
+};
+use std::collections::{
+    BinaryHeap,
+    HashMap,
+};
+use std::hash::Hash;
 
 use petgraph::algo::Measure;
-use petgraph::visit::{EdgeRef, IntoEdges, VisitMap, Visitable};
-use std::cmp::Ordering;
-use std::collections::hash_map::Entry::{Occupied, Vacant};
-use std::collections::{BinaryHeap, HashMap};
-use std::hash::Hash;
+use petgraph::visit::{
+    EdgeRef,
+    IntoEdges,
+    VisitMap,
+    Visitable,
+};
 
 /// `MinScored<K, T>` holds a score `K` and a scored object `T` in
 /// a pair for use with a `BinaryHeap`.
@@ -143,7 +156,7 @@ where
                 Vacant(ent) => {
                     ent.insert(next_score);
                     visit_next.push(MinScored(next_score, next));
-                    predecessor.insert(next.clone(), node.clone());
+                    predecessor.insert(next, node);
                 },
             }
         }

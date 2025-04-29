@@ -25,9 +25,9 @@
 //     for (name, object) in &prev.objects {
 //         if !next.objects.contains_key(name) {
 //             deleted_objs.push(object.current_state().dynamic_object);
-//         } else if object.current_state().dynamic_object != next.objects[name].current_state().dynamic_object {
-//             applied_objs.push(next.objects[name].current_state().dynamic_object);
-//         }
+//         } else if object.current_state().dynamic_object !=
+// next.objects[name].current_state().dynamic_object {
+// applied_objs.push(next.objects[name].current_state().dynamic_object);         }
 //     }
 
 //     for (name, object) in &next.objects {
@@ -46,8 +46,8 @@
 //     TraceEvent { ts, applied_objs, deleted_objs }
 // }
 
-// pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[TraceStore], cli: &Cli) -> Result<()> {
-//     if let Some(traces_dir) = &cli.traces_output_dir {
+// pub(crate) fn display_walks_and_traces(walks: &[Walk], traces: &[TraceStore], cli: &Cli) ->
+// Result<()> {     if let Some(traces_dir) = &cli.traces_output_dir {
 //         if !traces_dir.exists() {
 //             std::fs::create_dir_all(traces_dir)?;
 //         }
@@ -106,7 +106,8 @@
 // ) -> Result<()> {
 //     std::fs::create_dir_all(output_dir)?;
 
-//     std::fs::write(output_dir.join("candidate_objects.json"), serde_json::to_string_pretty(&candidate_objects)?)?;
+//     std::fs::write(output_dir.join("candidate_objects.json"),
+// serde_json::to_string_pretty(&candidate_objects)?)?;
 
 //     for (i, node) in nodes.iter().enumerate() {
 //         std::fs::write(output_dir.join(format!("node-{i}.ron")), format!("{:#?}", node))?;

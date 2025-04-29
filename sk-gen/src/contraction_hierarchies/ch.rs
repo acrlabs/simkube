@@ -1,12 +1,21 @@
-use super::utils::dijkstra;
-use ordered_float::Float;
-
-use anyhow::{Context, Result};
-use ordered_float::OrderedFloat;
-use petgraph::{graph::NodeIndex, Graph};
 use std::hash::Hash;
+use itertools::Itertools;
 
-/// A wrapper on Node which lets us mark a node as contracted with respect to a particular iteration.
+use anyhow::{
+    Context,
+    Result,
+};
+use ordered_float::{
+    Float,
+    OrderedFloat,
+};
+use petgraph::graph::NodeIndex;
+use petgraph::Graph;
+
+use super::utils::dijkstra;
+
+/// A wrapper on Node which lets us mark a node as contracted with respect to a particular
+/// iteration.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum CHNode<Node> {
     Original { node: Node },
@@ -19,10 +28,13 @@ impl<Node> CHNode<Node> {
     }
 }
 
-/// A wrapper on Node which lets us mark a node as contracted with respect to a particular iteration.
+/// A wrapper on Node which lets us mark a node as contracted with respect to a particular
+/// iteration.
 #[derive(Clone)]
 pub enum CHEdge<Edge> {
-    Original { edge: Edge },
+    Original {
+        edge: Edge,
+    },
     Shortcut {
         edges: Vec<Edge>,
         nodes: Vec<NodeIndex>,
@@ -64,7 +76,8 @@ impl<Edge: std::fmt::Debug + Distance> std::fmt::Debug for CHEdge<Edge> {
     }
 }
 
-// TODO: Analyze the ways in which OrderedFloat breaks IEEE754 to provide ordering, and validate that such breaks from the standard to not cause problems where we are using
+// TODO: Analyze the ways in which OrderedFloat breaks IEEE754 to provide ordering, and validate
+// that such breaks from the standard to not cause problems where we are using
 pub trait Distance {
     fn probability(&self) -> OrderedFloat<f64>;
 
@@ -75,38 +88,34 @@ pub trait Distance {
 
 /// Merge two surprisal weights  (w  =  –ln P)  using log-sum-exp
 #[inline]
-fn merge_surprisal(w_old: OrderedFloat<f64>,
-                   w_add: OrderedFloat<f64>) -> OrderedFloat<f64> {
-    use std::f64;
-
+fn merge_surprisal(w_old: OrderedFloat<f64>, w_add: OrderedFloat<f64>) -> OrderedFloat<f64> {
     // Handle "edge did not exist yet"
     if w_old.into_inner().is_infinite() {
         return w_add;
     }
 
     // log-sum-exp  ⇒  w_new = w_min – ln(1 + e^{–Δ})
-    let delta  = Float::abs(w_old - w_add);
-    let w_min  = Float::min(w_old, w_add);
+    let delta = Float::abs(w_old - w_add);
+    let w_min = Float::min(w_old, w_add);
     w_min - ((-delta).exp().ln_1p())
 }
 
 impl<E: Distance> Distance for CHEdge<E> {
     fn probability(&self) -> OrderedFloat<f64> {
         match self {
-            Self::Original { edge }      => edge.probability(),
+            Self::Original { edge } => edge.probability(),
             Self::Shortcut { edges, .. } => edges.iter().map(|edge| edge.probability()).product(),
-            Self::Orphaned { .. }        => OrderedFloat(0.0),
+            Self::Orphaned { .. } => OrderedFloat(0.0),
         }
     }
 
     fn surprisal(&self) -> OrderedFloat<f64> {
         match self {
-            Self::Original { edge }      => edge.surprisal(),
+            Self::Original { edge } => edge.surprisal(),
             Self::Shortcut { edges, .. } => {
-                // Sum the surprisal values of all component edges
-                edges.iter().map(|edge| edge.surprisal()).sum()
+                edges.iter().map(Distance::surprisal).sum()
             },
-            Self::Orphaned { .. }        => OrderedFloat(f64::INFINITY),
+            Self::Orphaned { .. } => OrderedFloat(f64::INFINITY),
         }
     }
 }
@@ -140,13 +149,19 @@ struct SearchResult {
 }
 
 // Y-Statement ADR on the design of CH, CHNode, and CHEdge:
-// In the context of designing a type to represent the state of the Contraction Hierarchies algorithm, where the output graph--the eponymous "contraction hierarchy"-- is the union of all intermediate states--"core graphs",
-// facing the need to minimize memory footprint while retaining conceptual simplicity,
-// we decided for a representation which wraps the original Node and Edge types to optionally mark each as contracted or as a shortcut during a particular iteration on a single continuously increasing graph
-// and neglected recording each core graph separately--where contracted nodes are deleted and shortcuts indistiguishable from original edges--
-// to achieve the reduced memory footprint of a single representation from which both all prior core graphs and the final contraction hierarchy can be cheaply computed,
-// accepting the increased cost during each witness search of having to check (and subsequently skip) edges to contracted nodes,
-// because this cost is bounded by the initial degrees of each node, which are constant, and other mitigating steps (such as storing edges to contracted nodes separately or later in the adjacency list) are concievable
+// In the context of designing a type to represent the state of the Contraction Hierarchies
+// algorithm, where the output graph--the eponymous "contraction hierarchy"-- is the union of all
+// intermediate states--"core graphs", facing the need to minimize memory footprint while retaining
+// conceptual simplicity, we decided for a representation which wraps the original Node and Edge
+// types to optionally mark each as contracted or as a shortcut during a particular iteration on a
+// single continuously increasing graph and neglected recording each core graph separately--where
+// contracted nodes are deleted and shortcuts indistiguishable from original edges-- to achieve the
+// reduced memory footprint of a single representation from which both all prior core graphs and the
+// final contraction hierarchy can be cheaply computed, accepting the increased cost during each
+// witness search of having to check (and subsequently skip) edges to contracted nodes, because this
+// cost is bounded by the initial degrees of each node, which are constant, and other mitigating
+// steps (such as storing edges to contracted nodes separately or later in the adjacency list) are
+// concievable
 
 // Remove IntoIterator complexity and just use a generic type H that implements ContractionHeuristic
 #[derive(Clone)]
@@ -183,7 +198,7 @@ where
             use petgraph::visit::EdgeRef;
             // Skip edges that connect to contracted nodes or are orphaned
             match (&self.graph[e.source()], &self.graph[e.target()], &self.graph[e.id()]) {
-                (CHNode::Contracted { .. }, _, _) | (_, CHNode::Contracted { .. }, _) => OrderedFloat::nan(),
+                (CHNode::Contracted { .. }, ..) | (_, CHNode::Contracted { .. }, _) => OrderedFloat::nan(),
                 (_, _, CHEdge::Orphaned { .. }) => {
                     OrderedFloat::nan() // Skip orphaned edges too
                 },
@@ -221,11 +236,11 @@ where
         self.g_distance(x, y)
     }
 
-    // Weighted vertex contraction of a vertex v in the graph G is defined as the operation of removing v
-    // and inserting (a minimum number of shortcuts) among the neighbors of v to
+    // Weighted vertex contraction of a vertex v in the graph G is defined as the operation of removing
+    // v and inserting (a minimum number of shortcuts) among the neighbors of v to
     // obtain a graph G′ such that distG(x, y) = distG′ (x, y) for all vertices x !=
     // v and y != v.
-    fn contract(&mut self, node_index: NodeIndex) -> Result<()> {
+    fn contract(&mut self, node_index: NodeIndex) {
         // "To compute G′, one iterates over all pairs of neighbors x, y of v increasing by distG(x, y)."
         use petgraph::visit::EdgeRef;
         use petgraph::Direction;
@@ -252,7 +267,6 @@ where
             .neighbors_directed(node_index, Direction::Incoming)
             .filter(|&n| !matches!(self.graph[n], CHNode::Contracted { .. }));
 
-        use itertools::Itertools;
 
         // First collect all pairs and their original distances before contraction
         let in_out_pairs: Vec<_> = Itertools::cartesian_product(in_neighbors, out_neighbors)
@@ -309,9 +323,10 @@ where
             }
         }
 
-        // witness search -- i.e. does removing v destroy the previously existing shortest path between x and y?
-        // TODO: Shortcut should probability sum over all path lengths to preserve stochastic transition probabilities
-        //       There may be a better algorithm for "find probability of all probability-weighted paths from A->C via B"
+        // witness search -- i.e. does removing v destroy the previously existing shortest path between x
+        // and y? TODO: Shortcut should probability sum over all path lengths to preserve stochastic
+        // transition probabilities       There may be a better algorithm for "find probability of
+        // all probability-weighted paths from A->C via B"
 
         for (x, y, d) in in_out_pairs {
             // TODO: We probably need to search the whole graph to avoid looking at any paths
@@ -348,12 +363,12 @@ where
                         CHEdge::Original { edge } | CHEdge::Orphaned { edge, .. } => {
                             path_surprisals.push(edge.surprisal());
                             path_edges.push(edge);
-                        }
+                        },
                         CHEdge::Shortcut { edges, .. } => {
                             // If the incoming edge is already a shortcut, use its aggregated surprisal
-                            path_surprisals.push(edges.iter().map(|edge| edge.surprisal()).sum());
+                            path_surprisals.push(edges.iter().map(Distance::surprisal).sum());
                             path_edges.extend(edges); // Keep original edges if needed
-                        }
+                        },
                     }
                 } else {
                     // Handle cases where the edge might not exist (shouldn't happen with correct neighbor iteration?)
@@ -363,24 +378,22 @@ where
                 }
 
 
-                // Get edge from node_index to y
                 if let Some(out_edge_idx) = self.graph.find_edge(node_index, y) {
-                     // Need to clone the edge weight
                     let edge_weight = self.graph[out_edge_idx].clone();
-                     match edge_weight {
+                    match edge_weight {
                         CHEdge::Original { edge } | CHEdge::Orphaned { edge, .. } => {
                             path_surprisals.push(edge.surprisal());
                             path_edges.push(edge);
-                        }
+                        },
                         CHEdge::Shortcut { edges, .. } => {
-                            // If the outgoing edge is already a shortcut, use its aggregated surprisal
-                            path_surprisals.push(edges.iter().map(|edge| edge.surprisal()).sum());
+                            // if the outgoing edge is already a shortcut, use its aggregated surprisal
+                            path_surprisals.push(edges.iter().map(Distance::surprisal).sum());
                             path_edges.extend(edges); // Keep original edges if needed
-                        }
+                        },
                     }
                 } else {
-                    // Handle missing edge case
-                     path_surprisals.push(OrderedFloat(f64::INFINITY));
+                    // missing edge
+                    path_surprisals.push(OrderedFloat(f64::INFINITY));
                 }
 
 
@@ -389,9 +402,11 @@ where
                 let w_add: OrderedFloat<f64> = path_surprisals.iter().sum();
 
 
-                 // Do we already have an edge x → y (that is not orphaned)?
-                if let Some(eidx) = self.graph.find_edge(x, y)
-                           .filter(|&e| !matches!(self.graph[e], CHEdge::Orphaned { .. }))
+                // Do we already have an edge x → y (that is not orphaned)?
+                if let Some(eidx) = self
+                    .graph
+                    .find_edge(x, y)
+                    .filter(|&e| !matches!(self.graph[e], CHEdge::Orphaned { .. }))
                 {
                     // --- merge with existing ---
                     let w_old = self.graph[eidx].surprisal(); // Get surprisal using the trait method
@@ -404,28 +419,28 @@ where
                     } else {
                         // Existing edge is Original - convert it to a Shortcut
                         // Clone the original edge data before overwriting
-                         if let CHEdge::Original { edge } = self.graph[eidx].clone() {
+                        if let CHEdge::Original { edge } = self.graph[eidx].clone() {
                             *self.graph.edge_weight_mut(eidx).unwrap() = CHEdge::Shortcut {
                                 edges: path_edges,
                                 nodes: vec![x, node_index, y],
                                 iteration: self.num_contractions,
                             };
-                         } else {
-                             // This case should ideally not be reached if the filter works correctly,
-                             // but handle defensively. Could log an error.
-                             eprintln!("Warning: Found non-Original, non-Orphaned edge that wasn't a Shortcut during merge at iteration {}", self.num_contractions);
-                              // Fallback: create a new shortcut anyway? Or panic?
-                              // For now, let's overwrite with a new shortcut based on w_add
-                              *self.graph.edge_weight_mut(eidx).unwrap() = CHEdge::Shortcut {
+                        } else {
+                            // This case should ideally not be reached if the filter works correctly,
+                            // but handle defensively. Could log an error.
+                            eprintln!("Warning: Found non-Original, non-Orphaned edge that wasn't a Shortcut during merge at iteration {}", self.num_contractions);
+                            // Fallback: create a new shortcut anyway? Or panic?
+                            // For now, let's overwrite with a new shortcut based on w_add
+                            *self.graph.edge_weight_mut(eidx).unwrap() = CHEdge::Shortcut {
                                 edges: path_edges,
                                 nodes: vec![x, node_index, y],
                                 iteration: self.num_contractions,
-                              };
-                         }
+                            };
+                        }
                     }
                 } else {
                     // --- no edge yet: create one ---
-                     self.graph.add_edge(
+                    self.graph.add_edge(
                         x,
                         y,
                         CHEdge::Shortcut {
@@ -433,12 +448,11 @@ where
                             nodes: vec![x, node_index, y],
                             iteration: self.num_contractions,
                         },
-                     );
+                    );
                 }
             }
         }
         self.num_contractions += 1;
-        Ok(())
     }
 
     fn contract_to(&mut self, iteration: usize) -> Result<&mut Self> {
@@ -447,12 +461,12 @@ where
                 .heuristic
                 .next_contraction(&self.graph)
                 .context("No more contractions to perform")?;
-            self.contract(next_contraction)?;
+            self.contract(next_contraction);
         }
         Ok(self)
     }
 
-    fn contract_to_with_progress<F>(&mut self, iteration: usize, mut progress_callback: F) -> Result<&mut Self> 
+    fn contract_to_with_progress<F>(&mut self, iteration: usize, mut progress_callback: F) -> Result<&mut Self>
     where
         F: FnMut(usize),
     {
@@ -461,7 +475,7 @@ where
                 .heuristic
                 .next_contraction(&self.graph)
                 .context("No more contractions to perform")?;
-            self.contract(next_contraction)?;
+            self.contract(next_contraction);
             progress_callback(self.num_contractions);
         }
         Ok(self)
@@ -536,7 +550,7 @@ where
 
     pub fn contraction_hierarchy(&mut self) -> Result<Graph<CHNode<N>, CHEdge<E>>> {
         while let Some(next_contraction) = self.heuristic.next_contraction(&self.graph) {
-            self.contract(next_contraction)?;
+            self.contract(next_contraction);
         }
 
         Ok(self.graph.filter_map(
@@ -556,7 +570,7 @@ pub trait GraphDistance<E: Distance> {
     fn path_probability(&self, edge_indices: &[petgraph::prelude::EdgeIndex]) -> OrderedFloat<f64>;
 }
 
-// Implement GraphDistance for any Graph with edge weights implementing Distance
+// implement GraphDistance for any Graph with edge weights implementing Distance
 impl<N, E: Distance> GraphDistance<E> for Graph<N, E> {
     fn edge_probability(&self, edge_idx: petgraph::prelude::EdgeIndex) -> OrderedFloat<f64> {
         self.edge_weight(edge_idx).expect("Edge index should be valid").probability()

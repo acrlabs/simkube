@@ -9,3 +9,54 @@
 2025.04.29 02:55:59 INFO  time: Connected to build server in 1.02s
 2025.04.29 02:55:59 INFO  Connected to Build server: scala-cli v1.6.1
 2025.04.29 02:56:01 INFO  time: indexed workspace in 1.94s
+2025.04.29 23:04:00 INFO  Shutting down server
+2025.04.29 23:04:00 INFO  shutting down Metals
+2025.04.29 23:04:00 INFO  Shut down connection with build server.
+2025.04.29 23:04:00 INFO  Exiting server
+2025.04.29 23:04:28 INFO  Started: Metals version 1.5.2 in folders '/Users/hmerrilees/school/sp25/clinic/repos/simkube' for client Cursor 1.96.2.
+Apr 29, 2025 11:04:28 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint fallbackResponseError
+SEVERE: Internal error: java.util.concurrent.RejectedExecutionException: Task Future(<not completed>) rejected from java.util.concurrent.ThreadPoolExecutor@1efbd816[Shutting down, pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 4]
+java.util.concurrent.CompletionException: java.util.concurrent.RejectedExecutionException: Task Future(<not completed>) rejected from java.util.concurrent.ThreadPoolExecutor@1efbd816[Shutting down, pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 4]
+	at java.base/java.util.concurrent.CompletableFuture.wrapInCompletionException(CompletableFuture.java:323)
+	at java.base/java.util.concurrent.CompletableFuture.encodeThrowable(CompletableFuture.java:376)
+	at java.base/java.util.concurrent.CompletableFuture.completeThrowable(CompletableFuture.java:391)
+	at java.base/java.util.concurrent.CompletableFuture$UniAccept.tryFire(CompletableFuture.java:752)
+	at java.base/java.util.concurrent.CompletableFuture.postComplete(CompletableFuture.java:554)
+	at java.base/java.util.concurrent.CompletableFuture.completeExceptionally(CompletableFuture.java:2238)
+	at scala.concurrent.java8.FuturesConvertersImpl$CF.apply(FutureConvertersImpl.scala:29)
+	at scala.concurrent.java8.FuturesConvertersImpl$CF.apply(FutureConvertersImpl.scala:26)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:484)
+	at scala.concurrent.ExecutionContext$parasitic$.execute(ExecutionContext.scala:222)
+	at scala.concurrent.impl.Promise$Transformation.submitWithValue(Promise.scala:429)
+	at scala.concurrent.impl.Promise$DefaultPromise.submitWithValue(Promise.scala:338)
+	at scala.concurrent.impl.Promise$DefaultPromise.tryComplete0(Promise.scala:285)
+	at scala.concurrent.impl.Promise$Transformation.handleFailure(Promise.scala:444)
+	at scala.concurrent.impl.Promise$Transformation.submitWithValue(Promise.scala:435)
+	at scala.concurrent.impl.Promise$DefaultPromise.submitWithValue(Promise.scala:338)
+	at scala.concurrent.impl.Promise$DefaultPromise.tryComplete0(Promise.scala:285)
+	at scala.concurrent.impl.Promise$Transformation.handleFailure(Promise.scala:444)
+	at scala.concurrent.impl.Promise$Transformation.submitWithValue(Promise.scala:435)
+	at scala.concurrent.impl.Promise$DefaultPromise.submitWithValue(Promise.scala:338)
+	at scala.concurrent.impl.Promise$DefaultPromise.tryComplete0(Promise.scala:285)
+	at scala.concurrent.impl.Promise$Transformation.run(Promise.scala:504)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)
+	at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)
+	at java.base/java.lang.Thread.run(Thread.java:1575)
+Caused by: java.util.concurrent.RejectedExecutionException: Task Future(<not completed>) rejected from java.util.concurrent.ThreadPoolExecutor@1efbd816[Shutting down, pool size = 1, active threads = 1, queued tasks = 0, completed tasks = 4]
+	at java.base/java.util.concurrent.ThreadPoolExecutor$AbortPolicy.rejectedExecution(ThreadPoolExecutor.java:2082)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.reject(ThreadPoolExecutor.java:841)
+	at java.base/java.util.concurrent.ThreadPoolExecutor.execute(ThreadPoolExecutor.java:1377)
+	at scala.concurrent.impl.ExecutionContextImpl.execute(ExecutionContextImpl.scala:21)
+	at scala.concurrent.impl.Promise$Transformation.submitWithValue(Promise.scala:429)
+	... 10 more
+
+2025.05.01 08:31:22 INFO  Started: Metals version 1.5.2 in folders '/Users/hmerrilees/school/sp25/clinic/repos/simkube' for client Cursor 1.96.2.
+May 01, 2025 8:31:23 AM org.eclipse.lsp4j.jsonrpc.services.GenericEndpoint notify
+INFO: Unsupported notification method: $/setTrace
+2025.05.01 08:31:25 INFO  Attempting to connect to the build server...
+2025.05.01 08:31:25 INFO  Running BSP server List(/opt/homebrew/bin/scala-cli, bsp, --json-options, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-options-v2.json, --json-launcher-options, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-launcher-options.json, --envs-file, /Users/hmerrilees/school/sp25/clinic/repos/simkube/.scala-build/ide-envs.json, /Users/hmerrilees/school/sp25/clinic/repos/simkube)
+2025.05.01 08:31:25 INFO  tracing is disabled for protocol BSP, to enable tracing of incoming and outgoing JSON messages create an empty file at /Users/hmerrilees/school/sp25/clinic/repos/simkube/.metals/bsp.trace.json or /Users/hmerrilees/Library/Caches/org.scalameta.metals/bsp.trace.json
+2025.05.01 08:31:27 INFO  time: Connected to build server in 2.53s
+2025.05.01 08:31:27 INFO  Connected to Build server: scala-cli v1.6.1
+2025.05.01 08:31:27 INFO  time: Imported build in 0.26s
+2025.05.01 08:31:31 INFO  time: indexed workspace in 3.88s
