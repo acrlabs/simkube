@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.2.0 - 2025-04-29
+
+### 🚀 Features
+
+- Specify multiple hooks on run
+
+### 🐛 Bug Fixes
+
+- Correctly manage pod lifecycles with KWOK
+- Error messages don't stacktrace for 'recoverable' tracer errors
+- Allow multiple podSpecTemplatePaths to be specified
+
 ## 2.1.0 - 2025-03-28
 
 ### 🚀 Features
