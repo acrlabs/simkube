@@ -187,11 +187,11 @@ pub async fn cmd(args: &Args) -> EmptyResult {
                 image: args.driver_image.clone(),
                 port: args.driver_port,
                 trace_path: args.trace_path.clone(),
-                speed: args.speed,
             },
             duration: args.duration.clone(),
             metrics: metrics_config,
             repetitions: Some(args.repetitions),
+            speed: Some(args.speed),
             hooks,
         },
     );

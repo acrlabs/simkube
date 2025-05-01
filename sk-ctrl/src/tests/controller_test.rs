@@ -4,7 +4,6 @@ use clockabilly::{
     Clockable,
     UtcClock,
 };
-use either::for_both;
 use httpmock::prelude::*;
 use kube::runtime::controller::Action;
 use serde_json::json;
@@ -41,8 +40,10 @@ async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: 
             .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
         then.json_body_obj(&lease_obj);
     });
-    let sim_state =
-        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    let sim_state = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        .await
+        .unwrap()
+        .0;
     assert_eq!(SimulationState::Initializing, sim_state);
     fake_apiserver.assert();
 }
@@ -63,8 +64,10 @@ async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim
             .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
         then.json_body_obj(&lease_obj);
     });
-    let sim_state =
-        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    let sim_state = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        .await
+        .unwrap()
+        .0;
     assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
@@ -89,8 +92,10 @@ async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_r
             .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
         then.json_body_obj(&lease_obj);
     });
-    let sim_state =
-        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    let sim_state = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        .await
+        .unwrap()
+        .0;
     assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
@@ -123,8 +128,10 @@ async fn test_fetch_driver_state_driver_finished(
             },
         }));
     });
-    let sim_state =
-        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    let sim_state = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        .await
+        .unwrap()
+        .0;
     assert_eq!(expected_state, sim_state);
     fake_apiserver.assert();
 }
@@ -145,8 +152,10 @@ async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_ro
         then.json_body_obj(&other_lease_obj);
     });
 
-    let sim_state =
-        for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
+    let sim_state = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
+        .await
+        .unwrap()
+        .0;
     assert_eq!(SimulationState::Blocked, sim_state);
     fake_apiserver.assert();
 }

@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use sk_api::v1::{
-    SimulationDriverConfig,
-    SimulationSpec,
-};
+use sk_api::v1::SimulationSpec;
 use sk_store::TraceEvent;
 use tokio::sync::Mutex;
 
@@ -29,13 +26,7 @@ pub fn build_driver_context(
     owners_cache: Arc<Mutex<OwnersCache>>,
     store: Arc<dyn TraceStorable + Send + Sync>,
 ) -> DriverContext {
-    let sim = Simulation::new(
-        TEST_SIM_NAME,
-        SimulationSpec {
-            driver: SimulationDriverConfig { speed: 1.0, ..Default::default() },
-            ..Default::default()
-        },
-    );
+    let sim = Simulation::new(TEST_SIM_NAME, SimulationSpec { speed: Some(1.0), ..Default::default() });
     DriverContext {
         name: TEST_DRIVER_NAME.into(),
         root_name: TEST_DRIVER_ROOT_NAME.into(),
