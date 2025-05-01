@@ -1,8 +1,7 @@
+use clockabilly::prelude::*;
 use clockabilly::{
-    Clockable,
     DateTime,
     Utc,
-    UtcClock,
 };
 use k8s_openapi::api::coordination::v1 as coordinationv1;
 use kube::api::Patch;

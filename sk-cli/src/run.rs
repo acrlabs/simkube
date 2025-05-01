@@ -1,4 +1,5 @@
 use clap::crate_version;
+use clockabilly::prelude::*;
 use serde::Serialize;
 use sk_api::prometheus::PrometheusRemoteWrite;
 use sk_api::v1::{
@@ -40,6 +41,9 @@ pub struct Args {
         default_value = "1"
     )]
     pub repetitions: i32,
+
+    #[arg(long, long_help = "start the simulation in the \"paused\" state")]
+    pub start_paused: bool,
 
     #[arg(
         short = 'I',
@@ -179,6 +183,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     let hooks = merge_hooks(&args.hooks)?;
 
+    let paused_time = if args.start_paused { Some(UtcClock.now()) } else { None };
     let sim = Simulation::new(
         &args.name,
         SimulationSpec {
@@ -192,6 +197,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             metrics: metrics_config,
             repetitions: Some(args.repetitions),
             speed: Some(args.speed),
+            paused_time,
             hooks,
         },
     );

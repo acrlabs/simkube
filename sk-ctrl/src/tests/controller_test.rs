@@ -1,9 +1,6 @@
 use std::env;
 
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::prelude::*;
 use httpmock::prelude::*;
 use kube::runtime::controller::Action;
 use serde_json::json;

@@ -12,6 +12,7 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use clap::Parser;
+use clockabilly::UtcClock;
 use rocket::config::TlsConfig;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
@@ -36,6 +37,7 @@ use tracing::*;
 
 use crate::mutation::MutationData;
 use crate::runner::run_trace;
+use crate::util::wait_if_paused;
 
 #[derive(Clone, Debug, Parser)]
 struct Options {
@@ -73,8 +75,8 @@ struct Options {
 #[derive(Clone)]
 pub struct DriverContext {
     name: String,
+    sim_name: String,
     root_name: String,
-    sim: Simulation,
     ctrl_ns: String,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
@@ -89,6 +91,7 @@ async fn run(opts: Options) -> EmptyResult {
     let sim_api: kube::Api<Simulation> = kube::Api::all(client.clone());
 
     let sim = sim_api.get(&opts.sim_name).await?;
+    wait_if_paused(client.clone(), &sim.name_any(), UtcClock::boxed()).await?;
     let root_name = format!("{name}-root");
 
     let object_store = SkObjectStore::new(&opts.trace_path)?;
@@ -99,8 +102,8 @@ async fn run(opts: Options) -> EmptyResult {
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
     let ctx = DriverContext {
         name,
+        sim_name: opts.sim_name.clone(),
         root_name,
-        sim,
         ctrl_ns: opts.controller_ns.clone(),
         virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
         owners_cache,
@@ -116,15 +119,16 @@ async fn run(opts: Options) -> EmptyResult {
     let mutation_server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![mutation::handler])
         .manage(MutationData::new())
-        .manage(ctx.clone());
+        .manage(ctx.clone())
+        .manage(sim.clone());
     let mutation_task = tokio::spawn(mutation_server.launch());
-    // Give the mutation handler and stage controller a bit of time to come online before starting the
-    // sim
+    // Give the mutation handler and stage controller a bit of time to come online
+    // before starting the sim
     sleep(Duration::from_secs(5)).await;
 
-    let runner_task = tokio::spawn(run_trace(ctx.clone(), client));
+    hooks::execute(&sim, hooks::Type::PreRun).await?;
 
-    hooks::execute(&ctx.sim, hooks::Type::PreRun).await?;
+    let runner_task = tokio::spawn(run_trace(ctx.clone(), client, sim.clone()));
     tokio::select! {
         res = mutation_task => Err(anyhow!("mutation server terminated: {res:#?}")),
         res = runner_task => {
@@ -134,7 +138,8 @@ async fn run(opts: Options) -> EmptyResult {
             }
         },
     }?;
-    hooks::execute(&ctx.sim, hooks::Type::PostRun).await
+
+    hooks::execute(&sim, hooks::Type::PostRun).await
 }
 
 #[tokio::main]

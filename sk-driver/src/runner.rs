@@ -4,10 +4,7 @@ use anyhow::{
     anyhow,
     bail,
 };
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::prelude::*;
 use either::Either;
 use json_patch_ext::prelude::*;
 use kube::api::{
@@ -33,9 +30,12 @@ use tokio::time::sleep;
 use tracing::*;
 
 use super::*;
-use crate::util::compute_step_size;
+use crate::util::{
+    compute_step_size,
+    wait_if_paused,
+};
 
-pub const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
+pub(crate) const DRIVER_CLEANUP_TIMEOUT_SECONDS: i64 = 300;
 
 err_impl! {SkDriverError,
     #[error("could not delete simulation root {0}")]
@@ -101,26 +101,42 @@ pub fn build_virtual_obj(
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
-pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult {
+pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation) -> EmptyResult {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
-    let mut apiset = DynamicApiSet::new(client.clone());
-
-    let root_obj = if let Some(root) = roots_api.get_opt(&ctx.root_name).await? {
+    let root = if let Some(root) = roots_api.get_opt(&ctx.root_name).await? {
         warn!("Driver root {} already exists; continuing...", ctx.root_name);
         root
     } else {
-        let root_obj = build_simulation_root(&ctx.root_name, &ctx.sim);
+        let root_obj = build_simulation_root(&ctx.root_name, &sim);
         roots_api.create(&Default::default(), &root_obj).await?
     };
 
-    let mut sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
+    let clock = UtcClock::boxed();
+    let sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
     let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
-    let sim_duration = compute_step_size(&ctx, sim_ts, sim_end_ts);
 
-    try_update_lease(client.clone(), &ctx.sim, &ctx.ctrl_ns, sim_duration).await?;
+    let sim_duration = compute_step_size(sim.speed(), sim_ts, sim_end_ts);
+    try_update_lease(client.clone(), &sim, &ctx.ctrl_ns, sim_duration as u64).await?;
+    run_trace_internal(&ctx, client, sim.speed(), root, sim_ts, clock.clone()).await?;
+
+    let timeout = clock.now_ts() + DRIVER_CLEANUP_TIMEOUT_SECONDS;
+    cleanup_trace(&ctx, roots_api, clock, timeout).await
+}
+
+pub(crate) async fn run_trace_internal(
+    ctx: &DriverContext,
+    client: kube::Client,
+    sim_speed: f64,
+    root: SimulationRoot,
+    mut current_ts: i64,
+    clock: Box<dyn Clockable + Send>,
+) -> EmptyResult {
+    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
+    let mut apiset = DynamicApiSet::new(client.clone());
 
     for (evt, maybe_next_ts) in ctx.store.iter() {
+        current_ts += wait_if_paused(client.clone(), &ctx.sim_name, clock.clone()).await?;
+
         // We're currently assuming that all tracked objects are namespace-scoped,
         // this will panic/fail if that is not true.
         for obj in &evt.applied_objs {
@@ -130,12 +146,12 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
 
             if ns_api.get_opt(&virtual_ns).await?.is_none() {
                 info!("creating virtual namespace: {virtual_ns}");
-                let vns = build_virtual_ns(&ctx, &root_obj, &virtual_ns);
+                let vns = build_virtual_ns(ctx, &root, &virtual_ns);
                 ns_api.create(&Default::default(), &vns).await?;
             }
 
             let pod_spec_template_path = ctx.store.config().pod_spec_template_paths(&gvk);
-            let vobj = build_virtual_obj(&ctx, &root_obj, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
+            let vobj = build_virtual_obj(ctx, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
             info!("applying object {}", vobj.namespaced_name());
             apiset
@@ -158,21 +174,18 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client) -> EmptyResult 
         }
 
         if let Some(next_ts) = maybe_next_ts {
-            let sleep_duration = compute_step_size(&ctx, sim_ts, next_ts);
+            let sleep_duration = compute_step_size(sim_speed, current_ts, next_ts);
             info!("next event happens in {sleep_duration} seconds, sleeping");
-            debug!("current sim ts = {sim_ts}, next sim ts = {next_ts}");
+            debug!("current sim ts = {current_ts}, next sim ts = {next_ts}");
 
-            sim_ts = next_ts;
-            sleep(Duration::from_secs(sleep_duration as u64)).await;
+            current_ts = next_ts;
+            clock.sleep(sleep_duration).await;
         }
     }
-
-    let clock = UtcClock::boxed();
-    let timeout = clock.now_ts() + DRIVER_CLEANUP_TIMEOUT_SECONDS;
-    cleanup_trace(&ctx, roots_api, clock, timeout).await
+    Ok(())
 }
 
-pub async fn cleanup_trace(
+pub(crate) async fn cleanup_trace(
     ctx: &DriverContext,
     roots_api: kube::Api<SimulationRoot>,
     clock: Box<dyn Clockable + Send>,

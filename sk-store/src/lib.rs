@@ -89,6 +89,10 @@ pub struct ExportedTrace {
 }
 
 impl ExportedTrace {
+    pub fn append_event(&mut self, event: TraceEvent) {
+        self.events.push(event);
+    }
+
     pub fn prepend_event(&mut self, event: TraceEvent) {
         let mut tmp = vec![event];
         tmp.append(&mut self.events);

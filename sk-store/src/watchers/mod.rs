@@ -13,10 +13,7 @@ use std::sync::{
 };
 
 use async_trait::async_trait;
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::prelude::*;
 use futures::{
     Stream,
     StreamExt,

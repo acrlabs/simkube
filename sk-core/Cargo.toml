@@ -17,6 +17,7 @@ async-recursion = { workspace = true }
 async-trait = { workspace = true }
 bytes = { workspace = true }
 clockabilly = { workspace = true }
+either = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 lazy_static = { workspace = true }

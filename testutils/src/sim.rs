@@ -1,3 +1,4 @@
+use clockabilly::DateTime;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use rstest::fixture;
 use sk_api::v1::*;
@@ -20,7 +21,6 @@ pub fn test_sim() -> Simulation {
                 trace_path: "file:///foo/bar".into(),
             },
             metrics: Some(Default::default()),
-            speed: Some(2.0),
             hooks: Some(SimulationHooksConfig {
                 pre_start_hooks: Some(vec![SimulationHook {
                     cmd: "echo".into(),
@@ -36,7 +36,10 @@ pub fn test_sim() -> Simulation {
             }),
             ..Default::default()
         },
-        status: Default::default(),
+        status: Some(SimulationStatus {
+            start_time: DateTime::from_timestamp(0, 0),
+            ..Default::default()
+        }),
     }
 }
 

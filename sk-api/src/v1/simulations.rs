@@ -17,6 +17,7 @@ pub enum SimulationState {
     Initializing,
     Finished,
     Failed,
+    Paused,
     Retrying,
     Running,
 }
@@ -83,6 +84,7 @@ pub struct SimulationSpec {
     pub duration: Option<String>,
     pub repetitions: Option<i32>,
     pub speed: Option<f64>,
+    pub paused_time: Option<DateTime<Utc>>,
     pub hooks: Option<SimulationHooksConfig>,
 }
 
@@ -95,4 +97,10 @@ pub struct SimulationStatus {
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
     pub completed_runs: Option<u64>,
+}
+
+impl Simulation {
+    pub fn speed(&self) -> f64 {
+        self.spec.speed.unwrap_or(1.0)
+    }
 }

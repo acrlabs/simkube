@@ -9,6 +9,7 @@ RUST_BUILD_IMAGE ?= rust:1.83-bullseye
 CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
+RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
 
 ifndef IN_CI
 DOCKER_ARGS=-it --init
@@ -35,9 +36,6 @@ main:
 skctl:
 	cargo build --profile skctl-dev -p=skctl --color=always
 	cp $(BUILD_DIR)/skctl-dev/skctl $(BUILD_DIR)/.
-
-unit: RUST_LOG=httpmock=debug
-itest: RUST_LOG=httpmock=debug
 
 IMAGE_DEPS += copy-config
 
