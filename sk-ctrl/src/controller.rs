@@ -6,11 +6,6 @@ use anyhow::{
     anyhow,
     bail,
 };
-use clockabilly::{
-    DateTime,
-    Utc,
-};
-use either::Either;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
 use kube::api::{
@@ -51,6 +46,8 @@ pub const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DEL
 pub const JOB_STATUS_CONDITION_COMPLETE: &str = "Complete";
 pub const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
+type SimulationStatusPatch = serde_json::Value;
+
 async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
     match roots_api.get_opt(&ctx.metaroot_name).await? {
@@ -66,20 +63,22 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
 // The "left" driver state contains an actual status from the driver job, along with its start and
 // end times (if they exist).  The "right" driver state contains an "inferred" state, such as
 // "blocked" (i.e., the driver hasn't even been created yet because we couldn't claim the lease).
-type DriverState = Either<(SimulationState, Option<DateTime<Utc>>, Option<DateTime<Utc>>), (SimulationState, u64)>;
+type DriverState = (SimulationState, SimulationStatusPatch, u64);
 
-pub async fn fetch_driver_state(
+pub(crate) async fn fetch_driver_state(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
     ctrl_ns: &str,
 ) -> anyhow::Result<DriverState> {
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
-    let (mut state, mut start_time, mut end_time) = (SimulationState::Initializing, None, None);
+    let (mut state, mut start_time, mut end_time, mut completed, mut blocked_duration) =
+        (SimulationState::Initializing, None, None, None, 0);
 
     if let Some(driver) = jobs_api.get_opt(&ctx.driver_name).await? {
         state = SimulationState::Running;
         if let Some(status) = driver.status {
+            completed = status.succeeded;
             start_time = status.start_time.map(|t| t.0);
             if let Some(cond) =
                 status.conditions.unwrap_or_default().iter().find(|cond| {
@@ -104,13 +103,23 @@ pub async fn fetch_driver_state(
         match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns).await? {
             LeaseState::Claimed => (),
             LeaseState::WaitingForClaim(t) => {
-                return Ok(DriverState::Right((SimulationState::Blocked, t)));
+                state = SimulationState::Blocked;
+                blocked_duration = t;
             },
             LeaseState::Unknown => bail!("unknown lease state"),
         }
     }
 
-    Ok(DriverState::Left((state, start_time, end_time)))
+    let patch = json!({
+    "status": {
+        "observedGeneration": sim.metadata.generation.unwrap_or(1),
+        "startTime": start_time,
+        "endTime": end_time,
+        "completedRuns": completed,
+        "state": state,
+    }});
+
+    Ok((state, patch, blocked_duration))
 }
 
 pub async fn setup_simulation(
@@ -232,25 +241,12 @@ pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Res
     let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
 
     let metaroot = setup_sim_metaroot(&ctx, sim).await?;
-    let (simulation_state, start_time, end_time, blocked_duration) =
-        match fetch_driver_state(&ctx, sim, &metaroot, &ctrl_ns).await? {
-            DriverState::Left((state, st, et)) => (state, st, et, 0),
-            DriverState::Right((state, t)) => (state, None, None, t),
-        };
+    let (simulation_state, status_patch, blocked_duration) = fetch_driver_state(&ctx, sim, &metaroot, &ctrl_ns).await?;
 
+    debug!("sending patch status update: {status_patch}");
     let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());
     sim_api
-        .patch_status(
-            &sim.name_any(),
-            &Default::default(),
-            &Patch::Merge(json!({
-            "status": {
-                "observedGeneration": sim.metadata.generation.unwrap_or(1),
-                "startTime": start_time,
-                "endTime": end_time,
-                "state": simulation_state,
-            }})),
-        )
+        .patch_status(&sim.name_any(), &Default::default(), &Patch::Merge(status_patch))
         .await
         .map_err(|e| anyhow!(e))?;
 

@@ -12,7 +12,6 @@ edition.workspace = true
 anyhow = { workspace = true }
 clap = { workspace = true }
 clockabilly = { workspace = true }
-either = { workspace = true }
 futures = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }

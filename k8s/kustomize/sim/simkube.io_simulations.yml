@@ -24,6 +24,18 @@ spec:
       jsonPath: .status.endTime
       name: end time
       type: string
+    - description: multiplicative speed factor for the simulations
+      jsonPath: .spec.speed
+      name: speed factor
+      type: number
+    - description: number of completed simulation runs
+      jsonPath: .status.completedRuns
+      name: completed
+      type: integer
+    - description: total number of simulation runs
+      jsonPath: .spec.repetitions
+      name: total
+      type: integer
     - description: simulation state
       jsonPath: .status.state
       name: state
@@ -44,16 +56,12 @@ spec:
                   port:
                     format: int32
                     type: integer
-                  speed:
-                    format: double
-                    type: number
                   tracePath:
                     type: string
                 required:
                 - image
                 - namespace
                 - port
-                - speed
                 - tracePath
                 type: object
               duration:
@@ -568,12 +576,21 @@ spec:
                 format: int32
                 nullable: true
                 type: integer
+              speed:
+                format: double
+                nullable: true
+                type: number
             required:
             - driver
             type: object
           status:
             nullable: true
             properties:
+              completedRuns:
+                format: uint64
+                minimum: 0.0
+                nullable: true
+                type: integer
               endTime:
                 format: date-time
                 nullable: true

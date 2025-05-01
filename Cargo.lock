@@ -3580,7 +3580,6 @@ dependencies = [
  "anyhow",
  "clap",
  "clockabilly",
- "either",
  "futures",
  "httpmock",
  "k8s-openapi",

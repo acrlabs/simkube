@@ -28,7 +28,6 @@ pub struct SimulationDriverConfig {
     pub image: String,
     pub trace_path: String,
     pub port: i32,
-    pub speed: f64,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -69,6 +68,9 @@ pub struct SimulationHooksConfig {
 #[kube(
     printcolumn = r#"{"name":"start time", "type":"string", "description":"simulation driver start time", "jsonPath":".status.startTime"}"#,
     printcolumn = r#"{"name":"end time", "type":"string", "description":"simulation driver end time", "jsonPath":".status.endTime"}"#,
+    printcolumn = r#"{"name":"speed factor", "type":"number", "description":"multiplicative speed factor for the simulations", "jsonPath":".spec.speed"}"#,
+    printcolumn = r#"{"name":"completed", "type":"integer", "description":"number of completed simulation runs", "jsonPath":".status.completedRuns"}"#,
+    printcolumn = r#"{"name":"total", "type":"integer", "description":"total number of simulation runs", "jsonPath":".spec.repetitions"}"#,
     printcolumn = r#"{"name":"state", "type":"string", "description":"simulation state", "jsonPath":".status.state"}"#
 )]
 #[serde(rename_all = "camelCase")]
@@ -80,6 +82,7 @@ pub struct SimulationSpec {
     pub metrics: Option<SimulationMetricsConfig>,
     pub duration: Option<String>,
     pub repetitions: Option<i32>,
+    pub speed: Option<f64>,
     pub hooks: Option<SimulationHooksConfig>,
 }
 
@@ -87,7 +90,9 @@ pub struct SimulationSpec {
 #[serde(rename_all = "camelCase")]
 pub struct SimulationStatus {
     pub observed_generation: i64,
+
+    pub state: Option<SimulationState>,
     pub start_time: Option<DateTime<Utc>>,
     pub end_time: Option<DateTime<Utc>>,
-    pub state: Option<SimulationState>,
+    pub completed_runs: Option<u64>,
 }
