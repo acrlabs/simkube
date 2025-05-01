@@ -572,6 +572,10 @@ spec:
                 required:
                 - remoteWriteConfigs
                 type: object
+              pausedTime:
+                format: date-time
+                nullable: true
+                type: string
               repetitions:
                 format: int32
                 nullable: true
@@ -608,6 +612,7 @@ spec:
                 - Initializing
                 - Finished
                 - Failed
+                - Paused
                 - Retrying
                 - Running
                 nullable: true

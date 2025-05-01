@@ -1,3 +1,9 @@
+use std::collections::HashMap;
+use std::sync::{
+    Arc,
+    Mutex,
+};
+
 use httpmock::prelude::*;
 use httpmock::{
     Mock,
@@ -6,21 +12,35 @@ use httpmock::{
 };
 use serde_json::json;
 
+#[derive(Clone)]
 pub struct MockServerBuilder {
-    server: MockServer,
-    mock_ids: Vec<(usize, usize)>,
+    server: Arc<Mutex<MockServer>>,
+    mock_ids: Arc<Mutex<HashMap<usize, usize>>>,
 }
 
 impl MockServerBuilder {
     pub fn new() -> MockServerBuilder {
-        MockServerBuilder { server: MockServer::start(), mock_ids: vec![] }
+        let server = MockServer::start();
+        MockServerBuilder {
+            server: Arc::new(Mutex::new(server)),
+            mock_ids: Arc::new(Mutex::new(HashMap::new())),
+        }
     }
 
     pub fn assert(&self) {
-        for (id, calls) in &self.mock_ids {
-            println!("checking assertions for mock {id}");
-            Mock::new(*id, &self.server).assert_calls(*calls)
+        for (id, calls) in self.mock_ids.lock().unwrap().iter() {
+            println!("checking assertions for mock {id}; expected calls = {calls}");
+            Mock::new(*id, &self.server.lock().unwrap()).assert_calls(*calls)
         }
+    }
+
+    pub fn drop(&mut self, mock_id: usize) {
+        let calls = self.mock_ids.lock().unwrap().remove(&mock_id).unwrap();
+        let server = &self.server.lock().unwrap();
+        let mut mock = Mock::new(mock_id, server);
+        println!("checking assertions for mock {mock_id}; expected calls = {calls}");
+        mock.assert_calls(calls);
+        mock.delete();
     }
 
     pub fn handle<F: Fn(When, Then) + 'static>(&mut self, f: F) -> usize {
@@ -28,8 +48,8 @@ impl MockServerBuilder {
     }
 
     pub fn handle_multiple<F: Fn(When, Then) + 'static>(&mut self, f: F, calls: usize) -> usize {
-        let mock_id = self.server.mock(f).id;
-        self.mock_ids.push((mock_id, calls));
+        let mock_id = self.server.lock().unwrap().mock(f).id;
+        self.mock_ids.lock().unwrap().insert(mock_id, calls);
         mock_id
     }
 
@@ -41,7 +61,7 @@ impl MockServerBuilder {
     }
 
     pub fn url(&self) -> http::Uri {
-        http::Uri::try_from(self.server.url("/")).unwrap()
+        http::Uri::try_from(self.server.lock().unwrap().url("/")).unwrap()
     }
 }
 

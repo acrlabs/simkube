@@ -10,7 +10,7 @@ Object {
             "simkube.io/original-namespace": String("test-namespace"),
             "simkube.io/pod-sequence-number": String("0"),
             "simkube.io/pod-spec-stable-hash": String("17506812802394981455"),
-            "simkube.kwok.io/stage-complete-time": String("1970-01-01T00:00:42+00:00"),
+            "simkube.kwok.io/stage-complete-time": String("1970-01-01T00:00:21+00:00"),
         },
         "labels": Object {
             "foo": String("bar"),

@@ -2,10 +2,7 @@ use std::collections::HashMap;
 use std::sync::Mutex;
 use std::time::Duration;
 
-use clockabilly::{
-    Clockable,
-    UtcClock,
-};
+use clockabilly::prelude::*;
 use json_patch_ext::prelude::*;
 use kube::core::admission::{
     AdmissionRequest,
@@ -47,6 +44,7 @@ impl MutationData {
 #[rocket::post("/", data = "<body>")]
 pub async fn handler(
     ctx: &rocket::State<DriverContext>,
+    sim: &rocket::State<Simulation>,
     body: Json<AdmissionReview<corev1::Pod>>,
     mut_data: &rocket::State<MutationData>,
 ) -> Json<AdmissionReview<corev1::Pod>> {
@@ -61,7 +59,7 @@ pub async fn handler(
 
     let mut resp = AdmissionResponse::from(&req);
     if let Some(pod) = &req.object {
-        resp = mutate_pod(ctx, resp, pod, mut_data, UtcClock::boxed())
+        resp = mutate_pod(ctx, sim, resp, pod, mut_data, UtcClock::boxed())
             .await
             .unwrap_or_else(|err| {
                 error!("could not perform mutation, blocking pod object: {err:?}");
@@ -76,6 +74,7 @@ pub async fn handler(
 #[instrument(skip_all, fields(pod.namespaced_name=pod.namespaced_name()))]
 pub async fn mutate_pod(
     ctx: &DriverContext,
+    sim: &Simulation,
     resp: AdmissionResponse,
     // TODO when we get the pod object, the final name hasn't been filled in yet;
     // make sure this doesn't cause any problems
@@ -115,7 +114,7 @@ pub async fn mutate_pod(
     if matches!(pod.status.as_ref(), Some(corev1::PodStatus{phase: Some(phase), ..}) if phase == "Running")
         && !pod.labels_contains_key(KWOK_STAGE_COMPLETE_KEY)
     {
-        add_lifecycle_fields(ctx, pod, &owners, hash, seq, &mut patches, clock)?;
+        add_lifecycle_fields(ctx, sim, pod, &owners, hash, seq, &mut patches, clock)?;
     }
 
     // We can't use json_patch_ext stuff here because the AdmissionResponse is a part of Kubernetes
@@ -156,8 +155,10 @@ fn add_pod_hash_annotations(hash: u64, seq: usize, patches: &mut Vec<PatchOperat
     ));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn add_lifecycle_fields(
     ctx: &DriverContext,
+    sim: &Simulation,
     pod: &corev1::Pod,
     owners: &[metav1::OwnerReference],
     hash: u64,
@@ -173,7 +174,7 @@ fn add_lifecycle_fields(
                 continue;
             }
             let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
-            if let Some(patch) = to_completion_time_annotation(ctx, &lifecycle, &*clock) {
+            if let Some(patch) = to_completion_time_annotation(sim.speed(), &lifecycle, &*clock) {
                 info!("applying lifecycle annotations");
                 patches.push(add_operation(
                     format_ptr!("/metadata/labels/{}", escape(KWOK_STAGE_COMPLETE_KEY)),
@@ -191,15 +192,16 @@ fn add_lifecycle_fields(
 }
 
 fn to_completion_time_annotation(
-    ctx: &DriverContext,
+    speed: f64,
     pld: &PodLifecycleData,
     clock: &(dyn Clockable + Send),
 ) -> Option<PatchOperation> {
     match pld {
         PodLifecycleData::Empty | PodLifecycleData::Running(_) => None,
         PodLifecycleData::Finished(start_ts, end_ts) => {
-            let duration_secs = compute_step_size(ctx, *start_ts, *end_ts);
-            let duration = Duration::from_secs(duration_secs);
+            // Pause time doesn't factor into pod lifecycle times, so just set to 0 here
+            let duration_secs = compute_step_size(speed, *start_ts, *end_ts);
+            let duration = Duration::from_secs(duration_secs as u64);
             let abs_end_ts = clock.now() + duration;
             Some(add_operation(
                 format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_COMPLETE_TIMESTAMP_KEY)),

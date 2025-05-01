@@ -95,11 +95,24 @@ pub(crate) async fn fetch_driver_state(
         }
     }
 
+
+    // State processing if the simulation hasn't completed
     if !is_terminal(&state) {
-        // It would be cool to check the error and return Blocked if something else nabbed the lease
-        // first.  But it's not actually that important, because it will just requeue and on the next
-        // time through it will correctly determine the Blocked status, so I'm not sure it's worth the
-        // increased complexity.
+        // If the simulation hasn't started yet, we don't want to set the state to paused; this way
+        // we can still bring up the driver pod and do something with it before the simulation
+        // proper starts.  Once the driver pod comes up, the reconciler will get re-triggered and
+        // update the state.
+        if state != SimulationState::Initializing && sim.spec.paused_time.is_some() {
+            state = SimulationState::Paused;
+        }
+
+        // It's a little weird that we're trying to claim a lease inside the "fetch_driver_state" function,
+        // but whatever, there are worse things.
+        //
+        // It would be cool to check the error and return Blocked if something else nabbed the lease first.
+        // But it's not actually that important, because it will just requeue and on the next time through
+        // it will correctly determine the Blocked status, so I'm not sure it's worth the increased
+        // complexity.
         match try_claim_lease(ctx.client.clone(), sim, metaroot, ctrl_ns).await? {
             LeaseState::Claimed => (),
             LeaseState::WaitingForClaim(t) => {
@@ -256,7 +269,7 @@ pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Res
             info!("simulation blocked; sleeping for {blocked_duration} seconds");
             Ok(Action::requeue(Duration::from_secs(blocked_duration)))
         },
-        SimulationState::Running => Ok(Action::await_change()),
+        SimulationState::Running | SimulationState::Paused => Ok(Action::await_change()),
         SimulationState::Finished | SimulationState::Failed => {
             // This action should never return an error, we want to try cleaning up once and if it
             // doesn't work, just abort (may revisit this in the future)

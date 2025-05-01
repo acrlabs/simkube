@@ -73,18 +73,28 @@ fn adm_resp(adm_req: AdmissionRequest<corev1::Pod>) -> AdmissionResponse {
 }
 
 #[rstest(tokio::test)]
-async fn test_handler_invalid_review(ctx: DriverContext) {
+async fn test_handler_invalid_review(ctx: DriverContext, test_sim: Simulation) {
     let adm_rev = AdmissionReview {
         types: Default::default(),
         request: None,
         response: None,
     };
-    let resp = handler(rocket::State::from(&ctx), Json(adm_rev), rocket::State::from(&MutationData::new())).await;
+    let resp = handler(
+        rocket::State::from(&ctx),
+        rocket::State::from(&test_sim),
+        Json(adm_rev),
+        rocket::State::from(&MutationData::new()),
+    )
+    .await;
     assert!(!resp.0.response.unwrap().allowed);
 }
 
 #[rstest(tokio::test)]
-async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: AdmissionReview<corev1::Pod>) {
+async fn test_handler_bad_response(
+    test_sim: Simulation,
+    mut test_pod: corev1::Pod,
+    mut adm_rev: AdmissionReview<corev1::Pod>,
+) {
     let owner = metav1::OwnerReference {
         name: TEST_DRIVER_ROOT_NAME.into(),
         ..Default::default()
@@ -94,16 +104,26 @@ async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: Admis
     test_pod.spec = None;
 
     *adm_rev.request.as_mut().unwrap().object.as_mut().unwrap() = test_pod;
-    let resp = handler(rocket::State::from(&ctx), Json(adm_rev), rocket::State::from(&MutationData::new())).await;
+    let resp = handler(
+        rocket::State::from(&ctx),
+        rocket::State::from(&test_sim),
+        Json(adm_rev),
+        rocket::State::from(&MutationData::new()),
+    )
+    .await;
     assert!(!resp.0.response.unwrap().allowed);
 }
 
 #[rstest(tokio::test)]
-async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse) {
+async fn test_mutate_pod_not_owned_by_sim(
+    test_sim: Simulation,
+    mut test_pod: corev1::Pod,
+    mut adm_resp: AdmissionResponse,
+) {
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
     let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
     test_pod.owner_references_mut().push(owner);
-    adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
+    adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
         .await
         .unwrap();
     assert_eq!(adm_resp.patch, None);
@@ -115,8 +135,14 @@ mod itest {
     #[rstest(tokio::test)]
     #[case(true)]
     #[case(false)]
-    async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse, #[case] running: bool) {
+    async fn test_mutate_pod(
+        mut test_sim: Simulation,
+        mut test_pod: corev1::Pod,
+        mut adm_resp: AdmissionResponse,
+        #[case] running: bool,
+    ) {
         set_snapshot_suffix!("{running}");
+        test_sim.spec.speed = Some(2.0);
         test_pod
             .annotations_mut()
             .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
@@ -142,7 +168,7 @@ mod itest {
 
         let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
 
-        adm_resp = mutate_pod(&ctx, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
+        adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
             .await
             .unwrap();
         let mut json_pod = serde_json::to_value(&test_pod).unwrap();
