@@ -55,9 +55,7 @@ fn make_pod_handler_store(
     )
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_applied_empty(test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
     let now = clock.now_ts();
@@ -68,9 +66,7 @@ async fn test_handle_event_applied_empty(test_pod: corev1::Pod, clock: Box<MockU
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_applied(mut test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
     let expected_data = PodLifecycleData::Running(START_TS);
@@ -84,11 +80,9 @@ async fn test_handle_event_applied(mut test_pod: corev1::Pod, clock: Box<MockUtc
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
 }
 
-#[rstest]
+#[rstest(tokio::test)]
 #[case::same_ts(START_TS)]
 #[case::diff_ts(5555)]
-#[traced_test]
-#[tokio::test]
 async fn test_handle_event_applied_already_stored(
     mut test_pod: corev1::Pod,
     clock: Box<MockUtcClock>,
@@ -106,9 +100,7 @@ async fn test_handle_event_applied_already_stored(
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), stored_data);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_applied_running_to_finished(mut test_pod: corev1::Pod, clock: Box<MockUtcClock>) {
     let ns_name = test_pod.namespaced_name();
     let stored_data = PodLifecycleData::Running(START_TS);
@@ -123,9 +115,7 @@ async fn test_handle_event_applied_running_to_finished(mut test_pod: corev1::Pod
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_applied_running_to_finished_wrong_start_ts(
     mut test_pod: corev1::Pod,
     clock: Box<MockUtcClock>,
@@ -142,11 +132,9 @@ async fn test_handle_event_applied_running_to_finished_wrong_start_ts(
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), stored_data);
 }
 
-#[rstest]
+#[rstest(tokio::test)]
 #[case::no_data(None)]
 #[case::mismatched_data(Some(&PodLifecycleData::Finished(1, 2)))]
-#[traced_test]
-#[tokio::test]
 async fn test_handle_event_deleted_no_update(
     mut test_pod: corev1::Pod,
     mut clock: Box<MockUtcClock>,
@@ -164,11 +152,9 @@ async fn test_handle_event_deleted_no_update(
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
 }
 
-#[rstest]
+#[rstest(tokio::test)]
 #[case::old_still_running(false)]
 #[case::old_finished(true)]
-#[traced_test]
-#[tokio::test]
 async fn test_handle_event_deleted_finished(
     mut test_pod: corev1::Pod,
     mut clock: Box<MockUtcClock>,
@@ -191,9 +177,7 @@ async fn test_handle_event_deleted_finished(
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_deleted_running(mut test_pod: corev1::Pod, mut clock: Box<MockUtcClock>) {
     // Here the pod is still "running" when the delete call comes in, so we
     // expect the end_ts in the lifecycle data to match the current time
@@ -211,9 +195,7 @@ async fn test_handle_event_deleted_running(mut test_pod: corev1::Pod, mut clock:
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_deleted_no_container_data(test_pod: corev1::Pod, mut clock: Box<MockUtcClock>) {
     // Same as the test case above, except this time the pod object
     // doesn't include any info about its containers, it just has metadata
@@ -229,9 +211,7 @@ async fn test_handle_event_deleted_no_container_data(test_pod: corev1::Pod, mut 
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_event_restarted(mut clock: Box<MockUtcClock>) {
     // This test probably requires some explanation: pod0 and pod1 are testing that when a
     // restart event comes in, updated or unchanged data is processed correctly.  pod2 will fail

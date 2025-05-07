@@ -2,17 +2,14 @@ mod pod_watcher_test;
 
 use futures::stream;
 use mockall::predicate;
-use rstest::*;
 use sk_core::prelude::*;
 use sk_testutils::*;
-use tracing_test::traced_test;
 
 use super::*;
 use crate::mock::MockTraceStore;
 use crate::watchers::MockEventHandler;
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handle_initialize_event() {
     let deployments: Vec<_> = (0..3).map(|i| test_deployment(&format!("depl{i}"))).collect();
     let mut handler = Box::new(MockEventHandler::new());

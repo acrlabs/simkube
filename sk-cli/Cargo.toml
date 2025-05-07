@@ -37,7 +37,9 @@ tokio = { workspace = true }
 [dev-dependencies]
 insta = { workspace = true }
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-testutils = { workspace = true }
+test-log = { workspace = true }
 
 [lints]
 workspace = true

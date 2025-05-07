@@ -36,6 +36,8 @@ skctl:
 	cargo build --profile skctl-dev -p=skctl --color=always
 	cp $(BUILD_DIR)/skctl-dev/skctl $(BUILD_DIR)/.
 
+unit: RUST_LOG=httpmock=debug
+itest: RUST_LOG=httpmock=debug
 
 IMAGE_DEPS += copy-config
 

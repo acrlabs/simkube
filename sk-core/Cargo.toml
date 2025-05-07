@@ -45,8 +45,9 @@ assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-testutils = { workspace = true }
-tracing-test = { workspace = true }
+test-log = { workspace = true }
 
 [lints]
 workspace = true

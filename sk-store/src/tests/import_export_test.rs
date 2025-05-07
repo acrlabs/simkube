@@ -99,11 +99,9 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
 mod itest {
     use super::*;
 
-    #[rstest]
+    #[rstest(tokio::test)]
     #[case::full_trace(None)]
     #[case::partial_trace(Some("10s".into()))]
-    #[traced_test]
-    #[tokio::test]
     async fn test_export(#[case] duration: Option<String>) {
         let clock = MockUtcClock::boxed(0);
 

@@ -22,8 +22,7 @@ use crate::runner::{
 // Must match the namespace in tests/data/trace.json
 const TEST_NS_NAME: &str = "default";
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
     let (_, client) = make_fake_apiserver();
     let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
@@ -70,8 +69,7 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
     );
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_cleanup_trace_error() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
@@ -82,13 +80,12 @@ async fn test_cleanup_trace_error() {
 
     let clock = MockUtcClock::boxed(0);
 
-    fake_apiserver
-        .handle(|when, then| {
-            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
-                .method(DELETE);
-            then.status(500);
-        })
-        .build();
+    fake_apiserver.handle(|when, then| {
+        when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+            .method(DELETE);
+        then.status(500);
+    });
+
     let res = cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
         .await
         .unwrap_err()
@@ -98,8 +95,7 @@ async fn test_cleanup_trace_error() {
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_cleanup_trace_timeout() {
     let (fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
@@ -119,8 +115,7 @@ async fn test_cleanup_trace_timeout() {
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_cleanup_trace() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
@@ -131,13 +126,11 @@ async fn test_cleanup_trace() {
 
     let clock = MockUtcClock::boxed(0);
 
-    fake_apiserver
-        .handle(|when, then| {
-            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
-                .method(DELETE);
-            then.json_body(status_ok());
-        })
-        .build();
+    fake_apiserver.handle(|when, then| {
+        when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+            .method(DELETE);
+        then.json_body(status_ok());
+    });
     cleanup_trace(&ctx, roots_api, clock, DRIVER_CLEANUP_TIMEOUT_SECONDS)
         .await
         .unwrap();
@@ -147,11 +140,9 @@ async fn test_cleanup_trace() {
 mod itest {
     use super::*;
 
-    #[rstest]
+    #[rstest(tokio::test)]
     #[case::has_start_marker(true)]
     #[case::no_start_marker(false)]
-    #[traced_test]
-    #[tokio::test]
     async fn test_driver_run(#[case] has_start_marker: bool) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
         let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
@@ -172,53 +163,49 @@ mod itest {
         let lease_obj = build_lease(&ctx.sim, &root, TEST_CTRL_NAMESPACE, UtcClock.now());
         let patched_lease_obj = build_lease(&ctx.sim, &root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
-        fake_apiserver
-            .handle(move |when, then| {
-                // In theory the driver needs to create the driver root first, but here we return
-                // that it's already been created so we can build the right virtual_ns object above
-                when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
-                    .method(GET);
-                then.json_body_obj(&root);
-            })
-            .handle(move |when, then| {
-                when.method(GET).path(format!(
-                    "/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"
-                ));
-                then.json_body_obj(&lease_obj);
-            })
-            .handle(move |when, then| {
-                when.method(PATCH).path(format!(
-                    "/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"
-                ));
-                then.json_body_obj(&patched_lease_obj);
-            })
-            .handle_not_found(format!("/api/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}"))
-            .handle(move |when, then| {
-                when.path("/api/v1/namespaces".to_string());
-                then.json_body_obj(&virt_ns);
-            })
-            .handle(|when, then| {
-                when.path("/apis/apps/v1".to_string());
-                then.json_body(apps_v1_discovery());
-            })
-            .handle(|when, then| {
-                when.method(PATCH).path(format!(
-                    "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment"
-                ));
-                then.json_body(status_ok());
-            })
-            .handle(|when, then| {
-                when.method(DELETE).path(format!(
-                    "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment-2"
-                ));
-                then.json_body(status_ok());
-            })
-            .handle(|when, then| {
-                when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
-                    .method(DELETE);
-                then.json_body(status_ok());
-            })
-            .build();
+        fake_apiserver.handle(move |when, then| {
+            // In theory the driver needs to create the driver root first, but here we return
+            // that it's already been created so we can build the right virtual_ns object above
+            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+                .method(GET);
+            then.json_body_obj(&root);
+        });
+        fake_apiserver.handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&lease_obj);
+        });
+        fake_apiserver.handle(move |when, then| {
+            when.method(PATCH)
+                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+            then.json_body_obj(&patched_lease_obj);
+        });
+        fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}"));
+        fake_apiserver.handle(move |when, then| {
+            when.path("/api/v1/namespaces".to_string());
+            then.json_body_obj(&virt_ns);
+        });
+        fake_apiserver.handle(|when, then| {
+            when.path("/apis/apps/v1".to_string());
+            then.json_body(apps_v1_discovery());
+        });
+        fake_apiserver.handle(|when, then| {
+            when.method(PATCH).path(format!(
+                "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment"
+            ));
+            then.json_body(status_ok());
+        });
+        fake_apiserver.handle(|when, then| {
+            when.method(DELETE).path(format!(
+                "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment-2"
+            ));
+            then.json_body(status_ok());
+        });
+        fake_apiserver.handle(|when, then| {
+            when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))
+                .method(DELETE);
+            then.json_body(status_ok());
+        });
         run_trace(ctx, client).await.unwrap();
         fake_apiserver.assert();
     }

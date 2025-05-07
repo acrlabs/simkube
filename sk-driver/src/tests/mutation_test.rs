@@ -72,9 +72,7 @@ fn adm_resp(adm_req: AdmissionRequest<corev1::Pod>) -> AdmissionResponse {
     AdmissionResponse::from(&adm_req)
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handler_invalid_review(ctx: DriverContext) {
     let adm_rev = AdmissionReview {
         types: Default::default(),
@@ -85,9 +83,7 @@ async fn test_handler_invalid_review(ctx: DriverContext) {
     assert!(!resp.0.response.unwrap().allowed);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: AdmissionReview<corev1::Pod>) {
     let owner = metav1::OwnerReference {
         name: TEST_DRIVER_ROOT_NAME.into(),
@@ -102,8 +98,7 @@ async fn test_handler_bad_response(mut test_pod: corev1::Pod, mut adm_rev: Admis
     assert!(!resp.0.response.unwrap().allowed);
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse) {
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
     let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
@@ -117,10 +112,9 @@ async fn test_mutate_pod_not_owned_by_sim(mut test_pod: corev1::Pod, mut adm_res
 mod itest {
     use super::*;
 
-    #[rstest]
+    #[rstest(tokio::test)]
     #[case(true)]
     #[case(false)]
-    #[tokio::test]
     async fn test_mutate_pod(mut test_pod: corev1::Pod, mut adm_resp: AdmissionResponse, #[case] running: bool) {
         set_snapshot_suffix!("{running}");
         test_pod

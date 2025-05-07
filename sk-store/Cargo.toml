@@ -34,9 +34,10 @@ mockall = { workspace = true, optional = true }
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-testutils = { workspace = true }
+test-log = { workspace = true }
 tokio = { workspace = true }
-tracing-test = { workspace = true }
 
 [lints]
 workspace = true

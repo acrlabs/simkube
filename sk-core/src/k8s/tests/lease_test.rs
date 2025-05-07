@@ -27,20 +27,16 @@ fn lease_other_holder() -> coordinationv1::Lease {
     }
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_claim_lease_with_clock_already_owned_by_us(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
-    fake_apiserver
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
     let res = try_claim_lease_with_clock(client, &test_sim, &test_sim_root, TEST_LEASE_NS, clock)
         .await
         .unwrap();
@@ -48,26 +44,22 @@ async fn test_try_claim_lease_with_clock_already_owned_by_us(test_sim: Simulatio
     assert_eq!(res, LeaseState::Claimed);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_claim_lease_with_clock_other_lease_unowned(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let other_lease: coordinationv1::Lease = Default::default();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
-    fake_apiserver
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&other_lease);
-        })
-        .handle(move |when, then| {
-            when.method(PUT)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&other_lease);
+    });
+    fake_apiserver.handle(move |when, then| {
+        when.method(PUT)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
     let res = try_claim_lease_with_clock(client, &test_sim, &test_sim_root, TEST_LEASE_NS, clock)
         .await
         .unwrap();
@@ -75,9 +67,7 @@ async fn test_try_claim_lease_with_clock_other_lease_unowned(test_sim: Simulatio
     assert_eq!(res, LeaseState::Claimed);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_claim_lease_with_clock_already_owned_by_other(
     test_sim: Simulation,
     test_sim_root: SimulationRoot,
@@ -85,13 +75,11 @@ async fn test_try_claim_lease_with_clock_already_owned_by_other(
 ) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    fake_apiserver
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_other_holder);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_other_holder);
+    });
     let res = try_claim_lease_with_clock(client, &test_sim, &test_sim_root, TEST_LEASE_NS, clock)
         .await
         .unwrap();
@@ -99,21 +87,18 @@ async fn test_try_claim_lease_with_clock_already_owned_by_other(
     assert!(matches!(res, LeaseState::WaitingForClaim(..)));
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_claim_lease_with_clock(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, clock.now());
     fake_apiserver
-        .handle_not_found(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"))
-        .handle(move |when, then| {
-            when.method(POST)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+        .handle_not_found(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+    fake_apiserver.handle(move |when, then| {
+        when.method(POST)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases"));
+        then.json_body_obj(&lease_obj);
+    });
     let res = try_claim_lease_with_clock(client, &test_sim, &test_sim_root, TEST_LEASE_NS, clock)
         .await
         .unwrap();
@@ -121,15 +106,12 @@ async fn test_try_claim_lease_with_clock(test_sim: Simulation, test_sim_root: Si
     assert_eq!(res, LeaseState::Claimed);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_update_lease_with_clock_no_lease_found(test_sim: Simulation) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver
-        .handle_not_found(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"))
-        .build();
+        .handle_not_found(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
     let res = try_update_lease_with_clock(client, &test_sim, TEST_LEASE_NS, 10, clock)
         .await
         .unwrap_err();
@@ -138,19 +120,15 @@ async fn test_try_update_lease_with_clock_no_lease_found(test_sim: Simulation) {
     assert!(matches!(err, kube::Error::Api(ErrorResponse { code: 404, .. })));
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_update_lease_with_clock_wrong_owner(test_sim: Simulation, lease_other_holder: coordinationv1::Lease) {
     let clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    fake_apiserver
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_other_holder);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_other_holder);
+    });
     let res = try_update_lease_with_clock(client, &test_sim, TEST_LEASE_NS, 10, clock)
         .await
         .unwrap_err();
@@ -159,9 +137,7 @@ async fn test_try_update_lease_with_clock_wrong_owner(test_sim: Simulation, leas
     assert!(matches!(err, KubernetesError::LeaseHeldByOther(..)));
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_try_update_lease_with_clock(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let mut clock = MockUtcClock::boxed(NOW);
     let (mut fake_apiserver, client) = make_fake_apiserver();
@@ -173,24 +149,22 @@ async fn test_try_update_lease_with_clock(test_sim: Simulation, test_sim_root: S
     patched_lease_obj.spec.as_mut().unwrap().lease_duration_seconds = Some(TEST_LEASE_DURATION as i32);
     patched_lease_obj.spec.as_mut().unwrap().renew_time = Some(renew_time.clone());
 
-    fake_apiserver
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .handle(move |when, then| {
-            when.method(PATCH)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"))
-                .json_body(json!({
-                    "spec": {
-                        "leaseDurationSeconds": TEST_LEASE_DURATION,
-                        "renewTime": renew_time,
-                    }
-                }));
-            then.json_body_obj(&patched_lease_obj);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
+    fake_apiserver.handle(move |when, then| {
+        when.method(PATCH)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_LEASE_NS}/leases/{SK_LEASE_NAME}"))
+            .json_body(json!({
+                "spec": {
+                    "leaseDurationSeconds": TEST_LEASE_DURATION,
+                    "renewTime": renew_time,
+                }
+            }));
+        then.json_body_obj(&patched_lease_obj);
+    });
     assert_eq!(
         (),
         try_update_lease_with_clock(client, &test_sim, TEST_LEASE_NS, 10, clock)

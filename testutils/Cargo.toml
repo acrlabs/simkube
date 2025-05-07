@@ -18,6 +18,7 @@ lazy_static = { workspace = true }
 mockall = { workspace = true }
 object_store = { workspace = true }
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-api = { workspace = true }
 sk-core = { workspace = true }
 sk-store = { workspace = true }

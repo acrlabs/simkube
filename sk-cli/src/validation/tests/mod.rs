@@ -8,7 +8,6 @@ use std::sync::{
 };
 
 use json_patch_ext::prelude::*;
-use rstest::*;
 use sk_core::prelude::*;
 use sk_store::{
     TraceEvent,

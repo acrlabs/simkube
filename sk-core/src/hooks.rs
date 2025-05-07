@@ -103,9 +103,7 @@ fn merge_vecs<T>(maybe_v1: &mut Option<Vec<T>>, maybe_v2: Option<Vec<T>>) {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use assert_fs::prelude::*;
-    use rstest::*;
     use sk_testutils::*;
-    use tracing_test::*;
 
     use super::*;
 
@@ -205,9 +203,7 @@ postStopHooks:
         assert_eq!(merged_config, serde_yaml::from_str(EXPECTED_MERGED).unwrap());
     }
 
-    #[rstest]
-    #[traced_test]
-    #[tokio::test]
+    #[rstest(tokio::test)]
     async fn test_execute_hooks(test_sim: Simulation) {
         // Should print "foo"
         let res = execute(&test_sim, Type::PreStart).await;

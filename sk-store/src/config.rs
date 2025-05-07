@@ -80,7 +80,7 @@ impl TracerConfig {
 
 #[cfg(test)]
 mod tests {
-    use rstest::*;
+    use sk_testutils::*;
 
     use super::*;
 

@@ -4,7 +4,6 @@ mod validate_all_test;
 
 use std::collections::HashMap;
 
-use rstest::*;
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
 use sk_store::{

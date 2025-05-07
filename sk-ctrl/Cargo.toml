@@ -30,7 +30,9 @@ tracing = { workspace = true }
 [dev-dependencies]
 httpmock = { workspace = true }
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-testutils = { workspace = true }
+test-log = { workspace = true }
 tracing-test = { workspace = true }
 
 [lints]

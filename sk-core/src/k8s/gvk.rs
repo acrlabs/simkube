@@ -126,12 +126,12 @@ impl<'de> Deserialize<'de> for GVK {
 #[cfg(test)]
 mod test {
     use assertables::*;
-    use rstest::*;
     use serde::de::value::{
         Error as SerdeError,
         StrDeserializer,
     };
     use serde::de::IntoDeserializer;
+    use sk_testutils::*;
 
     use super::*;
 
