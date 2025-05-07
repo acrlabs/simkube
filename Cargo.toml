@@ -66,11 +66,13 @@ sk-testutils = { path = "testutils" }
 
 assert_fs = "1.1.2"
 http = "1.1.0"
-httpmock = "0.6.8"
+httpmock = "0.8.0-alpha.1"
 hyper = "1.5.0"
 insta = "1.41.1"
 mockall = "0.13.1"
-rstest = "0.18.2"
+rstest = "0.25.0"
+rstest-log = "0.2.0"
+test-log = { version = "0.2.17", default-features = false, features = ["trace", "color"] }
 tracing-test = "0.2.5"
 
 [workspace.dependencies.kube]

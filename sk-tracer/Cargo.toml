@@ -27,9 +27,11 @@ url = { workspace = true }
 
 [dev-dependencies]
 rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-core = { workspace = true, features = ["mock"] }
 sk-store = { workspace = true, features = ["mock"] }
 sk-testutils = { workspace = true }
+test-log = { workspace = true }
 
 [lints]
 workspace = true

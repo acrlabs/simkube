@@ -31,11 +31,12 @@ clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }
 insta = { workspace = true }
 mockall = { workspace = true }
-rstest = { workspace = true }
 rmp-serde = { workspace = true }
+rstest = { workspace = true }
+rstest-log = { workspace = true }
 sk-store = { workspace = true, features = ["mock"] }
 sk-testutils = { workspace = true }
-tracing-test = { workspace = true }
+test-log = { workspace = true }
 
 [lints]
 workspace = true

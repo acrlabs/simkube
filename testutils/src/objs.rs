@@ -1,5 +1,5 @@
 use kube::discovery::ApiResource;
-use rstest::*;
+use rstest::fixture;
 use serde_json::json;
 use sk_core::prelude::*;
 

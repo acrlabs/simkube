@@ -51,7 +51,7 @@ fn test_pod_lifecycle_data_for_with_end_times(mut test_pod: corev1::Pod) {
     assert_eq!(res, PodLifecycleData::Finished(START_TS, end_ts));
 }
 
-#[test]
+#[rstest]
 fn test_partial_eq() {
     assert_eq!(PodLifecycleData::Empty, None);
     assert_eq!(PodLifecycleData::Empty, Some(&PodLifecycleData::Empty));
@@ -70,7 +70,7 @@ fn test_partial_eq() {
     assert_ne!(PodLifecycleData::Finished(1, 2), Some(&PodLifecycleData::Finished(1, 3)));
 }
 
-#[test]
+#[rstest]
 fn test_partial_ord() {
     for cmp in [
         PodLifecycleData::Empty.partial_cmp(&None),

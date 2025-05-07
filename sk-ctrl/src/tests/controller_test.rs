@@ -11,6 +11,7 @@ use serde_json::json;
 use sk_api::prometheus::*;
 use sk_api::v1::SimulationState;
 use sk_core::k8s::build_lease;
+use tracing_test::traced_test;
 
 use super::*;
 use crate::controller::*;
@@ -27,86 +28,76 @@ fn opts() -> Options {
     }
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
-    fake_apiserver
-        .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+    fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
     let sim_state =
         for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
     assert_eq!(SimulationState::Initializing, sim_state);
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
-    fake_apiserver
-        .handle(move |when, then| {
-            when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
-            then.json_body(json!({}));
-        })
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+        then.json_body(json!({}));
+    });
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
     let sim_state =
         for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
     assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
-    fake_apiserver
-        .handle(move |when, then| {
-            when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
-            then.json_body(json!({
-                "status": {
-                    "conditions": [{ "type": "Running" }],
-                },
-            }));
-        })
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&lease_obj);
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+        then.json_body(json!({
+            "status": {
+                "conditions": [{ "type": "Running" }],
+            },
+        }));
+    });
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&lease_obj);
+    });
     let sim_state =
         for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
     assert_eq!(SimulationState::Running, sim_state);
     fake_apiserver.assert();
 }
 
-#[rstest]
+#[rstest(tokio::test)]
 #[case::complete(JOB_STATUS_CONDITION_COMPLETE)]
 #[case::failed(JOB_STATUS_CONDITION_FAILED)]
-#[tokio::test]
 async fn test_fetch_driver_state_driver_finished(
     test_sim: Simulation,
     test_sim_root: SimulationRoot,
@@ -124,25 +115,21 @@ async fn test_fetch_driver_state_driver_finished(
 
     let driver_name = ctx.driver_name.clone();
     // No lease handler because we don't claim the lease if we're done
-    fake_apiserver
-        .handle(move |when, then| {
-            when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
-            then.json_body(json!({
-                "status": {
-                    "conditions": [{"type": "Running"}, { "type": status }],
-                },
-            }));
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+        then.json_body(json!({
+            "status": {
+                "conditions": [{"type": "Running"}, { "type": status }],
+            },
+        }));
+    });
     let sim_state =
         for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
     assert_eq!(expected_state, sim_state);
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
@@ -151,14 +138,12 @@ async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_ro
     let other_lease_obj = build_lease(&other_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
-    fake_apiserver
-        .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
-        .handle(move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
-            then.json_body_obj(&other_lease_obj);
-        })
-        .build();
+    fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"));
+        then.json_body_obj(&other_lease_obj);
+    });
 
     let sim_state =
         for_both!(fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE).await.unwrap(), s => s.0);
@@ -166,33 +151,29 @@ async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_ro
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
     let driver_name = ctx.driver_name.clone();
-    fake_apiserver
-        .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
-        .handle_not_found(format!(
-            "/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"
-        ))
-        .handle(move |when, then| {
-            when.method(POST)
-                .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases"));
-            then.status(409).json_body(json!({
-              "kind": "Status",
-              "apiVersion": "v1",
-              "metadata": {},
-              "message": "the object has been modified; please apply your changes to the latest version and try again",
-              "status": "Failure",
-              "reason": "Conflict",
-              "code": 409
-            }));
-        })
-        .build();
+    fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+    fake_apiserver.handle_not_found(format!(
+        "/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases/{SK_LEASE_NAME}"
+    ));
+    fake_apiserver.handle(move |when, then| {
+        when.method(POST)
+            .path(format!("/apis/coordination.k8s.io/v1/namespaces/{TEST_CTRL_NAMESPACE}/leases"));
+        then.status(409).json_body(json!({
+          "kind": "Status",
+          "apiVersion": "v1",
+          "metadata": {},
+          "message": "the object has been modified; please apply your changes to the latest version and try again",
+          "status": "Failure",
+          "reason": "Conflict",
+          "code": 409
+        }));
+    });
 
     let err = fetch_driver_state(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
@@ -203,15 +184,11 @@ async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_si
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
-    fake_apiserver
-        .handle_not_found(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"))
-        .build();
+    fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
 
     assert!(matches!(
         setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
@@ -224,9 +201,7 @@ async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: Simula
     fake_apiserver.assert();
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
@@ -236,25 +211,24 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
     let prom_obj =
         build_prometheus(&ctx.prometheus_name, &test_sim, &test_sim_root, &test_sim.spec.metrics.clone().unwrap());
 
+    fake_apiserver.handle(|when, then| {
+        when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
+        then.json_body(json!({
+            "kind": "Namespace",
+        }));
+    });
+    fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}"));
+    fake_apiserver.handle(move |when, then| {
+        when.method(POST).path("/api/v1/namespaces");
+        then.json_body_obj(&driver_ns_obj);
+    });
     fake_apiserver
-        .handle(|when, then| {
-            when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
-            then.json_body(json!({
-                "kind": "Namespace",
-            }));
-        })
-        .handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}"))
-        .handle(move |when, then| {
-            when.method(POST).path("/api/v1/namespaces");
-            then.json_body_obj(&driver_ns_obj);
-        })
-        .handle_not_found(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"))
-        .handle(move |when, then| {
-            when.method(POST)
-                .path("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses");
-            then.json_body_obj(&prom_obj);
-        })
-        .build();
+        .handle_not_found(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));
+    fake_apiserver.handle(move |when, then| {
+        when.method(POST)
+            .path("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses");
+        then.json_body_obj(&prom_obj);
+    });
     assert_eq!(
         setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
             .await
@@ -264,12 +238,10 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
     fake_apiserver.assert();
 }
 
-#[rstest]
+#[rstest(tokio::test)]
 #[case::ready(true, false)]
 #[case::not_ready(false, false)]
 #[case::disabled(true, true)]
-#[traced_test]
-#[tokio::test]
 async fn test_setup_simulation_wait_prom(
     mut test_sim: Simulation,
     test_sim_root: SimulationRoot,
@@ -291,17 +263,16 @@ async fn test_setup_simulation_wait_prom(
     let webhook_obj = build_mutating_webhook(&ctx, &test_sim, &test_sim_root);
     let driver_obj = build_driver_job(&ctx, &test_sim, None, "".into(), TEST_CTRL_NAMESPACE).unwrap();
 
-    fake_apiserver
-        .handle(|when, then| {
-            when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
-            then.json_body(json!({
-                "kind": "Namespace",
-            }));
-        })
-        .handle(move |when, then| {
-            when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}"));
-            then.json_body_obj(&driver_ns_obj);
-        });
+    fake_apiserver.handle(|when, then| {
+        when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
+        then.json_body(json!({
+            "kind": "Namespace",
+        }));
+    });
+    fake_apiserver.handle(move |when, then| {
+        when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}"));
+        then.json_body_obj(&driver_ns_obj);
+    });
 
     if disabled {
         test_sim.spec.metrics = None;
@@ -320,38 +291,36 @@ async fn test_setup_simulation_wait_prom(
     }
 
     if ready {
-        fake_apiserver
-            .handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"))
-            .handle(move |when, then| {
-                when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
-                then.json_body_obj(&driver_svc_obj);
-            })
-            .handle(move |when, then| {
-                when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/secrets"));
-                then.json_body(json!({
-                    "kind": "SecretList",
-                    "metadata": {},
-                    "items": [{
-                        "kind": "Secret"
-                    }],
-                }));
-            })
-            .handle_not_found(format!(
-                "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}",
-            ))
-            .handle(move |when, then| {
-                when.method(POST)
-                    .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
-                then.json_body_obj(&webhook_obj);
-            })
-            .handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"))
-            .handle(move |when, then| {
-                when.method(POST)
-                    .path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs"));
-                then.json_body_obj(&driver_obj);
-            });
+        fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"));
+        fake_apiserver.handle(move |when, then| {
+            when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
+            then.json_body_obj(&driver_svc_obj);
+        });
+        fake_apiserver.handle(move |when, then| {
+            when.method(GET).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/secrets"));
+            then.json_body(json!({
+                "kind": "SecretList",
+                "metadata": {},
+                "items": [{
+                    "kind": "Secret"
+                }],
+            }));
+        });
+        fake_apiserver.handle_not_found(format!(
+            "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}",
+        ));
+        fake_apiserver.handle(move |when, then| {
+            when.method(POST)
+                .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
+            then.json_body_obj(&webhook_obj);
+        });
+        fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+        fake_apiserver.handle(move |when, then| {
+            when.method(POST)
+                .path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs"));
+            then.json_body_obj(&driver_obj);
+        });
     }
-    fake_apiserver.build();
     let res = setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
         .unwrap();
@@ -364,21 +333,18 @@ async fn test_setup_simulation_wait_prom(
 }
 
 
-#[rstest]
+#[rstest(tokio::test)]
 #[traced_test]
-#[tokio::test]
 async fn test_cleanup_simulation(test_sim: Simulation, opts: Options) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 
     let root = ctx.metaroot_name.clone();
 
-    fake_apiserver
-        .handle(move |when, then| {
-            when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
-            then.json_body(status_ok());
-        })
-        .build();
+    fake_apiserver.handle(move |when, then| {
+        when.path(format!("/apis/simkube.io/v1/simulationroots/{root}"));
+        then.json_body(status_ok());
+    });
     cleanup_simulation(&ctx, &test_sim).await;
 
     assert!(!logs_contain("ERROR"));

@@ -8,58 +8,36 @@ use serde_json::json;
 
 pub struct MockServerBuilder {
     server: MockServer,
-    handlers: Vec<Box<dyn Fn(When, Then)>>,
-    mock_ids: Vec<usize>,
-}
-
-fn print_req(req: &HttpMockRequest) -> bool {
-    // Use println instead of info! so that this works outside of the lib crate
-    println!("    Received: {} {}", req.method, req.path);
-    true
+    mock_ids: Vec<(usize, usize)>,
 }
 
 impl MockServerBuilder {
     pub fn new() -> MockServerBuilder {
-        MockServerBuilder {
-            server: MockServer::start(),
-            handlers: vec![],
-            mock_ids: vec![],
-        }
+        MockServerBuilder { server: MockServer::start(), mock_ids: vec![] }
     }
 
     pub fn assert(&self) {
-        for id in &self.mock_ids {
+        for (id, calls) in &self.mock_ids {
             println!("checking assertions for mock {id}");
-            Mock::new(*id, &self.server).assert()
+            Mock::new(*id, &self.server).assert_calls(*calls)
         }
     }
 
-    pub fn handle<F: Fn(When, Then) + 'static>(&mut self, f: F) -> &mut Self {
-        self.handlers.push(Box::new(move |w, t| {
-            let w = w.matches(print_req);
-            f(w, t);
-        }));
-        self
+    pub fn handle<F: Fn(When, Then) + 'static>(&mut self, f: F) -> usize {
+        self.handle_multiple(f, 1)
     }
 
-    pub fn handle_not_found(&mut self, path: String) -> &mut Self {
+    pub fn handle_multiple<F: Fn(When, Then) + 'static>(&mut self, f: F, calls: usize) -> usize {
+        let mock_id = self.server.mock(f).id;
+        self.mock_ids.push((mock_id, calls));
+        mock_id
+    }
+
+    pub fn handle_not_found(&mut self, path: String) -> usize {
         self.handle(move |when, then| {
             when.path(&path);
             then.status(404).json_body(status_not_found());
         })
-    }
-
-    pub fn build(&mut self) {
-        for f in self.handlers.iter() {
-            self.mock_ids.push(self.server.mock(f).id);
-        }
-
-        // Print all unmatched/unhandled requests for easier debugging;
-        // this has to go last so that the other mock rules have a chance
-        // to match first
-        self.server.mock(|when, _| {
-            when.matches(print_req);
-        });
     }
 
     pub fn url(&self) -> http::Uri {

@@ -4,9 +4,7 @@ use serde_json::json;
 
 use super::*;
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
     let rsref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
@@ -34,9 +32,7 @@ async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
     assert_eq!(res, expected_owners);
 }
 
-#[rstest]
-#[traced_test]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
     let rsref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
@@ -90,7 +86,6 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
             ],
         }));
     });
-    fake_apiserver.build();
 
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
 

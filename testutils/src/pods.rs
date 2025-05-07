@@ -1,5 +1,5 @@
 use clockabilly::DateTime;
-use rstest::*;
+use rstest::fixture;
 use sk_core::macros::*;
 use sk_core::prelude::*;
 

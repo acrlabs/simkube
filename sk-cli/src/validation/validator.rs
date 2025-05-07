@@ -125,7 +125,7 @@ fn flatten_str<S: Serializer>(s: &str, ser: S) -> Result<S::Ok, S::Error> {
 #[cfg(test)]
 mod tests {
     use assertables::*;
-    use rstest::*;
+    use sk_testutils::*;
 
     use super::*;
 

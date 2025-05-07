@@ -116,7 +116,7 @@ pub fn cmd(args: &Args, mut cmd: clap::Command) -> EmptyResult {
 #[cfg_attr(coverage, coverage(off))]
 mod test {
     use assertables::*;
-    use rstest::*;
+    use sk_testutils::*;
 
     use super::*;
 

@@ -16,8 +16,7 @@ fn trace_store() -> Arc<Mutex<TraceStore>> {
     Arc::new(Mutex::new(TraceStore::new(Default::default())))
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_export_helper_cloud(trace_store: Arc<Mutex<TraceStore>>) {
     let req = ExportRequest {
         start_ts: 0,
@@ -33,8 +32,7 @@ async fn test_export_helper_cloud(trace_store: Arc<Mutex<TraceStore>>) {
     assert!(res.len() == 0);
 }
 
-#[rstest]
-#[tokio::test]
+#[rstest(tokio::test)]
 async fn test_export_helper_local(trace_store: Arc<Mutex<TraceStore>>) {
     let export_path = "memory:/foo";
 
