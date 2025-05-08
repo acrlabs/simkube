@@ -42,12 +42,11 @@ pub struct Args {
     pub output: String,
 }
 
-pub async fn cmd(args: &Args) -> EmptyResult {
+pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
     println!("Reading config from {}...", args.config_file);
     let config = TracerConfig::load(&args.config_file)?;
 
     println!("Connecting to kubernetes cluster...");
-    let client = kube::Client::try_default().await?;
     let mut apiset = DynamicApiSet::new(client.clone());
 
     println!("Loading snapshot into store...");

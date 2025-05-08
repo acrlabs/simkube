@@ -3723,6 +3723,7 @@ dependencies = [
  "const_format",
  "derive_setters",
  "dirs",
+ "httpmock",
  "insta",
  "json-patch-ext",
  "k8s-openapi",
