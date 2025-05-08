@@ -164,7 +164,7 @@ pub struct Args {
     pub version: (),
 }
 
-pub async fn cmd(args: &Args) -> EmptyResult {
+pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
     println!("running simulation with configuration:\n\n---\n{}", serde_yaml::to_string(args)?);
 
     let metrics_config = (!args.disable_metrics).then_some(SimulationMetricsConfig {
@@ -201,7 +201,6 @@ pub async fn cmd(args: &Args) -> EmptyResult {
             hooks,
         },
     );
-    let client = kube::Client::try_default().await?;
     let sim_api = kube::Api::<Simulation>::all(client.clone());
 
     sim_api.create(&Default::default(), &sim).await?;
