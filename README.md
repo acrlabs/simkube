@@ -30,14 +30,13 @@ This package provides the following components:
 
 ## Documentation
 
-Full [documentation for SimKube](https://appliedcomputing.io/simkube/) is available on Applied
-Computing's website.  Here are some quick links to select topics:
+Full [documentation for SimKube](https://simkube.dev/documentation/) is available on the SimKube website.
+Here are some quick links to select topics:
 
-- [Installation](https://appliedcomputing.io/simkube/docs/intro/installation/)
-- [Autoscaling](http://appliedcomputing.io/simkube/docs/adv/autoscaling/)
-- [Metrics Collection](http://appliedcomputing.io/simkube/docs/adv/metrics/)
-- [Component Reference](http://appliedcomputing.io/simkube/docs/components/skctl/)
-- [Developing SimKube](http://appliedcomputing.io/simkube/docs/dev/contributing/)
+- [Installation](https://simkube.dev/simkube/docs/intro/installation/)
+- [Autoscaling](https://simkube.dev/simkube/docs/adv/autoscaling/)
+- [Metrics Collection](https://simkube.dev/simkube/docs/adv/metrics/)
+- [Developing SimKube](https://simkube.dev/simkube/docs/dev/contributing/)
 
 ### Architecture Diagram
 
