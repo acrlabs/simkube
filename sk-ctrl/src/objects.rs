@@ -1,5 +1,4 @@
 use std::env;
-use std::path::PathBuf;
 
 use anyhow::anyhow;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
@@ -23,6 +22,7 @@ use sk_core::k8s::{
 };
 use sk_core::macros::*;
 use sk_core::prelude::*;
+use tracing::*;
 
 use crate::cert_manager::DRIVER_CERT_NAME;
 use crate::context::SimulationContext;
@@ -33,8 +33,7 @@ const PROM_VERSION: &str = "2.44.0";
 const PROM_COMPONENT_LABEL: &str = "prometheus";
 const WEBHOOK_NAME: &str = "mutatepods.simkube.io";
 const DRIVER_CERT_VOLUME: &str = "driver-cert";
-const TRACE_VOLUME_NAME: &str = "trace-data";
-const TRACE_PATH: &str = "/trace-data";
+pub(crate) const TRACE_VOLUME_NAME: &str = "trace-data";
 const SSL_MOUNT_PATH: &str = "/usr/local/etc/ssl";
 
 type VolumeInfo = (corev1::VolumeMount, corev1::Volume, String);
@@ -191,7 +190,7 @@ pub(crate) fn build_driver_job(
     let (cert_vm, cert_volume, cert_mount_path) = build_certificate_volumes(cert_secret_name);
     let (mut volume_mounts, mut volumes) = (vec![cert_vm], vec![cert_volume]);
 
-    let trace_path = match build_local_trace_volume(&sim.spec.driver.trace_path)? {
+    let trace_path = match build_local_trace_volume(sim)? {
         Some((trace_vm, trace_volume, trace_mount_path)) => {
             volume_mounts.push(trace_vm);
             volumes.push(trace_volume);
@@ -259,6 +258,47 @@ pub(crate) fn build_driver_job(
     })
 }
 
+pub(crate) fn build_local_trace_volume(sim: &Simulation) -> anyhow::Result<Option<VolumeInfo>> {
+    let url = Url::parse(&sim.spec.driver.trace_path)?;
+    let (scheme, trace_path) = ObjectStoreScheme::parse(&url)?;
+    let skip_mount = sim.annotations().get(SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY).map_or("", |v| v) == "true";
+
+    if scheme != ObjectStoreScheme::Local && skip_mount {
+        warn!("requested to skip local volume mount, but trace path is not local; ignoring annotation");
+    }
+    if scheme != ObjectStoreScheme::Local || skip_mount {
+        return Ok(None);
+    }
+
+    let fp = url
+        .to_file_path()
+        .map_err(|_| anyhow!("could not parse trace path: {}", trace_path))?;
+
+    let host_path_str = fp
+        .clone()
+        .into_os_string()
+        .into_string()
+        .map_err(|osstr| anyhow!("could not parse host path: {:?}", osstr))?;
+
+    let mount_path_str = fp
+        .to_str()
+        .ok_or(anyhow!("could not parse trace mount path: {}", fp.display()))?;
+
+    Ok(Some((
+        corev1::VolumeMount {
+            name: TRACE_VOLUME_NAME.into(),
+            mount_path: mount_path_str.into(),
+            ..Default::default()
+        },
+        corev1::Volume {
+            name: TRACE_VOLUME_NAME.into(),
+            host_path: Some(corev1::HostPathVolumeSource { path: host_path_str, type_: Some("File".into()) }),
+            ..Default::default()
+        },
+        mount_path_str.into(),
+    )))
+}
+
 fn build_driver_args(
     ctx: &SimulationContext,
     sim: &Simulation,
@@ -305,42 +345,4 @@ fn build_certificate_volumes(cert_secret_name: &str) -> VolumeInfo {
         },
         SSL_MOUNT_PATH.into(),
     )
-}
-
-fn build_local_trace_volume(trace_path: &str) -> anyhow::Result<Option<VolumeInfo>> {
-    let url = Url::parse(trace_path)?;
-    let (scheme, trace_path) = ObjectStoreScheme::parse(&url)?;
-    if scheme != ObjectStoreScheme::Local {
-        return Ok(None);
-    }
-
-    let fp = url
-        .to_file_path()
-        .map_err(|_| anyhow!("could not parse trace path: {}", trace_path))?;
-
-    let host_path_str = fp
-        .clone()
-        .into_os_string()
-        .into_string()
-        .map_err(|osstr| anyhow!("could not parse host path: {:?}", osstr))?;
-
-    let mut mount_path = PathBuf::from(TRACE_PATH);
-    mount_path.push(fp);
-    let mount_path_str = mount_path
-        .to_str()
-        .ok_or(anyhow!("could not parse trace mount path: {}", mount_path.display()))?;
-
-    Ok(Some((
-        corev1::VolumeMount {
-            name: TRACE_VOLUME_NAME.into(),
-            mount_path: mount_path_str.into(),
-            ..Default::default()
-        },
-        corev1::Volume {
-            name: TRACE_VOLUME_NAME.into(),
-            host_path: Some(corev1::HostPathVolumeSource { path: host_path_str, type_: Some("File".into()) }),
-            ..Default::default()
-        },
-        mount_path_str.into(),
-    )))
 }

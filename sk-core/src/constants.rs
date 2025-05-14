@@ -13,6 +13,7 @@ pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 pub const POD_SPEC_STABLE_HASH_KEY: &str = "simkube.io/pod-spec-stable-hash";
 pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
+pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volue-mount";
 
 // Lifecycle management labels and annotations
 pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.kwok.io/stage-complete";

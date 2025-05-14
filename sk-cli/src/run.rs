@@ -89,6 +89,13 @@ pub struct Args {
 
     #[arg(
         long,
+        long_help = "don't mount trace volume to the driver pod",
+        help_heading = "Driver"
+    )]
+    pub skip_local_volume_mount: bool,
+
+    #[arg(
+        long,
         long_help = "driver log verbosity",
         default_value = "info",
         help_heading = "Driver"
@@ -198,7 +205,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
     let driver_args = vec!["--verbosity".into(), args.driver_verbosity.clone()];
 
     let paused_time = if args.start_paused { Some(UtcClock.now()) } else { None };
-    let sim = Simulation::new(
+    let mut sim = Simulation::new(
         &args.name,
         SimulationSpec {
             driver: SimulationDriverConfig {
@@ -216,8 +223,12 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
             hooks,
         },
     );
-    let sim_api = kube::Api::<Simulation>::all(client.clone());
+    if args.skip_local_volume_mount {
+        sim.annotations_mut()
+            .insert(SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY.into(), "true".into());
+    }
 
+    let sim_api = kube::Api::<Simulation>::all(client.clone());
     sim_api.create(&Default::default(), &sim).await?;
 
     Ok(())
