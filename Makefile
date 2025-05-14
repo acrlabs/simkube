@@ -10,6 +10,7 @@ CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
 RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
+CARGO_PROFILE = nextest
 
 ifndef IN_CI
 DOCKER_ARGS=-it --init

@@ -16,6 +16,6 @@ inherits = "dev"
 [profile.skctl-release]
 inherits = "release"
 
-[profile.test-cover]
+[profile.nextest]
 inherits = "test"
 incremental = false
