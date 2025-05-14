@@ -46,6 +46,14 @@ pub struct Args {
     pub start_paused: bool,
 
     #[arg(
+        long,
+        long_help = "list of simulation hook files to apply in order",
+        default_value = "config/hooks/default.yml:config/hooks/autoscaler.yml",
+        value_delimiter = ':'
+    )]
+    pub hooks: Option<Vec<String>>,
+
+    #[arg(
         short = 'I',
         long,
         long_help = "name of the docker image to use for sk-driver",
@@ -58,7 +66,7 @@ pub struct Args {
         long,
         long_help = "admission webhook port for sk-driver",
         default_value = DRIVER_ADMISSION_WEBHOOK_PORT,
-        help_heading = "Driver",
+        help_heading = "Driver"
     )]
     pub driver_port: i32,
 
@@ -71,16 +79,21 @@ pub struct Args {
     )]
     pub trace_path: String,
 
-    #[arg(long, long_help = "namespace to launch sk-driver in", default_value = "simkube")]
+    #[arg(
+        long,
+        long_help = "namespace to launch sk-driver in",
+        default_value = "simkube",
+        help_heading = "Driver"
+    )]
     pub driver_namespace: String,
 
     #[arg(
         long,
-        long_help = "list of simulation hook files to apply in order",
-        default_value = "config/hooks/default.yml:config/hooks/autoscaler.yml",
-        value_delimiter = ':'
+        long_help = "driver log verbosity",
+        default_value = "info",
+        help_heading = "Driver"
     )]
-    pub hooks: Option<Vec<String>>,
+    pub driver_verbosity: String,
 
     #[arg(
         long,
@@ -182,6 +195,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
     });
 
     let hooks = merge_hooks(&args.hooks)?;
+    let driver_args = vec!["--verbosity".into(), args.driver_verbosity.clone()];
 
     let paused_time = if args.start_paused { Some(UtcClock.now()) } else { None };
     let sim = Simulation::new(
@@ -192,6 +206,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
                 image: args.driver_image.clone(),
                 port: args.driver_port,
                 trace_path: args.trace_path.clone(),
+                args: Some(driver_args),
             },
             duration: args.duration.clone(),
             metrics: metrics_config,

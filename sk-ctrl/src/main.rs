@@ -29,7 +29,7 @@ use crate::controller::{
     reconcile,
 };
 
-#[derive(Clone, Debug, Parser)]
+#[derive(Clone, Debug, Default, Parser)]
 struct Options {
     #[arg(long, value_delimiter = ',')]
     driver_secrets: Option<Vec<String>>,
