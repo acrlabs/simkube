@@ -49,6 +49,11 @@ spec:
             properties:
               driver:
                 properties:
+                  args:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   image:
                     type: string
                   namespace:

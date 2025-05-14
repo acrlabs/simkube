@@ -39,7 +39,7 @@ const SSL_MOUNT_PATH: &str = "/usr/local/etc/ssl";
 
 type VolumeInfo = (corev1::VolumeMount, corev1::Volume, String);
 
-pub fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
+pub(crate) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
     let owner = sim;
     corev1::Namespace {
         metadata: build_global_object_meta(&sim.spec.driver.namespace, &ctx.name, owner),
@@ -47,7 +47,7 @@ pub fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> core
     }
 }
 
-pub fn build_prometheus(
+pub(crate) fn build_prometheus(
     name: &str,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -118,7 +118,7 @@ pub fn build_prometheus(
     }
 }
 
-pub fn build_mutating_webhook(
+pub(crate) fn build_mutating_webhook(
     ctx: &SimulationContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -160,7 +160,11 @@ pub fn build_mutating_webhook(
     }
 }
 
-pub fn build_driver_service(ctx: &SimulationContext, sim: &Simulation, metaroot: &SimulationRoot) -> corev1::Service {
+pub(crate) fn build_driver_service(
+    ctx: &SimulationContext,
+    sim: &Simulation,
+    metaroot: &SimulationRoot,
+) -> corev1::Service {
     let owner = metaroot;
     corev1::Service {
         metadata: build_object_meta(&sim.spec.driver.namespace, &ctx.driver_svc, &ctx.name, owner),
@@ -177,7 +181,7 @@ pub fn build_driver_service(ctx: &SimulationContext, sim: &Simulation, metaroot:
     }
 }
 
-pub fn build_driver_job(
+pub(crate) fn build_driver_job(
     ctx: &SimulationContext,
     sim: &Simulation,
     driver_secrets: Option<&Vec<String>>,
@@ -216,7 +220,7 @@ pub fn build_driver_job(
                     containers: vec![corev1::Container {
                         name: "driver".into(),
                         command: Some(vec!["/sk-driver".into()]),
-                        args: Some(build_driver_args(ctx, cert_mount_path, trace_path, ctrl_ns.into())),
+                        args: Some(build_driver_args(ctx, sim, cert_mount_path, trace_path, ctrl_ns.into())),
                         image: Some(sim.spec.driver.image.clone()),
                         env_from: driver_secret_refs,
                         env: Some(vec![
@@ -257,11 +261,12 @@ pub fn build_driver_job(
 
 fn build_driver_args(
     ctx: &SimulationContext,
+    sim: &Simulation,
     cert_mount_path: String,
     trace_path: String,
     ctrl_ns: String,
 ) -> Vec<String> {
-    vec![
+    let mut args = vec![
         "--cert-path".into(),
         format!("{cert_mount_path}/tls.crt"),
         "--key-path".into(),
@@ -272,11 +277,14 @@ fn build_driver_args(
         "virtual".into(),
         "--sim-name".into(),
         ctx.name.clone(),
-        "--verbosity".into(),
-        ctx.opts.verbosity.clone(),
         "--controller-ns".into(),
         ctrl_ns,
-    ]
+    ];
+    if let Some(extra_args) = sim.spec.driver.args.as_ref() {
+        args.extend_from_slice(extra_args);
+    }
+
+    args
 }
 
 fn build_certificate_volumes(cert_secret_name: &str) -> VolumeInfo {

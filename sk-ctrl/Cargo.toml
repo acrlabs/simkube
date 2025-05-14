@@ -27,6 +27,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+assertables = { workspace = true }
 httpmock = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
