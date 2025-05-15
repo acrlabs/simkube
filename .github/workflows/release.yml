@@ -1,5 +1,5 @@
 ---
-name: Publish Docker Image to Quay.io
+name: Publish to Quay.io and Crates.io
 
 on:  # yamllint disable-line rule:truthy
   release:
@@ -22,6 +22,8 @@ jobs:
         run: git fetch --tags
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
+      - name: Install cargo workspaces
+        run: cargo install cargo-workspaces@0.3.6 --locked
       - name: Build
         run: EXTRA_BUILD_ARTIFACTS= make build
       - name: Login to Quay.io
@@ -32,3 +34,9 @@ jobs:
         run: DOCKER_REGISTRY=quay.io/appliedcomputing make image
       - name: Logout from Quay.io
         run: docker logout quay.io
+      - name: Login to crates.io
+        run: echo "${{ secrets.CRATES_IO_PASSWORD }}" | cargo login
+      - name: Publish to crates.io
+        run: make publish
+      - name: Logout from crates.io
+        run: cargo logout
