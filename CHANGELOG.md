@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.3.0 - 2025-05-15
+
+### 🚀 Features
+
+- Add Paused field to the simulation spec + driver handlers
+- Add pause/resume commands to the CLI
+- Pass in driver args via simulation spec
+- Skip local volume mount flag
+
 ## 2.2.0 - 2025-04-29
 
 ### 🚀 Features
