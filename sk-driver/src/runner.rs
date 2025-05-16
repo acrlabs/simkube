@@ -20,6 +20,7 @@ use sk_core::k8s::{
     add_common_metadata,
     build_global_object_meta,
     build_simulation_root,
+    dyn_obj_type_str,
     try_update_lease,
     DynamicApiSet,
     GVK,
@@ -153,7 +154,7 @@ pub(crate) async fn run_trace_internal(
             let pod_spec_template_path = ctx.store.config().pod_spec_template_paths(&gvk);
             let vobj = build_virtual_obj(ctx, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
-            info!("applying object {}", vobj.namespaced_name());
+            info!("applying {} {}", dyn_obj_type_str(&vobj), vobj.namespaced_name());
             apiset
                 .api_for_obj(&vobj)
                 .await?
@@ -162,7 +163,7 @@ pub(crate) async fn run_trace_internal(
         }
 
         for obj in &evt.deleted_objs {
-            info!("deleting object {}", obj.namespaced_name());
+            info!("deleting {} {}", dyn_obj_type_str(obj), obj.namespaced_name());
             let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
             let mut vobj = obj.clone();
             vobj.metadata.namespace = Some(virtual_ns);
