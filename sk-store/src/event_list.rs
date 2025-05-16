@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::ops::Index;
 
+use sk_core::k8s::dyn_obj_type_str;
 use sk_core::prelude::*;
 use tracing::*;
 
@@ -14,15 +15,7 @@ pub struct TraceEventList(VecDeque<TraceEvent>);
 
 impl TraceEventList {
     pub(crate) fn append(&mut self, ts: i64, obj: &DynamicObject, action: TraceAction) {
-        info!(
-            "{:?} @ {ts}: {} {}",
-            action,
-            obj.types
-                .clone()
-                .map(|tm| format!("{}.{}", tm.api_version, tm.kind))
-                .unwrap_or("<unknown type>".into()),
-            obj.namespaced_name(),
-        );
+        info!("{:?} @ {ts}: {} {}", action, dyn_obj_type_str(obj), obj.namespaced_name(),);
 
         let obj = obj.clone();
         match self.0.back_mut() {

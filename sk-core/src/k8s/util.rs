@@ -72,10 +72,16 @@ where
     build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
 }
 
+pub fn dyn_obj_type_str(obj: &DynamicObject) -> String {
+    obj.types
+        .as_ref()
+        .map(|tm| format!("{}.{}", tm.api_version, tm.kind))
+        .unwrap_or("<unknown type>".into())
+}
+
 pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
     format!("{gvk}:{ns_name}")
 }
-
 
 pub fn sanitize_obj(obj: &mut DynamicObject, api_version: &str, kind: &str) {
     obj.metadata.creation_timestamp = None;
