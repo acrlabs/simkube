@@ -14,6 +14,7 @@ use anyhow::anyhow;
 use clap::Parser;
 use clockabilly::UtcClock;
 use rocket::config::TlsConfig;
+use sk_core::errors::*;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
@@ -141,10 +142,13 @@ async fn run(opts: Options) -> EmptyResult {
 }
 
 #[tokio::main]
-async fn main() -> EmptyResult {
+async fn main() {
     let args = Options::parse();
     logging::setup(&format!("{},rocket=warn", args.verbosity));
-    run(args).await
+    if let Err(err) = run(args).await {
+        skerr!(err, "driver failed");
+        std::process::exit(1);
+    }
 }
 
 #[cfg(test)]

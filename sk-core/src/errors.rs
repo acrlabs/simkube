@@ -84,32 +84,44 @@ macro_rules! err_impl {
 macro_rules! skerr {
     (@hidden $err:ident, $msg:literal, $($args:expr),*) => {
         let bt = $err.backtrace().to_string();
-        let re = RegexBuilder::new(r"^\s+\d+(?s:.*?)(\s+at\s+.*:\d+)$")
+        let re = RegexBuilder::new(r"^\s+(\d+)(?s:.*?)\s+at\s+.*:\d+$")
             .multi_line(true)
             .build()
             .unwrap();
-        let mut skipped_frames = 0;
-        let mut filtered_bt = re.find_iter(&bt).fold(String::new(), |mut acc, frame| {
-            let frame = frame.as_str();
-            if frame.contains(BUILD_DIR) || frame.contains(RUSTC_DIR) || frame.contains (GLIBC) {
-                skipped_frames += 1;
-            } else if !frame.is_empty() {
-                if skipped_frames == 1 {
+        let bad_frame_index: i32 = -2;
+
+        // Frame indices start at 0 so set this to -1 so the math works out
+        let mut last_frame_index: i32 = -1;
+        let mut frame_index: i32 = 0;
+        let mut filtered_bt = re.captures_iter(&bt).fold(String::new(), |mut acc, frame_capture| {
+            // 0th capture group guaranteed to be not none, so unwrap is safe
+            let frame = frame_capture.get(0).unwrap().as_str();
+            let skipped_frames = frame_index - last_frame_index;
+            if !(frame.contains(BUILD_DIR) || frame.contains(RUSTC_DIR) || frame.contains (GLIBC)) && !frame.is_empty() {
+                frame_index = str::parse::<i32>(frame_capture.get(1).map_or("", |m| m.as_str())).unwrap_or(bad_frame_index);
+                // subtract one so adjact frames don't skip
+                let skipped_frame_count = frame_index - last_frame_index - 1;
+                let skipped_frames = if frame_index == bad_frame_index || last_frame_index == bad_frame_index {
+                    acc += &format!("      -- <skipped unknown frames> --\n");
+                } else if skipped_frame_count == 1 {
                     acc += &format!("      -- <skipped 1 frame> --\n");
-                } else if skipped_frames > 1 {
-                    acc += &format!("      -- <skipped {skipped_frames} frames> --\n");
-                }
+                } else if skipped_frame_count > 1 {
+                    acc += &format!("      -- <skipped {skipped_frame_count} frames> --\n");
+                };
                 acc += &format!("{frame}\n");
-                skipped_frames = 0;
+                last_frame_index = frame_index;
             }
             acc
         });
 
-        if skipped_frames == 1 {
+        let skipped_frame_count = frame_index - last_frame_index - 1;
+        let skipped_frames = if frame_index == bad_frame_index || last_frame_index == bad_frame_index {
+            filtered_bt += &format!("      -- <skipped unknown frames> --");
+        } else if skipped_frame_count == 1 {
             filtered_bt += &format!("      -- <skipped 1 frame> --");
-        } else if skipped_frames > 1 {
-            filtered_bt += &format!("      -- <skipped {skipped_frames} frames> --");
-        }
+        } else if skipped_frame_count > 1 {
+            filtered_bt += &format!("      -- <skipped {skipped_frame_count} frames> --");
+        };
         error!(concat!($msg, "\n\n{}\n\nPartial Stack Trace:\n\n{}\n\n") $(, $args)*, $err, filtered_bt);
     };
 
