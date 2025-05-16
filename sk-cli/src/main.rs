@@ -43,10 +43,13 @@ enum SkSubcommand {
     #[command(about = "print SimKube CRDs")]
     Crd,
 
-    #[command(about = "delete a simulation")]
+    #[command(
+        about = "delete a simulation",
+        visible_aliases = &["d", "del", "rm"],
+    )]
     Delete(delete::Args),
 
-    #[command(about = "export simulation trace data")]
+    #[command(about = "export simulation trace data", visible_aliases = &["ex", "exp", "x"])]
     Export(export::Args),
 
     #[command(about = "pause a running simulation")]
@@ -55,13 +58,16 @@ enum SkSubcommand {
     #[command(about = "resume a paused simulation")]
     Resume(pauseresume::Args),
 
-    #[command(about = "run a simulation")]
+    #[command(about = "run a simulation", visible_alias = "r")]
     Run(run::Args),
 
-    #[command(about = "take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)")]
+    #[command(
+        about = "take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)",
+        visible_alias = "snap"
+    )]
     Snapshot(snapshot::Args),
 
-    #[command(subcommand)]
+    #[command(subcommand, visible_alias = "val")]
     Validate(ValidateSubcommand),
 
     #[command(about = "simkube version")]
