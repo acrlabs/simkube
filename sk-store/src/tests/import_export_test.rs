@@ -128,7 +128,7 @@ mod itest {
         match store.export(start_ts, end_ts, &filter) {
             Ok(data) => {
                 // Confirm that the results match what we expect
-                let new_store = TraceStore::import(data, &duration).unwrap();
+                let new_store = TraceStore::import(data, duration.as_ref()).unwrap();
                 let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
                 let expected_pods = store.sorted_objs_at(import_end_ts, &filter);
                 let actual_pods = new_store.sorted_objs_at(end_ts, &filter);

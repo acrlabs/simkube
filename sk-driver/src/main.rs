@@ -95,7 +95,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     let object_store = SkObjectStore::new(&opts.trace_path)?;
     let trace_data = object_store.get().await?.to_vec();
-    let store = Arc::new(TraceStore::import(trace_data, &sim.spec.duration)?);
+    let store = Arc::new(TraceStore::import(trace_data, sim.spec.duration.as_ref())?);
 
     let apiset = DynamicApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));

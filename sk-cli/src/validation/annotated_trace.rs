@@ -112,7 +112,7 @@ impl AnnotatedTrace {
     pub async fn new(trace_path: &str) -> anyhow::Result<AnnotatedTrace> {
         let object_store = SkObjectStore::new(trace_path)?;
         let trace_data = object_store.get().await?.to_vec();
-        let base = TraceStore::import(trace_data, &None)?;
+        let base = TraceStore::import(trace_data, None)?;
         let events = base.iter().map(|(event, _)| AnnotatedTraceEvent::new(event.clone())).collect();
         Ok(AnnotatedTrace {
             base,
@@ -295,7 +295,7 @@ impl AnnotatedTrace {
             .cloned()
             .map(|e| AnnotatedTraceEvent::new(e))
             .collect();
-        let base = TraceStore::from_exported_trace(exported_trace, &None).unwrap();
+        let base = TraceStore::from_exported_trace(exported_trace, None).unwrap();
 
         AnnotatedTrace {
             base,

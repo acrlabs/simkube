@@ -148,7 +148,7 @@ mod itest {
         let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
         let trace_data = build_trace_data(has_start_marker, None);
-        let store = Arc::new(TraceStore::import(trace_data, &None).unwrap());
+        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
         let ctx = build_driver_context(cache, store);
 
         let root = SimulationRoot {
@@ -231,7 +231,7 @@ mod itest {
         let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
         let trace_data = build_trace_data(false, Some(10));
-        let store = Arc::new(TraceStore::import(trace_data, &None).unwrap());
+        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
         let ctx = build_driver_context(cache, store);
 
         let root = SimulationRoot {
@@ -309,7 +309,7 @@ mod itest {
         let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
 
         let trace_data = build_trace_data(false, Some(10));
-        let store = Arc::new(TraceStore::import(trace_data, &None).unwrap());
+        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
         let ctx = build_driver_context(cache, store);
 
         let root = SimulationRoot {
