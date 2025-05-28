@@ -32,6 +32,14 @@ fn owner_ref() -> metav1::OwnerReference {
 }
 
 #[rstest]
+fn test_export_all(mut tracer: TraceStore, test_deployment: DynamicObject) {
+    tracer.create_or_update_obj(&test_deployment, 1, None).unwrap();
+    let export_data = tracer.export_all().unwrap();
+    let new_trace = TraceStore::import(export_data, &None).unwrap();
+    assert_len_eq_x!(new_trace.events, 2); // start marker + the deployment event
+}
+
+#[rstest]
 fn test_lookup_pod_lifecycle_no_owner(tracer: TraceStore) {
     let res = tracer.lookup_pod_lifecycle(&DEPL_GVK, TEST_DEPLOYMENT, EMPTY_POD_SPEC_HASH, 0);
     assert_eq!(res, PodLifecycleData::Empty);

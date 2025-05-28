@@ -10,7 +10,7 @@ use crate::{
     TraceEvent,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TraceEventList(VecDeque<TraceEvent>);
 
 impl TraceEventList {
