@@ -94,7 +94,7 @@ impl TraceStore {
         let (Some(start_ts), Some(end_ts)) = (self.start_ts(), self.end_ts()) else {
             return Ok(vec![]);
         };
-        self.export(start_ts, end_ts, &ExportFilters::default())
+        self.export(start_ts, end_ts + 1, &ExportFilters::default())
     }
 
     pub fn import(data: Vec<u8>, maybe_duration: &Option<String>) -> anyhow::Result<TraceStore> {
