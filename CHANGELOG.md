@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.3.1 - 2025-05-31
+
+### 🐛 Bug Fixes
+
+- Show GVK in driver logs
+- Show truncated stack trace on driver failure
+- Add aliases for skctl subcommands
+- Export_all off-by-one error
+
 ## 2.3.0 - 2025-05-15
 
 ### 🚀 Features
