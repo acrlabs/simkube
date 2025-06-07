@@ -55,3 +55,22 @@ and you will need read access to all namespaces on the cluster you're trying to 
 
 The config file format is the same as for [sk-tracer](sk-tracer.md); there is an example in the [examples
 folder](https://github.com/acrlabs/simkube/blob/master/examples/tracer_config.yml).
+
+## skctl validate
+
+```bash exec="on" result="plain"
+skctl validate check --help
+```
+
+Validate a specified tracefile, looking for common errors or issues that may make your simulation less successful, or
+fail outright.  You can use the `--fix` option to automatically fix errors as they come up, or use `skctl validate
+explain` to understand a particular error better.
+
+## skctl xray
+
+```bash exec="on" result="plain"
+skctl xray --help
+```
+
+Bring up a TUI for exploring a trace file; use `h/j/k/l` or arrow keys to navigate; spacebar to expand an item; escape
+to collapse an item, and `q` to quit.

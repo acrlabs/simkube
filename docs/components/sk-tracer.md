@@ -66,18 +66,19 @@ msgpack2json -di /path/to/trace/file
 
 The structure of the trace file is a 4-tuple of data:
 
-```
-[
-    {tracer config},
-    [timeseries data of "important" events],
-    {index of tracked objects during the course of the trace},
-    {pod lifecycle data for tracked pods},
-]
+```json
+{
+    "version": 2,
+    "config": {...},
+    "events": [...],
+    "index": {...},
+    "pod_lifecycles": {...},
+}
 ```
 
 An entry in the timeseries array looks like this:
 
-```yaml
+```json
 {
     ts: <unix timestamp>,
     applied_objs: [array of Kubernetes object definitions],
@@ -88,11 +89,13 @@ An entry in the timeseries array looks like this:
 The "tracked object index" (the third entry in the trace) stores the namespaced name of the object along with a hash of
 the object contents.  The pod lifecycle data has the following format:
 
-```yaml
+```json
 {
-    <pod owner's namespaced name>: {
-        <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
-        ...
+    <GVK>: {
+        <pod owner's namespaced name>: {
+            <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
+            ...
+        },
     },
 }
 ```
