@@ -1,4 +1,3 @@
-#![cfg_attr(coverage, feature(coverage_attribute))]
 mod completions;
 mod crd;
 mod delete;

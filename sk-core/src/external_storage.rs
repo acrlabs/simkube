@@ -104,7 +104,7 @@ impl ObjectStoreWrapper for SkObjectStore {
 fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
     let url = match Url::parse(path_str) {
         Err(url::ParseError::RelativeUrlWithoutBase) => {
-            let path = absolute(PathBuf::from(path_str))?;
+            let path = absolute_strip_dots(path_str)?;
             Url::from_file_path(path).map_err(|e| anyhow!("could not create URL from file path: {e:?}"))?
         },
         res => res?,
@@ -113,9 +113,31 @@ fn parse_path(path_str: &str) -> anyhow::Result<(ObjectStoreScheme, Path)> {
     Ok(ObjectStoreScheme::parse(&url)?)
 }
 
+fn absolute_strip_dots(path_str: &str) -> anyhow::Result<PathBuf> {
+    // We have to use `absolute` here in the event that the path doesn't exist locally,
+    // e.g., we're specifying a path inside the driver container.  `Path::canonicalize`
+    // requires the path to exist locally.  Unfortunately, `absolute` does not strip `..`,
+    // and ObjectStoreScheme::parse will not parse `..`, so we have to do that ourselves.
+    let orig_path = absolute(PathBuf::from(path_str))?;
+    let mut new_path = PathBuf::new();
+
+    for component in orig_path.iter() {
+        if component == ".." {
+            if !new_path.pop() {
+                bail!("malformed relative path: {path_str}");
+            }
+        } else {
+            new_path.push(component);
+        }
+    }
+
+    Ok(new_path)
+}
+
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use assertables::*;
     use sk_testutils::*;
 
     use super::*;
@@ -134,9 +156,17 @@ mod test {
     #[rstest]
     #[case::with_base("file:///tmp/foo")]
     #[case::without_base("/tmp/foo")]
+    #[case::absolute_with_dots("/tmp/../foo/bar/../../baz")]
     #[case::relative("foo")]
+    #[case::relative_path_with_dots("../foo")]
     fn test_new_sk_object_store_local_path(#[case] path: &str) {
         let store = SkObjectStore::new(path).unwrap();
         assert_eq!(store.scheme(), ObjectStoreScheme::Local);
+    }
+
+    #[rstest]
+    fn test_new_sk_object_store_invalid_path() {
+        let res = SkObjectStore::new("/foo/../..");
+        assert_err!(res);
     }
 }
