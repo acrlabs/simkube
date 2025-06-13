@@ -13,10 +13,14 @@ Kind).
 In addition to the project prerequisites, you will need to have the following installed:
 
 - [pre-commit](https://pre-commit.com)
-- Nightly version of rustfmt
 - [cargo-nextext](https://nexte.st) for running tests
-- Nightly version of [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) for running tests
 - [cargo-insta](https://insta.rs/docs/quickstart/) (only needed for updating/adding new snapshot tests)
+- Nightly version of rustfmt
+- (optional) Nightly version of [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) for generating code coverage
+
+The current nightly Rust version used is 2024-10-29, which corresponds (approximately) to the Rust 1.83 release; this is
+pinned in CI; you'll want to set the `RUST_NIGHTLY_VERSION` environment variable to this value so that you can match the
+CI behaviour locally.
 
 SimKube uses [🔥Config](https://github.com/acrlabs/fireconfig) to generate Kubernetes manifests from definitions located
 in `./k8s/`.  If you want to make changes to the generated Kubernetes manifests, you will need to install the
