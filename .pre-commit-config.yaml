@@ -34,12 +34,13 @@ repos:
           - --
           - -Dwarnings
           - -Aclippy::new_without_default
-  - repo: "https://github.com/futuretech6/pre-commit-rust-nightly"
-    rev: v1.1
+  - repo: local
     hooks:
       - id: fmt
         name: rust-fmt
-        args: ['--', '--unstable-features']
+        language: system
+        entry: hack/fmt
+        files: \.rs
   - repo: "https://github.com/pre-commit/mirrors-mypy"
     rev: v1.4.1
     hooks:

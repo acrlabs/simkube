@@ -15,6 +15,7 @@ env:
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: sccache
   IN_CI: "true"
+  RUST_NIGHTLY_VERSION: 2024-10-29
 
 jobs:
   skctl:
@@ -61,10 +62,10 @@ jobs:
           submodules: recursive
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
-      - name: rustfmt nightly
+      - name: Install rustfmt nightly
         run: |
-          rustup toolchain install nightly-x86_64-unknown-linux-gnu
-          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup toolchain install nightly-${RUST_NIGHTLY_VERSION}
+          rustup component add rustfmt --toolchain nightly-${RUST_NIGHTLY_VERSION}
       - name: Install Python
         uses: actions/setup-python@v5
         with:
@@ -86,6 +87,9 @@ jobs:
           submodules: recursive
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
+      - name: Install Rust nightly
+        run: |
+          rustup toolchain install nightly-${RUST_NIGHTLY_VERSION}
       - name: Install cargo-nextest
         uses: taiki-e/install-action@cargo-nextest
       - name: Install cargo-llvm-cov
