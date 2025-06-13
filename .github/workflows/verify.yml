@@ -63,8 +63,8 @@ jobs:
         uses: ./.github/actions/setup-builder
       - name: rustfmt nightly
         run: |
-          rustup toolchain install nightly-x86_64-unknown-linux-gnu
-          rustup component add rustfmt --toolchain nightly-x86_64-unknown-linux-gnu
+          rustup toolchain install nightly-2025-03-26
+          rustup component add rustfmt --toolchain nightly-2025-03-26
       - name: Install Python
         uses: actions/setup-python@v5
         with:
