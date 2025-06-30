@@ -94,7 +94,7 @@ pub(crate) fn build_prometheus(
     Prometheus {
         metadata: build_object_meta(&metrics_ns(sim), name, &sim.name_any(), owner),
         spec: PrometheusSpec {
-            image: Some(format!("quay.io/prometheus/prometheus:v{}", PROM_VERSION)),
+            image: Some(format!("quay.io/prometheus/prometheus:v{PROM_VERSION}")),
             pod_metadata: Some(PrometheusPodMetadata {
                 labels: klabel!(
                     SIMULATION_LABEL_KEY => sim.name_any(),

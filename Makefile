@@ -5,7 +5,7 @@ include build/rust.mk
 include build/image.mk
 include build/k8s.mk
 
-RUST_BUILD_IMAGE ?= rust:1.83-bullseye
+RUST_BUILD_IMAGE ?= rust:1.88-bullseye
 CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils

@@ -187,11 +187,11 @@ fn make_remove_add_patches(
                 0,
                 TraceAction::ObjectApplied,
                 missing_type_meta,
-                metav1::ObjectMeta {
+                Box::new(metav1::ObjectMeta {
                     namespace: Some(missing_resource_ns.into()),
                     name: Some(missing_resource_name.into()),
                     ..Default::default()
-                },
+                }),
             ),
             ops: vec![],
         },

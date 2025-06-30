@@ -18,7 +18,7 @@ In addition to the project prerequisites, you will need to have the following in
 - Nightly version of rustfmt
 - (optional) Nightly version of [cargo-llvm-cov](https://github.com/taiki-e/cargo-llvm-cov) for generating code coverage
 
-The current nightly Rust version used is 2024-10-29, which corresponds (approximately) to the Rust 1.83 release; this is
+The current nightly Rust version used is 2025-06-23, which corresponds (approximately) to the Rust 1.88 release; this is
 pinned in CI; you'll want to set the `RUST_NIGHTLY_VERSION` environment variable to this value so that you can match the
 CI behaviour locally.
 
