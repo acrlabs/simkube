@@ -67,7 +67,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     println!("exporting trace data");
     println!("start_ts = {}, end_ts = {}", args.start_time, args.end_time);
     println!("using filters:\n\texcluded_namespaces: {:?}\n\texcluded_labels: none", args.excluded_namespaces);
-    println!("making request to {}", endpoint);
+    println!("making request to {endpoint}");
 
     let client = reqwest::Client::new();
     match client.post(endpoint).json(&req).send().await? {

@@ -22,7 +22,7 @@ kube = { workspace = true }
 k8s-openapi = { workspace = true }
 lazy_static = { workspace = true }
 object_store = { workspace = true }
-parse_datetime_fork = { workspace = true }
+parse_datetime = { workspace = true }
 paste = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }

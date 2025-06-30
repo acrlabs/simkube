@@ -75,6 +75,7 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
 
     // This is not a reference because it needs to "own" itself when tokio spawns it
     pub async fn start(mut self) {
+        // skerr uses a regex which makes clippy complain :facepalm:
         while let Some(res) = self.stream.next().await {
             let ts = self.clock.now_ts();
             match res {

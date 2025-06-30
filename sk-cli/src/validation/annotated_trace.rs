@@ -64,7 +64,7 @@ pub enum PatchLocations {
     // InsertAt takes a particular timestamp, and inserts a new event at that timestamp with a
     // given action (apply or delete); the object is given by its TypeMeta and ObjectMeta; if you
     // need to modify its data, you should also include a json_patch object that modifies the root
-    InsertAt(i64, TraceAction, TypeMeta, metav1::ObjectMeta),
+    InsertAt(i64, TraceAction, TypeMeta, Box<metav1::ObjectMeta>), // objectmeta is big, use a box
 }
 
 #[derive(Clone, Debug)]
@@ -236,7 +236,7 @@ impl<'a> AnnotatedTrace {
 
                 let new_obj = DynamicObject {
                     types: Some(type_meta.clone()),
-                    metadata: object_meta.clone(),
+                    metadata: *object_meta.clone(),
                     data: json!({}),
                 };
                 let obj = match action {

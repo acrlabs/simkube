@@ -15,7 +15,7 @@ env:
   SCCACHE_GHA_ENABLED: "true"
   RUSTC_WRAPPER: sccache
   IN_CI: "true"
-  RUST_NIGHTLY_VERSION: 2024-10-29
+  RUST_NIGHTLY_VERSION: 2025-06-23
 
 jobs:
   skctl:

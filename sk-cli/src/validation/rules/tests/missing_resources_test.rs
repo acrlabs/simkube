@@ -199,7 +199,7 @@ fn test_secret_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace_co
     let v = secret_envvar_validator();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_len_eq_x!(annotations, 3); // three secrets should be patched out
+    assert_len_eq_x!(&annotations, 3); // three secrets should be patched out
 
     // all annotations should apply to the first object in the event
     assert_eq!(annotations[0].0, 0);
@@ -220,7 +220,7 @@ fn test_configmap_envvar_missing(mut depl_event: AnnotatedTraceEvent, test_trace
     let v = configmap_envvar_validator();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_len_eq_x!(annotations, 2); // two configmaps should be patched out
+    assert_len_eq_x!(&annotations, 2); // two configmaps should be patched out
 
     // both annotations should apply to the first object in the event
     assert_eq!(annotations[0].0, 0);
@@ -239,7 +239,7 @@ fn test_secret_volume_missing(mut depl_event: AnnotatedTraceEvent, test_trace_co
     let v = secret_volume_validator();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_len_eq_x!(annotations, 1); // one secret volume should be patched out
+    assert_len_eq_x!(&annotations, 1); // one secret volume should be patched out
 
     // the annotation should apply to the first object in the event
     assert_eq!(annotations[0].0, 0);
@@ -257,7 +257,7 @@ fn test_configmap_volume_missing(mut depl_event: AnnotatedTraceEvent, test_trace
     let v = configmap_volume_validator();
     let annotations = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
 
-    assert_len_eq_x!(annotations, 1); // one configmap volume should be patched out
+    assert_len_eq_x!(&annotations, 1); // one configmap volume should be patched out
 
     // the annotation should apply to the first object in the event
     assert_eq!(annotations[0].0, 0);
@@ -306,7 +306,7 @@ fn test_multiple_pod_spec_templates(test_trace_config_two_pods: TracerConfig, mu
 
     let annotations = v.check_next_event(&mut evt, &test_trace_config_two_pods).unwrap();
 
-    assert_len_eq_x!(annotations, 2);
+    assert_len_eq_x!(&annotations, 2);
     assert_eq!(annotations[0].1[0].ops[0].path().as_str(), "/spec/template1/spec/serviceAccount");
     assert_eq!(annotations[1].1[0].ops[0].path().as_str(), "/spec/template2/spec/serviceAccount");
 }

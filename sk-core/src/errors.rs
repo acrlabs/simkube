@@ -84,6 +84,7 @@ macro_rules! err_impl {
 macro_rules! skerr {
     (@hidden $err:ident, $msg:literal, $($args:expr),*) => {
         let bt = $err.backtrace().to_string();
+        #[allow(clippy::regex_creation_in_loops)]
         let re = RegexBuilder::new(r"^\s+(\d+)(?s:.*?)\s+at\s+.*:\d+$")
             .multi_line(true)
             .build()

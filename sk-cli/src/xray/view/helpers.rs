@@ -14,7 +14,7 @@ lazy_static! {
     static ref WARN_STYLE: Style = Style::new().white().on_yellow();
 }
 
-pub(super) fn make_event_spans(event: &AnnotatedTraceEvent, start_ts: i64) -> (Span, Span) {
+pub(super) fn make_event_spans(event: &AnnotatedTraceEvent, start_ts: i64) -> (Span<'_>, Span<'_>) {
     let d = TimeDelta::new(event.data.ts - start_ts, 0).unwrap();
     let evt_span = Span::from(format!(
         "{} ({} applied/{} deleted)",

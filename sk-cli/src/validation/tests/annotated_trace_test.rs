@@ -57,11 +57,11 @@ fn test_apply_patch_insert_at(mut annotated_trace: AnnotatedTrace, #[case] actio
                 3,
                 action,
                 DS_GVK.into_type_meta(),
-                metav1::ObjectMeta {
+                Box::new(metav1::ObjectMeta {
                     namespace: Some(TEST_NAMESPACE.into()),
                     name: Some(TEST_DAEMONSET.into()),
                     ..Default::default()
-                },
+                }),
             ),
             ops: vec![add_operation(format_ptr!("/spec"), json!({"minReadySeconds": 5}))],
         })
