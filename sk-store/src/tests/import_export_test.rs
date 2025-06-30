@@ -7,18 +7,18 @@ use clockabilly::mock::MockUtcClock;
 use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::runtime::watcher::Event;
 use kube::ResourceExt;
+use kube::runtime::watcher::Event;
 use sk_api::v1::ExportFilters;
 use sk_core::macros::*;
 
 use super::*;
+use crate::TraceStore;
 use crate::watchers::{
     DynObjHandler,
     ObjStream,
     ObjWatcher,
 };
-use crate::TraceStore;
 
 fn d(idx: i64) -> DynamicObject {
     test_deployment(&format!("depl{idx}"))

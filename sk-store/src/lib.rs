@@ -16,8 +16,8 @@ use serde::{
 };
 use sk_core::errors::*;
 use sk_core::k8s::{
-    PodLifecycleData,
     GVK,
+    PodLifecycleData,
 };
 use sk_core::prelude::*;
 

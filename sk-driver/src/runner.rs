@@ -17,13 +17,13 @@ use kube::api::{
 use serde_json::json;
 use sk_core::errors::*;
 use sk_core::k8s::{
+    DynamicApiSet,
+    GVK,
     add_common_metadata,
     build_global_object_meta,
     build_simulation_root,
     dyn_obj_type_str,
     try_update_lease,
-    DynamicApiSet,
-    GVK,
 };
 use sk_core::macros::*;
 use sk_core::prelude::*;

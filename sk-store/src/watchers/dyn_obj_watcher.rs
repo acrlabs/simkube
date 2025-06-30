@@ -8,21 +8,21 @@ use futures::{
     StreamExt,
     TryStreamExt,
 };
-use kube::runtime::watcher::watcher;
 use kube::runtime::WatchStreamExt;
+use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
 use sk_core::k8s::{
-    sanitize_obj,
     DynamicApiSet,
     GVK,
+    sanitize_obj,
 };
 use sk_core::prelude::*;
 
+use crate::TraceStorable;
 use crate::watchers::{
     EventHandler,
     ObjStream,
 };
-use crate::TraceStorable;
 
 // Watch a (customizable) list of objects.  Since we don't know what these object types will be at
 // runtime, we have to use the DynamicObject API, which gives us everything in JSON format that we

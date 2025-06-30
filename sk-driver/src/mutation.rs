@@ -11,20 +11,20 @@ use kube::core::admission::{
 };
 use rocket::serde::json::Json;
 use serde_json::{
-    json,
     Value,
+    json,
 };
 use sk_core::jsonutils;
 use sk_core::k8s::{
+    GVK,
     PodExt,
     PodLifecycleData,
-    GVK,
 };
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::util::compute_step_size;
 use crate::DriverContext;
+use crate::util::compute_step_size;
 
 pub struct MutationData {
     pod_counts: Mutex<HashMap<u64, usize>>,

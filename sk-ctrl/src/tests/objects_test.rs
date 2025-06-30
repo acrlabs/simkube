@@ -5,9 +5,9 @@ use tracing_test::traced_test;
 
 use super::*;
 use crate::objects::{
+    TRACE_VOLUME_NAME,
     build_driver_job,
     build_local_trace_volume,
-    TRACE_VOLUME_NAME,
 };
 
 #[rstest(tokio::test)]

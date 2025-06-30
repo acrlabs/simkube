@@ -2,9 +2,9 @@ use std::collections::HashMap;
 
 use super::*;
 use crate::pod_owners_map::{
-    filter_lifecycles_map,
     PodLifecyclesMap,
     PodOwnersMap,
+    filter_lifecycles_map,
 };
 
 const START_TS: i64 = 5;

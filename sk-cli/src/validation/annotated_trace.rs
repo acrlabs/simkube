@@ -225,11 +225,9 @@ impl<'a> AnnotatedTrace {
     ) -> Box<dyn Iterator<Item = &'a mut DynamicObject> + 'a> {
         match locations {
             PatchLocations::Everywhere => Box::new(self.object_iter_mut()),
-            PatchLocations::ObjectReference(ref type_, ref ns_name) => {
-                Box::new(self.object_iter_mut().filter(move |obj| {
-                    obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
-                }))
-            },
+            PatchLocations::ObjectReference(type_, ns_name) => Box::new(self.object_iter_mut().filter(move |obj| {
+                obj.types.as_ref().is_some_and(|t| t == type_) && &obj.namespaced_name() == ns_name
+            })),
             PatchLocations::InsertAt(relative_ts, action, type_meta, object_meta) => {
                 let insert_ts = self.start_ts().unwrap_or_default() + relative_ts;
                 let insert_idx = find_or_create_event_at_ts(&mut self.events, insert_ts);

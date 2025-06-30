@@ -4,11 +4,11 @@ use std::ops::Deref;
 
 use kube::api::GroupVersionKind;
 use serde::{
-    de,
     Deserialize,
     Deserializer,
     Serialize,
     Serializer,
+    de,
 };
 
 use crate::errors::*;
@@ -126,11 +126,11 @@ impl<'de> Deserialize<'de> for GVK {
 #[cfg(test)]
 mod test {
     use assertables::*;
+    use serde::de::IntoDeserializer;
     use serde::de::value::{
         Error as SerdeError,
         StrDeserializer,
     };
-    use serde::de::IntoDeserializer;
     use sk_testutils::*;
 
     use super::*;

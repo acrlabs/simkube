@@ -6,9 +6,9 @@ mod validator;
 
 use bytes::Bytes;
 use clap::{
-    value_parser,
     Subcommand,
     ValueEnum,
+    value_parser,
 };
 use sk_core::external_storage::{
     ObjectStoreWrapper,

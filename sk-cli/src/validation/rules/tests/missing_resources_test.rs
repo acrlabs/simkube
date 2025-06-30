@@ -1,6 +1,6 @@
 use assertables::*;
-use json_patch_ext::prelude::*;
 use json_patch_ext::PatchOperation::Remove;
+use json_patch_ext::prelude::*;
 use k8s_openapi::api::apps::v1::Deployment;
 use serde_json::json;
 use sk_store::{
@@ -10,17 +10,17 @@ use sk_store::{
 };
 
 use super::missing_resources::{
+    MissingResource,
+    MissingResourceType,
     configmap_envvar_validator,
     configmap_volume_validator,
     secret_envvar_validator,
     secret_volume_validator,
     service_account_validator,
-    MissingResource,
-    MissingResourceType,
 };
 use super::*;
-use crate::validation::validator::CheckResult;
 use crate::validation::PatchLocations;
+use crate::validation::validator::CheckResult;
 
 #[fixture]
 fn depl_event(test_deployment: DynamicObject, #[default("serviceAccount")] sa_key: &str) -> AnnotatedTraceEvent {

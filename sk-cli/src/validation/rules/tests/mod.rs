@@ -13,8 +13,8 @@ use sk_store::{
 use sk_testutils::*;
 
 use super::*;
-use crate::validation::validator::Diagnostic;
 use crate::validation::AnnotatedTraceEvent;
+use crate::validation::validator::Diagnostic;
 
 #[fixture]
 fn test_trace_config() -> TracerConfig {

@@ -6,8 +6,8 @@ use serde::{
     Serialize,
 };
 use sk_core::k8s::{
-    format_gvk_name,
     GVK,
+    format_gvk_name,
 };
 
 #[derive(Clone, Default, Deserialize, Serialize)]

@@ -5,10 +5,10 @@ use clockabilly::prelude::*;
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
-    build_deletable,
+    GVK,
     PodExt,
     PodLifecycleData,
-    GVK,
+    build_deletable,
 };
 use sk_core::prelude::*;
 use sk_core::time::duration_to_ts_from;
@@ -19,6 +19,7 @@ use crate::config::TracerConfig;
 use crate::filter::filter_event;
 use crate::pod_owners_map::PodOwnersMap;
 use crate::{
+    CURRENT_TRACE_FORMAT_VERSION,
     ExportedTrace,
     TraceAction,
     TraceEvent,
@@ -26,7 +27,6 @@ use crate::{
     TraceIndex,
     TraceIterator,
     TraceStorable,
-    CURRENT_TRACE_FORMAT_VERSION,
 };
 
 

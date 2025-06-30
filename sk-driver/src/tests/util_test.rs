@@ -8,8 +8,8 @@ use httpmock::Method::*;
 
 use super::*;
 use crate::util::{
-    compute_step_size,
     DRIVER_PAUSED_WAIT_SECONDS,
+    compute_step_size,
 };
 
 #[rstest]

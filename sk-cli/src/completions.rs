@@ -15,8 +15,8 @@ use std::{
 use anyhow::anyhow;
 use clap::value_parser;
 use clap_complete::{
-    generate,
     Shell,
+    generate,
 };
 use sk_core::prelude::*;
 

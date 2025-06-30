@@ -7,9 +7,9 @@ use std::sync::mpsc::{
     Sender,
 };
 use std::sync::{
-    mpsc,
     Arc,
     Mutex,
+    mpsc,
 };
 
 use async_trait::async_trait;

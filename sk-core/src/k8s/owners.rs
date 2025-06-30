@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use async_recursion::async_recursion;
+use kube::Resource;
 use kube::api::ListParams;
 use kube::discovery::{
     ApiCapabilities,
     Scope,
 };
-use kube::Resource;
 use tracing::*;
 
 use super::*;

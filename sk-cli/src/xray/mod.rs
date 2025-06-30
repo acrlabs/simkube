@@ -2,8 +2,8 @@ mod app;
 mod event;
 mod view;
 
-use ratatui::backend::Backend;
 use ratatui::Terminal;
+use ratatui::backend::Backend;
 use sk_core::prelude::*;
 
 use self::app::{
