@@ -1,8 +1,8 @@
 use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
 use std::fmt;
 
-use super::validator::ValidatorCode;
 use super::VALIDATORS;
+use super::validator::ValidatorCode;
 
 const WIDTH: usize = 70;
 

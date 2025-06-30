@@ -9,8 +9,8 @@ use serde_json::json;
 use tracing::*;
 
 use crate::k8s::{
-    build_object_meta,
     KubernetesError,
+    build_object_meta,
 };
 use crate::prelude::*;
 

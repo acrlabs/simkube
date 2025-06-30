@@ -91,11 +91,7 @@ pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
 
 fn merge_vecs<T>(maybe_v1: &mut Option<Vec<T>>, maybe_v2: Option<Vec<T>>) {
     if let Some(v2) = maybe_v2 {
-        if let Some(v1) = maybe_v1 {
-            v1.extend(v2)
-        } else {
-            *maybe_v1 = Some(v2)
-        }
+        if let Some(v1) = maybe_v1 { v1.extend(v2) } else { *maybe_v1 = Some(v2) }
     }
 }
 

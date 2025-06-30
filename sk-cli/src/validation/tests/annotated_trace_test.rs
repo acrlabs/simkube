@@ -4,8 +4,8 @@ use serde_json::json;
 use sk_store::TraceAction;
 
 use super::*;
-use crate::validation::annotated_trace::find_or_create_event_at_ts;
 use crate::validation::AnnotatedTracePatch;
+use crate::validation::annotated_trace::find_or_create_event_at_ts;
 
 
 #[rstest]

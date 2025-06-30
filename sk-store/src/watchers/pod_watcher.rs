@@ -20,11 +20,11 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 use tracing::*;
 
+use crate::TraceStorable;
 use crate::watchers::{
     EventHandler,
     ObjStream,
 };
-use crate::TraceStorable;
 
 // The PodWatcher object monitors incoming pod events and records the relevant ones to the object
 // store; becaues in clusters of any reasonable size, there are a) a lot of pods, and b) a lot of

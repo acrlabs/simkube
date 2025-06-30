@@ -43,9 +43,10 @@ fn test_sanitize_obj() {
     assert_eq!(obj.metadata.uid, None);
 
     assert_eq!(obj.metadata.annotations, klabel!("some_random_annotation" => "blah"));
-    assert!(obj
-        .types
-        .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff"));
+    assert!(
+        obj.types
+            .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff")
+    );
 }
 
 fn build_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {

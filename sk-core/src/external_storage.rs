@@ -23,8 +23,8 @@
 /// file (if you're running inside a container, you'll need that file injected as well).  Pass in a
 /// URL like `gs://bucket/path/to/resource`.
 use std::path::{
-    absolute,
     PathBuf,
+    absolute,
 };
 
 use anyhow::anyhow;

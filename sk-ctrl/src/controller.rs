@@ -24,11 +24,11 @@ use sk_core::constants::*;
 use sk_core::errors::*;
 use sk_core::hooks;
 use sk_core::k8s::{
+    LeaseState,
     build_simulation_root,
     is_terminal,
     metrics_ns,
     try_claim_lease,
-    LeaseState,
 };
 use sk_core::prelude::*;
 use tokio::runtime::Handle;

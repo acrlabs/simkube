@@ -10,10 +10,10 @@ mod validation;
 mod xray;
 
 use clap::{
-    crate_version,
     CommandFactory,
     Parser,
     Subcommand,
+    crate_version,
 };
 use sk_core::logging;
 use sk_core::prelude::*;

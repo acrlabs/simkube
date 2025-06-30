@@ -1,11 +1,11 @@
-use std::collections::hash_map::Entry;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 
 use sk_core::errors::*;
 use sk_core::k8s::{
-    format_gvk_name,
-    PodLifecycleData,
     GVK,
+    PodLifecycleData,
+    format_gvk_name,
 };
 use tracing::*;
 

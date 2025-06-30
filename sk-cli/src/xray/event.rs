@@ -1,9 +1,9 @@
 use ratatui::crossterm::event::{
-    read,
     Event,
     KeyCode,
     KeyEventKind,
     KeyModifiers,
+    read,
 };
 
 use super::Message;

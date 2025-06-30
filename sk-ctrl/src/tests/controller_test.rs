@@ -255,7 +255,8 @@ async fn test_setup_simulation_wait_prom(
     #[case] ready: bool,
     #[case] disabled: bool,
 ) {
-    env::set_var("POD_SVC_ACCOUNT", "asdf");
+    // SAFETY: it's fine it's a test
+    unsafe { env::set_var("POD_SVC_ACCOUNT", "asdf") };
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
 

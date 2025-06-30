@@ -1,15 +1,15 @@
+use clockabilly::DateTime;
 use clockabilly::mock::MockUtcClock;
 use clockabilly::prelude::*;
-use clockabilly::DateTime;
 use httpmock::Method::*;
 use serde_json::json;
 use sk_api::v1::SimulationRootSpec;
 use sk_core::k8s::build_lease;
 
 use super::helpers::{
+    TRACE_START,
     build_driver_context,
     build_trace_data,
-    TRACE_START,
 };
 use super::*;
 use crate::runner::{

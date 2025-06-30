@@ -1,8 +1,8 @@
 use std::cmp::{
-    max,
-    min,
     Ord,
     Ordering,
+    max,
+    min,
 };
 
 use tracing::*;
