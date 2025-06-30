@@ -98,11 +98,11 @@ trackedObjects:
 "
         .to_string();
 
-        if let Some(pstps) = pod_spec_template_paths {
-            if pstps.len() > 0 {
-                let pstp = pstps[0].clone();
-                config_yml.push_str(&format!("    podSpecTemplatePaths:\n      - {pstp}"));
-            }
+        if let Some(pstps) = pod_spec_template_paths
+            && pstps.len() > 0
+        {
+            let pstp = pstps[0].clone();
+            config_yml.push_str(&format!("    podSpecTemplatePaths:\n      - {pstp}"));
         }
 
         let config: TracerConfig = serde_yaml::from_str(&config_yml).unwrap();
