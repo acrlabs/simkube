@@ -150,10 +150,10 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
         // Once we know how many objects we can display for this event, we can compute the amount
         // to jump (if any); the key observation that makes this all work is that if we've selected
         // an event, the length of the top entries is fixed.
-        if app.mode == Mode::EventSelected {
-            if let Some(dir) = app.jump {
-                jump_list_state(&mut app.object_list_state, dir, obj_spans.len(), mh, true);
-            };
+        if app.mode == Mode::EventSelected
+            && let Some(dir) = app.jump
+        {
+            jump_list_state(&mut app.object_list_state, dir, obj_spans.len(), mh, true);
         }
         (th, mh)
     };
@@ -188,10 +188,10 @@ fn render_object(app: &mut App, frame: &mut Frame, layout: Rect) {
     let obj_str = serde_json::to_string_pretty(obj).unwrap();
     let contents = List::new(obj_str.split('\n')).highlight_style(Style::new().bg(Color::Blue));
 
-    if app.mode == Mode::ObjectSelected {
-        if let Some(dir) = app.jump {
-            jump_list_state(&mut app.object_contents_list_state, dir, contents.len(), layout.height, false);
-        }
+    if app.mode == Mode::ObjectSelected
+        && let Some(dir) = app.jump
+    {
+        jump_list_state(&mut app.object_contents_list_state, dir, contents.len(), layout.height, false);
     }
 
     frame.render_stateful_widget(contents, layout, &mut app.object_contents_list_state);

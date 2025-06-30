@@ -76,17 +76,17 @@ impl<T: Resource> MissingResource<T> {
 
     fn record_resources(&mut self, event: &mut AnnotatedTraceEvent) {
         for obj in &event.data.applied_objs {
-            if let Some(ref type_meta) = obj.types {
-                if type_meta.kind == T::KIND {
-                    self.seen_resources.insert(obj.namespaced_name());
-                }
+            if let Some(ref type_meta) = obj.types
+                && type_meta.kind == T::KIND
+            {
+                self.seen_resources.insert(obj.namespaced_name());
             }
         }
         for obj in &event.data.deleted_objs {
-            if let Some(ref type_meta) = obj.types {
-                if type_meta.kind == T::KIND {
-                    self.seen_resources.remove(&obj.namespaced_name());
-                }
+            if let Some(ref type_meta) = obj.types
+                && type_meta.kind == T::KIND
+            {
+                self.seen_resources.remove(&obj.namespaced_name());
             }
         }
     }
