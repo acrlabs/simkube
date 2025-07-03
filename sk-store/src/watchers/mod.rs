@@ -1,15 +1,11 @@
-mod dyn_obj_watcher;
-mod pod_watcher;
+pub mod dyn_obj_watcher;
+pub mod pod_watcher;
 
 use std::pin::Pin;
+use std::sync::mpsc;
 use std::sync::mpsc::{
     Receiver,
     Sender,
-};
-use std::sync::{
-    Arc,
-    Mutex,
-    mpsc,
 };
 
 use async_trait::async_trait;
@@ -22,25 +18,19 @@ use kube::runtime::watcher::Event;
 use sk_core::errors::*;
 use tracing::*;
 
-pub use self::dyn_obj_watcher::DynObjHandler;
-pub use self::pod_watcher::PodHandler;
-use crate::TraceStorable;
-
-pub type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
+pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
 
 #[cfg_attr(test, automock)]
 #[async_trait]
-pub trait EventHandler<T: Clone + Send + Sync> {
-    async fn applied(&mut self, obj: &T, ts: i64, store: Arc<Mutex<dyn TraceStorable + Send>>) -> EmptyResult;
-    async fn deleted(&mut self, obj: &T, ts: i64, store: Arc<Mutex<dyn TraceStorable + Send>>) -> EmptyResult;
-    async fn initialized(&mut self, objs: &[T], ts: i64, store: Arc<Mutex<dyn TraceStorable + Send>>) -> EmptyResult;
+pub(crate) trait EventHandler<T: Clone + Send + Sync> {
+    async fn applied(&mut self, obj: &T, ts: i64) -> EmptyResult;
+    async fn deleted(&mut self, obj: &T, ts: i64) -> EmptyResult;
+    async fn initialized(&mut self, objs: &[T], ts: i64) -> EmptyResult;
 }
 
 pub struct ObjWatcher<T: Clone> {
     handler: Box<dyn EventHandler<T> + Send>,
-
     stream: ObjStream<T>,
-    store: Arc<Mutex<dyn TraceStorable + Send>>,
 
     clock: Box<dyn Clockable + Send>,
     is_ready: bool,
@@ -50,18 +40,12 @@ pub struct ObjWatcher<T: Clone> {
 }
 
 impl<T: Clone + Send + Sync> ObjWatcher<T> {
-    pub fn new(
-        handler: Box<dyn EventHandler<T> + Send>,
-        stream: ObjStream<T>,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-    ) -> (ObjWatcher<T>, Receiver<bool>) {
+    fn new(handler: Box<dyn EventHandler<T> + Send>, stream: ObjStream<T>) -> (ObjWatcher<T>, Receiver<bool>) {
         let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
         (
             ObjWatcher {
                 handler,
-
                 stream,
-                store,
 
                 clock: UtcClock::boxed(),
                 is_ready: false,
@@ -101,12 +85,12 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
         // (the unlock only fails here if the lock has been Poisoned, e.g., something panicked
         // while holding the lock)
         match evt {
-            Event::Apply(obj) => self.handler.applied(obj, ts, self.store.clone()).await?,
-            Event::Delete(obj) => self.handler.deleted(obj, ts, self.store.clone()).await?,
+            Event::Apply(obj) => self.handler.applied(obj, ts).await?,
+            Event::Delete(obj) => self.handler.deleted(obj, ts).await?,
             Event::Init => (),
             Event::InitApply(obj) => self.init_buffer.push(obj.clone()),
             Event::InitDone => {
-                self.handler.initialized(&self.init_buffer, ts, self.store.clone()).await?;
+                self.handler.initialized(&self.init_buffer, ts).await?;
 
                 // When the watcher first starts up it does a List call, which (internally) gets
                 // converted into a "Restarted" event that contains all of the listed objects.
@@ -135,17 +119,15 @@ mod tests;
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl<T: Clone> ObjWatcher<T> {
-    pub fn new_from_parts(
+    pub(crate) fn new_from_parts(
         handler: Box<dyn EventHandler<T> + Send>,
         stream: ObjStream<T>,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
         clock: Box<dyn Clockable + Send>,
     ) -> ObjWatcher<T> {
         let (tx, _): (Sender<bool>, Receiver<bool>) = mpsc::channel();
         ObjWatcher {
             handler,
             stream,
-            store,
             clock,
             is_ready: true,
             ready_tx: tx,

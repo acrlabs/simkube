@@ -15,15 +15,11 @@ async fn test_handle_initialize_event() {
     let mut handler = Box::new(MockEventHandler::new());
     handler
         .expect_initialized()
-        .with(predicate::eq(deployments.clone()), predicate::eq(0), predicate::always())
-        .returning(|_, _, _| Ok(()))
+        .with(predicate::eq(deployments.clone()), predicate::eq(0))
+        .returning(|_, _| Ok(()))
         .once();
 
-    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(
-        handler,
-        Box::pin(stream::empty()),
-        Arc::new(Mutex::new(MockTraceStore::new())),
-    );
+    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
     for depl in deployments {

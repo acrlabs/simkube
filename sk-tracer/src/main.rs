@@ -20,9 +20,8 @@ use sk_core::k8s::DynamicApiSet;
 use sk_core::logging;
 use sk_core::prelude::*;
 use sk_store::watchers::{
-    DynObjHandler,
-    ObjWatcher,
-    PodHandler,
+    dyn_obj_watcher,
+    pod_watcher,
 };
 use sk_store::{
     TraceStore,
@@ -97,14 +96,12 @@ async fn run(args: Options) -> EmptyResult {
 
     let mut js = JoinSet::new();
     for gvk in config.tracked_objects.keys() {
-        let (dyn_obj_handler, dyn_obj_stream) = DynObjHandler::new_with_stream(gvk, &mut apiset).await?;
-        let (dyn_obj_watcher, _) = ObjWatcher::new(dyn_obj_handler, dyn_obj_stream, store.clone());
-        js.spawn(dyn_obj_watcher.start());
+        let (do_watcher, _) = dyn_obj_watcher::new_with_stream(gvk, &mut apiset, store.clone()).await?;
+        js.spawn(do_watcher.start());
     }
 
-    let (pod_handler, pod_stream) = PodHandler::new_with_stream(client, apiset);
-    let (pod_watcher, _) = ObjWatcher::new(pod_handler, pod_stream, store.clone());
-    js.spawn(pod_watcher.start());
+    let (p_watcher, _) = pod_watcher::new_with_stream(client, apiset, store.clone())?;
+    js.spawn(p_watcher.start());
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
