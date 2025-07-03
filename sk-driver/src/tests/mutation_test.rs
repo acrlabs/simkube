@@ -29,7 +29,7 @@ fn ctx(
 ) -> DriverContext {
     let (_, client) = make_fake_apiserver();
     let mut owners = HashMap::new();
-    owners.insert(test_pod.namespaced_name(), pod_owners);
+    owners.insert((corev1::Pod::gvk(), test_pod.namespaced_name()), pod_owners);
     let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
     build_driver_context(Arc::new(Mutex::new(cache)), Arc::new(store))
 }

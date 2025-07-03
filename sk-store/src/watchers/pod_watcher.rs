@@ -135,9 +135,10 @@ impl PodHandler {
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
         // determined that we want to store the data but _before_ we unlock the object store, since
         // this involves a bunch of API calls, and we don't want to block either thread.
-        let owners = match (self.owners_cache.lookup(ns_name), maybe_pod) {
+        let gvk = corev1::Pod::gvk();
+        let owners = match (self.owners_cache.lookup(&gvk, ns_name), maybe_pod) {
             (Some(o), _) => o.clone(),
-            (None, Some(pod)) => self.owners_cache.compute_owner_chain(pod).await?,
+            (None, Some(pod)) => self.owners_cache.compute_owner_chain(&gvk, pod).await?,
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
