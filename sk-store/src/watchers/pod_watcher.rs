@@ -3,6 +3,7 @@ use std::mem::take;
 use std::sync::{
     Arc,
     Mutex,
+    mpsc,
 };
 
 use async_trait::async_trait;
@@ -23,10 +24,31 @@ use tracing::*;
 use crate::TraceStorable;
 use crate::watchers::{
     EventHandler,
-    ObjStream,
+    ObjWatcher,
 };
 
-// The PodWatcher object monitors incoming pod events and records the relevant ones to the object
+// We take ownership of the apiset here, meaning that this has to be created after the
+// DynamicObject watcher.  We need ownership because pod owner chains could contain arbitrary
+// object types (we don't necessarily know what they are until we see the pod).  The
+// DynamicObject watcher just needs to construct the relevant api clients once, when it creates
+// the watch streams, so it can yield when it's done.  If at some point in the future this
+// becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
+pub fn new_with_stream(
+    client: kube::Client,
+    apiset: DynamicApiSet,
+    store: Arc<Mutex<dyn TraceStorable + Send>>,
+) -> anyhow::Result<(ObjWatcher<corev1::Pod>, mpsc::Receiver<bool>)> {
+    let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
+    let pod_handler = Box::new(PodHandler {
+        owned_pods: HashMap::new(),
+        owners_cache: OwnersCache::new(apiset),
+        store,
+    });
+    let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
+    Ok(ObjWatcher::new(pod_handler, pod_stream))
+}
+
+// The PodHandler object monitors incoming pod events and records the relevant ones to the object
 // store; becaues in clusters of any reasonable size, there are a) a lot of pods, and b) a lot of
 // update events for each pod, the pod watcher does a bunch of caching and pre-filtering before
 // sending events on to the object store.  Combined with the fact that figuring out which events we
@@ -35,40 +57,19 @@ use crate::watchers::{
 // At a high level: whenever a pod event happens, we check to see whether any properties of its
 // lifecycle data (currently start time and end time) have changed.  If so, we compute the
 // ownership chain for the pod, and forward that info on to the store.
-
-pub struct PodHandler {
+pub(super) struct PodHandler {
     // We store the list of owned pods in memory here, and cache the ownership chain for each pod;
     // This is a simpler data structure than what the object store needs, to allow for easy lookup
     // by pod name.  (The object store needs to store a bunch of extra metadata about sequence
     // number and pod hash and so forth).
     owned_pods: HashMap<String, PodLifecycleData>,
     owners_cache: OwnersCache,
+
+    store: Arc<Mutex<dyn TraceStorable + Send>>,
 }
 
 impl PodHandler {
-    // We take ownership of the apiset here, meaning that this has to be created after the
-    // DynamicObject watcher.  We need ownership because pod owner chains could contain arbitrary
-    // object types (we don't necessarily know what they are until we see the pod).  The
-    // DynamicObject watcher just needs to construct the relevant api clients once, when it creates
-    // the watch streams, so it can yield when it's done.  If at some point in the future this
-    // becomes problematic, we can always stick the apiset in an Arc<Mutex<_>>.
-    pub fn new_with_stream(client: kube::Client, apiset: DynamicApiSet) -> (Box<PodHandler>, ObjStream<corev1::Pod>) {
-        let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
-        (
-            Box::new(PodHandler {
-                owned_pods: HashMap::new(),
-                owners_cache: OwnersCache::new(apiset),
-            }),
-            watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed(),
-        )
-    }
-
-    async fn handle_pod_applied(
-        &mut self,
-        ns_name: &str,
-        pod: &corev1::Pod,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-    ) -> EmptyResult {
+    async fn handle_pod_applied(&mut self, ns_name: &str, pod: &corev1::Pod) -> EmptyResult {
         let new_lifecycle_data = PodLifecycleData::new_for(pod)?;
         let current_lifecycle_data = self.owned_pods.get(ns_name);
 
@@ -80,8 +81,7 @@ impl PodHandler {
         // PodLifecycleData::Empty < everything.
         if new_lifecycle_data > current_lifecycle_data {
             self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
-            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data, store)
-                .await?;
+            self.store_pod_lifecycle_data(ns_name, Some(pod), &new_lifecycle_data).await?;
         } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
                 "new lifecycle data for {} does not match stored data, cowardly refusing to update: {:?} !>= {:?}",
@@ -100,7 +100,6 @@ impl PodHandler {
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
         current_lifecycle_data: PodLifecycleData,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
         ts: i64,
     ) -> EmptyResult {
         // Always remove the pod from our tracker, regardless of what else happens
@@ -123,8 +122,7 @@ impl PodHandler {
             Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, ts)?,
         };
 
-        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data, store)
-            .await
+        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await
     }
 
     async fn store_pod_lifecycle_data(
@@ -132,7 +130,6 @@ impl PodHandler {
         ns_name: &str,
         maybe_pod: Option<&corev1::Pod>,
         lifecycle_data: &PodLifecycleData,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
     ) -> EmptyResult {
         // Before storing the lifecycle data, we need to compute the ownership chain so the store
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
@@ -144,44 +141,29 @@ impl PodHandler {
             _ => bail!("could not determine owner chain for {}", ns_name),
         };
 
-        let mut s = store.lock().expect("trace store mutex poisoned");
+        let mut s = self.store.lock().expect("trace store mutex poisoned");
         s.record_pod_lifecycle(ns_name, maybe_pod.cloned(), owners, lifecycle_data)
     }
 }
 
 #[async_trait]
 impl EventHandler<corev1::Pod> for PodHandler {
-    async fn applied(
-        &mut self,
-        pod: &corev1::Pod,
-        _ts: i64,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-    ) -> EmptyResult {
+    async fn applied(&mut self, pod: &corev1::Pod, _ts: i64) -> EmptyResult {
         let ns_name = pod.namespaced_name();
-        self.handle_pod_applied(&ns_name, pod, store).await
+        self.handle_pod_applied(&ns_name, pod).await
     }
 
-    async fn deleted(
-        &mut self,
-        pod: &corev1::Pod,
-        ts: i64,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-    ) -> EmptyResult {
+    async fn deleted(&mut self, pod: &corev1::Pod, ts: i64) -> EmptyResult {
         let ns_name = pod.namespaced_name();
         let Some(current_lifecycle_data) = self.owned_pods.get(&ns_name) else {
             warn!("pod {ns_name} deleted but not tracked, may have already been processed");
             return Ok(());
         };
-        self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data.clone(), store, ts)
+        self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data.clone(), ts)
             .await
     }
 
-    async fn initialized(
-        &mut self,
-        pods: &[corev1::Pod],
-        ts: i64,
-        store: Arc<Mutex<dyn TraceStorable + Send>>,
-    ) -> EmptyResult {
+    async fn initialized(&mut self, pods: &[corev1::Pod], ts: i64) -> EmptyResult {
         // We're essentially swapping the old data structure for the new one, and removing
         // events from the old and putting them into the new.  Then we know that anything
         // left in the old after we're done was deleted in the intervening period.  This
@@ -193,7 +175,7 @@ impl EventHandler<corev1::Pod> for PodHandler {
             if let Some(current_lifecycle_data) = old_owned_pods.remove(ns_name) {
                 self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
             }
-            if let Err(err) = self.handle_pod_applied(ns_name, pod, store.clone()).await {
+            if let Err(err) = self.handle_pod_applied(ns_name, pod).await {
                 error!("(watcher restart) applied pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
             }
         }
@@ -201,10 +183,7 @@ impl EventHandler<corev1::Pod> for PodHandler {
         for (ns_name, current_lifecycle_data) in &old_owned_pods {
             // We don't have data on the deleted pods aside from the name, so we just pass
             // in `None` for the pod object.
-            if let Err(err) = self
-                .handle_pod_deleted(ns_name, None, current_lifecycle_data.clone(), store.clone(), ts)
-                .await
-            {
+            if let Err(err) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone(), ts).await {
                 error!("(watcher restart) deleted pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
             }
         }
@@ -220,8 +199,9 @@ impl PodHandler {
     pub(crate) fn new_from_parts(
         owned_pods: HashMap<String, PodLifecycleData>,
         owners_cache: OwnersCache,
+        store: Arc<Mutex<dyn TraceStorable + Send>>,
     ) -> PodHandler {
-        PodHandler { owned_pods, owners_cache }
+        PodHandler { owned_pods, owners_cache, store }
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {
