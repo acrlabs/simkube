@@ -263,11 +263,12 @@ async fn test_handle_event_restarted(mut clock: Box<MockUtcClock>) {
         .once();
 
     let (_, client) = make_fake_apiserver();
+    let gvk = corev1::Pod::gvk();
     let owners = HashMap::from([
-        (pod_names[0].clone(), vec![]),
-        (pod_names[1].clone(), vec![]),
+        ((gvk.clone(), pod_names[0].clone()), vec![]),
+        ((gvk.clone(), pod_names[1].clone()), vec![]),
         // pod2 doesn't belong in the cache so we can induce an error when looking up ownership
-        (pod_names[3].clone(), vec![]),
+        ((gvk.clone(), pod_names[3].clone()), vec![]),
     ]);
 
     let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
