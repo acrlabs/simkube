@@ -13,11 +13,13 @@ use crate::watchers::MockEventHandler;
 async fn test_handle_initialize_event() {
     let deployments: Vec<_> = (0..3).map(|i| test_deployment(&format!("depl{i}"))).collect();
     let mut handler = Box::new(MockEventHandler::new());
-    handler
-        .expect_initialized()
-        .with(predicate::eq(deployments.clone()), predicate::eq(0))
-        .returning(|_, _| Ok(()))
-        .once();
+    for i in 0..3 {
+        handler
+            .expect_applied()
+            .with(predicate::eq(deployments[i].clone()), predicate::eq(0))
+            .returning(|_, _| Ok(()))
+            .once();
+    }
 
     let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
 

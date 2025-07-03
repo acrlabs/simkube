@@ -1,5 +1,4 @@
 use std::collections::HashMap;
-use std::mem::take;
 use std::sync::{
     Arc,
     Mutex,
@@ -98,7 +97,6 @@ impl PodHandler {
     async fn handle_pod_deleted(
         &mut self,
         ns_name: &str,
-        maybe_pod: Option<&corev1::Pod>,
         current_lifecycle_data: PodLifecycleData,
         ts: i64,
     ) -> EmptyResult {
@@ -111,18 +109,16 @@ impl PodHandler {
             return Ok(());
         }
 
-        // TODO: should this logic be somehow combined with the logic in
-        // PodLifecycleData::guess_finished_lifecycle?
-        let new_lifecycle_data = match maybe_pod {
-            None => {
-                // We never store "empty" data so this unwrap should always succeed
-                let start_ts = current_lifecycle_data.start_ts().unwrap();
-                PodLifecycleData::Finished(start_ts, ts)
-            },
-            Some(pod) => PodLifecycleData::guess_finished_lifecycle(pod, &current_lifecycle_data, ts)?,
-        };
+        // We never store "empty" data so this unwrap should always succeed
+        let start_ts = current_lifecycle_data.start_ts().unwrap();
 
-        self.store_pod_lifecycle_data(ns_name, maybe_pod, &new_lifecycle_data).await
+        // We're just guessing that the pod finished timestamp is the timestamp we received
+        // the event, which might not be perfect, but a) we aren't guaranteed to have access
+        // to the pod object that was deleted, and b) this lifecycle stuff is all guesswork
+        // anyways, and c) this makes the code a heck of a lot simpler.
+        let new_lifecycle_data = PodLifecycleData::Finished(start_ts, ts);
+
+        self.store_pod_lifecycle_data(ns_name, None, &new_lifecycle_data).await
     }
 
     async fn store_pod_lifecycle_data(
@@ -135,6 +131,9 @@ impl PodHandler {
         // can determine if this pod is owned by anything it's tracking.  We do this _after_ we've
         // determined that we want to store the data but _before_ we unlock the object store, since
         // this involves a bunch of API calls, and we don't want to block either thread.
+        //
+        // The pod will be "None" on a delete, but that's OK because if we've stored it in the
+        // first place that means we already looked up its owner data and it should be in the cache
         let gvk = corev1::Pod::gvk();
         let owners = match (self.owners_cache.lookup(&gvk, ns_name), maybe_pod) {
             (Some(o), _) => o.clone(),
@@ -149,48 +148,20 @@ impl PodHandler {
 
 #[async_trait]
 impl EventHandler<corev1::Pod> for PodHandler {
+    // TODO test it's OK to leave extra things in the owned_pods index (if it's still there when
+    // we're done with all this
     async fn applied(&mut self, pod: &corev1::Pod, _ts: i64) -> EmptyResult {
         let ns_name = pod.namespaced_name();
         self.handle_pod_applied(&ns_name, pod).await
     }
 
-    async fn deleted(&mut self, pod: &corev1::Pod, ts: i64) -> EmptyResult {
-        let ns_name = pod.namespaced_name();
+    async fn deleted(&mut self, ns: &str, name: &str, ts: i64) -> EmptyResult {
+        let ns_name = format!("{ns}/{name}");
         let Some(current_lifecycle_data) = self.owned_pods.get(&ns_name) else {
             warn!("pod {ns_name} deleted but not tracked, may have already been processed");
             return Ok(());
         };
-        self.handle_pod_deleted(&ns_name, Some(pod), current_lifecycle_data.clone(), ts)
-            .await
-    }
-
-    async fn initialized(&mut self, pods: &[corev1::Pod], ts: i64) -> EmptyResult {
-        // We're essentially swapping the old data structure for the new one, and removing
-        // events from the old and putting them into the new.  Then we know that anything
-        // left in the old after we're done was deleted in the intervening period.  This
-        // lets us not have to track "object versions" or use a bit vector or something
-        // along those lines.
-        let mut old_owned_pods = take(&mut self.owned_pods);
-        for pod in pods {
-            let ns_name = &pod.namespaced_name();
-            if let Some(current_lifecycle_data) = old_owned_pods.remove(ns_name) {
-                self.owned_pods.insert(ns_name.into(), current_lifecycle_data);
-            }
-            if let Err(err) = self.handle_pod_applied(ns_name, pod).await {
-                error!("(watcher restart) applied pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
-            }
-        }
-
-        for (ns_name, current_lifecycle_data) in &old_owned_pods {
-            // We don't have data on the deleted pods aside from the name, so we just pass
-            // in `None` for the pod object.
-            if let Err(err) = self.handle_pod_deleted(ns_name, None, current_lifecycle_data.clone(), ts).await {
-                error!("(watcher restart) deleted pod {ns_name} lifecycle data could not be stored:\n\n{err}\n");
-            }
-        }
-
-        // _this_ function can't error, but other impls (e.g., DynObjWatcher) do
-        Ok(())
+        self.handle_pod_deleted(&ns_name, current_lifecycle_data.clone(), ts).await
     }
 }
 
