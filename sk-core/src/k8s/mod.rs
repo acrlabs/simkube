@@ -62,6 +62,7 @@ pub trait PodExt {
 
 pub trait OpenApiResourceExt {
     fn type_meta() -> TypeMeta;
+    fn gvk() -> GVK;
 }
 
 impl<T: k8s_openapi::Resource> OpenApiResourceExt for T {
@@ -70,6 +71,10 @@ impl<T: k8s_openapi::Resource> OpenApiResourceExt for T {
             api_version: T::API_VERSION.into(),
             kind: T::KIND.into(),
         }
+    }
+
+    fn gvk() -> GVK {
+        GVK::new(T::GROUP.into(), T::VERSION.into(), T::KIND.into())
     }
 }
 

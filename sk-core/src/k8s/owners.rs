@@ -15,7 +15,7 @@ use crate::prelude::*;
 
 pub struct OwnersCache {
     apiset: DynamicApiSet,
-    owners: HashMap<String, Vec<metav1::OwnerReference>>,
+    owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
 }
 
 impl OwnersCache {
@@ -23,7 +23,10 @@ impl OwnersCache {
         OwnersCache { apiset, owners: HashMap::new() }
     }
 
-    pub fn new_from_parts(apiset: DynamicApiSet, owners: HashMap<String, Vec<metav1::OwnerReference>>) -> OwnersCache {
+    pub fn new_from_parts(
+        apiset: DynamicApiSet,
+        owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
+    ) -> OwnersCache {
         OwnersCache { apiset, owners }
     }
 
@@ -31,13 +34,15 @@ impl OwnersCache {
     #[async_recursion]
     pub async fn compute_owner_chain(
         &mut self,
+        gvk: &GVK,
         obj: &(impl Resource + Sync),
     ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
         let ns_name = obj.namespaced_name();
         debug!("computing owner references for {ns_name}");
 
-        if let Some(owners) = self.owners.get(&ns_name) {
-            debug!("found owners {owners:?} for {ns_name} in cache");
+        let key = (gvk.clone(), ns_name.clone());
+        if let Some(owners) = self.owners.get(&key) {
+            debug!("found owners {owners:?} for {gvk}.{ns_name} in cache");
             return Ok(owners.clone());
         }
 
@@ -49,21 +54,20 @@ impl OwnersCache {
             let sel = build_owner_selector(&rf.name, obj, cap);
             let resp = api.list(&sel).await?;
             if resp.items.len() != 1 {
-                bail!("could not find single owner for {}, found {:?}", obj.namespaced_name(), resp.items);
+                bail!("could not find single owner for {gvk}.{ns_name}, found {:?}", resp.items);
             }
 
             let owner = &resp.items[0];
-            owners.extend(self.compute_owner_chain(owner).await?);
+            owners.extend(self.compute_owner_chain(&owner_gvk, owner).await?);
         }
 
-        self.owners.insert(ns_name.clone(), owners.clone());
-
-        debug!("computed owners {owners:?} for {ns_name}");
+        debug!("computed owners {owners:?} for {gvk}.{ns_name}");
+        self.owners.insert(key, owners.clone());
         Ok(owners)
     }
 
-    pub fn lookup(&mut self, ns_name: &str) -> Option<&Vec<metav1::OwnerReference>> {
-        self.owners.get(ns_name)
+    pub fn lookup(&mut self, gvk: &GVK, ns_name: &str) -> Option<&Vec<metav1::OwnerReference>> {
+        self.owners.get(&(gvk.clone(), ns_name.into()))
     }
 }
 
