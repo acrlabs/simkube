@@ -10,9 +10,8 @@ use sk_api::v1::ExportFilters;
 use sk_core::k8s::DynamicApiSet;
 use sk_core::prelude::*;
 use sk_store::watchers::{
-    DynObjHandler,
-    ObjWatcher,
-    PodHandler,
+    dyn_obj_watcher,
+    pod_watcher,
 };
 use sk_store::{
     TraceStore,
@@ -54,15 +53,13 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
     let mut js = JoinSet::new();
     let mut do_ready_rxs = vec![];
     for gvk in config.tracked_objects.keys() {
-        let (dyn_obj_handler, dyn_obj_stream) = DynObjHandler::new_with_stream(gvk, &mut apiset).await?;
-        let (dyn_obj_watcher, do_ready_rx) = ObjWatcher::new(dyn_obj_handler, dyn_obj_stream, store.clone());
+        let (do_watcher, do_ready_rx) = dyn_obj_watcher::new_with_stream(gvk, &mut apiset, store.clone()).await?;
         do_ready_rxs.push(do_ready_rx);
-        js.spawn(dyn_obj_watcher.start());
+        js.spawn(do_watcher.start());
     }
 
-    let (pod_handler, pod_stream) = PodHandler::new_with_stream(client, apiset);
-    let (pod_watcher, pod_ready_rx) = ObjWatcher::new(pod_handler, pod_stream, store.clone());
-    js.spawn(pod_watcher.start());
+    let (p_watcher, pod_ready_rx) = pod_watcher::new_with_stream(client, apiset, store.clone())?;
+    js.spawn(p_watcher.start());
 
     // the receivers block until they get a message, so don't actually care about the value
     for do_ready_rx in do_ready_rxs {

@@ -15,9 +15,8 @@ use sk_core::macros::*;
 use super::*;
 use crate::TraceStore;
 use crate::watchers::{
-    DynObjHandler,
     ObjStream,
-    ObjWatcher,
+    dyn_obj_watcher,
 };
 
 fn d(idx: i64) -> DynamicObject {
@@ -110,8 +109,7 @@ mod itest {
         let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
 
         // First build up the stream of test data and run the watcher (this advances time to the "end")
-        let h = DynObjHandler::new(DEPL_GVK.clone());
-        let w = ObjWatcher::new_from_parts(h, test_stream(*clock.clone()), s.clone(), clock);
+        let w = dyn_obj_watcher::new_from_parts(DEPL_GVK.clone(), s.clone(), test_stream(*clock.clone()), clock);
         w.start().await;
 
         // Next export the data with the chosen filters
