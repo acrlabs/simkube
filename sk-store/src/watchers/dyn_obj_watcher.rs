@@ -15,6 +15,7 @@ use sk_core::errors::*;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
+    build_deletable,
     sanitize_obj,
 };
 use sk_core::prelude::*;
@@ -64,14 +65,10 @@ impl EventHandler<DynamicObject> for DynObjHandler {
         s.create_or_update_obj(obj, ts, None)
     }
 
-    async fn deleted(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
+    async fn deleted(&mut self, ns_name: &str, ts: i64) -> EmptyResult {
         let mut s = self.store.lock().expect("trace store mutex poisoned");
-        s.delete_obj(obj, ts)
-    }
-
-    async fn initialized(&mut self, objs: &[DynamicObject], ts: i64) -> EmptyResult {
-        let mut s = self.store.lock().expect("trace store mutex poisoned");
-        s.update_all_objs_for_gvk(&self.gvk, objs, ts)
+        let obj = build_deletable(&self.gvk, ns_name);
+        s.delete_obj(&obj, ts)
     }
 }
 

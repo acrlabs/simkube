@@ -8,7 +8,6 @@ use sk_core::k8s::{
     GVK,
     PodExt,
     PodLifecycleData,
-    build_deletable,
 };
 use sk_core::prelude::*;
 use sk_core::time::duration_to_ts_from;
@@ -228,20 +227,6 @@ impl TraceStorable for TraceStore {
         let ns_name = obj.namespaced_name();
         self.events.append(ts, obj, TraceAction::ObjectDeleted);
         self.index.remove(gvk, &ns_name);
-        Ok(())
-    }
-
-    fn update_all_objs_for_gvk(&mut self, gvk: &GVK, objs: &[DynamicObject], ts: i64) -> EmptyResult {
-        let mut old_gvk_index = self.index.take_gvk_index(gvk);
-        for obj in objs {
-            let ns_name = obj.namespaced_name();
-            let old_hash = old_gvk_index.remove(&ns_name);
-            self.create_or_update_obj(obj, ts, old_hash)?;
-        }
-
-        for ns_name in old_gvk_index.keys() {
-            self.delete_obj(&build_deletable(gvk, ns_name), ts)?;
-        }
         Ok(())
     }
 
