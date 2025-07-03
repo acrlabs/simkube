@@ -1,6 +1,9 @@
+use sk_core::k8s::KubeResourceExt;
 pub mod dyn_obj_watcher;
 pub mod pod_watcher;
 
+use std::collections::HashSet;
+use std::mem::take;
 use std::pin::Pin;
 use std::sync::mpsc;
 use std::sync::mpsc::{
@@ -24,11 +27,10 @@ pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>
 #[async_trait]
 pub(crate) trait EventHandler<T: Clone + Send + Sync> {
     async fn applied(&mut self, obj: &T, ts: i64) -> EmptyResult;
-    async fn deleted(&mut self, obj: &T, ts: i64) -> EmptyResult;
-    async fn initialized(&mut self, objs: &[T], ts: i64) -> EmptyResult;
+    async fn deleted(&mut self, ns_name: &str, ts: i64) -> EmptyResult;
 }
 
-pub struct ObjWatcher<T: Clone> {
+pub struct ObjWatcher<T: Clone + Send + Sync + kube::ResourceExt> {
     handler: Box<dyn EventHandler<T> + Send>,
     stream: ObjStream<T>,
 
@@ -37,9 +39,10 @@ pub struct ObjWatcher<T: Clone> {
     ready_tx: Sender<bool>,
 
     init_buffer: Vec<T>,
+    index: HashSet<String>,
 }
 
-impl<T: Clone + Send + Sync> ObjWatcher<T> {
+impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
     fn new(handler: Box<dyn EventHandler<T> + Send>, stream: ObjStream<T>) -> (ObjWatcher<T>, Receiver<bool>) {
         let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
         (
@@ -52,6 +55,7 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
                 ready_tx: tx,
 
                 init_buffer: vec![],
+                index: HashSet::new(),
             },
             rx,
         )
@@ -59,7 +63,6 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
 
     // This is not a reference because it needs to "own" itself when tokio spawns it
     pub async fn start(mut self) {
-        // skerr uses a regex which makes clippy complain :facepalm:
         while let Some(res) = self.stream.next().await {
             let ts = self.clock.now_ts();
             match res {
@@ -85,12 +88,35 @@ impl<T: Clone + Send + Sync> ObjWatcher<T> {
         // (the unlock only fails here if the lock has been Poisoned, e.g., something panicked
         // while holding the lock)
         match evt {
-            Event::Apply(obj) => self.handler.applied(obj, ts).await?,
-            Event::Delete(obj) => self.handler.deleted(obj, ts).await?,
+            Event::Apply(obj) => {
+                self.handler.applied(obj, ts).await?;
+                self.index.insert(obj.namespaced_name());
+            },
+            Event::Delete(obj) => {
+                let ns_name = obj.namespaced_name();
+                self.handler.deleted(&ns_name, ts).await?;
+                self.index.remove(&ns_name);
+            },
             Event::Init => (),
             Event::InitApply(obj) => self.init_buffer.push(obj.clone()),
             Event::InitDone => {
-                self.handler.initialized(&self.init_buffer, ts).await?;
+                // We swap the old index  for an (empty) new one, and remove events from the old
+                // and putting them into the new.  Then we know that anything left in the old
+                // after we're done was deleted in the intervening period.
+                let mut old_objs = take(&mut self.index);
+                for obj in &self.init_buffer {
+                    let ns_name = obj.namespaced_name();
+                    old_objs.remove(&ns_name);
+
+                    // We have to unconditionally apply since we don't know if it changed
+                    // in the intervening period
+                    self.handler.applied(obj, ts).await?;
+                    self.index.insert(ns_name);
+                }
+
+                for ns_name in &old_objs {
+                    self.handler.deleted(ns_name, ts).await?;
+                }
 
                 // When the watcher first starts up it does a List call, which (internally) gets
                 // converted into a "Restarted" event that contains all of the listed objects.
@@ -118,7 +144,7 @@ mod tests;
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
-impl<T: Clone> ObjWatcher<T> {
+impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
     pub(crate) fn new_from_parts(
         handler: Box<dyn EventHandler<T> + Send>,
         stream: ObjStream<T>,
@@ -132,6 +158,7 @@ impl<T: Clone> ObjWatcher<T> {
             is_ready: true,
             ready_tx: tx,
             init_buffer: vec![],
+            index: HashSet::new(),
         }
     }
 }

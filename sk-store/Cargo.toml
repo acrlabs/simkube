@@ -33,6 +33,7 @@ mockall = { workspace = true, optional = true }
 [dev-dependencies]
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
+lazy_static = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
 sk-testutils = { workspace = true }

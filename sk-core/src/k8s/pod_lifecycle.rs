@@ -105,29 +105,6 @@ impl PodLifecycleData {
         }
     }
 
-    pub fn guess_finished_lifecycle(
-        pod: &corev1::Pod,
-        current_lifecycle_data: &PodLifecycleData,
-        now: i64,
-    ) -> anyhow::Result<PodLifecycleData> {
-        let new_lifecycle_data = PodLifecycleData::new_for(pod).unwrap_or(PodLifecycleData::Empty);
-
-        match new_lifecycle_data {
-            PodLifecycleData::Finished(..) => Ok(new_lifecycle_data),
-            PodLifecycleData::Running(start_ts) => Ok(PodLifecycleData::Finished(start_ts, now)),
-            PodLifecycleData::Empty => {
-                let start_ts = if let Some(ts) = current_lifecycle_data.start_ts() {
-                    ts
-                } else if let Some(t) = pod.creation_timestamp() {
-                    t.0.timestamp()
-                } else {
-                    bail!("could not determine final pod lifecycle for {}", pod.namespaced_name());
-                };
-                Ok(PodLifecycleData::Finished(start_ts, now))
-            },
-        }
-    }
-
     pub fn empty(&self) -> bool {
         self == PodLifecycleData::Empty
     }
