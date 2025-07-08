@@ -30,7 +30,8 @@ pub async fn new_with_stream(
     gvk: &GVK,
     apiset: &mut DynamicApiSet,
     store: Arc<Mutex<dyn TraceStorable + Send>>,
-) -> anyhow::Result<(ObjWatcher<DynamicObject>, mpsc::Receiver<bool>)> {
+    ready_tx: mpsc::Sender<bool>,
+) -> anyhow::Result<ObjWatcher<DynamicObject>> {
     // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
     // it will prevent the tracer from starting up
     let api_version = gvk.api_version().clone();
@@ -46,7 +47,7 @@ pub async fn new_with_stream(
         .map_err(|e| e.into())
         .boxed();
 
-    Ok(ObjWatcher::new(dyn_obj_handler, dyn_obj_stream))
+    Ok(ObjWatcher::new(dyn_obj_handler, dyn_obj_stream, ready_tx))
 }
 
 // Watch a (customizable) list of objects.  Since we don't know what these object types will be at
@@ -85,6 +86,7 @@ pub(crate) fn new_from_parts(
     store: Arc<Mutex<dyn TraceStorable + Send>>,
     stream: ObjStream<DynamicObject>,
     clock: Box<dyn Clockable + Send>,
+    ready_tx: mpsc::Sender<bool>,
 ) -> ObjWatcher<DynamicObject> {
-    ObjWatcher::new_from_parts(Box::new(DynObjHandler { gvk, store }), stream, clock)
+    ObjWatcher::new_from_parts(Box::new(DynObjHandler { gvk, store }), stream, clock, ready_tx)
 }

@@ -1,14 +1,37 @@
 use std::collections::VecDeque;
 use std::ops::Index;
 
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sk_core::k8s::dyn_obj_type_str;
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::{
-    TraceAction,
-    TraceEvent,
-};
+
+#[derive(Clone, Copy, Debug)]
+pub enum TraceAction {
+    ObjectApplied,
+    ObjectDeleted,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+pub struct TraceEvent {
+    pub ts: i64,
+    pub applied_objs: Vec<DynamicObject>,
+    pub deleted_objs: Vec<DynamicObject>,
+}
+
+impl TraceEvent {
+    pub fn len(&self) -> usize {
+        self.applied_objs.len() + self.deleted_objs.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.applied_objs.is_empty() && self.deleted_objs.is_empty()
+    }
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct TraceEventList(VecDeque<TraceEvent>);

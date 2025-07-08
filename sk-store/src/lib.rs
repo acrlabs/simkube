@@ -1,19 +1,15 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
 mod config;
-mod event_list;
+mod event;
 mod filter;
 mod index;
+mod iter;
+mod manager;
 mod pod_owners_map;
 mod store;
-pub mod watchers;
-
-use std::collections::HashMap;
+mod watchers;
 
 use kube::api::DynamicObject;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 use sk_core::errors::*;
 use sk_core::k8s::{
     GVK,
@@ -25,38 +21,18 @@ pub use crate::config::{
     TracerConfig,
     TrackedObjectConfig,
 };
-pub use crate::event_list::TraceEventList;
+pub use crate::event::{
+    TraceAction,
+    TraceEvent,
+    TraceEventList,
+};
 pub use crate::index::TraceIndex;
-use crate::pod_owners_map::PodLifecyclesMap;
-pub use crate::store::TraceStore;
-
-#[derive(Clone, Copy, Debug)]
-pub enum TraceAction {
-    ObjectApplied,
-    ObjectDeleted,
-}
-
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
-pub struct TraceEvent {
-    pub ts: i64,
-    pub applied_objs: Vec<DynamicObject>,
-    pub deleted_objs: Vec<DynamicObject>,
-}
-
-impl TraceEvent {
-    pub fn len(&self) -> usize {
-        self.applied_objs.len() + self.deleted_objs.len()
-    }
-
-    pub fn is_empty(&self) -> bool {
-        self.applied_objs.is_empty() && self.deleted_objs.is_empty()
-    }
-}
-
-pub struct TraceIterator<'a> {
-    events: &'a TraceEventList,
-    idx: usize,
-}
+pub use crate::iter::TraceIterator;
+pub use crate::manager::TraceManager;
+pub use crate::store::{
+    ExportedTrace,
+    TraceStore,
+};
 
 const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
 
@@ -76,31 +52,6 @@ pub trait TraceStorable {
     fn start_ts(&self) -> Option<i64>;
     fn end_ts(&self) -> Option<i64>;
     fn iter(&self) -> TraceIterator<'_>;
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct ExportedTrace {
-    version: u16,
-    config: TracerConfig,
-    events: Vec<TraceEvent>,
-    index: TraceIndex,
-    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
-}
-
-impl ExportedTrace {
-    pub fn append_event(&mut self, event: TraceEvent) {
-        self.events.push(event);
-    }
-
-    pub fn prepend_event(&mut self, event: TraceEvent) {
-        let mut tmp = vec![event];
-        tmp.append(&mut self.events);
-        self.events = tmp;
-    }
-
-    pub fn events(&self) -> Vec<TraceEvent> {
-        self.events.clone()
-    }
 }
 
 #[cfg(test)]

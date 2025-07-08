@@ -1,14 +1,9 @@
 mod errors;
 
 use std::ops::Deref;
-use std::sync::{
-    Arc,
-    Mutex,
-};
 
 use bytes::Bytes;
 use clap::Parser;
-use kube::Client;
 use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
@@ -16,18 +11,12 @@ use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
 };
-use sk_core::k8s::DynamicApiSet;
 use sk_core::logging;
 use sk_core::prelude::*;
-use sk_store::watchers::{
-    dyn_obj_watcher,
-    pod_watcher,
-};
 use sk_store::{
-    TraceStore,
+    TraceManager,
     TracerConfig,
 };
-use tokio::task::JoinSet;
 use tracing::*;
 
 use crate::errors::ExportResponseError;
@@ -46,10 +35,10 @@ struct Options {
 
 async fn export_helper(
     req: &ExportRequest,
-    trace_store: &Arc<Mutex<TraceStore>>,
+    manager: &TraceManager,
     object_store: &(dyn ObjectStoreWrapper + Sync),
 ) -> anyhow::Result<Vec<u8>> {
-    let trace_data = trace_store.lock().unwrap().export(req.start_ts, req.end_ts, &req.filters)?;
+    let trace_data = manager.export(req.start_ts, req.end_ts, &req.filters).await?;
 
     match object_store.scheme() {
         // If we're writing to a cloud provider, we want to write from the location that the
@@ -69,12 +58,12 @@ async fn export_helper(
 #[rocket::post("/export", data = "<req>")]
 async fn export(
     req: Json<ExportRequest>,
-    trace_store: &rocket::State<Arc<Mutex<TraceStore>>>,
+    manager: &rocket::State<TraceManager>,
 ) -> Result<Vec<u8>, ExportResponseError> {
     info!("export called with {:?}", req);
 
     let object_store = SkObjectStore::new(&req.export_path)?;
-    let res = export_helper(req.deref(), trace_store, &object_store).await;
+    let res = export_helper(req.deref(), manager, &object_store).await;
 
     // anyhow::Error Debug implementation prints the entire chain of errors, but once this gets
     // sucked up into rocket it no longer knows anything about that, so here we print the full
@@ -88,28 +77,15 @@ async fn export(
 #[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
-
-    let client = Client::try_default().await.expect("failed to create kube client");
-    let mut apiset = DynamicApiSet::new(client.clone());
-
-    let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
-
-    let mut js = JoinSet::new();
-    for gvk in config.tracked_objects.keys() {
-        let (do_watcher, _) = dyn_obj_watcher::new_with_stream(gvk, &mut apiset, store.clone()).await?;
-        js.spawn(do_watcher.start());
-    }
-
-    let (p_watcher, _) = pod_watcher::new_with_stream(client, apiset, store.clone())?;
-    js.spawn(p_watcher.start());
+    let mut manager = TraceManager::new(config);
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![export])
-        .manage(store.clone());
+        .manage(manager.clone());
 
     tokio::select! {
-        _ = js.join_all() => Ok(()),
+        _ = manager.start() => Ok(()),
         res = tokio::spawn(server.launch()) => match res {
             Ok(r) => r.map(|_| ()).map_err(|err| err.into()),
             Err(err) => Err(err.into()),

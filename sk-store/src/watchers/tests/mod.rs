@@ -1,5 +1,7 @@
 mod pod_watcher_test;
 
+use std::sync::mpsc;
+
 use assertables::*;
 use futures::stream;
 use lazy_static::lazy_static;
@@ -31,7 +33,8 @@ async fn test_handle_initialize_event() {
             .once();
     }
 
-    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
     for depl in deployments {
@@ -54,7 +57,8 @@ async fn test_handle_initialize_event_with_created_obj() {
             .once();
     }
 
-    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
     watcher.index = HashSet::from([format!("{TEST_NAMESPACE}/depl0"), format!("{TEST_NAMESPACE}/depl1")]);
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
@@ -84,7 +88,8 @@ async fn test_handle_initialize_event_with_deleted_obj() {
         .returning(|_, _| Ok(()))
         .once();
 
-    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
     watcher.index = EXPECTED_INDEX.clone();
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();

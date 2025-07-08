@@ -2,6 +2,10 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use clockabilly::prelude::*;
+use serde::{
+    Deserialize,
+    Serialize,
+};
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
@@ -15,16 +19,20 @@ use thiserror::Error;
 use tracing::*;
 
 use crate::config::TracerConfig;
-use crate::filter::filter_event;
-use crate::pod_owners_map::PodOwnersMap;
-use crate::{
-    CURRENT_TRACE_FORMAT_VERSION,
-    ExportedTrace,
+use crate::event::{
     TraceAction,
     TraceEvent,
     TraceEventList,
-    TraceIndex,
-    TraceIterator,
+};
+use crate::filter::filter_event;
+use crate::index::TraceIndex;
+use crate::iter::TraceIterator;
+use crate::pod_owners_map::{
+    PodLifecyclesMap,
+    PodOwnersMap,
+};
+use crate::{
+    CURRENT_TRACE_FORMAT_VERSION,
     TraceStorable,
 };
 
@@ -313,28 +321,32 @@ impl TraceStorable for TraceStore {
     }
 
     fn iter(&self) -> TraceIterator<'_> {
-        TraceIterator { events: &self.events, idx: 0 }
+        TraceIterator::new(&self.events)
     }
 }
 
-// Our iterator implementation iterates over all the events in timeseries order.  It returns the
-// current event, and the timestamp of the _next_ event.
-impl<'a> Iterator for TraceIterator<'a> {
-    type Item = (&'a TraceEvent, Option<i64>);
+#[derive(Deserialize, Serialize)]
+pub struct ExportedTrace {
+    version: u16,
+    config: TracerConfig,
+    events: Vec<TraceEvent>,
+    index: TraceIndex,
+    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
+}
 
-    fn next(&mut self) -> Option<Self::Item> {
-        if self.events.is_empty() {
-            return None;
-        }
+impl ExportedTrace {
+    pub fn append_event(&mut self, event: TraceEvent) {
+        self.events.push(event);
+    }
 
-        let ret = match self.idx {
-            i if i < self.events.len() - 1 => Some((&self.events[i], Some(self.events[i + 1].ts))),
-            i if i == self.events.len() - 1 => Some((&self.events[i], None)),
-            _ => None,
-        };
+    pub fn prepend_event(&mut self, event: TraceEvent) {
+        let mut tmp = vec![event];
+        tmp.append(&mut self.events);
+        self.events = tmp;
+    }
 
-        self.idx += 1;
-        ret
+    pub fn events(&self) -> Vec<TraceEvent> {
+        self.events.clone()
     }
 }
 
