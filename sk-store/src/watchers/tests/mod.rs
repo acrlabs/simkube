@@ -1,5 +1,7 @@
 mod pod_watcher_test;
 
+use std::sync::mpsc;
+
 use futures::stream;
 use mockall::predicate;
 use sk_core::prelude::*;
@@ -21,7 +23,8 @@ async fn test_handle_initialize_event() {
             .once();
     }
 
-    let (mut watcher, _) = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()));
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
     for depl in deployments {

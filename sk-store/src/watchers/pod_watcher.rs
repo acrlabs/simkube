@@ -36,7 +36,8 @@ pub fn new_with_stream(
     client: kube::Client,
     apiset: DynamicApiSet,
     store: Arc<Mutex<dyn TraceStorable + Send>>,
-) -> anyhow::Result<(ObjWatcher<corev1::Pod>, mpsc::Receiver<bool>)> {
+    ready_tx: mpsc::Sender<bool>,
+) -> anyhow::Result<ObjWatcher<corev1::Pod>> {
     let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
     let pod_handler = Box::new(PodHandler {
         owned_pods: HashMap::new(),
@@ -44,7 +45,7 @@ pub fn new_with_stream(
         store,
     });
     let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
-    Ok(ObjWatcher::new(pod_handler, pod_stream))
+    Ok(ObjWatcher::new(pod_handler, pod_stream, ready_tx))
 }
 
 // The PodHandler object monitors incoming pod events and records the relevant ones to the object

@@ -96,6 +96,8 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
 }
 
 mod itest {
+    use std::sync::mpsc;
+
     use super::*;
 
     #[rstest(tokio::test)]
@@ -109,7 +111,9 @@ mod itest {
         let s = Arc::new(Mutex::new(TraceStore::new(Default::default())));
 
         // First build up the stream of test data and run the watcher (this advances time to the "end")
-        let w = dyn_obj_watcher::new_from_parts(DEPL_GVK.clone(), s.clone(), test_stream(*clock.clone()), clock);
+        let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+        let w =
+            dyn_obj_watcher::new_from_parts(DEPL_GVK.clone(), s.clone(), test_stream(*clock.clone()), clock, ready_tx);
         w.start().await;
 
         // Next export the data with the chosen filters
