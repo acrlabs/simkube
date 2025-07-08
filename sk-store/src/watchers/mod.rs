@@ -6,10 +6,6 @@ use std::collections::HashSet;
 use std::mem::take;
 use std::pin::Pin;
 use std::sync::mpsc;
-use std::sync::mpsc::{
-    Receiver,
-    Sender,
-};
 
 use async_trait::async_trait;
 use clockabilly::prelude::*;
@@ -36,29 +32,29 @@ pub struct ObjWatcher<T: Clone + Send + Sync + kube::ResourceExt> {
 
     clock: Box<dyn Clockable + Send>,
     is_ready: bool,
-    ready_tx: Sender<bool>,
+    ready_tx: mpsc::Sender<bool>,
 
     init_buffer: Vec<T>,
     index: HashSet<String>,
 }
 
 impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
-    fn new(handler: Box<dyn EventHandler<T> + Send>, stream: ObjStream<T>) -> (ObjWatcher<T>, Receiver<bool>) {
-        let (tx, rx): (Sender<bool>, Receiver<bool>) = mpsc::channel();
-        (
-            ObjWatcher {
-                handler,
-                stream,
+    fn new(
+        handler: Box<dyn EventHandler<T> + Send>,
+        stream: ObjStream<T>,
+        ready_tx: mpsc::Sender<bool>,
+    ) -> ObjWatcher<T> {
+        ObjWatcher {
+            handler,
+            stream,
 
-                clock: UtcClock::boxed(),
-                is_ready: false,
-                ready_tx: tx,
+            clock: UtcClock::boxed(),
+            is_ready: false,
+            ready_tx,
 
-                init_buffer: vec![],
-                index: HashSet::new(),
-            },
-            rx,
-        )
+            init_buffer: vec![],
+            index: HashSet::new(),
+        }
     }
 
     // This is not a reference because it needs to "own" itself when tokio spawns it
@@ -149,14 +145,14 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
         handler: Box<dyn EventHandler<T> + Send>,
         stream: ObjStream<T>,
         clock: Box<dyn Clockable + Send>,
+        ready_tx: mpsc::Sender<bool>,
     ) -> ObjWatcher<T> {
-        let (tx, _): (Sender<bool>, Receiver<bool>) = mpsc::channel();
         ObjWatcher {
             handler,
             stream,
             clock,
             is_ready: true,
-            ready_tx: tx,
+            ready_tx,
             init_buffer: vec![],
             index: HashSet::new(),
         }

@@ -106,10 +106,7 @@ async fn main() -> EmptyResult {
             let client = kube::Client::try_default().await?;
             run::cmd(args, client).await
         },
-        SkSubcommand::Snapshot(args) => {
-            let client = kube::Client::try_default().await?;
-            snapshot::cmd(args, client).await
-        },
+        SkSubcommand::Snapshot(args) => snapshot::cmd(args).await,
         SkSubcommand::Validate(subcommand) => validation::cmd(subcommand).await,
         SkSubcommand::Version => {
             println!("skctl {}", crate_version!());

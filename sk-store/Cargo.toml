@@ -25,6 +25,7 @@ serde_yaml = { workspace = true }
 sk-api = { workspace = true }
 sk-core = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true }
 tracing = { workspace = true }
 
 # mock dependencies
