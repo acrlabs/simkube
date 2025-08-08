@@ -4,7 +4,6 @@ pub mod pod_watcher;
 use std::collections::HashSet;
 use std::mem::take;
 use std::pin::Pin;
-use std::sync::mpsc;
 
 use async_trait::async_trait;
 use clockabilly::prelude::*;
@@ -14,6 +13,7 @@ use futures::{
 };
 use kube::runtime::watcher::Event;
 use sk_core::errors::*;
+use tokio::sync::mpsc;
 use tracing::*;
 
 pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
@@ -21,7 +21,7 @@ pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub(crate) trait EventHandler<T: Clone + Send + Sync> {
-    async fn applied(&mut self, obj: &T, ts: i64) -> EmptyResult;
+    async fn applied(&mut self, obj: T, ts: i64) -> EmptyResult;
     async fn deleted(&mut self, namespace: &str, name: &str, ts: i64) -> EmptyResult;
 }
 
@@ -84,7 +84,7 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
         // while holding the lock)
         match evt {
             Event::Apply(obj) => {
-                self.handler.applied(obj, ts).await?;
+                self.handler.applied(obj.clone(), ts).await?;
                 self.index.insert((obj.namespace().unwrap_or_default(), obj.name_any()));
             },
             Event::Delete(obj) => {
@@ -101,7 +101,7 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
                 // after we're done was deleted in the intervening period.
                 let mut old_objs = take(&mut self.index);
                 for obj in &self.init_buffer {
-                    self.handler.applied(obj, ts).await?;
+                    self.handler.applied(obj.clone(), ts).await?;
 
                     let ns = obj.namespace().unwrap_or_default();
                     let name = obj.name_any();

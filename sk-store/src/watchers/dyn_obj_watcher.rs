@@ -1,9 +1,3 @@
-use std::sync::{
-    Arc,
-    Mutex,
-    mpsc,
-};
-
 use async_trait::async_trait;
 use futures::{
     StreamExt,
@@ -19,17 +13,27 @@ use sk_core::k8s::{
     sanitize_obj,
 };
 use sk_core::prelude::*;
+use tokio::sync::mpsc;
 
-use crate::TraceStorable;
+use crate::TraceAction;
 use crate::watchers::{
     EventHandler,
     ObjWatcher,
 };
 
+#[derive(Debug)]
+pub struct DynObjWatcherReq {
+    pub(crate) action: TraceAction,
+    pub(crate) obj: DynamicObject,
+    pub(crate) ts: i64,
+}
+pub type Sender = mpsc::UnboundedSender<DynObjWatcherReq>;
+pub type Receiver = mpsc::UnboundedReceiver<DynObjWatcherReq>;
+
 pub async fn new_with_stream(
     gvk: &GVK,
     apiset: &mut DynamicApiSet,
-    store: Arc<Mutex<dyn TraceStorable + Send>>,
+    dyn_obj_tx: Sender,
     ready_tx: mpsc::Sender<bool>,
 ) -> anyhow::Result<ObjWatcher<DynamicObject>> {
     // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
@@ -40,7 +44,7 @@ pub async fn new_with_stream(
     // The "unnamespaced" api variant can list/watch in all namespaces
     let (api, _) = apiset.unnamespaced_api_by_gvk(gvk).await?;
 
-    let dyn_obj_handler = Box::new(DynObjHandler { gvk: gvk.clone(), store });
+    let dyn_obj_handler = Box::new(DynObjHandler { gvk: gvk.clone(), dyn_obj_tx });
     let dyn_obj_stream = watcher(api.clone(), Default::default())
         // All these objects need to be cloned because they're moved into the stream here
         .modify(move |obj| sanitize_obj(obj, &api_version, &kind))
@@ -56,20 +60,22 @@ pub async fn new_with_stream(
 // events that we receive to the object store.
 pub(super) struct DynObjHandler {
     gvk: GVK,
-    store: Arc<Mutex<dyn TraceStorable + Send>>,
+    dyn_obj_tx: Sender,
 }
 
 #[async_trait]
 impl EventHandler<DynamicObject> for DynObjHandler {
-    async fn applied(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
-        let mut s = self.store.lock().expect("trace store mutex poisoned");
-        s.create_or_update_obj(obj, ts, None)
+    async fn applied(&mut self, obj: DynamicObject, ts: i64) -> EmptyResult {
+        self.dyn_obj_tx
+            .send(DynObjWatcherReq { action: TraceAction::ObjectApplied, obj, ts })?;
+        Ok(())
     }
 
     async fn deleted(&mut self, ns: &str, name: &str, ts: i64) -> EmptyResult {
-        let mut s = self.store.lock().expect("trace store mutex poisoned");
         let obj = build_deletable(&self.gvk, &format!("{ns}/{name}"));
-        s.delete_obj(&obj, ts)
+        self.dyn_obj_tx
+            .send(DynObjWatcherReq { action: TraceAction::ObjectDeleted, obj, ts })?;
+        Ok(())
     }
 }
 
@@ -83,10 +89,10 @@ use super::ObjStream;
 #[cfg_attr(coverage, coverage(off))]
 pub(crate) fn new_from_parts(
     gvk: GVK,
-    store: Arc<Mutex<dyn TraceStorable + Send>>,
+    dyn_obj_tx: Sender,
     stream: ObjStream<DynamicObject>,
     clock: Box<dyn Clockable + Send>,
     ready_tx: mpsc::Sender<bool>,
 ) -> ObjWatcher<DynamicObject> {
-    ObjWatcher::new_from_parts(Box::new(DynObjHandler { gvk, store }), stream, clock, ready_tx)
+    ObjWatcher::new_from_parts(Box::new(DynObjHandler { gvk, dyn_obj_tx }), stream, clock, ready_tx)
 }

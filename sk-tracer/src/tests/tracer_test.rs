@@ -3,16 +3,17 @@ use sk_core::external_storage::{
     MockObjectStoreWrapper,
     SkObjectStore,
 };
+use sk_store::TracerConfig;
 
 use super::*;
 
 #[fixture]
-fn manager() -> TraceManager {
-    TraceManager::new(Default::default())
+fn store() -> Arc<Mutex<TraceStore>> {
+    Arc::new(Mutex::new(TraceStore::new(TracerConfig::default())))
 }
 
 #[rstest(tokio::test)]
-async fn test_export_helper_cloud(manager: TraceManager) {
+async fn test_export_helper_cloud(store: Arc<Mutex<TraceStore>>) {
     let req = ExportRequest {
         start_ts: 0,
         end_ts: 1,
@@ -23,12 +24,12 @@ async fn test_export_helper_cloud(manager: TraceManager) {
     object_store.expect_put().returning(|_| Ok(())).once();
     object_store.expect_scheme().returning(|| ObjectStoreScheme::AmazonS3).once();
 
-    let res = export_helper(&req, &manager, &object_store).await.unwrap();
+    let res = export_helper(&req, store, &object_store).await.unwrap();
     assert!(res.len() == 0);
 }
 
 #[rstest(tokio::test)]
-async fn test_export_helper_local(manager: TraceManager) {
+async fn test_export_helper_local(store: Arc<Mutex<TraceStore>>) {
     let export_path = "memory:/foo";
 
     let req = ExportRequest {
@@ -39,6 +40,6 @@ async fn test_export_helper_local(manager: TraceManager) {
     };
     let object_store = SkObjectStore::new(export_path).unwrap();
 
-    let res = export_helper(&req, &manager, &object_store).await.unwrap();
+    let res = export_helper(&req, store, &object_store).await.unwrap();
     assert!(res.len() > 0);
 }

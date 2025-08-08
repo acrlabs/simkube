@@ -170,10 +170,10 @@ fn add_lifecycle_fields(
         for owner in owners {
             let owner_gvk = GVK::from_owner_ref(owner)?;
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.store.has_obj(&owner_gvk, &owner_ns_name) {
+            if !ctx.trace.has_obj(&owner_gvk, &owner_ns_name) {
                 continue;
             }
-            let lifecycle = ctx.store.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
+            let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
             if let Some(patch) = to_completion_time_annotation(sim.speed(), &lifecycle, &*clock) {
                 info!("applying lifecycle annotations");
                 patches.push(add_operation(

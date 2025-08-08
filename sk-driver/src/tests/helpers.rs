@@ -30,17 +30,14 @@ pub fn build_trace_data(has_start_marker: bool, duration: Option<i64>) -> Vec<u8
     rmp_serde::to_vec_named(&exported_trace).unwrap()
 }
 
-pub fn build_driver_context(
-    owners_cache: Arc<Mutex<OwnersCache>>,
-    store: Arc<dyn TraceStorable + Send + Sync>,
-) -> DriverContext {
+pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace) -> DriverContext {
     DriverContext {
         name: TEST_DRIVER_NAME.into(),
         sim_name: TEST_SIM_NAME.into(),
         root_name: TEST_DRIVER_ROOT_NAME.into(),
         ctrl_ns: TEST_CTRL_NAMESPACE.into(),
         virtual_ns_prefix: TEST_VIRT_NS_PREFIX.into(),
-        owners_cache,
-        store,
+        owners_cache: Arc::new(Mutex::new(owners_cache)),
+        trace: Arc::new(trace),
     }
 }

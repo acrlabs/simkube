@@ -113,8 +113,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation
     };
 
     let clock = UtcClock::boxed();
-    let sim_ts = ctx.store.start_ts().ok_or(anyhow!("no trace data"))?;
-    let sim_end_ts = ctx.store.end_ts().ok_or(anyhow!("no trace data"))?;
+    let sim_ts = ctx.trace.start_ts().ok_or(anyhow!("no trace data"))?;
+    let sim_end_ts = ctx.trace.end_ts().ok_or(anyhow!("no trace data"))?;
 
     let sim_duration = compute_step_size(sim.speed(), sim_ts, sim_end_ts);
     try_update_lease(client.clone(), &sim, &ctx.ctrl_ns, sim_duration as u64).await?;
@@ -135,7 +135,7 @@ pub(crate) async fn run_trace_internal(
     let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
     let mut apiset = DynamicApiSet::new(client.clone());
 
-    for (evt, maybe_next_ts) in ctx.store.iter() {
+    for (evt, maybe_next_ts) in ctx.trace.iter() {
         current_ts += wait_if_paused(client.clone(), &ctx.sim_name, clock.clone()).await?;
 
         // We're currently assuming that all tracked objects are namespace-scoped,
@@ -151,7 +151,7 @@ pub(crate) async fn run_trace_internal(
                 ns_api.create(&Default::default(), &vns).await?;
             }
 
-            let pod_spec_template_path = ctx.store.config().pod_spec_template_paths(&gvk);
+            let pod_spec_template_path = ctx.trace.config.pod_spec_template_paths(&gvk);
             let vobj = build_virtual_obj(ctx, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
             info!("applying {} {}", dyn_obj_type_str(&vobj), vobj.namespaced_name());

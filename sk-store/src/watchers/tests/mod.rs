@@ -1,14 +1,12 @@
 mod pod_watcher_test;
 
-use std::sync::mpsc;
-
 use futures::stream;
 use mockall::predicate;
 use sk_core::prelude::*;
 use sk_testutils::*;
+use tokio::sync::mpsc;
 
 use super::*;
-use crate::mock::MockTraceStore;
 use crate::watchers::MockEventHandler;
 
 #[rstest(tokio::test)]
@@ -23,7 +21,7 @@ async fn test_handle_initialize_event() {
             .once();
     }
 
-    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
     let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
