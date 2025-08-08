@@ -13,10 +13,9 @@ use kube::core::{
     GroupVersionKind,
     GroupVersionResource,
 };
-use mockall::predicate;
 use rocket::serde::json::Json;
 use sk_core::k8s::PodLifecycleData;
-use sk_store::mock::MockTraceStore;
+use sk_store::ExportedTrace;
 
 use super::helpers::build_driver_context;
 use super::*;
@@ -25,13 +24,13 @@ use super::*;
 fn ctx(
     test_pod: corev1::Pod,
     #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>,
-    #[default(MockTraceStore::new())] store: MockTraceStore,
+    #[default(ExportedTrace::default())] trace: ExportedTrace,
 ) -> DriverContext {
     let (_, client) = make_fake_apiserver();
     let mut owners = HashMap::new();
     owners.insert((corev1::Pod::gvk(), test_pod.namespaced_name()), pod_owners);
     let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
-    build_driver_context(Arc::new(Mutex::new(cache)), Arc::new(store))
+    build_driver_context(cache, trace)
 }
 
 #[fixture]
@@ -99,7 +98,7 @@ async fn test_handler_bad_response(
         name: TEST_DRIVER_ROOT_NAME.into(),
         ..Default::default()
     };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
+    let ctx = ctx(test_pod.clone(), vec![owner.clone()], ExportedTrace::default());
     test_pod.owner_references_mut().push(owner);
     test_pod.spec = None;
 
@@ -121,7 +120,7 @@ async fn test_mutate_pod_not_owned_by_sim(
     mut adm_resp: AdmissionResponse,
 ) {
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()], MockTraceStore::new());
+    let ctx = ctx(test_pod.clone(), vec![owner.clone()], ExportedTrace::default());
     test_pod.owner_references_mut().push(owner);
     adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
         .await
@@ -130,6 +129,8 @@ async fn test_mutate_pod_not_owned_by_sim(
 }
 
 mod itest {
+    use sk_store::PodLifecyclesMap;
+
     use super::*;
 
     #[rstest(tokio::test)]
@@ -153,20 +154,24 @@ mod itest {
             name: TEST_DRIVER_ROOT_NAME.into(),
             ..Default::default()
         };
-        let depl = metav1::OwnerReference { name: TEST_DEPLOYMENT.into(), ..Default::default() };
+        let depl = metav1::OwnerReference {
+            name: TEST_DEPLOYMENT.into(),
+            api_version: "apps/v1".into(),
+            kind: "Deployment".into(),
+            ..Default::default()
+        };
 
         let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
-        let mut store = MockTraceStore::new();
+        let mut trace = ExportedTrace::default();
         if running {
-            let _ = store
-                .expect_lookup_pod_lifecycle()
-                .with(predicate::always(), predicate::always(), predicate::eq(EMPTY_POD_SPEC_HASH), predicate::eq(0))
-                .returning(|_, _, _, _| PodLifecycleData::Finished(0, 42))
-                .once();
-            let _ = store.expect_has_obj().returning(move |_gvk, o| o == owner_ns_name);
+            trace.pod_lifecycles.insert(
+                (DEPL_GVK.clone(), owner_ns_name.clone()),
+                PodLifecyclesMap::from([(EMPTY_POD_SPEC_HASH, vec![PodLifecycleData::Finished(0, 42)])]),
+            );
+            trace.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), 1234);
         }
 
-        let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], store);
+        let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], trace);
 
         adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
             .await

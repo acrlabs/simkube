@@ -25,10 +25,8 @@ const TEST_NS_NAME: &str = "default";
 #[rstest(tokio::test)]
 async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
     let (_, client) = make_fake_apiserver();
-    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
-
-    let store = Arc::new(TraceStore::new(Default::default()));
-    let ctx = build_driver_context(cache, store);
+    let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
+    let ctx = build_driver_context(cache, ExportedTrace::default());
 
     let pod_spec_template_paths = Some(vec!["/spec/template1".into(), "/spec/template2".into()]);
 
@@ -73,10 +71,10 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
 async fn test_cleanup_trace_error() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+    let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let store = Arc::new(TraceStore::new(Default::default()));
-    let ctx = build_driver_context(cache, store);
+    let trace = ExportedTrace::default();
+    let ctx = build_driver_context(cache, trace);
 
     let clock = MockUtcClock::boxed(0);
 
@@ -99,10 +97,10 @@ async fn test_cleanup_trace_error() {
 async fn test_cleanup_trace_timeout() {
     let (fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+    let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let store = Arc::new(TraceStore::new(Default::default()));
-    let ctx = build_driver_context(cache, store);
+    let trace = ExportedTrace::default();
+    let ctx = build_driver_context(cache, trace);
 
     let clock = MockUtcClock::boxed(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
 
@@ -119,10 +117,10 @@ async fn test_cleanup_trace_timeout() {
 async fn test_cleanup_trace() {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
-    let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+    let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let store = Arc::new(TraceStore::new(Default::default()));
-    let ctx = build_driver_context(cache, store);
+    let trace = ExportedTrace::default();
+    let ctx = build_driver_context(cache, trace);
 
     let clock = MockUtcClock::boxed(0);
 
@@ -145,11 +143,11 @@ mod itest {
     #[case::no_start_marker(false)]
     async fn test_driver_run(test_sim: Simulation, #[case] has_start_marker: bool) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
-        let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+        let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(has_start_marker, None);
-        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
-        let ctx = build_driver_context(cache, store);
+        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let ctx = build_driver_context(cache, trace);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {
@@ -228,11 +226,11 @@ mod itest {
         #[case] expected_end_ts: i64,
     ) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
-        let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+        let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(false, Some(10));
-        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
-        let ctx = build_driver_context(cache, store);
+        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let ctx = build_driver_context(cache, trace);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {
@@ -306,11 +304,11 @@ mod itest {
     #[rstest(tokio::test)]
     async fn test_driver_run_internal_paused_in_middle(test_sim: Simulation) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
-        let cache = Arc::new(Mutex::new(OwnersCache::new(DynamicApiSet::new(client.clone()))));
+        let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(false, Some(10));
-        let store = Arc::new(TraceStore::import(trace_data, None).unwrap());
-        let ctx = build_driver_context(cache, store);
+        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let ctx = build_driver_context(cache, trace);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {

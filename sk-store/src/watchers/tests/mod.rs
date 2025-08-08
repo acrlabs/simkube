@@ -1,16 +1,14 @@
 mod pod_watcher_test;
 
-use std::sync::mpsc;
-
 use assertables::*;
 use futures::stream;
 use lazy_static::lazy_static;
 use mockall::predicate;
 use sk_core::prelude::*;
 use sk_testutils::*;
+use tokio::sync::mpsc;
 
 use super::*;
-use crate::mock::MockTraceStore;
 use crate::watchers::MockEventHandler;
 
 lazy_static! {
@@ -33,7 +31,7 @@ async fn test_handle_initialize_event() {
             .once();
     }
 
-    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
     let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
 
     watcher.handle_event(&Event::Init, 0).await.unwrap();
@@ -57,7 +55,7 @@ async fn test_handle_initialize_event_with_created_obj() {
             .once();
     }
 
-    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
     let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
     watcher.index = HashSet::from([format!("{TEST_NAMESPACE}/depl0"), format!("{TEST_NAMESPACE}/depl1")]);
 
@@ -88,7 +86,7 @@ async fn test_handle_initialize_event_with_deleted_obj() {
         .returning(|_, _| Ok(()))
         .once();
 
-    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel();
+    let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
     let mut watcher = ObjWatcher::<DynamicObject>::new(handler, Box::pin(stream::empty()), ready_tx);
     watcher.index = EXPECTED_INDEX.clone();
 

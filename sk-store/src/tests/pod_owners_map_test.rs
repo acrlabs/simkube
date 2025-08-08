@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use sk_core::k8s::PodLifecycleData;
+
 use super::*;
 use crate::pod_owners_map::{
     PodLifecyclesMap,

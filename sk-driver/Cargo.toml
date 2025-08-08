@@ -34,7 +34,7 @@ mockall = { workspace = true }
 rmp-serde = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
-sk-store = { workspace = true, features = ["mock"] }
+sk-store = { workspace = true }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
 

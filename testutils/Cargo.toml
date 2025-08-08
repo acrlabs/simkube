@@ -23,6 +23,7 @@ sk-api = { workspace = true }
 sk-core = { workspace = true }
 sk-store = { workspace = true }
 serde_json = { workspace = true }
+serde_yaml = { workspace = true }
 
 [lints]
 workspace = true
