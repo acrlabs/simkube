@@ -29,12 +29,15 @@ use crate::TraceIndex;
 // Consequentially, the actual data structure that we use here ends up being fairly complex.  It
 // looks like this:
 //
-// - Owning Object: pod_spec_hash1:
-//     - start_ts1 end_ts1
-//     - start_ts2
-//     - start_ts3 end_ts3
-//   pod_spec_hash2:
-//     - start_tsA end_tsA
+// ```yaml
+// - Owning Object:
+//     pod_spec_hash1:
+//       - start_ts1 end_ts1
+//       - start_ts2
+//       - start_ts3 end_ts3
+//     pod_spec_hash2:
+//       - start_tsA end_tsA
+// ```
 //
 // Each owning object keeps track of all the pods that we've seen that belong to it.  These are
 // stored nested by hash, and then each hash keeps a vector of pod lifecycle data.  The order
@@ -57,24 +60,8 @@ pub(crate) struct PodOwnersMap {
 }
 
 impl PodOwnersMap {
-    pub(crate) fn new_from_parts(
-        m: HashMap<(GVK, String), PodLifecyclesMap>,
-        index: HashMap<String, ((GVK, String), u64, usize)>,
-    ) -> PodOwnersMap {
-        PodOwnersMap { m, index }
-    }
-
     pub(crate) fn has_pod(&self, ns_name: &str) -> bool {
         self.index.contains_key(ns_name)
-    }
-
-    pub(crate) fn lifecycle_data_for<'a>(
-        &'a self,
-        owner_gvk: &GVK,
-        owner_ns_name: &str,
-        pod_hash: u64,
-    ) -> Option<&'a Vec<PodLifecycleData>> {
-        self.m.get(&(owner_gvk.clone(), owner_ns_name.into()))?.get(&pod_hash)
     }
 
     pub(crate) fn store_new_pod_lifecycle(
@@ -185,7 +172,23 @@ pub(crate) fn filter_lifecycles_map(
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl PodOwnersMap {
-    pub(crate) fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
+    pub(crate) fn lifecycle_data_for<'a>(
+        &'a self,
+        owner_gvk: &GVK,
+        owner_ns_name: &str,
+        pod_hash: u64,
+    ) -> Option<&'a Vec<PodLifecycleData>> {
+        self.m.get(&(owner_gvk.clone(), owner_ns_name.into()))?.get(&pod_hash)
+    }
+
+    pub fn new_from_parts(
+        m: HashMap<(GVK, String), PodLifecyclesMap>,
+        index: HashMap<String, ((GVK, String), u64, usize)>,
+    ) -> PodOwnersMap {
+        PodOwnersMap { m, index }
+    }
+
+    pub fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
         self.index.get(pod_ns_name)
     }
 }

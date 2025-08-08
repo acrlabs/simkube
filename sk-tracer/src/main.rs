@@ -1,9 +1,14 @@
 mod errors;
 
 use std::ops::Deref;
+use std::sync::{
+    Arc,
+    Mutex,
+};
 
 use bytes::Bytes;
 use clap::Parser;
+use kube::Client;
 use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
@@ -15,6 +20,7 @@ use sk_core::logging;
 use sk_core::prelude::*;
 use sk_store::{
     TraceManager,
+    TraceStore,
     TracerConfig,
 };
 use tracing::*;
@@ -35,10 +41,10 @@ struct Options {
 
 async fn export_helper(
     req: &ExportRequest,
-    manager: &TraceManager,
+    store: Arc<Mutex<TraceStore>>,
     object_store: &(dyn ObjectStoreWrapper + Sync),
 ) -> anyhow::Result<Vec<u8>> {
-    let trace_data = manager.export(req.start_ts, req.end_ts, &req.filters).await?;
+    let trace_data = { store.lock().unwrap().export(req.start_ts, req.end_ts, &req.filters)? };
 
     match object_store.scheme() {
         // If we're writing to a cloud provider, we want to write from the location that the
@@ -58,12 +64,12 @@ async fn export_helper(
 #[rocket::post("/export", data = "<req>")]
 async fn export(
     req: Json<ExportRequest>,
-    manager: &rocket::State<TraceManager>,
+    store: &rocket::State<Arc<Mutex<TraceStore>>>,
 ) -> Result<Vec<u8>, ExportResponseError> {
     info!("export called with {:?}", req);
 
     let object_store = SkObjectStore::new(&req.export_path)?;
-    let res = export_helper(req.deref(), manager, &object_store).await;
+    let res = export_helper(req.deref(), store.deref().clone(), &object_store).await;
 
     // anyhow::Error Debug implementation prints the entire chain of errors, but once this gets
     // sucked up into rocket it no longer knows anything about that, so here we print the full
@@ -77,20 +83,18 @@ async fn export(
 #[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
-    let mut manager = TraceManager::new(config);
+    let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
+    let client = Client::try_default().await.expect("failed to create kube client");
+    let mut manager = TraceManager::new(client, config, store.clone());
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config)
         .mount("/", rocket::routes![export])
-        .manage(manager.clone());
+        .manage(store.clone());
 
-    tokio::select! {
-        _ = manager.start() => Ok(()),
-        res = tokio::spawn(server.launch()) => match res {
-            Ok(r) => r.map(|_| ()).map_err(|err| err.into()),
-            Err(err) => Err(err.into()),
-        },
-    }
+    manager.start().await?;
+    server.launch().await?;
+    Ok(())
 }
 
 #[tokio::main]

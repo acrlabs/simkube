@@ -1,11 +1,6 @@
 use std::collections::HashMap;
 
 use anyhow::bail;
-use clockabilly::prelude::*;
-use serde::{
-    Deserialize,
-    Serialize,
-};
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
@@ -14,42 +9,22 @@ use sk_core::k8s::{
     PodLifecycleData,
 };
 use sk_core::prelude::*;
-use sk_core::time::duration_to_ts_from;
-use thiserror::Error;
 use tracing::*;
 
 use crate::config::TracerConfig;
 use crate::event::{
     TraceAction,
     TraceEvent,
-    TraceEventList,
+    append_event,
 };
 use crate::filter::filter_event;
 use crate::index::TraceIndex;
-use crate::iter::TraceIterator;
-use crate::pod_owners_map::{
-    PodLifecyclesMap,
-    PodOwnersMap,
-};
-use crate::{
-    CURRENT_TRACE_FORMAT_VERSION,
-    TraceStorable,
-};
+use crate::pod_owners_map::PodOwnersMap;
+use crate::trace::ExportedTrace;
 
-
-#[derive(Debug, Error)]
-pub enum TraceStoreError {
-    #[error(
-        "could not parse trace file\n\nIf this trace file is older than version 2, \
-        it is only parseable by SimKube <= 1.1.1.  Please see the release notes for details."
-    )]
-    ParseFailed(#[from] rmp_serde::decode::Error),
-}
-
-#[derive(Clone, Default)]
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
-    pub(crate) events: TraceEventList,
+    pub(crate) events: Vec<TraceEvent>,
     pub(crate) pod_owners: PodOwnersMap,
     pub(crate) index: TraceIndex,
 }
@@ -63,13 +38,12 @@ pub struct TraceStore {
 
 impl TraceStore {
     pub fn new(config: TracerConfig) -> TraceStore {
-        TraceStore { config, ..Default::default() }
-    }
-
-    pub fn clone_with_events(&self, events: TraceEventList) -> TraceStore {
-        let mut store = self.clone();
-        store.events = events;
-        store
+        TraceStore {
+            config,
+            events: vec![],
+            pod_owners: PodOwnersMap::default(),
+            index: TraceIndex::default(),
+        }
     }
 
     pub fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
@@ -85,71 +59,20 @@ impl TraceStore {
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
         let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
-        let data = rmp_serde::to_vec_named(&ExportedTrace {
-            version: CURRENT_TRACE_FORMAT_VERSION,
+        let data = ExportedTrace {
             config: self.config.clone(),
             events,
             index,
             pod_lifecycles,
-        })?;
+            ..Default::default()
+        }
+        .to_bytes()?;
 
         info!("Exported {} events", num_events);
         Ok(data)
     }
 
-    pub fn export_all(&self) -> anyhow::Result<Vec<u8>> {
-        let (Some(start_ts), Some(end_ts)) = (self.start_ts(), self.end_ts()) else {
-            return Ok(vec![]);
-        };
-        self.export(start_ts, end_ts + 1, &ExportFilters::default())
-    }
-
-    pub fn import(data: Vec<u8>, maybe_duration: Option<&String>) -> anyhow::Result<TraceStore> {
-        let exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceStoreError::ParseFailed)?;
-        Self::from_exported_trace(exported_trace, maybe_duration)
-    }
-
-    // Note that _importing_ data into a trace store is lossy -- we don't store (or import) all of
-    // the metadata necessary to pick up a trace and continue.  Instead, we just re-import enough
-    // information to be able to run a simulation off the trace store.
-    pub fn from_exported_trace(
-        mut exported_trace: ExportedTrace,
-        maybe_duration: Option<&String>,
-    ) -> anyhow::Result<TraceStore> {
-        if exported_trace.version != CURRENT_TRACE_FORMAT_VERSION {
-            bail!("unsupported trace version: {}", exported_trace.version);
-        }
-
-        let trace_start_ts = exported_trace
-            .events
-            .first()
-            .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
-            .ts;
-        let mut trace_end_ts = exported_trace
-            .events
-            .last()
-            .unwrap_or(&TraceEvent { ts: UtcClock.now_ts(), ..Default::default() })
-            .ts;
-        if let Some(trace_duration_str) = maybe_duration {
-            trace_end_ts = duration_to_ts_from(trace_start_ts, trace_duration_str)?;
-            exported_trace.events.retain(|evt| evt.ts < trace_end_ts);
-
-            // Add an empty event to the very end to make sure the driver doesn't shut down early
-            exported_trace
-                .events
-                .push(TraceEvent { ts: trace_end_ts, ..Default::default() });
-        }
-
-        info!("Imported {} events between {trace_start_ts} and {trace_end_ts}", exported_trace.events.len());
-        Ok(TraceStore {
-            config: exported_trace.config,
-            events: exported_trace.events.into(),
-            index: exported_trace.index,
-            pod_owners: PodOwnersMap::new_from_parts(exported_trace.pod_lifecycles, HashMap::new()),
-        })
-    }
-
-    pub(crate) fn collect_events(
+    pub(super) fn collect_events(
         &self,
         start_ts: i64,
         end_ts: i64,
@@ -166,7 +89,7 @@ impl TraceStore {
         let mut flattened_objects = HashMap::new();
         let mut index = TraceIndex::new();
 
-        for (evt, _) in self.iter() {
+        for evt in self.events.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
             // end_ts or greater gets discarded.  The event list is stored in
             // monotonically-increasing order so we are safe to break here.
@@ -207,59 +130,43 @@ impl TraceStore {
         events[0].applied_objs = flattened_objects.into_values().collect();
         Ok((events, index))
     }
-}
 
-impl TraceStorable for TraceStore {
     // We use a swap-and-update operation for the index, which means that if we call
     // create_or_update_obj from a refresh event, the _new_ index won't have the hash data
     // available in it yet.  So here we have to pass in a maybe_old_hash which is the value from
     // the swapped-out data structure.  If this is called from an `Applied` event, we just pass in
     // `None` and look up the value in the current index (if the object didn't exist in the old
     // index either, we'll do a second lookup in the new index, but that should be pretty fast).
-    fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64, maybe_old_hash: Option<u64>) -> EmptyResult {
+    pub(super) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
         let gvk = GVK::from_dynamic_obj(obj)?;
 
         let ns_name = obj.namespaced_name();
         let new_hash = jsonutils::hash_option(obj.data.get("spec"));
-        let old_hash = maybe_old_hash.or_else(|| self.index.get(&gvk, &ns_name));
+        let old_hash = self.index.get(&gvk, &ns_name);
 
         if Some(new_hash) != old_hash {
-            self.events.append(ts, obj, TraceAction::ObjectApplied);
+            append_event(&mut self.events, ts, obj, TraceAction::ObjectApplied);
         }
         self.index.insert(gvk, ns_name, new_hash);
         Ok(())
     }
 
-    fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
+    pub(super) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
         let gvk = GVK::from_dynamic_obj(obj)?;
         let ns_name = obj.namespaced_name();
-        self.events.append(ts, obj, TraceAction::ObjectDeleted);
+        append_event(&mut self.events, ts, obj, TraceAction::ObjectDeleted);
         self.index.remove(gvk, &ns_name);
         Ok(())
-    }
-
-    fn lookup_pod_lifecycle(
-        &self,
-        owner_gvk: &GVK,
-        owner_ns_name: &str,
-        pod_hash: u64,
-        seq: usize,
-    ) -> PodLifecycleData {
-        let maybe_lifecycle_data = self.pod_owners.lifecycle_data_for(owner_gvk, owner_ns_name, pod_hash);
-        match maybe_lifecycle_data {
-            Some(data) => data[seq % data.len()].clone(),
-            _ => PodLifecycleData::Empty,
-        }
     }
 
     // We assume that we are given a valid/correct lifecycle event here, so we will just
     // blindly store whatever we are given.  It's up to the caller (the pod watcher in this
     // case) to ensure that the lifecycle data isn't incorrect.
-    fn record_pod_lifecycle(
+    pub(super) fn record_pod_lifecycle(
         &mut self,
         ns_name: &str,
-        maybe_pod: Option<corev1::Pod>,
-        owners: Vec<metav1::OwnerReference>,
+        maybe_pod: &Option<corev1::Pod>,
+        owners: &Vec<metav1::OwnerReference>,
         lifecycle_data: &PodLifecycleData,
     ) -> EmptyResult {
         // If we've already stored data about this pod, we just update the existing entry
@@ -269,13 +176,13 @@ impl TraceStorable for TraceStore {
         // because those _can_ change).
         if self.pod_owners.has_pod(ns_name) {
             self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
-        } else if let Some(pod) = &maybe_pod {
+        } else if let Some(pod) = maybe_pod {
             // Otherwise, we need to check if any of the pod's owners are tracked by us
-            for owner in &owners {
+            for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), owner.name);
                 let owner_gvk = GVK::from_owner_ref(owner)?;
-                if !self.has_obj(&owner_gvk, &owner_ns_name) {
+                if !self.index.contains(&owner_gvk, &owner_ns_name) {
                     continue;
                 }
 
@@ -303,51 +210,6 @@ impl TraceStorable for TraceStore {
 
         Ok(())
     }
-
-    fn config(&self) -> &TracerConfig {
-        &self.config
-    }
-
-    fn has_obj(&self, gvk: &GVK, ns_name: &str) -> bool {
-        self.index.contains(gvk, ns_name)
-    }
-
-    fn start_ts(&self) -> Option<i64> {
-        self.events.front().map(|evt| evt.ts)
-    }
-
-    fn end_ts(&self) -> Option<i64> {
-        self.events.back().map(|evt| evt.ts)
-    }
-
-    fn iter(&self) -> TraceIterator<'_> {
-        TraceIterator::new(&self.events)
-    }
-}
-
-#[derive(Deserialize, Serialize)]
-pub struct ExportedTrace {
-    version: u16,
-    config: TracerConfig,
-    events: Vec<TraceEvent>,
-    index: TraceIndex,
-    pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
-}
-
-impl ExportedTrace {
-    pub fn append_event(&mut self, event: TraceEvent) {
-        self.events.push(event);
-    }
-
-    pub fn prepend_event(&mut self, event: TraceEvent) {
-        let mut tmp = vec![event];
-        tmp.append(&mut self.events);
-        self.events = tmp;
-    }
-
-    pub fn events(&self) -> Vec<TraceEvent> {
-        self.events.clone()
-    }
 }
 
 #[cfg(test)]
@@ -356,13 +218,11 @@ mod test {
     use super::*;
 
     impl TraceStore {
-        pub fn sorted_objs_at(&self, end_ts: i64, filter: &ExportFilters) -> Vec<String> {
+        pub fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> Vec<String> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
             let (_, index) = self.collect_events(0, end_ts, filter, false).expect("testing code");
-            let mut res = index.flattened_keys();
-            res.sort();
-            res
+            index.flattened_keys()
         }
     }
 }

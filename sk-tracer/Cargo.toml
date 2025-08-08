@@ -29,7 +29,7 @@ url = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
 sk-core = { workspace = true, features = ["mock"] }
-sk-store = { workspace = true, features = ["mock"] }
+sk-store = { workspace = true }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
 

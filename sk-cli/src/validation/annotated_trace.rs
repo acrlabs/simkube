@@ -43,10 +43,9 @@ use sk_core::external_storage::{
 };
 use sk_core::prelude::*;
 use sk_store::{
+    ExportedTrace,
     TraceAction,
     TraceEvent,
-    TraceStorable,
-    TraceStore,
 };
 
 use super::validator::{
@@ -102,7 +101,7 @@ type AnnotationSummary = BTreeMap<ValidatorCode, usize>;
 #[derive(Default)]
 pub struct AnnotatedTrace {
     path: String,
-    base: TraceStore,
+    base: ExportedTrace,
     patches: Vec<AnnotatedTracePatch>,
 
     pub(super) events: Vec<AnnotatedTraceEvent>,
@@ -112,7 +111,7 @@ impl AnnotatedTrace {
     pub async fn new(trace_path: &str) -> anyhow::Result<AnnotatedTrace> {
         let object_store = SkObjectStore::new(trace_path)?;
         let trace_data = object_store.get().await?.to_vec();
-        let base = TraceStore::import(trace_data, None)?;
+        let base = ExportedTrace::import(trace_data, None)?;
         let events = base.iter().map(|(event, _)| AnnotatedTraceEvent::new(event.clone())).collect();
         Ok(AnnotatedTrace {
             base,
@@ -139,7 +138,7 @@ impl AnnotatedTrace {
         let trace = self
             .base
             .clone_with_events(self.events.iter().map(|a_event| a_event.data.clone()).collect());
-        trace.export_all()
+        trace.to_bytes()
     }
 
     pub fn validate(&mut self, validators: &BTreeMap<ValidatorCode, Validator>) -> anyhow::Result<AnnotationSummary> {
@@ -147,7 +146,7 @@ impl AnnotatedTrace {
         for event in self.events.iter_mut() {
             event.clear_annotations();
             for (code, validator) in validators.iter() {
-                let event_patches = validator.check_next_event(event, self.base.config())?;
+                let event_patches = validator.check_next_event(event, &self.base.config)?;
                 let count = event_patches.len();
                 summary.entry(*code).and_modify(|e| *e += count).or_insert(count);
 
@@ -293,10 +292,9 @@ impl AnnotatedTrace {
             .cloned()
             .map(|e| AnnotatedTraceEvent::new(e))
             .collect();
-        let base = TraceStore::from_exported_trace(exported_trace, None).unwrap();
 
         AnnotatedTrace {
-            base,
+            base: exported_trace,
             events: annotated_events,
             ..Default::default()
         }

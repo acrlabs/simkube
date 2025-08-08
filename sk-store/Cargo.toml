@@ -8,9 +8,6 @@ license-file.workspace = true
 readme.workspace = true
 edition.workspace = true
 
-[features]
-mock = ["dep:mockall"]
-
 [dependencies]
 anyhow = { workspace = true }
 async-trait = { workspace = true }
@@ -28,13 +25,12 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 
-# mock dependencies
-mockall = { workspace = true, optional = true }
-
 [dev-dependencies]
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
+httpmock = { workspace = true }
 lazy_static = { workspace = true }
+mockall = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
 sk-testutils = { workspace = true }

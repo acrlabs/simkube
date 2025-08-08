@@ -28,10 +28,7 @@ use sk_core::{
     hooks,
     logging,
 };
-use sk_store::{
-    TraceStorable,
-    TraceStore,
-};
+use sk_store::ExportedTrace;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;
@@ -79,7 +76,7 @@ pub struct DriverContext {
     ctrl_ns: String,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
-    store: Arc<dyn TraceStorable + Send + Sync>,
+    trace: Arc<ExportedTrace>,
 }
 
 #[instrument(ret, err)]
@@ -95,7 +92,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     let object_store = SkObjectStore::new(&opts.trace_path)?;
     let trace_data = object_store.get().await?.to_vec();
-    let store = Arc::new(TraceStore::import(trace_data, sim.spec.duration.as_ref())?);
+    let trace = Arc::new(ExportedTrace::import(trace_data, sim.spec.duration.as_ref())?);
 
     let apiset = DynamicApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
@@ -106,7 +103,7 @@ async fn run(opts: Options) -> EmptyResult {
         ctrl_ns: opts.controller_ns.clone(),
         virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
         owners_cache,
-        store,
+        trace,
     };
 
     let rkt_config = rocket::Config {

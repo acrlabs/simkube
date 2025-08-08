@@ -5,7 +5,6 @@ pub mod pod_watcher;
 use std::collections::HashSet;
 use std::mem::take;
 use std::pin::Pin;
-use std::sync::mpsc;
 
 use async_trait::async_trait;
 use clockabilly::prelude::*;
@@ -15,6 +14,7 @@ use futures::{
 };
 use kube::runtime::watcher::Event;
 use sk_core::errors::*;
+use tokio::sync::mpsc;
 use tracing::*;
 
 pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
@@ -22,7 +22,7 @@ pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>
 #[cfg_attr(test, automock)]
 #[async_trait]
 pub(crate) trait EventHandler<T: Clone + Send + Sync> {
-    async fn applied(&mut self, obj: &T, ts: i64) -> EmptyResult;
+    async fn applied(&mut self, obj: T, ts: i64) -> EmptyResult;
     async fn deleted(&mut self, ns_name: &str, ts: i64) -> EmptyResult;
 }
 
@@ -73,7 +73,7 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
                     // the tracer can still maybe attempt to keep going, but that indicates
                     // somthing more problematic and program-stopping is going on, so we display a
                     // stack trace (using skerr).
-                    skerr!(err, "pod watcher received error on stream");
+                    skerr!(err, "watcher received error on stream");
                 },
             }
         }
@@ -85,7 +85,7 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
         // while holding the lock)
         match evt {
             Event::Apply(obj) => {
-                self.handler.applied(obj, ts).await?;
+                self.handler.applied(obj.clone(), ts).await?;
                 self.index.insert(obj.namespaced_name());
             },
             Event::Delete(obj) => {
@@ -106,7 +106,7 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
 
                     // We have to unconditionally apply since we don't know if it changed
                     // in the intervening period
-                    self.handler.applied(obj, ts).await?;
+                    self.handler.applied(obj.clone(), ts).await?;
                     self.index.insert(ns_name);
                 }
 
@@ -123,7 +123,9 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
 
                     // unlike golang, sending is non-blocking
                     // if nobody's listening on the other end it's "fine" so we ignore the error
-                    let _ = self.ready_tx.send(true);
+                    if let Err(e) = self.ready_tx.send(true).await {
+                        error!("failed to notify ready: {e}");
+                    }
                 }
                 self.init_buffer.clear();
             },
