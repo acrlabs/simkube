@@ -115,8 +115,12 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation
     let clock = UtcClock::boxed();
     let sim_ts = ctx.trace.start_ts().ok_or(anyhow!("no trace data"))?;
     let sim_end_ts = ctx.trace.end_ts().ok_or(anyhow!("no trace data"))?;
-
     let sim_duration = compute_step_size(sim.speed(), sim_ts, sim_end_ts);
+    info!(
+        "trace start time: {sim_ts}; trace end time: {sim_end_ts}; simulation speed: {}; computed simulation duration: {sim_duration}",
+        sim.speed()
+    );
+
     try_update_lease(client.clone(), &sim, &ctx.ctrl_ns, sim_duration as u64).await?;
     run_trace_internal(&ctx, client, sim.speed(), root, sim_ts, clock.clone()).await?;
 
