@@ -3,13 +3,16 @@ use sk_core::external_storage::{
     MockObjectStoreWrapper,
     SkObjectStore,
 };
+use sk_core::k8s::DynamicApiSet;
 use sk_store::TracerConfig;
 
 use super::*;
 
 #[fixture]
 fn store() -> Arc<Mutex<TraceStore>> {
-    Arc::new(Mutex::new(TraceStore::new(TracerConfig::default())))
+    let (_, client) = make_fake_apiserver();
+    let apiset = DynamicApiSet::new(client);
+    Arc::new(Mutex::new(TraceStore::new(TracerConfig::default(), apiset)))
 }
 
 #[rstest(tokio::test)]

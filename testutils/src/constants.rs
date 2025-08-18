@@ -3,6 +3,7 @@ use sk_core::k8s::GVK;
 
 pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
 pub const TEST_DEPLOYMENT: &str = "the-deployment";
+pub const TEST_REPLICASET: &str = "the-replicaset";
 pub const TEST_DAEMONSET: &str = "the-daemonset";
 pub const TEST_SERVICE_ACCOUNT: &str = "the-service-account";
 pub const TEST_NAMESPACE: &str = "test-namespace";

@@ -22,13 +22,13 @@ use crate::watchers::{
 };
 
 #[derive(Debug)]
-pub struct DynObjWatcherReq {
+pub struct Message {
     pub(crate) action: TraceAction,
     pub(crate) obj: DynamicObject,
     pub(crate) ts: i64,
 }
-pub type Sender = mpsc::UnboundedSender<DynObjWatcherReq>;
-pub type Receiver = mpsc::UnboundedReceiver<DynObjWatcherReq>;
+pub type Sender = mpsc::UnboundedSender<Message>;
+pub type Receiver = mpsc::UnboundedReceiver<Message>;
 
 pub async fn new_with_stream(
     gvk: &GVK,
@@ -66,15 +66,13 @@ pub(super) struct DynObjHandler {
 #[async_trait]
 impl EventHandler<DynamicObject> for DynObjHandler {
     async fn applied(&mut self, obj: DynamicObject, ts: i64) -> EmptyResult {
-        self.dyn_obj_tx
-            .send(DynObjWatcherReq { action: TraceAction::ObjectApplied, obj, ts })?;
+        self.dyn_obj_tx.send(Message { action: TraceAction::ObjectApplied, obj, ts })?;
         Ok(())
     }
 
     async fn deleted(&mut self, ns_name: &str, ts: i64) -> EmptyResult {
         let obj = build_deletable(&self.gvk, ns_name);
-        self.dyn_obj_tx
-            .send(DynObjWatcherReq { action: TraceAction::ObjectDeleted, obj, ts })?;
+        self.dyn_obj_tx.send(Message { action: TraceAction::ObjectDeleted, obj, ts })?;
         Ok(())
     }
 }

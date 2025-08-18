@@ -4,7 +4,9 @@ use anyhow::bail;
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
+    DynamicApiSet,
     GVK,
+    OwnersCache,
     PodExt,
     PodLifecycleData,
 };
@@ -27,6 +29,8 @@ pub struct TraceStore {
     pub(crate) events: Vec<TraceEvent>,
     pub(crate) pod_owners: PodOwnersMap,
     pub(crate) index: TraceIndex,
+
+    owners_cache: OwnersCache,
 }
 
 // The TraceStore object is an in-memory store of a cluster trace.  It keeps track of all the
@@ -37,12 +41,14 @@ pub struct TraceStore {
 // point in the future we plan to implement garbage collection so this isn't a problem.
 
 impl TraceStore {
-    pub fn new(config: TracerConfig) -> TraceStore {
+    pub fn new(config: TracerConfig, apiset: DynamicApiSet) -> TraceStore {
         TraceStore {
             config,
             events: vec![],
             pod_owners: PodOwnersMap::default(),
             index: TraceIndex::default(),
+
+            owners_cache: OwnersCache::new(apiset),
         }
     }
 
@@ -162,11 +168,10 @@ impl TraceStore {
     // We assume that we are given a valid/correct lifecycle event here, so we will just
     // blindly store whatever we are given.  It's up to the caller (the pod watcher in this
     // case) to ensure that the lifecycle data isn't incorrect.
-    pub(super) fn record_pod_lifecycle(
+    pub(super) async fn record_pod_lifecycle(
         &mut self,
         ns_name: &str,
         maybe_pod: &Option<corev1::Pod>,
-        owners: &Vec<metav1::OwnerReference>,
         lifecycle_data: &PodLifecycleData,
     ) -> EmptyResult {
         // If we've already stored data about this pod, we just update the existing entry
@@ -178,10 +183,16 @@ impl TraceStore {
             self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
         } else if let Some(pod) = maybe_pod {
             // Otherwise, we need to check if any of the pod's owners are tracked by us
+            let gvk = corev1::Pod::gvk();
+            let owners = match (self.owners_cache.lookup_by_name(&gvk, ns_name), &maybe_pod) {
+                (Some(o), _) => o.clone(),
+                (None, Some(pod)) => self.owners_cache.compute_owners_for(&gvk, pod).await?,
+                _ => bail!("could not determine owner chain for {}", ns_name),
+            };
             for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), owner.name);
-                let owner_gvk = GVK::from_owner_ref(owner)?;
+                let owner_gvk = GVK::from_owner_ref(&owner)?;
                 if !self.index.contains(&owner_gvk, &owner_ns_name) {
                     continue;
                 }

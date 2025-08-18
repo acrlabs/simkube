@@ -1,12 +1,7 @@
 use std::collections::HashMap;
 
 use clockabilly::mock::MockUtcClock;
-use lazy_static::lazy_static;
-use sk_core::k8s::{
-    DynamicApiSet,
-    OwnersCache,
-    PodLifecycleData,
-};
+use sk_core::k8s::PodLifecycleData;
 use sk_core::prelude::*;
 
 use super::pod_watcher::PodHandler;
@@ -20,15 +15,6 @@ fn clock() -> Box<MockUtcClock> {
     MockUtcClock::boxed(START_TS)
 }
 
-lazy_static! {
-    static ref OWNER_REF_VEC: Vec<metav1::OwnerReference> = vec![metav1::OwnerReference {
-        api_version: "foo/v1".into(),
-        kind: "bar".into(),
-        name: "the-owner".into(),
-        ..Default::default()
-    }];
-}
-
 fn make_pod_handler(ns_name: &str, stored_data: Option<&PodLifecycleData>) -> (PodHandler, pod_watcher::Receiver) {
     let stored_pods = if let Some(sd) = stored_data {
         HashMap::from([(ns_name.into(), sd.clone())])
@@ -36,12 +22,8 @@ fn make_pod_handler(ns_name: &str, stored_data: Option<&PodLifecycleData>) -> (P
         HashMap::new()
     };
 
-    let (_, client) = make_fake_apiserver();
-    let apiset = DynamicApiSet::new(client);
-    let owners = HashMap::from([((corev1::Pod::gvk(), ns_name.into()), OWNER_REF_VEC.clone())]);
-    let owners_cache = OwnersCache::new_from_parts(apiset, owners);
     let (pod_tx, pod_rx) = mpsc::unbounded_channel();
-    (PodHandler::new_from_parts(stored_pods, owners_cache, pod_tx), pod_rx)
+    (PodHandler::new_from_parts(stored_pods, pod_tx), pod_rx)
 }
 
 #[rstest(tokio::test)]
@@ -69,7 +51,6 @@ async fn test_handle_event_applied(mut test_pod: corev1::Pod, clock: Box<MockUtc
 
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
     assert_eq!(res.ns_name, ns_name);
-    assert_eq!(res.owners, *OWNER_REF_VEC);
     assert_eq!(res.lifecycle_data, expected_data);
 }
 
@@ -108,7 +89,6 @@ async fn test_handle_event_applied_running_to_finished(mut test_pod: corev1::Pod
 
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name).unwrap(), expected_data);
     assert_eq!(res.ns_name, ns_name);
-    assert_eq!(res.owners, *OWNER_REF_VEC);
     assert_eq!(res.lifecycle_data, expected_data);
 }
 
@@ -181,6 +161,5 @@ async fn test_handle_event_deleted(test_pod: corev1::Pod, mut clock: Box<MockUtc
 
     assert_eq!(h.get_owned_pod_lifecycle(&ns_name), None);
     assert_eq!(res.ns_name, ns_name);
-    assert_eq!(res.owners, *OWNER_REF_VEC);
     assert_eq!(res.lifecycle_data, expected_data);
 }

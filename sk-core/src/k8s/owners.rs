@@ -32,7 +32,7 @@ impl OwnersCache {
 
     // Recursively look up all of the owning objects for a given Kubernetes object
     #[async_recursion]
-    pub async fn compute_owner_chain(
+    pub async fn compute_owners_for(
         &mut self,
         gvk: &GVK,
         obj: &(impl Resource + Sync),
@@ -58,7 +58,7 @@ impl OwnersCache {
             }
 
             let owner = &resp.items[0];
-            owners.extend(self.compute_owner_chain(&owner_gvk, owner).await?);
+            owners.extend(self.compute_owners_for(&owner_gvk, owner).await?);
         }
 
         debug!("computed owners {owners:?} for {gvk}.{ns_name}");
@@ -66,7 +66,7 @@ impl OwnersCache {
         Ok(owners)
     }
 
-    pub fn lookup(&mut self, gvk: &GVK, ns_name: &str) -> Option<&Vec<metav1::OwnerReference>> {
+    pub fn lookup_by_name(&mut self, gvk: &GVK, ns_name: &str) -> Option<&Vec<metav1::OwnerReference>> {
         self.owners.get(&(gvk.clone(), ns_name.into()))
     }
 }
