@@ -12,9 +12,9 @@ const INIT_CONTAINER_PREFIX: &str = "init-container";
 pub fn test_pod(#[default("the-pod".into())] name: String) -> corev1::Pod {
     corev1::Pod {
         metadata: metav1::ObjectMeta {
+            labels: klabel!("foo" => "bar"),
             namespace: Some(TEST_NAMESPACE.into()),
             name: Some(name),
-            labels: klabel!("foo" => "bar"),
             ..Default::default()
         },
         spec: Some(corev1::PodSpec { ..Default::default() }),

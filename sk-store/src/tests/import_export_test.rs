@@ -1,8 +1,5 @@
 use std::collections::HashSet;
-use std::sync::{
-    Arc,
-    Mutex,
-};
+use std::sync::Arc;
 
 use assertables::*;
 use clockabilly::mock::MockUtcClock;
@@ -13,11 +10,15 @@ use kube::ResourceExt;
 use kube::runtime::watcher::Event;
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
+    DynamicApiSet,
     GVK,
     format_gvk_name,
 };
 use sk_core::macros::*;
-use tokio::sync::mpsc;
+use tokio::sync::{
+    Mutex,
+    mpsc,
+};
 
 use super::*;
 use crate::TraceStore;
@@ -129,7 +130,9 @@ mod itest {
         // Since we're just generating the results from the stream and not actually querying any
         // Kubernetes internals or whatever, the TracerConfig is empty.
         let config = TracerConfig::default();
-        let s = Arc::new(Mutex::new(TraceStore::new(config.clone())));
+        let (_, client) = make_fake_apiserver();
+        let apiset = DynamicApiSet::new(client);
+        let s = Arc::new(Mutex::new(TraceStore::new(config.clone(), apiset)));
         let (dyn_obj_tx, dyn_obj_rx): (dyn_obj_watcher::Sender, dyn_obj_watcher::Receiver) = mpsc::unbounded_channel();
         let (_, pod_rx): (pod_watcher::Sender, pod_watcher::Receiver) = mpsc::unbounded_channel();
 
@@ -152,7 +155,7 @@ mod itest {
         };
 
         let (start_ts, end_ts) = (15, 46);
-        let store = s.lock().unwrap();
+        let store = s.lock().await;
         match store.export(start_ts, end_ts, &filter) {
             Ok(data) => {
                 // Confirm that the results match what we expect

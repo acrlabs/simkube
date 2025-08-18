@@ -83,16 +83,13 @@ async fn export(
 #[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?;
-    let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
     let client = Client::try_default().await.expect("failed to create kube client");
-    let mut manager = TraceManager::new(client, config, store.clone());
+    let manager = TraceManager::start(client, config).await?;
+    let store = manager.get_store();
 
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&rkt_config)
-        .mount("/", rocket::routes![export])
-        .manage(store.clone());
+    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
 
-    manager.start().await?;
     server.launch().await?;
     Ok(())
 }

@@ -5,18 +5,18 @@ use serde_json::json;
 use super::*;
 
 #[rstest(tokio::test)]
-async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
+async fn test_compute_owners_for_cached(mut test_pod: corev1::Pod) {
     let rsref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
         kind: "replicaset".into(),
-        name: "test-rs".into(),
+        name: TEST_REPLICASET.into(),
         uid: "asdfasdf".into(),
         ..Default::default()
     };
     let deplref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
         kind: "deployment".into(),
-        name: "test-depl".into(),
+        name: TEST_DEPLOYMENT.into(),
         uid: "yuioyoiuy".into(),
         ..Default::default()
     };
@@ -28,23 +28,23 @@ async fn test_compute_owner_chain_cached(mut test_pod: corev1::Pod) {
     let owners = HashMap::from([((corev1::Pod::gvk(), test_pod.namespaced_name()), expected_owners.clone())]);
     let mut cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
 
-    let res = cache.compute_owner_chain(&corev1::Pod::gvk(), &test_pod).await.unwrap();
+    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await.unwrap();
     assert_eq!(res, expected_owners);
 }
 
 #[rstest(tokio::test)]
-async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
+async fn test_compute_owners_for(mut test_pod: corev1::Pod) {
     let rsref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
         kind: "ReplicaSet".into(),
-        name: "test-rs".into(),
+        name: TEST_REPLICASET.into(),
         uid: "asdfasdf".into(),
         ..Default::default()
     };
     let deplref = metav1::OwnerReference {
         api_version: "apps/v1".into(),
         kind: "Deployment".into(),
-        name: "test-depl".into(),
+        name: TEST_DEPLOYMENT.into(),
         uid: "yuioyoiuy".into(),
         ..Default::default()
     };
@@ -64,7 +64,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
                 {
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
-                        "name": "test-rs",
+                        "name": TEST_REPLICASET,
                         "ownerReferences": [rs_owner],
                     }
                 },
@@ -80,7 +80,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
                 {
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
-                        "name": "test-depl",
+                        "name": TEST_DEPLOYMENT,
                     }
                 },
             ],
@@ -90,7 +90,7 @@ async fn test_compute_owner_chain(mut test_pod: corev1::Pod) {
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
 
     test_pod.owner_references_mut().push(rsref.clone());
-    let res = cache.compute_owner_chain(&corev1::Pod::gvk(), &test_pod).await.unwrap();
+    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await.unwrap();
 
     assert_eq!(res, vec![rsref, deplref]);
 }

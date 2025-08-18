@@ -1,8 +1,3 @@
-use std::sync::{
-    Arc,
-    Mutex,
-};
-
 use httpmock::Method::*;
 use serde_json::json;
 
@@ -20,9 +15,7 @@ trackedObjects:
     .to_string();
 
     let config: TracerConfig = serde_yaml::from_str(&config_yml).unwrap();
-    let store = Arc::new(Mutex::new(TraceStore::new(config.clone())));
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let mut manager = TraceManager::new(client, config, store);
 
     fake_apiserver.handle(|when, then| {
         when.path("/apis/apps/v1").method(GET);
@@ -58,7 +51,7 @@ trackedObjects:
     // In the future if you _do_ want to test responses to the watch call, you
     // would filter on the watch=true query_param.
 
-    manager.start().await.unwrap();
+    let mut manager = TraceManager::start(client, config).await.unwrap();
     manager.wait_ready().await;
     manager.shutdown().await;
     fake_apiserver.assert();
