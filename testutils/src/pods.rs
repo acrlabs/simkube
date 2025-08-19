@@ -9,7 +9,7 @@ const CONTAINER_PREFIX: &str = "container";
 const INIT_CONTAINER_PREFIX: &str = "init-container";
 
 #[fixture]
-pub fn test_pod(#[default("the-pod".into())] name: String) -> corev1::Pod {
+pub fn test_pod(#[default(TEST_POD.into())] name: String) -> corev1::Pod {
     corev1::Pod {
         metadata: metav1::ObjectMeta {
             labels: klabel!("foo" => "bar"),

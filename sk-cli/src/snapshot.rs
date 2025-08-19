@@ -45,7 +45,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![]);
     let start_ts = UtcClock.now_ts();
     let end_ts = start_ts + 1;
-    let data = manager.get_store().lock().await.export(start_ts, end_ts, &filters)?;
+    let data = manager.get_store().lock().await.export(start_ts, end_ts, &filters).await?;
 
     println!("Writing trace file: {}", args.output);
     let mut file = File::create(&args.output)?;

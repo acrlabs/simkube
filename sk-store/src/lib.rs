@@ -1,7 +1,6 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
 mod config;
 mod event;
-mod filter;
 mod index;
 mod manager;
 mod pod_owners_map;

@@ -4,23 +4,34 @@ use serde_json::json;
 
 use super::*;
 
-#[rstest(tokio::test)]
-async fn test_compute_owners_for_cached(mut test_pod: corev1::Pod) {
-    let rsref = metav1::OwnerReference {
+#[fixture]
+fn rsref() -> metav1::OwnerReference {
+    metav1::OwnerReference {
         api_version: "apps/v1".into(),
-        kind: "replicaset".into(),
+        kind: "ReplicaSet".into(),
         name: TEST_REPLICASET.into(),
         uid: "asdfasdf".into(),
         ..Default::default()
-    };
-    let deplref = metav1::OwnerReference {
+    }
+}
+
+#[fixture]
+fn deplref() -> metav1::OwnerReference {
+    metav1::OwnerReference {
         api_version: "apps/v1".into(),
-        kind: "deployment".into(),
+        kind: "Deployment".into(),
         name: TEST_DEPLOYMENT.into(),
         uid: "yuioyoiuy".into(),
         ..Default::default()
-    };
+    }
+}
 
+#[rstest(tokio::test)]
+async fn test_compute_owners_for_cached(
+    mut test_pod: corev1::Pod,
+    rsref: metav1::OwnerReference,
+    deplref: metav1::OwnerReference,
+) {
     test_pod.owner_references_mut().push(rsref.clone());
     let expected_owners = vec![rsref, deplref];
 
@@ -33,22 +44,11 @@ async fn test_compute_owners_for_cached(mut test_pod: corev1::Pod) {
 }
 
 #[rstest(tokio::test)]
-async fn test_compute_owners_for(mut test_pod: corev1::Pod) {
-    let rsref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "ReplicaSet".into(),
-        name: TEST_REPLICASET.into(),
-        uid: "asdfasdf".into(),
-        ..Default::default()
-    };
-    let deplref = metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "Deployment".into(),
-        name: TEST_DEPLOYMENT.into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    };
-
+async fn test_compute_owners_for(
+    mut test_pod: corev1::Pod,
+    rsref: metav1::OwnerReference,
+    deplref: metav1::OwnerReference,
+) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle(|when, then| {
         when.path("/apis/apps/v1");

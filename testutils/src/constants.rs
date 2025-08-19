@@ -1,11 +1,16 @@
+use k8s_openapi::api::apps::v1 as appsv1;
 use lazy_static::lazy_static;
-use sk_core::k8s::GVK;
+use sk_core::k8s::{
+    GVK,
+    OpenApiResourceExt,
+};
 
 pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
 pub const TEST_DEPLOYMENT: &str = "the-deployment";
 pub const TEST_REPLICASET: &str = "the-replicaset";
 pub const TEST_DAEMONSET: &str = "the-daemonset";
 pub const TEST_SERVICE_ACCOUNT: &str = "the-service-account";
+pub const TEST_POD: &str = "the-pod";
 pub const TEST_NAMESPACE: &str = "test-namespace";
 pub const TEST_SIM_NAME: &str = "test-sim";
 pub const TEST_SIM_ROOT_NAME: &str = "test-sim-root";
@@ -15,6 +20,7 @@ pub const TEST_VIRT_NS_PREFIX: &str = "virt-test";
 pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
 
 lazy_static! {
-    pub static ref DEPL_GVK: GVK = GVK::new("apps", "v1", "Deployment");
-    pub static ref DS_GVK: GVK = GVK::new("apps", "v1", "DaemonSet");
+    pub static ref DEPL_GVK: GVK = appsv1::Deployment::gvk();
+    pub static ref DS_GVK: GVK = appsv1::DaemonSet::gvk();
+    pub static ref REPLICASET_GVK: GVK = appsv1::ReplicaSet::gvk();
 }
