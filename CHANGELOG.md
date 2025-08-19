@@ -3,6 +3,19 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.4.0 - 2025-08-19
+
+### 🚀 Features
+
+- Communicate with TraceStore over channels
+- Exported trace doesn't include objects owned by tracked objects
+
+### 🐛 Bug Fixes
+
+- Parse .. in local paths
+- Owners cache stores gvk
+- Improve driver logging
+
 ## 2.3.1 - 2025-05-31
 
 ### 🐛 Bug Fixes
