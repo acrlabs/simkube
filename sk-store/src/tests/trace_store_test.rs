@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use assertables::*;
+use kube::discovery::ApiResource;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
@@ -79,11 +80,41 @@ async fn test_collect_events_filtered(mut tracer: TraceStore) {
             },
             false,
         )
+        .await
         .unwrap();
 
     // Always an empty event at the beginning
     assert_eq!(events, vec![TraceEvent { ts: 1, ..Default::default() }]);
-    assert!(index.is_empty());
+    assert_is_empty!(index);
+}
+
+#[rstest(tokio::test)]
+async fn test_collect_events_owned_by_tracked_object(mut tracer: TraceStore, test_deployment: DynamicObject) {
+    let rs_api_version = ApiResource::from_gvk(&*REPLICASET_GVK);
+    let mut replicaset = DynamicObject::new(TEST_REPLICASET, &rs_api_version)
+        .within(TEST_NAMESPACE)
+        .data(json!({"spec": {"replicas": 42}}));
+    replicaset.owner_references_mut().push(metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "Deployment".into(),
+        name: TEST_DEPLOYMENT.into(),
+        ..Default::default()
+    });
+
+    tracer.create_or_update_obj(&test_deployment, 4).unwrap();
+    tracer.create_or_update_obj(&replicaset, 5).unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
+
+    // Only have the deployment in the index
+    assert_len_eq_x!(index, 1);
+
+    // Only events are the initial empty one, and the one that creates the deployment
+    assert_len_eq_x!(&events, 2);
+    assert_is_empty!(&events[0].applied_objs);
+    assert_is_empty!(&events[0].deleted_objs);
+    assert_eq!(events[1].ts, 4);
+    assert_len_eq_x!(&events[1].applied_objs, 1);
+    assert_is_empty!(&events[1].deleted_objs);
 }
 
 #[rstest(tokio::test)]
@@ -110,7 +141,7 @@ async fn test_collect_events(mut tracer: TraceStore) {
         deleted_objs: vec![test_deployment("obj1")],
     });
     tracer.events = all_events.clone().into();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
 
     // The first object was created before the collection started so the timestamp changes
     all_events[0].ts = 1;
@@ -135,11 +166,11 @@ async fn test_create_or_update_obj(mut tracer: TraceStore, test_deployment: Dyna
     tracer.create_or_update_obj(&test_deployment, ts).unwrap();
     tracer.create_or_update_obj(&test_deployment, 2445).unwrap();
 
-    assert_eq!(tracer.index.len(), 1);
+    assert_len_eq_x!(&tracer.index, 1);
     assert_eq!(tracer.index.get(&DEPL_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
-    assert_eq!(tracer.events.len(), 1);
-    assert_eq!(tracer.events[0].applied_objs.len(), 1);
-    assert_eq!(tracer.events[0].deleted_objs.len(), 0);
+    assert_len_eq_x!(&tracer.events, 1);
+    assert_len_eq_x!(&tracer.events[0].applied_objs, 1);
+    assert_is_empty!(&tracer.events[0].deleted_objs);
     assert_eq!(tracer.events[0].ts, ts);
 }
 
@@ -161,8 +192,8 @@ async fn test_create_or_update_objs(mut tracer: TraceStore) {
     assert_eq!(tracer.events.len(), 2);
 
     for i in 0..objs.len() {
-        assert_eq!(tracer.events[i].applied_objs.len(), 1);
-        assert_eq!(tracer.events[i].deleted_objs.len(), 0);
+        assert_len_eq_x!(&tracer.events[i].applied_objs, 1);
+        assert_is_empty!(tracer.events[i].deleted_objs);
         assert_eq!(tracer.events[i].ts, ts[i]);
     }
 }
@@ -176,17 +207,17 @@ async fn test_delete_obj(mut tracer: TraceStore, test_deployment: DynamicObject)
 
     tracer.delete_obj(&test_deployment, ts).unwrap();
 
-    assert_eq!(tracer.index.len(), 0);
-    assert_eq!(tracer.events.len(), 1);
-    assert_eq!(tracer.events[0].applied_objs.len(), 0);
-    assert_eq!(tracer.events[0].deleted_objs.len(), 1);
+    assert_len_eq_x!(tracer.index, 0);
+    assert_len_eq_x!(&tracer.events, 1);
+    assert_is_empty!(&tracer.events[0].applied_objs);
+    assert_len_eq_x!(&tracer.events[0].deleted_objs, 1);
     assert_eq!(tracer.events[0].ts, ts);
 }
 
 #[rstest(tokio::test)]
 async fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore) {
     let res = tracer
-        .record_pod_lifecycle("test/the-pod", &None, &PodLifecycleData::Running(1))
+        .record_pod_lifecycle(&format!("{TEST_NAMESPACE}/{TEST_POD}"), &None, &PodLifecycleData::Running(1))
         .await;
     assert!(matches!(res, Err(_)));
 }
@@ -220,7 +251,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
     let mut expected_lifecycle_data = init_lifecycle_data.clone();
     expected_lifecycle_data[pod_seq_idx] = new_lifecycle_data.clone();
 
-    let pod_ns_name = format!("{}/{}", TEST_NAMESPACE, "the-pod");
+    let pod_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_POD);
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_REPLICASET);
     tracer.pod_owners =
         mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, pod_seq_idx);
@@ -229,11 +260,11 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
         .await
         .unwrap();
 
-    assert_eq!(
+    assert_some_eq_x!(
         tracer
             .pod_owners
             .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        Some(&expected_lifecycle_data)
+        &expected_lifecycle_data
     );
 }
 
@@ -248,7 +279,7 @@ async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: Tra
         .unwrap();
 
     let unused_hash = 0;
-    assert_eq!(tracer.pod_owners.lifecycle_data_for(&DEPL_GVK, &owner_ns_name, unused_hash), None);
+    assert_none!(tracer.pod_owners.lifecycle_data_for(&DEPL_GVK, &owner_ns_name, unused_hash));
 }
 
 #[rstest(tokio::test)]
@@ -276,9 +307,9 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
         .pod_owners
         .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH);
     if track_lifecycle {
-        assert_eq!(lifecycle_data, Some(&vec![new_lifecycle_data]));
+        assert_some_eq_x!(lifecycle_data, &vec![new_lifecycle_data.clone()]);
     } else {
-        assert_eq!(lifecycle_data, None);
+        assert_none!(lifecycle_data);
     }
 }
 
@@ -311,11 +342,11 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(
         .await
         .unwrap();
 
-    assert_eq!(
+    assert_some_eq_x!(
         tracer
             .pod_owners
             .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        Some(&expected_lifecycle_data)
+        &expected_lifecycle_data,
     );
 }
 
@@ -336,10 +367,10 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
         .await
         .unwrap();
 
-    assert_eq!(
+    assert_some_eq_x!(
         tracer
             .pod_owners
             .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        Some(&expected_lifecycle_data)
+        &expected_lifecycle_data,
     );
 }

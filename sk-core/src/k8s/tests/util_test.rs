@@ -1,3 +1,4 @@
+use assertables::*;
 use clockabilly::Utc;
 use serde_json as json;
 
@@ -33,14 +34,15 @@ fn test_sanitize_obj() {
 
     sanitize_obj(&mut obj, "bar.blah.sh/v2", "Stuff");
 
-    assert_eq!(obj.metadata.creation_timestamp, None);
-    assert_eq!(obj.metadata.deletion_timestamp, None);
-    assert_eq!(obj.metadata.deletion_grace_period_seconds, None);
-    assert_eq!(obj.metadata.generation, None);
-    assert_eq!(obj.metadata.managed_fields, None);
-    assert_eq!(obj.metadata.owner_references, None);
-    assert_eq!(obj.metadata.resource_version, None);
-    assert_eq!(obj.metadata.uid, None);
+    assert_some!(obj.metadata.owner_references);
+
+    assert_none!(obj.metadata.creation_timestamp);
+    assert_none!(obj.metadata.deletion_timestamp);
+    assert_none!(obj.metadata.deletion_grace_period_seconds);
+    assert_none!(obj.metadata.generation);
+    assert_none!(obj.metadata.managed_fields);
+    assert_none!(obj.metadata.resource_version);
+    assert_none!(obj.metadata.uid);
 
     assert_eq!(obj.metadata.annotations, klabel!("some_random_annotation" => "blah"));
     assert!(

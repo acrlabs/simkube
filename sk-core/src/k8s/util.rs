@@ -84,12 +84,13 @@ pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
 }
 
 pub fn sanitize_obj(obj: &mut DynamicObject, api_version: &str, kind: &str) {
+    // N.B. We do not sanitize owner references here, since we need them
+    // to compute owner chains in the TraceStore
     obj.metadata.creation_timestamp = None;
     obj.metadata.deletion_timestamp = None;
     obj.metadata.deletion_grace_period_seconds = None;
     obj.metadata.generation = None;
     obj.metadata.managed_fields = None;
-    obj.metadata.owner_references = None;
     obj.metadata.resource_version = None;
     obj.metadata.uid = None;
 
