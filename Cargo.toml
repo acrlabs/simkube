@@ -59,7 +59,7 @@ serde_yaml = "0.9.34"
 thiserror = "2.0.12"
 tokio = { version = "1.45.1", features = ["io-util", "macros", "process", "rt-multi-thread", "time"] }
 tracing = "0.1.41"
-tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-subscriber = { version = "0.3.20", features = ["env-filter"] }
 url = "2.5.4"
 
 # test dependencies
