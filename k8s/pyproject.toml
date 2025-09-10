@@ -5,7 +5,7 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "^3.11"
 cdk8s = "^2"
-fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.5.4" }
+fireconfig = { git = "https://github.com/acrlabs/fireconfig", tag = "v0.5.5" }
 
 [tool.poetry.group.dev.dependencies]
 mypy = "^1"
