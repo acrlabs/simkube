@@ -208,15 +208,14 @@ impl TraceStore {
         // because those _can_ change).
         if self.pod_owners.has_pod(ns_name) {
             self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
-        } else if let Some(pod) = maybe_pod {
-            // Otherwise, we need to check if any of the pod's owners are tracked by us
-            let gvk = corev1::Pod::gvk();
-            let owners = self
+        } else if let Some(pod) = maybe_pod
+            && let Ok(owners) = self
                 .owners_cache
                 .lock()
                 .await
-                .lookup_by_name_or_obj(&gvk, ns_name, maybe_pod.as_ref())
-                .await?;
+                .lookup_by_name_or_obj(&corev1::Pod::gvk(), ns_name, maybe_pod.as_ref())
+                .await
+        {
             for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), owner.name);
@@ -268,7 +267,12 @@ impl TraceStore {
             .lock()
             .await
             .lookup_by_name_or_obj(gvk, ns_name, Some(obj))
-            .await?;
+            .await
+            .unwrap_or_else(|err| {
+                error!("could not determine owners for {}, disregarding: {err}", format_gvk_name(gvk, ns_name));
+                vec![]
+            });
+
         for owner in owners {
             // TODO right now we only look up _namespaced_ owners, not cluster-scoped; in
             // principle, it's possible to get the cluster-scoped owners, since the owner
