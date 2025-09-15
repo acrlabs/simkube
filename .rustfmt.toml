@@ -1,4 +1,4 @@
-edition = "2021"
+edition = "2024"
 array_width = 100
 blank_lines_upper_bound = 2
 chain_width = 80

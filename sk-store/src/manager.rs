@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use sk_core::k8s::DynamicApiSet;
+use sk_core::prelude::*;
 use tokio::sync::{
     Mutex,
     mpsc,
@@ -77,13 +78,23 @@ pub(crate) async fn handle_messages(
                     TraceAction::ObjectDeleted => store.delete_obj(&request.obj, request.ts),
                 };
                 if let Err(err) = res {
-                    error!("could not send dynamic object update for {request:?}: {err}");
+                    error!(
+                        "could not send dynamic object update for ({:?}, {}, {}): {err}",
+                        request.action,
+                        request.obj.namespaced_name(),
+                        request.ts,
+                    );
                 }
             },
             Some(request) = pod_rx.recv() => {
                 let mut store = m_store.lock().await;
-                if let Err(err) = store.record_pod_lifecycle(&request.ns_name, &request.maybe_pod, &request.lifecycle_data).await {
-                    error!("could not send dynamic object update for {request:?}: {err}");
+                if let Err(err) = store.record_pod_lifecycle(
+                    &request.ns_name,
+                    &request.maybe_pod,
+                    &request.lifecycle_data,
+                ).await {
+                    error!("could not send pod object update for ({}, {:?}, {:?}): {err}",
+                        request.ns_name, request.maybe_pod.map(|p| p.namespaced_name()), request.lifecycle_data);
                 }
             },
             else => break,
