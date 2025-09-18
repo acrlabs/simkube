@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.4.1 - 2025-09-18
+
+### 🐛 Bug Fixes
+
+- Don't hard-crash on owner lookup failure
+
 ## 2.4.0 - 2025-08-19
 
 ### 🚀 Features
