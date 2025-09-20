@@ -4,7 +4,7 @@ on:  # yamllint disable-line rule:truthy
   push:
     paths:
       - 'docs/**'
-      - 'README.md'
+      - 'CHANGELOG.md'
     branches:
       - 'master'
 jobs:
