@@ -47,6 +47,11 @@ repos:
       - id: ruff
         args: ["--fix"]
       - id: ruff-format
+  - repo: "https://github.com/EmbarkStudios/cargo-deny"
+    rev: 0.18.5
+    hooks:
+      - id: cargo-deny
+        args: ["--all-features", "check", "licenses"]
   - repo: local
     hooks:
       - id: check-k8s

@@ -16,7 +16,7 @@ spec:
     interval: 1s
     metricRelabelings:
     - action: drop
-      regex: kube_endpoint_address_not_ready|kube_endpoint_address_available
+      regex: kube_endpoint_address_not_ready|kube_endpoint_address_available|kube_pod_.*
       sourceLabels:
       - __name__
     port: https-main
