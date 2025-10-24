@@ -4,7 +4,7 @@ name: Compute k8s plan
 on:  # yamllint disable-line rule:truthy
   pull_request:
     paths:
-      - 'k8s/**'
+      - "k8s/**"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -15,16 +15,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out master
+      - name: Check out main
         uses: actions/checkout@v4
         with:
-          ref: master
+          ref: main
           submodules: recursive
 
       - name: Install Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
       - name: Install Poetry
         uses: snok/install-poetry@v1

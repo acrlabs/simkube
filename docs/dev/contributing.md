@@ -161,4 +161,4 @@ should be integration tests.
 
 Follow the standard process for opening a pull request.  Please provide a nice description of your contribution.  GitHub
 actions will run tests, linting, and build.  If there are any errors there, please fix them!  Once your tests are
-passing, one of the maintainers will sign off on the PR and merge it to master.
+passing, one of the maintainers will sign off on the PR and merge it to main.
