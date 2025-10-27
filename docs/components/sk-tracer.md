@@ -55,7 +55,7 @@ in the trace for use by the simulator.
 
 A user can export a trace by making a post request to the `/export` endpoint and including a JSON object with the export
 configuration.  The API for this is defined in
-[`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/master-to-main/sk-api/schema/v1/simkube.yml).  The
+[`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/main/sk-api/schema/v1/simkube.yml).  The
 response from the tracer will be a bytestream of the trace stored in [msgpack](https://msgpack.org) format, which is a
 JSON-like binary format.  You can inspect the contents of the trace with the `msgpack2json` utility from
 [msgpack-tools](https://github.com/ludocode/msgpack-tools):
