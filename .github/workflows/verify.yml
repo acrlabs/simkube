@@ -1,9 +1,9 @@
 ---
 name: code verification
-on:   # yamllint disable-line rule:truthy
+on:  # yamllint disable-line rule:truthy
   push:
     branches:
-      - "master"
+      - "main"
   pull_request: {}
 
 concurrency:

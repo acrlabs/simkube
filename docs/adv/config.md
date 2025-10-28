@@ -5,7 +5,7 @@ template: docs.html
 # SimKube Configuration
 
 The following section describes some options for customizing the behaviour of your SimKube installation; if you are
-using the provided [kustomize](https://github.com/acrlabs/simkube/tree/master/k8s/kustomize) manifests, you can update
+using the provided [kustomize](https://github.com/acrlabs/simkube/tree/main/k8s/kustomize) manifests, you can update
 or override these values there.
 
 ### Configuration of `sk-tracer`

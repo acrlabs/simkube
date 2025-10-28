@@ -42,7 +42,7 @@ user carefully read the [Prometheus operator documentation](https://prometheus-o
  for more details.  However, a basic recommendation is that you place your monitor resources in a separate namespace
 that is not watched by your default Prometheus install, so you do not overwhelm its storage (SimKube defaults to
 `monitoring-hd` for this namespace).  A set of example Pod- and ServiceMonitor configurations is given in the
-[examples](https://github.com/acrlabs/simkube/tree/master/examples/metrics) of the SimKube repository.
+[examples](https://github.com/acrlabs/simkube/tree/main/config/metrics) of the SimKube repository.
 
 Once you have set up your monitoring resources, you can point the Prometheus pod to them via the `metricsConfig` section
 of your Simulation spec:

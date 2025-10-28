@@ -61,12 +61,12 @@ issue](https://github.com/acrlabs/simkube/issues)!
 ### Code of Conduct
 
 Applied Computing Research Labs has a strict code of conduct we expect all contributors to adhere to.  Please read the
-[full text](https://github.com/acrlabs/simkube/blob/master/CODE_OF_CONDUCT.md) so that you understand the expectations
+[full text](https://github.com/acrlabs/simkube/blob/main/CODE_OF_CONDUCT.md) so that you understand the expectations
 upon you as a contributor.
 
 ### Copyright and Licensing
 
-SimKube is licensed under the [MIT License](https://github.com/acrlabs/simkube/blob/master/LICENSE).  Contributors to
+SimKube is licensed under the [MIT License](https://github.com/acrlabs/simkube/blob/main/LICENSE).  Contributors to
 this project agree that they own the copyrights to all contributed material, and agree to license your contributions
 under the same terms.  This is "inbound=outbound", and is the [GitHub
 default](https://docs.github.com/en/site-policy/github-terms/github-terms-of-service#6-contributions-under-repository-license).
