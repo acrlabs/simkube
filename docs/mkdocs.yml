@@ -19,3 +19,5 @@ nav:
       - Setting up: docs/dev/setup.md
       - Developer's Guide: docs/dev/contributing.md
       - API changes: docs/dev/api_changes.md
+  - Reference:
+      - HTTP API: docs/ref/simkube.md
