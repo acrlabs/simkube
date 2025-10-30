@@ -44,9 +44,9 @@ paths:
                     excluded_labels:
                       type: array
                       items:
-                        $ref: 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/v3/api__v1_openapi.json#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector'  # yamllint disable-line rule:line-length
+                        $ref: "#/components/schemas/LabelSelector"
       responses:
-        '200':
+        "200":
           description: OK
           content:
             application/json:
@@ -57,9 +57,42 @@ paths:
                   trace_data:
                     type: string
                     format: byte
-        '404':
+        "404":
           description: Storage location not found
-        '500':
+        "500":
           description: Tracer error
-        '502':
+        "502":
           description: External storage provider error
+components:
+  schemas:
+    LabelSelector:
+      description: "This is a copy of the upstream k8s LabelSelectorRequirement specification."
+      properties:
+        matchExpressions:
+          type: array
+          items:
+            allOf:
+              - $ref: "#/components/schemas/LabelSelectorRequirement"
+        matchLabels:
+          type: object
+          additionalProperties:
+            type: string
+    LabelSelectorRequirement:
+      description: "This is a copy of the upstream k8s LabelSelectorRequirement specification."
+      required:
+        - key
+        - operator
+      properties:
+        key:
+          type: string
+        operator:
+          type: string
+          enum:
+            - In
+            - NotIn
+            - Exists
+            - DoesNotExist
+        values:
+          type: array
+          items:
+            type: string
