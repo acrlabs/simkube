@@ -144,13 +144,13 @@ pub(crate) fn build_mutating_webhook(
                 }),
                 ..Default::default()
             },
-            failure_policy: Some("Ignore".into()),
+            failure_policy: Some("Fail".into()),
             name: WEBHOOK_NAME.into(),
             side_effects: "None".into(),
             rules: Some(vec![admissionv1::RuleWithOperations {
                 api_groups: Some(vec!["".into()]),
                 api_versions: Some(vec!["v1".into()]),
-                operations: Some(vec!["CREATE".into(), "UPDATE".into()]),
+                operations: Some(vec!["CREATE".into()]),
                 resources: Some(vec!["pods".into(), "pods/status".into()]),
                 scope: Some("Namespaced".into()),
             }]),

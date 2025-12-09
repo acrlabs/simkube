@@ -95,7 +95,6 @@ pub(crate) async fn fetch_driver_state(
         }
     }
 
-
     // State processing if the simulation hasn't completed
     if !is_terminal(&state) {
         // If the simulation hasn't started yet, we don't want to set the state to paused; this way
@@ -217,7 +216,21 @@ pub async fn setup_simulation(
     };
 
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
-    if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
+    if let Some(mwc) = webhook_api.get_opt(&ctx.webhook_name).await? {
+        let ca_bundle = mwc
+            .webhooks
+            .as_ref()
+            .and_then(|ws| ws.first())
+            .and_then(|w| w.client_config.ca_bundle.as_ref());
+
+        if ca_bundle.map(|b| b.0.is_empty()).unwrap_or(true) {
+            info!(
+                "MutatingWebhookConfiguration {} exists but caBundle not yet populated, Requeuing.",
+                ctx.webhook_name
+            );
+            return Ok(Action::requeue(REQUEUE_DURATION));
+        }
+    } else {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
         let obj = build_mutating_webhook(ctx, sim, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
