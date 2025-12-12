@@ -234,7 +234,6 @@ pub async fn setup_simulation(
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
         let obj = build_mutating_webhook(ctx, sim, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
-        info!("Webhook {} created. Requeuing.", ctx.webhook_name);
         return Ok(Action::requeue(REQUEUE_DURATION));
     };
 
