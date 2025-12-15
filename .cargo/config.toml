@@ -1,21 +1,26 @@
 [build]
 target-dir = ".build"
 
-[profile.dev.package."*"]
-debug = false
-
+# Compiling insta+similar with opt-level 3
+# is recommended by their docs:
+# https://docs.rs/insta/latest/insta/#optional-faster-runs
 [profile.dev.package.insta]
 opt-level = 3
 
 [profile.dev.package.similar]
 opt-level = 3
 
-[profile.skctl-dev]
+# The stuff built inside the docker container
+# gets its own profile so it doesn't clobber, e.g.,
+# the tests or non-dockerized builds
+[profile.docker-debug]
 inherits = "dev"
 
-[profile.skctl-release]
+[profile.docker-release]
 inherits = "release"
+debug = true  # we split out the debug symbols later
 
-[profile.nextest]
-inherits = "test"
-incremental = false
+# shaves ~4MB off the resulting binary, takes forever
+# we don't set this for skctl so that cargo install isn't annoying AF
+lto           = true
+codegen-units = 1
