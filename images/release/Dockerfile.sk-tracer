@@ -1,0 +1,10 @@
+FROM debian:bookworm-slim AS builder
+
+RUN apt-get update && apt-get install -y dumb-init
+
+FROM gcr.io/distroless/cc-debian12:nonroot
+
+COPY sk-tracer /sk-tracer
+COPY --from=builder /usr/bin/dumb-init /usr/bin/dumb-init
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]

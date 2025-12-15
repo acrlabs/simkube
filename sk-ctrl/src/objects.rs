@@ -243,6 +243,8 @@ pub(crate) fn build_driver_job(
                         volume_mounts: Some(volume_mounts),
                         ..Default::default()
                     }],
+                    // Creates the cert-volume mount with perms so that the driver can read it
+                    security_context: Some(corev1::PodSecurityContext { fs_group: Some(2000), ..Default::default() }),
                     restart_policy: Some("Never".into()),
                     volumes: Some(volumes),
                     service_account,

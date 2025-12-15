@@ -1,6 +1,3 @@
-[store]
-dir = ".build/nextest"
-
 [profile.default]
 default-filter = 'not test(itest::)'
 slow-timeout = { period = '1s' }
