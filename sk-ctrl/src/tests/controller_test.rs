@@ -2,6 +2,7 @@ use std::env;
 
 use clockabilly::prelude::*;
 use httpmock::prelude::*;
+use k8s_openapi::ByteString;
 use kube::runtime::controller::Action;
 use serde_json::json;
 use sk_api::prometheus::*;
@@ -313,14 +314,16 @@ async fn test_setup_simulation_wait_prom(
                 }],
             }));
         });
-        fake_apiserver.handle_not_found(format!(
-            "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}",
-        ));
+
+        let mut webhook_obj_get = webhook_obj.clone();
+        webhook_obj_get.webhooks.as_mut().unwrap()[0].client_config.ca_bundle =
+            Some(ByteString(b"test-ca-bundle".to_vec()));
         fake_apiserver.handle(move |when, then| {
-            when.method(POST)
-                .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
-            then.json_body_obj(&webhook_obj);
+            when.method(GET)
+                .path(format!("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"));
+            then.json_body_obj(&webhook_obj_get);
         });
+
         fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
         fake_apiserver.handle(move |when, then| {
             when.method(POST)

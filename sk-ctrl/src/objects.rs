@@ -154,6 +154,10 @@ pub(crate) fn build_mutating_webhook(
                 resources: Some(vec!["pods".into(), "pods/status".into()]),
                 scope: Some("Namespaced".into()),
             }]),
+            match_conditions: Some(vec![admissionv1::MatchCondition {
+                name: "virtual-namespaces".into(),
+                expression: "self.metadata.namespace.startsWith('virtual-')".into(),
+            }]),
             ..Default::default()
         }]),
     }
