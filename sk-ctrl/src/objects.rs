@@ -156,7 +156,7 @@ pub(crate) fn build_mutating_webhook(
             }]),
             match_conditions: Some(vec![admissionv1::MatchCondition {
                 name: "virtual-namespaces".into(),
-                expression: "self.metadata.namespace.startsWith('virtual-')".into(),
+                expression: "object.metadata.namespace.startsWith('virtual-')".into(),
             }]),
             ..Default::default()
         }]),
