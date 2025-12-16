@@ -17,7 +17,6 @@ use crate::objects::*;
 #[fixture]
 fn opts() -> Options {
     Options {
-        driver_secrets: None,
         use_cert_manager: false,
         cert_manager_issuer: "".into(),
         verbosity: "info".into(),
@@ -268,7 +267,7 @@ async fn test_setup_simulation_wait_prom(
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
     let driver_svc_obj = build_driver_service(&ctx, &test_sim, &test_sim_root);
     let webhook_obj = build_mutating_webhook(&ctx, &test_sim, &test_sim_root);
-    let driver_obj = build_driver_job(&ctx, &test_sim, None, "".into(), TEST_CTRL_NAMESPACE).unwrap();
+    let driver_obj = build_driver_job(&ctx, &test_sim, "".into(), TEST_CTRL_NAMESPACE).unwrap();
 
     fake_apiserver.handle(|when, then| {
         when.method(GET).path(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));

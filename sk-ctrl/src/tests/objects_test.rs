@@ -20,11 +20,11 @@ async fn test_build_driver_job_with_extra_args(mut test_sim: Simulation) {
     test_sim.spec.driver.args = Some(vec!["--foo".into(), "bar".into(), "--baz".into()]);
     let (_, client) = make_fake_apiserver();
     let ctx = SimulationContext::new(client, Default::default());
-    let job = build_driver_job(&ctx, &test_sim, None, "secret", TEST_NAMESPACE).unwrap();
+    let job = build_driver_job(&ctx, &test_sim, "secret", TEST_NAMESPACE).unwrap();
 
     let job_spec = job.spec.unwrap().template.spec.unwrap();
-    let args = job_spec.containers.get(0).unwrap().args.as_ref().unwrap();
-    let expected: Vec<&str> = vec![
+    let container = job_spec.containers.get(0).unwrap();
+    let expected_args = vec![
         "--cert-path",
         "/usr/local/etc/ssl/tls.crt",
         "--key-path",
@@ -41,7 +41,15 @@ async fn test_build_driver_job_with_extra_args(mut test_sim: Simulation) {
         "bar",
         "--baz",
     ];
-    assert_iter_eq!(args, expected);
+    let expected_secrets = vec![corev1::EnvFromSource {
+        secret_ref: Some(corev1::SecretEnvSource {
+            name: TEST_DRIVER_SECRET_NAME.into(),
+            optional: Some(false),
+        }),
+        ..Default::default()
+    }];
+    assert_iter_eq!(container.args.as_ref().unwrap(), expected_args);
+    assert_iter_eq!(container.env_from.as_ref().unwrap(), expected_secrets);
 }
 
 #[rstest]

@@ -183,7 +183,6 @@ pub(crate) fn build_driver_service(
 pub(crate) fn build_driver_job(
     ctx: &SimulationContext,
     sim: &Simulation,
-    driver_secrets: Option<&Vec<String>>,
     cert_secret_name: &str,
     ctrl_ns: &str,
 ) -> anyhow::Result<batchv1::Job> {
@@ -200,7 +199,7 @@ pub(crate) fn build_driver_job(
     };
     let service_account = Some(env::var(POD_SVC_ACCOUNT_ENV_VAR)?);
 
-    let driver_secret_refs = driver_secrets.as_ref().map(|secrets_list| {
+    let driver_secret_refs = sim.spec.driver.secrets.as_ref().map(|secrets_list| {
         secrets_list
             .iter()
             .map(|s| corev1::EnvFromSource {

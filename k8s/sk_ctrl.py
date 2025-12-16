@@ -21,8 +21,6 @@ class SkCtrl(fire.AppPackage):
             image=image,
             args=[
                 "/sk-ctrl",
-                "--driver-secrets",
-                "simkube",
                 "--use-cert-manager",
                 "--cert-manager-issuer",
                 "selfsigned",
