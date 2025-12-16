@@ -263,9 +263,9 @@ async fn test_setup_simulation_wait_prom(
     mut test_sim: Simulation,
     test_sim_root: SimulationRoot,
     opts: Options,
-    #[case] ready: bool,
+    #[case] ready_to_create_webhook: bool,
     #[case] disabled: bool,
-    #[case] webhook_state: WebhookState,
+    #[case] initial_webhook_state: WebhookState,
 ) {
     // SAFETY: it's fine it's a test
     unsafe { env::set_var("POD_SVC_ACCOUNT", "asdf") };
@@ -302,14 +302,14 @@ async fn test_setup_simulation_wait_prom(
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));
             let mut prom_obj = prom_obj.clone();
-            if ready {
+            if ready_to_create_webhook {
                 prom_obj.status = Some(PrometheusStatus { available_replicas: 1, ..Default::default() });
             }
             then.json_body_obj(&prom_obj);
         });
     }
 
-    if ready {
+    if ready_to_create_webhook {
         fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"));
         fake_apiserver.handle(move |when, then| {
             when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
@@ -326,7 +326,7 @@ async fn test_setup_simulation_wait_prom(
             }));
         });
 
-        match webhook_state {
+        match initial_webhook_state {
             WebhookState::NotCreated => {
                 fake_apiserver.handle_not_found(format!(
                     "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"
@@ -370,7 +370,7 @@ async fn test_setup_simulation_wait_prom(
             },
         }
 
-        if matches!(webhook_state, WebhookState::ReadyWithCaBundle) {
+        if matches!(initial_webhook_state, WebhookState::ReadyWithCaBundle) {
             fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
             fake_apiserver.handle(move |when, then| {
                 when.method(POST)
@@ -382,15 +382,12 @@ async fn test_setup_simulation_wait_prom(
     let res = setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
         .unwrap();
-    let expected = if !ready {
-        Action::requeue(REQUEUE_DURATION)
-    } else if !matches!(webhook_state, WebhookState::ReadyWithCaBundle) {
-        Action::requeue(REQUEUE_DURATION)
+    if !ready_to_create_webhook || !matches!(initial_webhook_state, WebhookState::ReadyWithCaBundle) {
+        assert_eq!(res, Action::requeue(REQUEUE_DURATION));
     } else {
-        Action::await_change()
+        assert_eq!(res, Action::await_change());
     };
 
-    assert_eq!(res, expected);
     fake_apiserver.assert();
 }
 

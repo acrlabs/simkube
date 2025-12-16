@@ -216,26 +216,30 @@ pub async fn setup_simulation(
     };
 
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
-    if let Some(mwc) = webhook_api.get_opt(&ctx.webhook_name).await? {
-        let ca_bundle = mwc
-            .webhooks
-            .as_ref()
-            .and_then(|ws| ws.first())
-            .and_then(|w| w.client_config.ca_bundle.as_ref());
-
-        if ca_bundle.map(|b| b.0.is_empty()).unwrap_or(true) {
+    let mwc_opt = webhook_api.get_opt(&ctx.webhook_name).await?;
+    if let Some(mwc) = &mwc_opt
+        && let Some(webhooks) = &mwc.webhooks
+        // We create one webhook in this configuration but webhooks is a Vec<MutatingWebhooks>
+        && let Some(webhook) = webhooks.first()
+        && let Some(ca_bundle) = &webhook.client_config.ca_bundle
+        // ca_bundle is a ByteString, a tuple struct where .0 is the inner Vec<u8>.
+        // If the ca_bundle is None or empty, it has not been populated by cert-manager yet.
+        && !ca_bundle.0.is_empty()
+    {
+        // Webhook exists, ca_bundle is populated - continue to driver creation.
+    } else {
+        if mwc_opt.is_none() {
+            info!("creating mutating webhook configuration {}", ctx.webhook_name);
+            let obj = build_mutating_webhook(ctx, sim, metaroot);
+            webhook_api.create(&Default::default(), &obj).await?;
+        } else {
             info!(
-                "MutatingWebhookConfiguration {} exists but caBundle not yet populated, Requeuing.",
+                "MutatingWebhookConfiguration {} exists but caBundle not yet populated, requeuing.",
                 ctx.webhook_name
             );
-            return Ok(Action::requeue(REQUEUE_DURATION));
         }
-    } else {
-        info!("creating mutating webhook configuration {}", ctx.webhook_name);
-        let obj = build_mutating_webhook(ctx, sim, metaroot);
-        webhook_api.create(&Default::default(), &obj).await?;
         return Ok(Action::requeue(REQUEUE_DURATION));
-    };
+    }
 
     // Create the actual driver
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
