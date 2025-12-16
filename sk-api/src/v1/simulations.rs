@@ -30,6 +30,7 @@ pub struct SimulationDriverConfig {
     pub trace_path: String,
     pub port: i32,
     pub args: Option<Vec<String>>,
+    pub secrets: Option<Vec<String>>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]

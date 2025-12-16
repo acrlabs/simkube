@@ -89,6 +89,14 @@ pub struct Args {
 
     #[arg(
         long,
+        long_help = "additional secrets to mount in the driver pod",
+        value_delimiter = ',',
+        help_heading = "Driver"
+    )]
+    pub driver_secrets: Option<Vec<String>>,
+
+    #[arg(
+        long,
         long_help = "don't mount trace volume to the driver pod",
         help_heading = "Driver"
     )]
@@ -214,6 +222,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
                 port: args.driver_port,
                 trace_path: args.trace_path.clone(),
                 args: Some(driver_args),
+                secrets: args.driver_secrets.clone(),
             },
             duration: args.duration.clone(),
             metrics: metrics_config,

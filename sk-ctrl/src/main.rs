@@ -31,9 +31,6 @@ use crate::controller::{
 
 #[derive(Clone, Debug, Default, Parser)]
 struct Options {
-    #[arg(long, value_delimiter = ',')]
-    driver_secrets: Option<Vec<String>>,
-
     // TODO: should support non-cert-manager for configuring certs as well
     #[arg(long)]
     use_cert_manager: bool,

@@ -61,6 +61,11 @@ spec:
                   port:
                     format: int32
                     type: integer
+                  secrets:
+                    items:
+                      type: string
+                    nullable: true
+                    type: array
                   tracePath:
                     type: string
                 required:

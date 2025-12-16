@@ -227,7 +227,7 @@ pub async fn setup_simulation(
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
-        let obj = build_driver_job(ctx, sim, ctx.opts.driver_secrets.as_ref(), &driver_cert_secret_name, ctrl_ns)?;
+        let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, ctrl_ns)?;
         jobs_api.create(&Default::default(), &obj).await?;
     }
 

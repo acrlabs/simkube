@@ -20,6 +20,7 @@ pub fn test_sim() -> Simulation {
                 port: 9876,
                 trace_path: "file:///foo/bar".into(),
                 args: None,
+                secrets: Some(vec![TEST_DRIVER_SECRET_NAME.into()]),
             },
             metrics: Some(Default::default()),
             hooks: Some(SimulationHooksConfig {

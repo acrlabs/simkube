@@ -18,6 +18,7 @@ pub const TEST_DRIVER_NAME: &str = "sk-test-driver-12345";
 pub const TEST_DRIVER_ROOT_NAME: &str = "sk-test-driver-12345-root";
 pub const TEST_VIRT_NS_PREFIX: &str = "virt-test";
 pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
+pub const TEST_DRIVER_SECRET_NAME: &str = "test-sk-secret";
 
 lazy_static! {
     pub static ref DEPL_GVK: GVK = appsv1::Deployment::gvk();
