@@ -1,42 +1,30 @@
 ARTIFACTS=sk-ctrl sk-driver sk-tracer
+DISPATCH_MODE=recurse
+BUILD_TARGETS=main skctl
 
 include build/base.mk
 include build/rust.mk
 include build/image.mk
 include build/k8s.mk
 
-RUST_BUILD_IMAGE ?= rust:1.88-bullseye
-CARGO=CARGO_HOME=$(BUILD_DIR)/cargo cargo
+RUST_BUILD_IMAGE ?= rust:1.88-bookworm  # if this changes make sure to update the Dockerfiles to match
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
 RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
-CARGO_PROFILE = nextest
 
 ifndef IN_CI
+# Make ctrl-C work in the middle of a build
 DOCKER_ARGS=-it --init
 endif
 
-# deliberately override the basic rust rule
-build: main skctl
-	@true
-
-.PHONY: build-docker
-build-docker: _version
-	$(CARGO) build $(addprefix -p=,$(ARTIFACTS)) --color=always
-	cp $(addprefix $(BUILD_DIR)/debug/,$(ARTIFACTS)) $(BUILD_DIR)/.
-
 .PHONY: main
 main:
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) make build-docker
+	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
+		scripts/build-in-docker "$(BUILD_DIR)" "$(BUILD_MODE)" "$(ARTIFACTS)"
 
-# This is sorta subtle; the three "main" artifacts get built inside docker containers
-# to ensure that they are built against the right libs that they'll be running on in
-# the cluster.  So for those we share CARGO_HOME, which needs to be in $(BUILD_DIR)
-# so we have a known location for it.  This is _not_ built in a docker container because
-# it's designed to run on the user's machine, so we don't use the custom CARGO_HOME
+.PHONY: skctl
 skctl:
-	cargo build --profile skctl-dev -p=skctl --color=always
-	cp $(BUILD_DIR)/skctl-dev/skctl $(BUILD_DIR)/.
+	make build DISPATCH_MODE=local ARTIFACTS=skctl
 
 IMAGE_DEPS += copy-config
 
@@ -63,17 +51,17 @@ api:
 	openapi-generator generate -i sk-api/schema/v1/simkube.yml -g rust --global-property models -o generated-api
 	cp generated-api/src/models/export_filters.rs sk-api/src/v1/.
 	cp generated-api/src/models/export_request.rs sk-api/src/v1/.
-	@echo ''
-	@echo '----------------------------------------------------------------------'
-	@echo 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!'
-	@echo '----------------------------------------------------------------------'
-	@echo 'At a minimum:'
-	@echo '   In sk-api/src/v1/*, add "use super::*", and replace all the'
-	@echo '   k8s-generated types with the correct imports from k8s-openapi'
-	@echo '----------------------------------------------------------------------'
-	@echo 'CHECK THE DIFF CAREFULLY!!!'
-	@echo '----------------------------------------------------------------------'
-	@echo ''
-	@echo 'Eventually we would like to automate more of this, but it does not'
-	@echo 'happen right now.  :('
-	@echo ''
+	@printf '\n'
+	@printf '----------------------------------------------------------------------\n'
+	@printf 'WARNING: YOU NEED TO DO MANUAL CLEANUP TO THE OPENAPI GENERATED FILES!\n'
+	@printf '----------------------------------------------------------------------\n'
+	@printf 'At a minimum:\n'
+	@printf '   In sk-api/src/v1/*, add "use super::*", and replace all the\n'
+	@printf '   k8s-generated types with the correct imports from k8s-openapi\n'
+	@printf '----------------------------------------------------------------------\n'
+	@printf 'CHECK THE DIFF CAREFULLY!!!\n'
+	@printf '----------------------------------------------------------------------\n'
+	@printf '\n'
+	@printf 'Eventually we would like to automate more of this, but it does not\n'
+	@printf 'happen right now.  :(\n'
+	@printf '\n'

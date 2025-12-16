@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euxo pipefail
+
+BUILD_DIR=$1
+BUILD_MODE=$2
+ARTIFACTS=$3
+
+make build DISPATCH_MODE=local \
+    CARGO_HOME="${BUILD_DIR}/cargo" \
+    CARGO_PROFILE="docker-${BUILD_MODE}" \
+    ARTIFACTS="${ARTIFACTS}"
+
+for ARTIFACT in ${ARTIFACTS}; do
+    objcopy --only-keep-debug "${BUILD_DIR}/${ARTIFACT}" "${BUILD_DIR}/${ARTIFACT}.dbg"
+    objcopy --strip-debug "${BUILD_DIR}/${ARTIFACT}"
+done

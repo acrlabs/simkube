@@ -35,7 +35,7 @@ repos:
       - id: fmt
         name: rust-fmt
         language: system
-        entry: hack/fmt
+        entry: scripts/fmt
         files: \.rs
   - repo: "https://github.com/pre-commit/mirrors-mypy"
     rev: v1.4.1
