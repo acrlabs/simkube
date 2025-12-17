@@ -224,12 +224,12 @@ pub async fn setup_simulation(
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
     if let Some(mwc) = &mwc_opt
-    && let Some(webhooks) = &mwc.webhooks
-    // We create one webhook in this configuration but webhooks is a Vec<MutatingWebhooks>
-    && let Some(webhook) = &webhooks.first()
-    // ca_bundle is a ByteString, a tuple struct where .0 is the inner Vec<u8>.
-    // If the ca_bundle is None or empty, it has not been populated by cert-manager yet.
-    && webhook.client_config.ca_bundle.as_ref().is_none_or(|b| b.0.is_empty())
+        && let Some(webhooks) = &mwc.webhooks
+        // We create one webhook in this configuration but webhooks is a Vec<MutatingWebhooks>
+        && let Some(webhook) = &webhooks.first()
+        // ca_bundle is a ByteString, a tuple struct where .0 is the inner Vec<u8>.
+        // If the ca_bundle is None or empty, it has not been populated by cert-manager yet.
+        && webhook.client_config.ca_bundle.as_ref().is_none_or(|b| b.0.is_empty())
     {
         info!(
             "MutatingWebhookConfiguration {} exists but caBundle not yet populated, requeuing.",
