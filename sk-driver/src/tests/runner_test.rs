@@ -194,14 +194,11 @@ mod itest {
             ));
             then.json_body(status_ok());
         });
-        fake_apiserver.handle_multiple(
-            move |when, then| {
-                when.method(GET)
-                    .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
-                then.json_body_obj(&test_sim_clone);
-            },
-            if has_start_marker { 2 } else { 1 },
-        );
+        fake_apiserver.handle_multiple(if has_start_marker { 2 } else { 1 }, move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
+            then.json_body_obj(&test_sim_clone);
+        });
         fake_apiserver.handle(|when, then| {
             when.method(DELETE).path(format!(
                 "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment-2"
@@ -269,28 +266,22 @@ mod itest {
             ));
             then.json_body(status_ok());
         });
-        let sim_handle_id = fake_apiserver.handle_multiple(
-            move |when, then| {
-                when.method(GET)
-                    .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
-                then.json_body_obj(&test_sim);
-            },
-            2,
-        );
+        let sim_handle_id = fake_apiserver.handle_multiple(2, move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
+            then.json_body_obj(&test_sim);
+        });
 
         if paused {
             let mut fake_apiserver_clone = fake_apiserver.clone();
             clock.add_callback(DRIVER_PAUSED_WAIT_SECONDS + 1, move || {
                 fake_apiserver_clone.drop(sim_handle_id);
                 let test_sim_clone = test_sim_clone.clone(); // Don't understand why this clone is needed
-                fake_apiserver_clone.handle_multiple(
-                    move |when, then| {
-                        when.method(GET)
-                            .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
-                        then.json_body_obj(&test_sim_clone);
-                    },
-                    2,
-                );
+                fake_apiserver_clone.handle_multiple(2, move |when, then| {
+                    when.method(GET)
+                        .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
+                    then.json_body_obj(&test_sim_clone);
+                });
             });
         }
 
@@ -357,14 +348,11 @@ mod itest {
             fake_apiserver_clone_1.drop(sim_handle_id);
             let mut test_sim_clone = test_sim_clone_1.clone(); // Don't understand why this clone is needed
             test_sim_clone.spec.paused_time = DateTime::from_timestamp(paused_ts, 0);
-            fake_apiserver_clone_1.handle_multiple(
-                move |when, then| {
-                    when.method(GET)
-                        .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
-                    then.json_body_obj(&test_sim_clone);
-                },
-                2,
-            );
+            fake_apiserver_clone_1.handle_multiple(2, move |when, then| {
+                when.method(GET)
+                    .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
+                then.json_body_obj(&test_sim_clone);
+            });
         });
 
         // The simulation was "supposed" to process its next event at time 10, so that's when

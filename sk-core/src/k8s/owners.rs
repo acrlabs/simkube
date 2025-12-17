@@ -43,11 +43,7 @@ impl OwnersCache {
 
     // Recursively look up all of the owning objects for a given Kubernetes object
     #[async_recursion]
-    pub async fn compute_owners_for(
-        &mut self,
-        gvk: &GVK,
-        obj: &(impl Resource + Sync),
-    ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
+    pub async fn compute_owners_for(&mut self, gvk: &GVK, obj: &(impl Resource + Sync)) -> Vec<metav1::OwnerReference> {
         let ns_name = obj.namespaced_name();
         let gvk_name = format_gvk_name(gvk, &ns_name);
         debug!("computing owner references for {gvk_name}");
@@ -55,28 +51,49 @@ impl OwnersCache {
         let key = (gvk.clone(), ns_name.clone());
         if let Some(owners) = self.owners.get(&key) {
             debug!("found owners {owners:?} for {gvk_name} in cache");
-            return Ok(owners.clone());
+            return owners.clone();
         }
 
         // Requires that the object's owner references haven't been sanitized away
-        let mut owners = Vec::from(obj.owner_references());
+        let mut owners = Vec::new();
 
         for rf in obj.owner_references() {
-            let owner_gvk = GVK::from_owner_ref(rf)?;
-            let (api, cap) = self.apiset.unnamespaced_api_by_gvk(&owner_gvk).await?;
+            let owner_gvk = match GVK::from_owner_ref(rf) {
+                Ok(gvk) => gvk,
+                Err(err) => {
+                    error!("malformed owner reference {rf:?}: {err}");
+                    continue;
+                },
+            };
+            let (api, cap) = match self.apiset.unnamespaced_api_by_gvk(&owner_gvk).await {
+                Ok((a, c)) => (a, c),
+                Err(err) => {
+                    // Just a warning because it may be some CRD we intentionally haven't installed
+                    warn!("could not query {owner_gvk}: {err}; skipping ownerref");
+                    continue;
+                },
+            };
             let sel = build_owner_selector(&rf.name, obj, cap);
-            let resp = api.list(&sel).await?;
-            if resp.items.len() != 1 {
-                bail!("could not find single owner for {gvk_name}, found {:?}", resp.items);
+            let items = match api.list(&sel).await {
+                Ok(objlist) => objlist.items,
+                Err(err) => {
+                    error!("Could not list {owner_gvk}: {err}; skipping ownerref");
+                    continue;
+                },
+            };
+
+            if items.len() != 1 {
+                error!("could not find single owner for {gvk_name}, found {items:?}; skipping ownerref");
+                continue;
             }
 
-            let owner = &resp.items[0];
-            owners.extend(self.compute_owners_for(&owner_gvk, owner).await?);
+            owners.push(rf.clone());
+            owners.extend(self.compute_owners_for(&owner_gvk, &items[0]).await);
         }
 
         debug!("computed owners {owners:?} for {gvk_name}");
         self.owners.insert(key, owners.clone());
-        Ok(owners)
+        owners
     }
 
     pub async fn lookup_by_name_or_obj(
@@ -84,11 +101,14 @@ impl OwnersCache {
         gvk: &GVK,
         ns_name: &str,
         maybe_obj: Option<&(impl Resource + Sync)>,
-    ) -> anyhow::Result<Vec<metav1::OwnerReference>> {
+    ) -> Vec<metav1::OwnerReference> {
         match (self.owners.get(&(gvk.clone(), ns_name.into())), maybe_obj) {
-            (Some(o), _) => Ok(o.clone()),
+            (Some(o), _) => o.clone(),
             (None, Some(obj)) => self.compute_owners_for(gvk, obj).await,
-            _ => bail!("could not determine owner chain for {}", ns_name),
+            _ => {
+                error!("could not determine owner chain for {ns_name}");
+                vec![]
+            },
         }
     }
 }

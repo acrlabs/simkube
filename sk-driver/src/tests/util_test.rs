@@ -52,14 +52,11 @@ async fn test_wait_if_paused_paused(test_sim: Simulation, #[case] paused_time: O
     test_sim_paused.spec.paused_time = paused_time;
 
     // Return the "paused" simulation state at first
-    let sim_handle_id = fake_apiserver.handle_multiple(
-        move |when, then| {
-            when.method(GET)
-                .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
-            then.json_body_obj(&test_sim_paused);
-        },
-        2,
-    );
+    let sim_handle_id = fake_apiserver.handle_multiple(2, move |when, then| {
+        when.method(GET)
+            .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
+        then.json_body_obj(&test_sim_paused);
+    });
 
     // After some time has passed, unpause the simulation
     let mut fake_apiserver_clone = fake_apiserver.clone();

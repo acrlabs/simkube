@@ -85,7 +85,7 @@ pub async fn mutate_pod(
     // enclose in a block so we release the mutex when we're done
     let owners = {
         let mut owners_cache = ctx.owners_cache.lock().await;
-        owners_cache.compute_owners_for(&corev1::Pod::gvk(), pod).await?
+        owners_cache.compute_owners_for(&corev1::Pod::gvk(), pod).await
     };
 
     if !owners.iter().any(|o| o.name == ctx.root_name) {

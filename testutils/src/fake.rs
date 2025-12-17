@@ -44,10 +44,10 @@ impl MockServerBuilder {
     }
 
     pub fn handle<F: Fn(When, Then) + 'static>(&mut self, f: F) -> usize {
-        self.handle_multiple(f, 1)
+        self.handle_multiple(1, f)
     }
 
-    pub fn handle_multiple<F: Fn(When, Then) + 'static>(&mut self, f: F, calls: usize) -> usize {
+    pub fn handle_multiple<F: Fn(When, Then) + 'static>(&mut self, calls: usize, f: F) -> usize {
         let mock_id = self.server.lock().unwrap().mock(f).id;
         self.mock_ids.lock().unwrap().insert(mock_id, calls);
         mock_id
