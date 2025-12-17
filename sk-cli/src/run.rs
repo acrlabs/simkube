@@ -112,6 +112,14 @@ pub struct Args {
 
     #[arg(
         long,
+        long_help = "namespace prefix for simulation objects",
+        default_value = "virtual",
+        help_heading = "Driver"
+    )]
+    pub virtual_ns_prefix: String,
+
+    #[arg(
+        long,
         long_help = "don't spawn Prometheus pod before running sim",
         help_heading = "Metrics"
     )]
@@ -217,19 +225,20 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
         &args.name,
         SimulationSpec {
             driver: SimulationDriverConfig {
-                namespace: args.driver_namespace.clone(),
-                image: args.driver_image.clone(),
-                port: args.driver_port,
-                trace_path: args.trace_path.clone(),
                 args: Some(driver_args),
+                image: args.driver_image.clone(),
+                namespace: args.driver_namespace.clone(),
+                port: args.driver_port,
                 secrets: args.driver_secrets.clone(),
+                trace_path: args.trace_path.clone(),
+                virtual_ns_prefix: args.virtual_ns_prefix.clone(),
             },
             duration: args.duration.clone(),
+            hooks,
             metrics: metrics_config,
+            paused_time,
             repetitions: Some(args.repetitions),
             speed: Some(args.speed),
-            paused_time,
-            hooks,
         },
     );
     if args.skip_local_volume_mount {

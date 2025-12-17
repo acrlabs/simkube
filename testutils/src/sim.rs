@@ -15,12 +15,13 @@ pub fn test_sim() -> Simulation {
         },
         spec: SimulationSpec {
             driver: SimulationDriverConfig {
-                namespace: TEST_NAMESPACE.into(),
-                image: "docker.foo:1234/sk-driver:latest".into(),
-                port: 9876,
-                trace_path: "file:///foo/bar".into(),
                 args: None,
+                image: "docker.foo:1234/sk-driver:latest".into(),
+                namespace: TEST_NAMESPACE.into(),
+                port: 9876,
                 secrets: Some(vec![TEST_DRIVER_SECRET_NAME.into()]),
+                trace_path: "file:///foo/bar".into(),
+                virtual_ns_prefix: "test-".into(),
             },
             metrics: Some(Default::default()),
             hooks: Some(SimulationHooksConfig {

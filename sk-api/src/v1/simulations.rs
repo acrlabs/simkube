@@ -22,15 +22,18 @@ pub enum SimulationState {
     Running,
 }
 
+
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationDriverConfig {
-    pub namespace: String,
-    pub image: String,
-    pub trace_path: String,
-    pub port: i32,
     pub args: Option<Vec<String>>,
+    pub image: String,
+    pub namespace: String,
+    pub port: i32,
     pub secrets: Option<Vec<String>>,
+    pub trace_path: String,
+    #[serde(default = "default_ns_prefix")]
+    pub virtual_ns_prefix: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -105,4 +108,8 @@ impl Simulation {
     pub fn speed(&self) -> f64 {
         self.spec.speed.unwrap_or(1.0)
     }
+}
+
+fn default_ns_prefix() -> String {
+    "virtual".into()
 }

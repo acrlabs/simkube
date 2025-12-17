@@ -68,6 +68,9 @@ spec:
                     type: array
                   tracePath:
                     type: string
+                  virtualNsPrefix:
+                    default: virtual
+                    type: string
                 required:
                 - image
                 - namespace
