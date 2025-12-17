@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.4.2 - 2025-12-17
+
+### 🐛 Bug Fixes
+
+- Support separate debug and release modes
+- Make the driver secrets part of the simulation CRD
+- Append simulation node selector(s) instead of replacing in mutating webhook
+- Make the owner reference lookups infallible
+- Close caBundle race condition during simulation startup (@ogorman89)
+- Move the `virtual-ns-prefix` into the simulation CRD
+
 ## 2.4.1 - 2025-09-18
 
 ### 🐛 Bug Fixes
