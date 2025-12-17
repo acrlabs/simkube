@@ -135,7 +135,10 @@ fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOpera
     if pod.spec()?.tolerations.is_none() {
         patches.push(add_operation(format_ptr!("/spec/tolerations"), json!([])));
     }
-    patches.push(add_operation(format_ptr!("/spec/nodeSelector"), json!({"type": "virtual"})));
+    if pod.spec()?.node_selector.is_none() {
+        patches.push(add_operation(format_ptr!("/spec/nodeSelector"), json!({})));
+    }
+    patches.push(add_operation(format_ptr!("/spec/nodeSelector/type"), json!("virtual")));
     patches.push(add_operation(
         format_ptr!("/spec/tolerations/-"),
         json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),

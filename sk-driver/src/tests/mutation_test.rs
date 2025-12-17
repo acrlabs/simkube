@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{
+    BTreeMap,
+    HashMap,
+};
 
 use clockabilly::mock::MockUtcClock;
 use insta::assert_debug_snapshot;
@@ -15,7 +18,10 @@ use kube::core::{
 };
 use rocket::serde::json::Json;
 use sk_core::k8s::PodLifecycleData;
-use sk_store::ExportedTrace;
+use sk_store::{
+    ExportedTrace,
+    PodLifecyclesMap,
+};
 
 use super::helpers::build_driver_context;
 use super::*;
@@ -129,26 +135,27 @@ async fn test_mutate_pod_not_owned_by_sim(
 }
 
 mod itest {
-    use sk_store::PodLifecyclesMap;
-
     use super::*;
 
     #[rstest(tokio::test)]
+    // don't need the cross-product of these cases
     #[case(true)]
     #[case(false)]
     async fn test_mutate_pod(
         mut test_sim: Simulation,
         mut test_pod: corev1::Pod,
         mut adm_resp: AdmissionResponse,
-        #[case] running: bool,
+        #[case] running_and_has_node_selector: bool,
     ) {
-        set_snapshot_suffix!("{running}");
+        set_snapshot_suffix!("{running_and_has_node_selector}");
         test_sim.spec.speed = Some(2.0);
         test_pod
             .annotations_mut()
             .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
-        if running {
+
+        if running_and_has_node_selector {
             test_pod.status.get_or_insert_default().phase = Some("Running".into());
+            test_pod.spec.get_or_insert_default().node_selector = Some(BTreeMap::from([("boo".into(), "far".into())]));
         }
         let root = metav1::OwnerReference {
             name: TEST_DRIVER_ROOT_NAME.into(),
@@ -163,10 +170,11 @@ mod itest {
 
         let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
         let mut trace = ExportedTrace::default();
-        if running {
+        if running_and_has_node_selector {
+            let pod_spec_hash = 18161541283955474812;
             trace.pod_lifecycles.insert(
                 (DEPL_GVK.clone(), owner_ns_name.clone()),
-                PodLifecyclesMap::from([(EMPTY_POD_SPEC_HASH, vec![PodLifecycleData::Finished(0, 42)])]),
+                PodLifecyclesMap::from([(pod_spec_hash, vec![PodLifecycleData::Finished(0, 42)])]),
             );
             trace.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), 1234);
         }

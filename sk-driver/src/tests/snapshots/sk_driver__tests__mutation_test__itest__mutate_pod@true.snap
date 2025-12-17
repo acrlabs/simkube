@@ -9,7 +9,7 @@ Object {
         "annotations": Object {
             "simkube.io/original-namespace": String("test-namespace"),
             "simkube.io/pod-sequence-number": String("0"),
-            "simkube.io/pod-spec-stable-hash": String("17506812802394981455"),
+            "simkube.io/pod-spec-stable-hash": String("18161541283955474812"),
             "simkube.kwok.io/stage-complete-time": String("1970-01-01T00:00:21+00:00"),
         },
         "labels": Object {
@@ -23,6 +23,7 @@ Object {
     "spec": Object {
         "containers": Array [],
         "nodeSelector": Object {
+            "boo": String("far"),
             "type": String("virtual"),
         },
         "tolerations": Array [
