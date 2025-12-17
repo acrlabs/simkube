@@ -155,8 +155,8 @@ pub(crate) fn build_mutating_webhook(
                 scope: Some("Namespaced".into()),
             }]),
             match_conditions: Some(vec![admissionv1::MatchCondition {
-                name: "virtual-namespaces".into(),
-                expression: "object.metadata.namespace.startsWith('virtual-')".into(),
+                name: "virtual-namespaces-only".into(),
+                expression: format!("object.metadata.namespace.startsWith('{}-')", sim.spec.driver.virtual_ns_prefix),
             }]),
             ..Default::default()
         }]),
@@ -318,8 +318,6 @@ fn build_driver_args(
         format!("{cert_mount_path}/tls.key"),
         "--trace-path".into(),
         trace_path,
-        "--virtual-ns-prefix".into(),
-        "virtual".into(),
         "--sim-name".into(),
         ctx.name.clone(),
         "--controller-ns".into(),

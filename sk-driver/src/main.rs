@@ -46,9 +46,6 @@ struct Options {
     #[arg(long)]
     controller_ns: String,
 
-    #[arg(long)]
-    virtual_ns_prefix: String,
-
     #[arg(long, default_value = DRIVER_ADMISSION_WEBHOOK_PORT)]
     admission_webhook_port: u16,
 
@@ -101,7 +98,7 @@ async fn run(opts: Options) -> EmptyResult {
         sim_name: opts.sim_name.clone(),
         root_name,
         ctrl_ns: opts.controller_ns.clone(),
-        virtual_ns_prefix: opts.virtual_ns_prefix.clone(),
+        virtual_ns_prefix: sim.spec.driver.virtual_ns_prefix.clone(),
         owners_cache,
         trace,
     };

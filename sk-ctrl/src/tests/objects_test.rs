@@ -31,8 +31,6 @@ async fn test_build_driver_job_with_extra_args(mut test_sim: Simulation) {
         "/usr/local/etc/ssl/tls.key",
         "--trace-path",
         "/foo/bar",
-        "--virtual-ns-prefix",
-        "virtual",
         "--sim-name",
         "",
         "--controller-ns",
