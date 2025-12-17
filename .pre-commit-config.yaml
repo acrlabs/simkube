@@ -5,7 +5,7 @@ repos:
       - id: python-path
         name: check python path
         language: system
-        entry: bash -c "which python"
+        entry: bash -c "which python || which python3"
         always_run: true
         exclude: ".*"
         verbose: true

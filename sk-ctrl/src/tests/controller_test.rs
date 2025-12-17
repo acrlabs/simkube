@@ -2,6 +2,7 @@ use std::env;
 
 use clockabilly::prelude::*;
 use httpmock::prelude::*;
+use k8s_openapi::ByteString;
 use kube::runtime::controller::Action;
 use serde_json::json;
 use sk_api::prometheus::*;
@@ -21,6 +22,13 @@ fn opts() -> Options {
         cert_manager_issuer: "".into(),
         verbosity: "info".into(),
     }
+}
+
+enum WebhookState {
+    NotCreated,
+    CaBundleNone,
+    CaBundleEmpty,
+    ReadyWithCaBundle,
 }
 
 #[rstest(tokio::test)]
@@ -244,15 +252,19 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
 }
 
 #[rstest(tokio::test)]
-#[case::ready(true, false)]
-#[case::not_ready(false, false)]
-#[case::disabled(true, true)]
+#[case::ready(true, false, WebhookState::ReadyWithCaBundle)]
+#[case::not_ready(false, false, WebhookState::ReadyWithCaBundle)]
+#[case::disabled(true, true, WebhookState::ReadyWithCaBundle)]
+#[case::webhook_not_created(true, false, WebhookState::NotCreated)]
+#[case::webhook_ca_bundle_none(true, false, WebhookState::CaBundleNone)]
+#[case::webhook_ca_bundle_empty(true, false, WebhookState::CaBundleEmpty)]
 async fn test_setup_simulation_wait_prom(
     mut test_sim: Simulation,
     test_sim_root: SimulationRoot,
     opts: Options,
-    #[case] ready: bool,
+    #[case] ready_to_create_webhook: bool,
     #[case] disabled: bool,
+    #[case] initial_webhook_state: WebhookState,
 ) {
     // SAFETY: it's fine it's a test
     unsafe { env::set_var("POD_SVC_ACCOUNT", "asdf") };
@@ -289,14 +301,14 @@ async fn test_setup_simulation_wait_prom(
             when.method(GET)
                 .path(format!("/apis/monitoring.coreos.com/v1/namespaces/monitoring/prometheuses/{prom_name}"));
             let mut prom_obj = prom_obj.clone();
-            if ready {
+            if ready_to_create_webhook {
                 prom_obj.status = Some(PrometheusStatus { available_replicas: 1, ..Default::default() });
             }
             then.json_body_obj(&prom_obj);
         });
     }
 
-    if ready {
+    if ready_to_create_webhook {
         fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"));
         fake_apiserver.handle(move |when, then| {
             when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
@@ -312,29 +324,69 @@ async fn test_setup_simulation_wait_prom(
                 }],
             }));
         });
-        fake_apiserver.handle_not_found(format!(
-            "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}",
-        ));
-        fake_apiserver.handle(move |when, then| {
-            when.method(POST)
-                .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
-            then.json_body_obj(&webhook_obj);
-        });
-        fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
-        fake_apiserver.handle(move |when, then| {
-            when.method(POST)
-                .path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs"));
-            then.json_body_obj(&driver_obj);
-        });
+
+        match initial_webhook_state {
+            WebhookState::NotCreated => {
+                fake_apiserver.handle_not_found(format!(
+                    "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"
+                ));
+                fake_apiserver.handle(move |when, then| {
+                    when.method(POST)
+                        .path("/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations");
+                    then.json_body_obj(&webhook_obj);
+                });
+            },
+            WebhookState::CaBundleNone => {
+                let mut webhook_obj_no_ca = webhook_obj.clone();
+                webhook_obj_no_ca.webhooks.as_mut().unwrap()[0].client_config.ca_bundle = None;
+                fake_apiserver.handle(move |when, then| {
+                    when.method(GET).path(format!(
+                        "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"
+                    ));
+                    then.json_body_obj(&webhook_obj_no_ca);
+                });
+            },
+            WebhookState::CaBundleEmpty => {
+                let mut webhook_obj_empty_ca = webhook_obj.clone();
+                webhook_obj_empty_ca.webhooks.as_mut().unwrap()[0].client_config.ca_bundle = Some(ByteString(vec![]));
+                fake_apiserver.handle(move |when, then| {
+                    when.method(GET).path(format!(
+                        "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"
+                    ));
+                    then.json_body_obj(&webhook_obj_empty_ca);
+                });
+            },
+            WebhookState::ReadyWithCaBundle => {
+                let mut webhook_obj_with_ca = webhook_obj.clone();
+                webhook_obj_with_ca.webhooks.as_mut().unwrap()[0].client_config.ca_bundle =
+                    Some(ByteString(b"test-ca-bundle".to_vec()));
+                fake_apiserver.handle(move |when, then| {
+                    when.method(GET).path(format!(
+                        "/apis/admissionregistration.k8s.io/v1/mutatingwebhookconfigurations/{webhook_name}"
+                    ));
+                    then.json_body_obj(&webhook_obj_with_ca);
+                });
+            },
+        }
+
+        if matches!(initial_webhook_state, WebhookState::ReadyWithCaBundle) {
+            fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
+            fake_apiserver.handle(move |when, then| {
+                when.method(POST)
+                    .path(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs"));
+                then.json_body_obj(&driver_obj);
+            });
+        }
     }
     let res = setup_simulation(&ctx, &test_sim, &test_sim_root, TEST_CTRL_NAMESPACE)
         .await
         .unwrap();
-    if ready {
-        assert_eq!(res, Action::await_change());
-    } else {
+    if !ready_to_create_webhook || !matches!(initial_webhook_state, WebhookState::ReadyWithCaBundle) {
         assert_eq!(res, Action::requeue(REQUEUE_DURATION));
-    }
+    } else {
+        assert_eq!(res, Action::await_change());
+    };
+
     fake_apiserver.assert();
 }
 

@@ -95,7 +95,6 @@ pub(crate) async fn fetch_driver_state(
         }
     }
 
-
     // State processing if the simulation hasn't completed
     if !is_terminal(&state) {
         // If the simulation hasn't started yet, we don't want to set the state to paused; this way
@@ -217,11 +216,27 @@ pub async fn setup_simulation(
     };
 
     let webhook_api = kube::Api::<admissionv1::MutatingWebhookConfiguration>::all(ctx.client.clone());
-    if webhook_api.get_opt(&ctx.webhook_name).await?.is_none() {
+    let mwc_opt = webhook_api.get_opt(&ctx.webhook_name).await?;
+    if mwc_opt.is_none() {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
         let obj = build_mutating_webhook(ctx, sim, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
-    };
+        return Ok(Action::requeue(REQUEUE_DURATION));
+    }
+    if let Some(mwc) = &mwc_opt
+        && let Some(webhooks) = &mwc.webhooks
+        // We create one webhook in this configuration but webhooks is a Vec<MutatingWebhooks>
+        && let Some(webhook) = &webhooks.first()
+        // ca_bundle is a ByteString, a tuple struct where .0 is the inner Vec<u8>.
+        // If the ca_bundle is None or empty, it has not been populated by cert-manager yet.
+        && webhook.client_config.ca_bundle.as_ref().is_none_or(|b| b.0.is_empty())
+    {
+        info!(
+            "MutatingWebhookConfiguration {} exists but caBundle not yet populated, requeuing.",
+            ctx.webhook_name
+        );
+        return Ok(Action::requeue(REQUEUE_DURATION));
+    }
 
     // Create the actual driver
     let jobs_api = kube::Api::<batchv1::Job>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
