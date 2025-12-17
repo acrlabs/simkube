@@ -2,13 +2,10 @@
 <!-- include a link to the issue(s) this resolves and/or any related design docs -->
 - TODO
 
-## What
-<!-- a short bulleted list of the high-level changes you made -->
-- TODO
-
-## Why
-<!-- a short bulleted list explaining why these changes are necessary -->
-- TODO
+## Description and Rationale
+<!-- a short bulleted list of the high-level changes you made, along with the reason why; if any change needs a more
+detailed explanation, feel free to break this up into subsections -->
+- Change 1: Why we made the change
 
 ## How
 <!-- if the changes are not obvious/straightforward, explain how you approached the problem -->

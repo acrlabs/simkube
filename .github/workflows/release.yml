@@ -23,7 +23,7 @@ jobs:
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
       - name: Install cargo workspaces
-        run: cargo install cargo-workspaces@0.3.6 --locked
+        run: cargo install cargo-workspaces@0.4.2 --locked
       - name: Build
         run: BUILD_MODE=release make build
       - name: Login to Quay.io
