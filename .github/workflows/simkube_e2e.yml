@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  IN_CI: "true"
+
 jobs:
   launch-runner:
     uses: acrlabs/simkube-ci-actions/actions/launch-runner.yml@main
@@ -29,12 +32,12 @@ jobs:
     runs-on: [self-hosted, simkube, ephemeral]
     steps:
       - uses: actions/checkout@v5
-
-      - name: Build simkube
-        run: |
-          make
-          kubectl get pods -n simkube
-
+        with:
+          submodules: recursive
+      - name: Setup Builder
+        uses: ./.github/actions/setup-builder
+      - name: Build
+        run: make
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@main
         with:
