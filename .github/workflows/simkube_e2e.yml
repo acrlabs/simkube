@@ -18,7 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup SimKube GitHub Action runner
-        uses: acrlabs/simkube-ci-action/actions/launch-runner.yml@main
+        uses: acrlabs/simkube-ci-action/actions/launch-runner@main
         with:
           ami-id: ami-0ac57be3bde538a47
           instance-type: c7a.xlarge
