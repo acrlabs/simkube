@@ -15,17 +15,19 @@ env:
 
 jobs:
   launch-runner:
-    uses: acrlabs/simkube-ci-actions/actions/launch-runner.yml@main
-    with:
-      ami-id: ami-0ac57be3bde538a47
-      instance-type: c7a.xlarge
-      aws-region: us-west-2
-      subnet-id: subnet-0cd4625c825e73e61
-      security-group-ids: sg-0fd593b495c5e0ffd
-    secrets:
-      SIMKUBE_RUNNER_PAT: ${{ secrets.SIMKUBE_RUNNER_PAT }}
-      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SimKube GitHub Action runner
+        uses: acrlabs/simkube-ci-action/actions/launch-runner.yml@main
+        with:
+          ami-id: ami-0ac57be3bde538a47
+          instance-type: c7a.xlarge
+          aws-region: us-west-2
+          subnet-id: subnet-0cd4625c825e73e61
+          security-group-ids: sg-0fd593b495c5e0ffd
+          simkube-runner-pat: ${{ secrets.SIMKUBE_RUNNER_PAT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
 
   simkube-e2e-test:
     needs: launch-runner
