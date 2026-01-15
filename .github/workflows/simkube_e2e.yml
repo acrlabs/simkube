@@ -20,7 +20,7 @@ jobs:
       - name: Setup SimKube GitHub Action runner
         uses: acrlabs/simkube-ci-action/actions/launch-runner@main
         with:
-          ami-id: ami-04b08aa5d7fd425b1
+          ami-id: ami-0c331c41dd2756b35
           instance-type: c7a.xlarge
           aws-region: us-west-2
           subnet-id: subnet-0cd4625c825e73e61
