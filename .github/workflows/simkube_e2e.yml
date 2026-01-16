@@ -20,7 +20,7 @@ jobs:
       - name: Setup SimKube GitHub Action runner
         uses: acrlabs/simkube-ci-action/actions/launch-runner@main
         with:
-          ami-id: ami-0c331c41dd2756b35
+          ami-id: ami-04b08aa5d7fd425b1
           instance-type: c7a.xlarge
           aws-region: us-west-2
           subnet-id: subnet-0cd4625c825e73e61
@@ -40,6 +40,33 @@ jobs:
         uses: ./.github/actions/setup-builder
       - name: Build
         run: make
+      - name: Verify image is from local registry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/sk-ctrl-depl \
+             -n simkube
+
+          POD_NAME=$(kubectl get pod \
+            -l app.kubernetes.io/name=sk-ctrl \
+            -n simkube \
+            -o jsonpath='{.items[0].metadata.name}')
+
+          IMAGE_ID=$(kubectl get pod "$POD_NAME" \
+            -n simkube \
+            -o jsonpath='{.status.containerStatuses[0].imageID}')
+
+          echo "Pod: $POD_NAME"
+          echo "Image ID: $IMAGE_ID"
+
+          if ! echo "$IMAGE_ID" | grep -q "localhost:5000"; then
+            echo "❌ Image NOT from local registry"
+            exit 1
+          fi
+
+          echo "✅ Image from local registry"
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@main
         with:
