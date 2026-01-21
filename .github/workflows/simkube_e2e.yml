@@ -38,7 +38,7 @@ jobs:
           submodules: recursive
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
-      - name: Add pipx binaries to PATH
+      - name: Add .local/bin to PATH
         run: echo "/home/ubuntu/.local/bin" >> $GITHUB_PATH
       - name: Build
         run: make
