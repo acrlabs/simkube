@@ -23,7 +23,10 @@ json-patch-ext = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 lazy_static = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
 ratatui = { workspace = true }
+regex = { workspace = true }
 reqwest = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true }

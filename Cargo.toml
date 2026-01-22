@@ -40,12 +40,14 @@ derive_setters = "0.1.7"
 dirs = "6.0.0"
 either = "1.15.0"
 futures = "0.3.31"
-json-patch-ext = "0.3.0"
+json-patch-ext = "0.3.2"
 k8s-openapi = { version = "0.25.0", features = ["v1_30"] }
 lazy_static = "1.5.0"
 object_store = { version = "0.12.2", features = ["aws", "gcp", "azure", "http"] }
 parse_datetime = "0.9.0"  # v0.10.0 has broken parsing, so we can't update to that right now
 paste = "1.0.15"
+pest = "2.8.5"
+pest_derive = "2.8.5"
 ratatui = "0.29.0"
 regex = "1.11.1"
 reqwest = { version = "0.12.20", default-features = false, features = ["json", "rustls-tls"] }

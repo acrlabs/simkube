@@ -5,7 +5,9 @@ mod delete;
 mod export;
 mod pauseresume;
 mod run;
+mod skel;
 mod snapshot;
+mod transform;
 mod validation;
 mod xray;
 
@@ -67,6 +69,12 @@ enum SkSubcommand {
     )]
     Snapshot(snapshot::Args),
 
+    #[command(
+        about = "transform a trace file using SKEL (the SimKube Expression Language)",
+        visible_alias = "trans"
+    )]
+    Transform(transform::Args),
+
     #[command(subcommand, visible_alias = "val")]
     Validate(ValidateSubcommand),
 
@@ -107,6 +115,7 @@ async fn main() -> EmptyResult {
             run::cmd(args, client).await
         },
         SkSubcommand::Snapshot(args) => snapshot::cmd(args).await,
+        SkSubcommand::Transform(args) => transform::cmd(args).await,
         SkSubcommand::Validate(subcommand) => validation::cmd(subcommand).await,
         SkSubcommand::Version => {
             println!("skctl {}", crate_version!());
