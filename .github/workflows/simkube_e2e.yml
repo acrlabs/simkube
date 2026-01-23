@@ -1,0 +1,76 @@
+---
+name: simkube end-to-end test
+on:  # yamllint disable-line rule:truthy
+  workflow_dispatch:
+  push:
+    branches:
+      - "main"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IN_CI: "true"
+
+jobs:
+  launch-runner:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup SimKube GitHub Action runner
+        uses: acrlabs/simkube-ci-action/actions/launch-runner@main
+        with:
+          ami-id: ami-03e5877b8398d4577  # TODO: make this dynamic / latest AMI
+          instance-type: m6a.large
+          aws-region: us-west-2
+          subnet-id: subnet-0cd4625c825e73e61
+          security-group-ids: sg-0fd593b495c5e0ffd
+          simkube-runner-pat: ${{ secrets.SIMKUBE_RUNNER_PAT }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  simkube-e2e-test:
+    needs: launch-runner
+    runs-on: [self-hosted, simkube, ephemeral]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Setup Builder
+        uses: ./.github/actions/setup-builder
+      - name: Add .local/bin to PATH
+        run: echo "/home/ubuntu/.local/bin" >> $GITHUB_PATH
+      - name: Build
+        run: make
+      - name: Verify image is from local registry
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Waiting for rollout to complete..."
+          kubectl rollout status deployment/sk-ctrl-depl \
+             -n simkube
+
+          POD_NAME=$(kubectl get pod \
+            -l app.kubernetes.io/name=sk-ctrl \
+            -n simkube \
+            -o jsonpath='{.items[0].metadata.name}')
+
+          IMAGE_ID=$(kubectl get pod "$POD_NAME" \
+            -n simkube \
+            -o jsonpath='{.status.containerStatuses[0].imageID}')
+
+          echo "Pod: $POD_NAME"
+          echo "Image ID: $IMAGE_ID"
+
+          if ! echo "$IMAGE_ID" | grep -q "localhost:5000"; then
+            echo "❌ Image NOT from local registry"
+            exit 1
+          fi
+
+          echo "✅ Image from local registry"
+      - name: Run simulation
+        uses: acrlabs/simkube-ci-action/actions/run-simulation@main
+        with:
+          simulation-name: test-cronjob-sim
+          trace-path: examples/traces/cronjob.sktrace
