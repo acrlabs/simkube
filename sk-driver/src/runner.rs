@@ -94,14 +94,27 @@ pub fn build_virtual_obj(
             // I also kindof wish we could not have the code duplication, but it's _just_ different
             // enough that it felt hard to refactor/combine.  Maybe something to revisit in the
             // future.
-            patch_ext(
-                &mut vobj.data,
-                add_operation(format_ptr!("{pod_spec_template_path}/spec/tolerations",), json!([])),
-            )?;
-            patch_ext(
-                &mut vobj.data,
-                add_operation(format_ptr!("{pod_spec_template_path}/spec/nodeSelector",), json!({})),
-            )?;
+            if vobj
+                .data
+                .pointer(&format!("{pod_spec_template_path}/spec/nodeSelector"))
+                .is_none()
+            {
+                // N.B. add_operation will replace existing fields, which already bit me once
+                patch_ext(
+                    &mut vobj.data,
+                    add_operation(format_ptr!("{pod_spec_template_path}/spec/nodeSelector",), json!({})),
+                )?;
+            }
+            if vobj
+                .data
+                .pointer(&format!("{pod_spec_template_path}/spec/tolerations"))
+                .is_none()
+            {
+                patch_ext(
+                    &mut vobj.data,
+                    add_operation(format_ptr!("{pod_spec_template_path}/spec/tolerations"), json!([])),
+                )?;
+            }
             patch_ext(
                 &mut vobj.data,
                 add_operation(format_ptr!("{pod_spec_template_path}/spec/nodeSelector/type"), json!("virtual")),

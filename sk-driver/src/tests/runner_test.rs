@@ -54,7 +54,9 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
                     },
                     "spec": {
                         "containers": [{}],
-                        "nodeSelector": {"type": "virtual"},
+                        // Ensure that if there is no nodeSelector/tolerations defined,
+                        // they get created anyways
+                        "nodeSelector": {"type": "virtual" },
                         "tolerations": [{
                             "key": VIRTUAL_NODE_TOLERATION_KEY,
                             "operator": "Exists",
@@ -70,12 +72,20 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
                     },
                     "spec": {
                         "containers": [{}],
-                        "nodeSelector": {"type": "virtual"},
-                        "tolerations": [{
-                            "key": VIRTUAL_NODE_TOLERATION_KEY,
-                            "operator": "Exists",
-                            "effect": "NoSchedule",
-                        }],
+                        // Ensure we _add to_ the nodeSelector/tolerations defined in
+                        // test_two_pods_obj
+                        "nodeSelector": {"type": "virtual", "foo": "bar"},
+                        "tolerations": [
+                            {
+                                "key": "asdf",
+                                "value": "qwerty",
+                            },
+                            {
+                                "key": VIRTUAL_NODE_TOLERATION_KEY,
+                                "operator": "Exists",
+                                "effect": "NoSchedule",
+                            },
+                        ],
                     },
                 },
             }
