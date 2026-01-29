@@ -24,6 +24,7 @@ kube = { workspace = true }
 k8s-openapi = { workspace = true }
 lazy_static = { workspace = true }
 ratatui = { workspace = true }
+regex = { workspace = true }
 reqwest = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true }
@@ -33,6 +34,8 @@ sk-api = { workspace = true }
 sk-core = { workspace = true }
 sk-store = { workspace = true }
 tokio = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
 
 [dev-dependencies]
 httpmock = { workspace = true }

@@ -1,0 +1,138 @@
+
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+COMMENT = _{ "#" ~ (!NEWLINE ~ ANY)* }
+
+// match any char except double-quote
+char = _{ !("\"") ~ ANY }
+free_label_chars = _{ ASCII_ALPHANUMERIC | "_" | "-" }
+label_chars = _{ free_label_chars | "." | "/" }
+
+// ======================================== VALUES =======================================
+
+// True and false are case-insensitive, so encode them as rules so we can match on the
+// rule in the parser and not worry about string casing
+true_val = { ^"true" }
+false_val = { ^"false" }
+number = { ASCII_DIGIT+ }
+string = { char* }
+quote_string = _{ "\"" ~ string ~ "\"" }
+val = _{ number | quote_string | true_val | false_val }
+
+// ====================================== OPERATORS ======================================
+
+not = { "!" } // not a comparator
+eq = { "==" }
+ne = { "!=" }
+le = { "<=" } // must come before "<"
+ge = { ">=" } // must come before ">"
+lt = { "<" }
+gt = { ">" }
+comparator = _{ eq | ne | le | ge | lt | gt }
+
+// ====================================== VARIABLES ======================================
+
+// Variables start with $, then letter or underscore, contain alphanumeric or underscore
+// Variable assignment uses :=, e.g. `$x := 32`
+var = !{ "$" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+
+// ======================================== PATHS ========================================
+
+// A path looks like your standard dot-separated JSON path, (a la `jq`), with one exception:
+// you can specify an asterisk to match every element of an array.  These are all valid paths:
+//
+//  - spec.template.spec.nodeSelector
+//  - spec.template.spec.containers[34].image
+//  - spec.template.volumes[*]
+//
+// You can also include a variable in the path as follows:
+//
+//  - $x.spec.nodeSelector
+
+path_index = _{ "[" ~ (ASCII_DIGIT+ | "*") ~ "]" }
+quoted_path_part = !{ "\"" ~ label_chars+ ~ "\"" }
+path_part = _{ free_label_chars+ | quoted_path_part | var }
+path_cons = _{ "." ~ path_part | path_index }
+resource_path = ${ path_part ~ path_cons* } // no whitespace allowed
+
+// =================================== RESOURCE TESTS ====================================
+
+// Two additional "operators" are valid for selectors, `exists` and `!exists`, which test for
+// the presence or absence of a field, respectively.
+exists_test = { "exists" ~ "(" ~ resource_path ~ ")" }
+not_exists_test = { "!exists" ~ "(" ~ resource_path ~ ")" }
+conditional_test = { resource_path ~ comparator ~ val }
+
+// Resource tests filter all resources based on whether they match the conditional in
+// the selector; these are all valid resource tests:
+//
+//  - spec.template.spec.nodeSelector == "simkube.dev/foo"
+//  - spec.template.spec.containers[34].image != "locahost:5000/bar:latest"
+//  - spec.template.volumes[*].size < 34
+//  - exists(spec.template.tolerations)
+resource_test = { exists_test | not_exists_test | conditional_test }
+
+// Variable tests work similarly to resource tests, except you (must) do filtering based on
+// the defined variabls.  The syntax for this uses the "such-that" operator ("|"):
+//
+//   $x := spec.template.spec.tolerations[*] | $x.key == "simkube.dev/foo"
+//
+// This would select all tolerations that have a matching key field, and allow you to reference
+// the variable $x later one
+var_test = { var ~ ":=" ~ resource_path ~ "|" ~ resource_test }
+
+// Resource selectors work just like variable selectors except there's no variable assignment
+// allowed.  This is duplicated from the above to catch (some) errors at parse time, i.e.,
+// if you con't use a variable assignment, you can't later reference that variable
+// Resources can be filtered down based on the results of a test
+resource_conditional = { resource_test | var_test }
+
+// ================================= TIMESTAMP TESTS =====================================
+
+// Timestamps filter based on the recorded timestamp in the trace; users can either reference
+// an absolute timestamp (which must be based on the absolute timestamp recorded in the trace)
+// or a relative timestamp, which is followed by an h/m/s suffix
+absolute_ts = { ASCII_DIGIT+ }
+relative_ts = { ASCII_DIGIT+ ~ ("h" | "m" | "s") }
+ts_val = _{ relative_ts | absolute_ts } // relative must come first
+
+// Timestamp conditionals always start with `@t` (prounced "at time")
+ts_conditional = { "@t" ~ comparator ~ ts_val }
+
+// ================================= TRACE SELECTORS =====================================
+
+// A trace selector finds all matching elements in a trace; you can use a combination of
+// timestamp tests and resource tests, combined with && (and).  As a convenience, you can
+// use "*" to indicate "every item in the trace", but also most functions take a single-argument
+// form that matches everything.
+trace_selector = _{ (ts_conditional | resource_conditional) }
+trace_selector_all = { "*" }
+trace_selector_list = { trace_selector ~ ("&&" ~ trace_selector)* }
+trace_selector_expr = _{ trace_selector_all | trace_selector_list }
+
+// ==================================== FUNCTIONS ========================================
+
+// We support four top-level functions:
+//
+//  - apply(trace_selector, operation): performs an operation to every matching item in the trace
+//  - delete(selector): deletes every matching item from the trace
+//  - insert(time, value): inserts an object into the trace at a given time
+//  - remove(trace_selector, resource_path): removes a field from every matching item in the trace
+
+function_call = _{  apply_func | /* delete_func | insert_func | */ remove_func }
+
+assignment = { resource_path  ~ "=" ~ val }
+apply_args = _{ trace_selector_expr ~ "," ~ assignment | assignment }
+apply_func = { "apply" ~ "(" ~ apply_args ~ ")" }
+
+// delete_args = _{ trace_selector_expr }
+// delete_func = { "delete" ~ "(" ~ delete_args ~ ")" }
+
+// insert_args = _{ ts_val ~ "," ~ resource }
+// insert_func = { "insert" ~ "(" ~ insert_args ~ ")" }
+
+remove_args = _{ trace_selector_expr ~ "," ~ resource_path | resource_path }
+remove_func = { "remove" ~ "(" ~ remove_args ~ ")" }
+
+// A valid SKEL file is just a list of commmands separated by semicolons
+// Comments are whole-line values that start with a #
+skel = _{ SOI ~ (function_call ~ ";")* ~ EOI }

@@ -5,6 +5,7 @@ mod delete;
 mod export;
 mod pauseresume;
 mod run;
+mod skel;
 mod snapshot;
 mod validation;
 mod xray;
