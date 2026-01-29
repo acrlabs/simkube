@@ -52,7 +52,15 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
                             ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
                         },
                     },
-                    "spec": {"containers": [{}]},
+                    "spec": {
+                        "containers": [{}],
+                        "nodeSelector": {"type": "virtual"},
+                        "tolerations": [{
+                            "key": VIRTUAL_NODE_TOLERATION_KEY,
+                            "operator": "Exists",
+                            "effect": "NoSchedule",
+                        }],
+                    },
                 },
                 "template2": {
                     "metadata": {
@@ -60,7 +68,15 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
                             ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
                         },
                     },
-                    "spec": {"containers": [{}]},
+                    "spec": {
+                        "containers": [{}],
+                        "nodeSelector": {"type": "virtual"},
+                        "tolerations": [{
+                            "key": VIRTUAL_NODE_TOLERATION_KEY,
+                            "operator": "Exists",
+                            "effect": "NoSchedule",
+                        }],
+                    },
                 },
             }
         })

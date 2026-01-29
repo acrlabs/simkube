@@ -3684,6 +3684,7 @@ name = "sk-driver"
 version = "2.4.2"
 dependencies = [
  "anyhow",
+ "assertables",
  "clap",
  "clockabilly",
  "either",

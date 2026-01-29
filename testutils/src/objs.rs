@@ -46,7 +46,11 @@ pub fn test_two_pods_obj() -> DynamicObject {
                     "spec": {"containers": [{"ports": [42]}]},
                 },
                 "template2": {
-                    "spec": {"containers": [{"ports": [42]}]},
+                    "spec": {
+                        "containers": [{"ports": [42]}],
+                        "nodeSelector": {"foo": "bar"},
+                        "tolerations": [{"key": "asdf", "value": "qwerty"}],
+                    },
                 },
             }
         }),

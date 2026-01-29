@@ -85,6 +85,35 @@ pub fn build_virtual_obj(
                 ),
             )?;
 
+            // This is semi-duplicated from the pod mutation webhook; we need to set the tolerations
+            // and nodeSelectors _here_ so that, e.g., things like DaemonSets will schedule properly
+            // in the simulation.  We _also_ set them in the mutation webhook, to catch pods that
+            // are owned by something that doesn't use the standard sort of podTemplateSpec pattern.
+            // Maybe this is overkill and we shouldn't worry about it, but *shrug*.
+            //
+            // I also kindof wish we could not have the code duplication, but it's _just_ different
+            // enough that it felt hard to refactor/combine.  Maybe something to revisit in the
+            // future.
+            patch_ext(
+                &mut vobj.data,
+                add_operation(format_ptr!("{pod_spec_template_path}/spec/tolerations",), json!([])),
+            )?;
+            patch_ext(
+                &mut vobj.data,
+                add_operation(format_ptr!("{pod_spec_template_path}/spec/nodeSelector",), json!({})),
+            )?;
+            patch_ext(
+                &mut vobj.data,
+                add_operation(format_ptr!("{pod_spec_template_path}/spec/nodeSelector/type"), json!("virtual")),
+            )?;
+            patch_ext(
+                &mut vobj.data,
+                add_operation(
+                    format_ptr!("{pod_spec_template_path}/spec/tolerations/-"),
+                    json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+                ),
+            )?;
+
             // We remove all container ports from the pod specification just before applying, because it is
             // _possible_ to create a pod with duplicate container ports, but the apiserver will _reject_ a
             // patch containing duplicate container ports.  Since pods are mocked out _anyways_ there's no

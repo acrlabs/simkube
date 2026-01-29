@@ -131,7 +131,7 @@ fn add_empty_labels_annotations(pod: &corev1::Pod, patches: &mut Vec<PatchOperat
     }
 }
 
-fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
+pub(crate) fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) -> EmptyResult {
     if pod.spec()?.tolerations.is_none() {
         patches.push(add_operation(format_ptr!("/spec/tolerations"), json!([])));
     }
@@ -139,10 +139,22 @@ fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec<PatchOpera
         patches.push(add_operation(format_ptr!("/spec/nodeSelector"), json!({})));
     }
     patches.push(add_operation(format_ptr!("/spec/nodeSelector/type"), json!("virtual")));
-    patches.push(add_operation(
-        format_ptr!("/spec/tolerations/-"),
-        json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
-    ));
+
+    // Enjoy some nice cursed boolean logic: if tolerations is None OR no toleration has the
+    // VIRTUAL_NODE_TOLERATION_KEY set, we want to add the toleration.  The negation of this is
+    // !(None OR no toleration has the key) = (!None AND no toleration has the key) = (Some AND no
+    // toleration has the key)
+    if !pod
+        .spec()?
+        .tolerations
+        .as_ref()
+        .is_some_and(|tolerations| tolerations.iter().any(|t| t.key == Some(VIRTUAL_NODE_TOLERATION_KEY.into())))
+    {
+        patches.push(add_operation(
+            format_ptr!("/spec/tolerations/-"),
+            json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+        ));
+    }
 
     Ok(())
 }
