@@ -13,7 +13,7 @@ members = [
 ]
 
 [workspace.package]
-version = "2.4.3"
+version = "2.4.4"
 authors = ["Applied Computing Research Labs"]
 documentation = "https://simkube.dev/documentation/"
 license-file = "LICENSE"
@@ -22,9 +22,9 @@ edition = "2024"
 rust-version = "1.88"
 
 [workspace.dependencies]
-sk-api = { version = "2.4.3", path = "sk-api" }
-sk-core = { version = "2.4.3", path = "sk-core" }
-sk-store = { version = "2.4.3", path = "sk-store" }
+sk-api = { version = "2.4.4", path = "sk-api" }
+sk-core = { version = "2.4.4", path = "sk-core" }
+sk-store = { version = "2.4.4", path = "sk-store" }
 
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 assertables = "9.8.0"

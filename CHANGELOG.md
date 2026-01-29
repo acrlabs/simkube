@@ -3,6 +3,12 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.4.4 - 2026-01-29
+
+### 🐛 Bug Fixes
+
+- Don't overwrite existing tolerations
+
 ## 2.4.3 - 2026-01-29
 
 ### 🐛 Bug Fixes
