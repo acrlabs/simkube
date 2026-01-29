@@ -53,7 +53,7 @@ spec:
                   fieldPath: metadata.namespace
             - name: POD_OWNER
               value: sk-ctrl-depl
-          image: quay.io/appliedcomputing/sk-ctrl:v2.4.2
+          image: quay.io/appliedcomputing/sk-ctrl:v2.4.3
           name: sk-ctrl
       nodeSelector:
         type: kind-worker
