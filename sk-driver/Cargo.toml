@@ -27,6 +27,7 @@ tokio = { workspace = true }
 tracing = { workspace = true }
 
 [dev-dependencies]
+assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }
 insta = { workspace = true }

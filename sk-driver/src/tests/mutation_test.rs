@@ -17,6 +17,7 @@ use kube::core::{
     GroupVersionResource,
 };
 use rocket::serde::json::Json;
+use serde_json::json;
 use sk_core::k8s::PodLifecycleData;
 use sk_store::{
     ExportedTrace,
@@ -133,6 +134,54 @@ async fn test_mutate_pod_not_owned_by_sim(
         .unwrap();
     assert_eq!(adm_resp.patch, None);
 }
+
+#[rstest]
+fn test_add_node_selector_tolerations(test_pod: corev1::Pod) {
+    let mut patches = vec![];
+    add_node_selector_tolerations(&test_pod, &mut patches).unwrap();
+    assert_contains!(
+        patches,
+        &add_operation(
+            format_ptr!("/spec/tolerations/-"),
+            json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+        )
+    );
+}
+
+#[rstest]
+fn test_add_node_selector_tolerations_already_exists(mut test_pod: corev1::Pod) {
+    test_pod.spec.as_mut().unwrap().tolerations = Some(vec![corev1::Toleration {
+        key: Some(VIRTUAL_NODE_TOLERATION_KEY.to_string()),
+        ..Default::default()
+    }]);
+    let mut patches = vec![];
+    add_node_selector_tolerations(&test_pod, &mut patches).unwrap();
+    assert_not_contains!(
+        patches,
+        &add_operation(
+            format_ptr!("/spec/tolerations/-"),
+            json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+        )
+    );
+}
+
+#[rstest]
+fn test_add_node_selector_tolerations_other_tols_exist(mut test_pod: corev1::Pod) {
+    test_pod.spec.as_mut().unwrap().tolerations = Some(vec![corev1::Toleration {
+        key: Some("asdf".to_string()),
+        ..Default::default()
+    }]);
+    let mut patches = vec![];
+    add_node_selector_tolerations(&test_pod, &mut patches).unwrap();
+    assert_contains!(
+        patches,
+        &add_operation(
+            format_ptr!("/spec/tolerations/-"),
+            json!({"key": VIRTUAL_NODE_TOLERATION_KEY, "operator": "Exists", "effect": "NoSchedule"}),
+        )
+    );
+}
+
 
 mod itest {
     use super::*;
