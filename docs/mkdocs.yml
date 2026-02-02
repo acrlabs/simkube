@@ -15,6 +15,11 @@ nav:
       - sk-ctrl: docs/components/sk-ctrl.md
       - sk-driver: docs/components/sk-driver.md
       - sk-tracer: docs/components/sk-tracer.md
+  - Infrastructure:
+      - Overview: docs/infra/overview.md
+      - Amazon Machine Images (AMI's): docs/infra/amis.md
+      - Using SimKube AMIs: docs/infra/usage.md
+      - Custom GithHub Action Runners: docs/infra/github-runners.md
   - Contributing:
       - Setting up: docs/dev/setup.md
       - Developer's Guide: docs/dev/contributing.md
