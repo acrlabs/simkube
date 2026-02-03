@@ -27,7 +27,7 @@ Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitH
 ## What's included
 
 Feature | SimKube AMI | SimKube GitHub Runner AMI
-:--- | :--- | :--- |
+:--- | :--: | :--: |
 Ubuntu 24.04 LTS Operating System | ✅ | ✅
 All SimKube components* | ✅ | ✅
 All SimKube dependencies | ✅ | ✅
