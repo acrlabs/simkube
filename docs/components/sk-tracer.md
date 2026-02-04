@@ -54,57 +54,8 @@ in the trace for use by the simulator.
 ## Exporting a trace
 
 A user can export a trace by making a post request to the `/export` endpoint and including a JSON object with the export
-configuration.  The API for this is defined in
-[`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/main/sk-api/schema/v1/simkube.yml).  The
-response from the tracer will be a bytestream of the trace stored in [msgpack](https://msgpack.org) format, which is a
-JSON-like binary format.  You can inspect the contents of the trace with the `msgpack2json` utility from
-[msgpack-tools](https://github.com/ludocode/msgpack-tools):
-
-```
-msgpack2json -di /path/to/trace/file
-```
-
-The structure of the trace file is a 4-tuple of data:
-
-```json
-{
-    "version": 2,
-    "config": {...},
-    "events": [...],
-    "index": {...},
-    "pod_lifecycles": {...},
-}
-```
-
-An entry in the timeseries array looks like this:
-
-```json
-{
-    ts: <unix timestamp>,
-    applied_objs: [array of Kubernetes object definitions],
-    deleted_objs: [array of Kubernetes object definitions],
-}
-```
-
-The "tracked object index" (the third entry in the trace) stores the namespaced name of the object along with a hash of
-the object contents.  The pod lifecycle data has the following format:
-
-```json
-{
-    <GVK>: {
-        <pod owner's namespaced name>: {
-            <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
-            ...
-        },
-    },
-}
-```
-
-Because pods in the simulation will not have the same names as in the production trace, we can't use the pod name as a
-stable identifier to track lifecycles.  So instead, we index by the pod owner, and the hash of the pod object.  Because
-an owner can have pods with different characteristics (e.g., if a Deployment changes and creates a new ReplicaSet, or if
-there are multiple pod types specified in a VolcanoJob), we must track the lifecycles for these pods separately.  This
-is done by way of the hash of the PodSpec.
+configuration.  The API for this is defined in [`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/main/sk-api/schema/v1/simkube.yml).  The
+response from the tracer will be a bytestream of the trace stored in the [SimKube trace format](../ref/trace-files.md).
 
 Some initial cleaning of the PodSpec is done to remove objects that can change on each deployment.  The goal/idea is
 that this should be a stable and reproducible hash in the simulated cluster.
