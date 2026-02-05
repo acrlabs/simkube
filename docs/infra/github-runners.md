@@ -32,6 +32,12 @@ Example using our default labels:
 runs-on: [self-hosted, simkube, ephemeral]
 ```
 
+## SimKube custom GitHub Actions
+
+We have a set of custom GitHub actions for running SimKube in CI.
+- for more visit the [simkube-ci-actions](https://github.com/acrlabs/simkube-ci-action) repo
+- or see an example in our [Run SimKube in CI](./ci-sim.md) quick start guide
+
 ## Security
 
 - runner execute the workflow code with the permissions of the runner host
@@ -43,6 +49,3 @@ runs-on: [self-hosted, simkube, ephemeral]
 - runner updates are delivered via new AMIs
 - existing runners are not updated automatically
 - we recommend periodically redeploying runner to stay up to date
-
-## Next up
-- using simkube-ci-action [COMING SOON]

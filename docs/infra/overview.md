@@ -16,14 +16,12 @@ You may way to use the infrastructure components described here if you want:
 - to avoid maintaining your own base images or runners
 - to run SimKube simulations in AWS
 
-If you are only running simulations locally, you likely don't need to read this section just yet.
-
 ## What's included in this section
 
 - Amazon Machine Images (AMIs) - Prebuilt EC2 images with SimKube and its dependencies installed and configured
 - GitHub Actions Runners - Self-hosted built on top of our AMIs, designed for running SimKube workloads in CI.*
 
-*Note: these runners are self-hosted by you in your AWS account.
+*Note: these runners are self-hosted by you in your AWS account
 
 The next steps cover how to use these components.
 
@@ -40,3 +38,8 @@ However, we will link to relevant outside resources where they are helpful.
 - [Learn about SimKube AMI options](./amis.md)
 - [Launch and use SimKube AMIs](./usage.md)
 - [Configure GitHub Actions to run simulations on self-hosted runners](github-runners.md)
+
+## Quick Start Guides
+
+- [Run SimKube in AWS EC2](./run-sim.md)
+- [Run SimKube in CI](./ci-sim.md)

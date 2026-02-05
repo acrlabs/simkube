@@ -7,15 +7,19 @@ Simkube provides prebuilt Amazon Machine Images (AMIs) for running simulations i
 
 Our AMIs are intended for users who want a repeatable, preconfigured simulation environment for SimKube.
 
-## What the AMI is for
+## Quick Start Guides
+- [Run SimKube in AWS EC2](./run-sim.md)
+- [Run SimKube in CI](./ci-sim.md)
 
-The SimKube AMI is designed for:
+## What the AMIs are for
+
+The SimKube AMIs are designed for:
 
 - running SimKube simulations on EC2
 - providing a consistent environment across runs
 - reducing setup and dependency management
 - running larger, longer simulations than you can run locally with SimKube
-- enabling SimKube to be run in CI pipelines
+- running SimKube in CI pipelines
 
 ## Available AMIs
 
@@ -24,7 +28,7 @@ Suitable for running on demand SimKube workloads and long running simulations.
 - SimKube GitHub Runner AMI
 Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitHub Action Runner.
 
-## What's included
+## What's included in the AMIs
 
 Feature | SimKube AMI | SimKube GitHub Runner AMI
 :--- | :--: | :--: |
