@@ -2,11 +2,9 @@
 template: docs.html
 -->
 # Using SimKube AMIs
-
 How to locate, run and use SimKube AMIs.
 
 ## Locating the AMI
-
 SimKube AMIs are published to the AWS Marketplace and versioned.
 
 You can find the latest AMI by:
@@ -21,14 +19,12 @@ aws ec2 describe-images \
     ImageId: ImageId,
     Name: Name,
     CreationDate: CreationDate,
-    SimKubeVersion: SimKubeVersion
   }" \
   --region us-west-2 \
   --output table
 ```
 
 ## Launching the AMI
-
 You can launch an EC2 instance using the SImKube AMI via:
 - the AWS console
 - the AWS CLI
@@ -43,7 +39,6 @@ When launching an instance:
 - provide an SSH key pair if access is desired
 
 ## Accessing the instance
-
 Instances launched from the SimKube AMI support SSH access.
 
 - use the default `ubuntu` user
@@ -53,7 +48,6 @@ Instances launched from the SimKube AMI support SSH access.
 Link to the AWS docs on [connecting to your EC2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect.html).
 
 ## AMI versioning and updates
-
 Each AMI is versioned and immutable.
 
 - any updates will be delivered by publishing a new AMI
@@ -61,7 +55,6 @@ Each AMI is versioned and immutable.
 - we recommend frequently updating to the latest bug fixes, improvements and base OS security updates
 
 ## Limitations
-
 - The AMIs are designed for and only available in AWS EC2
 - long-running simulation environments should be managed and monitored by the user
 
