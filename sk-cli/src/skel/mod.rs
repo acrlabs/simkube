@@ -10,6 +10,12 @@ use sk_store::ExportedTrace;
 use self::ast::parse_command;
 use self::engine::apply_command_to_event;
 
+pub mod metrics {
+    pub const EVENT_MATCHED_COUNTER: &str = "trace_events_matched";
+    pub const RESOURCE_MODIFIED_COUNTER: &str = "trace_event_resources_modified";
+    pub const TOTAL_EVALUATION_TIME_GAUGE: &str = "total_evaluation_time";
+}
+
 #[allow(dead_code)]
 #[derive(Parser)]
 #[grammar = "src/skel/skel.pest"]

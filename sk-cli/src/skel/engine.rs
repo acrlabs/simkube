@@ -2,6 +2,7 @@ use std::collections::BTreeMap;
 
 use json_patch_ext::Index;
 use json_patch_ext::prelude::*;
+use metrics::counter;
 use regex::Regex;
 use serde_json::Value;
 use sk_core::prelude::*;
@@ -15,6 +16,7 @@ use crate::skel::ast::{
     TraceSelector,
     VarDef,
 };
+use crate::skel::metrics::*;
 
 pub(super) type MatchContext = BTreeMap<String, Vec<String>>;
 
@@ -40,15 +42,20 @@ pub(super) fn apply_command_to_event(cmd: &Command, mut evt: TraceEvent) -> anyh
 
 fn apply_command_to_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
     let mut context = MatchContext::new();
+    let matched_counter = counter!(EVENT_MATCHED_COUNTER);
+    let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
     if trace_matches(&cmd.trace_selector, evt_ts, obj, &mut context)? {
+        matched_counter.increment(1);
         match &cmd.action {
             CommandAction::Remove(ptr_str) => {
                 if context.is_empty() {
                     let ptr = PointerBuf::parse(ptr_str)?;
                     patch_ext(obj, remove_operation(ptr))?;
+                    modified_counter.increment(1);
                 } else {
                     for (variable, pointers) in context {
                         remove_all_pointers(obj, ptr_str, &variable, &pointers)?;
+                        modified_counter.increment(pointers.len() as u64);
                     }
                 }
             },
