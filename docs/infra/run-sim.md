@@ -43,7 +43,7 @@ aws ec2 describe-images \
   --query "Images[].{
     ImageId: ImageId,
     Name: Name,
-    CreationDate: CreationDate,
+    CreationDate: CreationDate
   }" \
   --region us-west-2 \
   --output table
@@ -54,7 +54,7 @@ aws ec2 describe-images \
   - Navigate to `AMIs`
   - Filter by:
     Owner: Owned by another account
-    Owner ID: <SimKube AWS Account ID>
+    Owner ID: 174155008850
   - Search by name: `simkube-ami-*`
 
 ## 2. Launch an EC2 instance from the AMI

@@ -31,8 +31,8 @@ Feature | SimKube AMI | SimKube GitHub Runner AMI
 Ubuntu 24.04 LTS Operating System | ✅ | ✅
 All SimKube components* | ✅ | ✅
 All SimKube dependencies | ✅ | ✅
-container runtime and required system dependencies | ✅ | ✅
-For our `SimKube GitHub Runner AMI` the GitHub Actions Runner software | ❌ | ✅
+Container runtime and required system dependencies | ✅ | ✅
+GitHub Actions Runner software | ❌ | ✅
 
 Our AMIs are optimized for running simulations, and are not recommended for any other use cases.
 

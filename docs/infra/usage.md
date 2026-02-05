@@ -8,17 +8,17 @@ How to locate, run and use SimKube AMIs.
 SimKube AMIs are published to the AWS Marketplace and versioned.
 
 You can find the latest AMI by:
-- searching for AMIs owned by the ACRL AWS account
+- searching for AMIs owned by the ACRL
 - using the AWS CLI to filter by name and region
 
 ```sh
 aws ec2 describe-images \
   --owners 174155008850 \
-  --filters "Name=name,Values=simkube-x86-64-*" \
+  --filters "Name=name,Values=simkube-*" \
   --query "Images[].{
     ImageId: ImageId,
     Name: Name,
-    CreationDate: CreationDate,
+    CreationDate: CreationDate
   }" \
   --region us-west-2 \
   --output table
@@ -36,23 +36,20 @@ When launching an instance:
 
 - select an appropriate instance type for your use
 - configure your network and security groups
-- provide an SSH key pair if access is desired
+- provide an SSH key pair
 
 ## Accessing the instance
 Instances launched from the SimKube AMI support SSH access.
 
 - use the default `ubuntu` user
-- authenticate using he SSH key pair specified at launch**
-- if no keypair is provided at launch and you need access use ec2-connect to push one if it is enabled in your account
-
-Link to the AWS docs on [connecting to your EC2 instance](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect.html).
+- authenticate using he SSH key pair specified at launch
 
 ## AMI versioning and updates
 Each AMI is versioned and immutable.
 
 - any updates will be delivered by publishing a new AMI
 - existing instances are not modified
-- we recommend frequently updating to the latest bug fixes, improvements and base OS security updates
+- we recommend frequently updating for the latest bug fixes, improvements and base OS security updates
 
 ## Limitations
 - The AMIs are designed for and only available in AWS EC2

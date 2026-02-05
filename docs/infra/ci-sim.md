@@ -33,7 +33,7 @@ Note: if using SSM you may need additional permissions to launch instances or us
 }
 ```
 
-You will need to generate an pair of access tokens for in AWS for the IAM user you are using to access AWS resources.
+You will need to generate an pair of access tokens for in AWS for the IAM user you are using to access AWS resources. Hang onto those you will need them when you configure the secrets.
 
 ## 1. GitHub Permissions
 
@@ -58,13 +58,13 @@ To use SimKube in CI the GitHub account will need:
 - Select Read and Write access for `Actions` and `Administration`
   Note: `metadata` will be selected by default
 - Click `Generate token and request access`
-- In the next step we will add the token to our secrets
+- In the next step we will add the PAT to our secrets
 
 ## 2. Configure secrets
 Add the following secrets to the repo you will be testing in
 - `SIMKUBE_RUNNER_PAT` - personal access token with repo scope
-- `AWS_ACCESS_KEY_ID - AWS access key
-- AWS_SECRET_ACCESS_KEY - AWS secret key
+- `AWS_ACCESS_KEY_ID` - AWS access key
+- `AWS_SECRET_ACCESS_KEY` - AWS secret key
 
 ## 3. Create a GitHub Actions workflow
 We will be using a custom action created by ACRL called [simkube-ci-action](https://github.com/acrlabs/simkube-ci-action). Our custom action simplifies the setup and teardown of ephemeral runners so you can focus on running impactful simulations in CI.
@@ -101,5 +101,8 @@ jobs:
           trace-path: path/to/your/trace
 ```
 
-## 4. Collect and analyze your results
+## 4. You now have a simulation workflow
+Test your workflow by manually dispatching it in the actions menu or pushing some code
+
+## 5. Collect and analyze your results
 [COMING SOON!]

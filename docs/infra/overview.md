@@ -4,7 +4,7 @@ template: docs.html
 # Infrastructure Overview
 SimKube can run wherever you run k8s, from local testing environments to automated CI pipelines. For running simulations at scale or integrating SimKube into CI workflows, we provide prebuilt infrastructure components to simplify setup and improve reliability.
 
-This section documents those components and when you should use them.
+This section documents those components and where you can use them.
 
 ## When to use these components
 You may way to use the infrastructure components described here if you want:
@@ -16,9 +16,9 @@ You may way to use the infrastructure components described here if you want:
 
 ## What's included in this section
 - Amazon Machine Images (AMIs) - Prebuilt EC2 images with SimKube and its dependencies installed and configured
-- GitHub Actions Runners - Self-hosted built on top of our AMIs, designed for running SimKube workloads in CI.*
+- GitHub Actions Runners - Self-hosted runners built on top of our AMIs, designed for running SimKube workloads in CI.*
 
-*Note: these runners are self-hosted by you in your AWS account
+*Note: these runners are self-hosted by you in your AWS account using ACRL's runner AMI
 
 The next steps cover how to use these components.
 
@@ -27,7 +27,7 @@ The next steps cover how to use these components.
 - GitHub Actions Basics
 - Building or customizing the AMIs themselves
 
-However, we will link to relevant outside resources where they are helpful.
+However, we link to sone relevant outside resources.
 
 ## Next steps
 - [Learn about SimKube AMI options](./amis.md)

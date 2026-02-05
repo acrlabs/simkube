@@ -34,12 +34,9 @@ We have a set of custom GitHub actions for running SimKube in CI.
 - for more visit the [simkube-ci-actions](https://github.com/acrlabs/simkube-ci-action) repo
 - or see an example in our [Run SimKube in CI](./ci-sim.md) quick start guide
 
-## Security
-- runner execute the workflow code with the permissions of the runner host
-- secrets are provided by GitHub at runtime and masked
-- access to the AWS resources are controlled by instance's IAM role
-
 ## Updates and maintenance
 - runner updates are delivered via new AMIs
 - existing runners are not updated automatically
-- we recommend periodically redeploying runner to stay up to date
+- to stay up to date we recommend either:
+   - periodically redeploying runners
+   - using ephemeral runners that reference our latest AMI
