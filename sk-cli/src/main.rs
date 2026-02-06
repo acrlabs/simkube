@@ -90,6 +90,7 @@ async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
     logging::setup_for_cli(&args.verbosity);
     let metrics_recorder = MemoryRecorder::new()?;
+    kdam::term::init(true);
 
     // Not every subcommand needs a kube client and might actually fail (in CI or whatever)
     // if it can't find a kubeconfig, so that's why we don't construct the client outside

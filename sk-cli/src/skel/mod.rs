@@ -2,6 +2,7 @@ pub(super) mod ast;
 pub(super) mod engine;
 
 use std::fs;
+use std::sync::mpsc;
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -21,7 +22,11 @@ pub mod metrics {
 #[grammar = "src/skel/skel.pest"]
 struct SkelParser;
 
-pub fn apply_skel_file(trace: &ExportedTrace, skel_file: &str) -> anyhow::Result<ExportedTrace> {
+pub async fn apply_skel_file(
+    trace: &ExportedTrace,
+    skel_file: &str,
+    update_channel: mpsc::Sender<()>,
+) -> anyhow::Result<ExportedTrace> {
     let skel_str = fs::read_to_string(skel_file)?;
     let skel = SkelParser::parse(Rule::skel, &skel_str)?;
 
@@ -39,6 +44,7 @@ pub fn apply_skel_file(trace: &ExportedTrace, skel_file: &str) -> anyhow::Result
             new_event = apply_command_to_event(cmd, new_event)?;
         }
         new_events.push(new_event);
+        let _ = update_channel.send(()); // if we can't send on the channel, nbd
     }
 
     let new_trace = ExportedTrace {
