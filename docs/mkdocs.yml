@@ -10,6 +10,9 @@ nav:
       - Collecting Metrics: docs/adv/metrics.md
       - Traces: docs/adv/traces.md
       - Hooks: docs/adv/hooks.md
+  - SKEL:
+      - Introduction: docs/skel/intro.md
+      - Usage: docs/skel/usage.md
   - Components:
       - skctl: docs/components/skctl.md
       - sk-ctrl: docs/components/sk-ctrl.md
@@ -21,3 +24,5 @@ nav:
       - API changes: docs/dev/api_changes.md
   - Reference:
       - CRDs: docs/ref/crds.md
+      - SimKube Trace Format: docs/ref/trace-files.md
+      - SKEL reference: docs/ref/skel.md

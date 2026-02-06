@@ -125,6 +125,11 @@ impl ExportedTrace {
         TraceIterator::new(&self.events)
     }
 
+    #[allow(clippy::len_without_is_empty)]
+    pub fn len(&self) -> usize {
+        self.events.len()
+    }
+
     pub fn prepend_event(&mut self, event: TraceEvent) {
         let mut tmp = vec![event];
         tmp.append(&mut self.events);

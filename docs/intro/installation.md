@@ -158,7 +158,7 @@ You can test if it worked by running `skctl version` (make sure that your Cargo 
 
 ```
 > skctl version
-skctl 1.0.1
+skctl 2.4.4
 ```
 
 Now you should be able to [run your first simulation](./running.md)!

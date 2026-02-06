@@ -1,0 +1,11 @@
+# This file includes a standard set of trace transformations for sanitizing exported traces before
+# running them through a simulation.  See the SKEL documentation (https://simkube.dev/simkube/docs/skel/usage)
+# for more details.
+
+remove(status);
+rmove(spec.template.spec.serviceAccount);
+remove(spec.template.spec.serviceAccountName);
+remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.configMapKeyRef), $x);
+remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x);
+remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.configMapRef), $x);
+remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.secretRef), $x);
