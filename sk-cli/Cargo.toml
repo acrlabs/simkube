@@ -21,8 +21,9 @@ derive_setters = { workspace = true }
 dirs = { workspace = true }
 humantime = { workspace = true }
 json-patch-ext = { workspace = true }
-kube = { workspace = true }
 k8s-openapi = { workspace = true }
+kdam = { workspace = true }
+kube = { workspace = true }
 lazy_static = { workspace = true }
 metrics = { workspace = true }
 pest = { workspace = true }
