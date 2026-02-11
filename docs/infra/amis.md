@@ -2,7 +2,7 @@
 template: docs.html
 -->
 # SimKube Amazon Machine Images (AMIs)
-Simkube provides prebuilt Amazon Machine Images (AMIs) for running simulations in AWS without having to install or configure SimKube manually.
+[Applied Computing Research Labs](https://appliedcomputing.io) provides prebuilt Amazon Machine Images (AMIs) for running simulations in AWS without having to install or configure SimKube manually.
 
 Our AMIs are intended for users who want a repeatable, preconfigured simulation environment for SimKube.
 
@@ -29,6 +29,7 @@ Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitH
 Feature | SimKube AMI | SimKube GitHub Runner AMI
 :--- | :--: | :--: |
 Ubuntu 24.04 LTS Operating System | ✅ | ✅
+A running Kubernetes cluster, along with management tools | ✅ | ✅
 All SimKube components* | ✅ | ✅
 All SimKube dependencies | ✅ | ✅
 Container runtime and required system dependencies | ✅ | ✅

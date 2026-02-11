@@ -5,8 +5,9 @@ template: docs.html
 This guide is intended for users who want to run SimKube in EC2 for one off simulations or longer-lived simulation environments.
 
 ## Assumptions
-- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](../components/sk-tracer.md).
+- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](https://github.com/acrlabs/simkube/blob/main/docs/intro/running.md).
 
+[TODO] MOVE TO usage and link to that. Add full IAM policy JSON to examples/aws/
 ## 0. AWS IAM Requirements
 These are the basic AWS IAM permissions required to continue
 ```json
@@ -19,7 +20,7 @@ These are the basic AWS IAM permissions required to continue
   "Resource": "*"
 ```
 
-Note: if using SSM you may need additional permissions to launch instances or use SSM
+> [!NOTE] Note: SSM requires additional permissions, see: [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html) and [Connect to EC2 via SSM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html)
 
 - If you plan to import or export traces in AWS S3 you will need permissions for those resources.
 ```json
@@ -66,20 +67,36 @@ aws ec2 describe-images \
 ```sh
 ssh ubuntu@<instance-public-ip>
 ```
+> [!NOTE] Our default user is `ubuntu` not `ec2-user`
 
 ## 4. Load your trace
-Note: if your trace is in S3 you can skip this step, S3 is recommended for large trace files
+> [!NOTE] For simplicity and ease of use, we recommend using AWS S3 to store your trace files. If your trace files are in S3, you can skip this step; SimKube will need additional IAM permissions to access your S3 bucket.
 
 Copy your trace to the instance, the default SimKube trace location is /data/trace:
 
 ```sh
-scp your_trace_file ubuntu@<instance-ip>:/data/trace
+scp your_trace_file ubuntu@<instance-ip>:/var/kind/<cluster-name>/trace
 ```
+
+> [!WARNING] The trace file path on the EC2 host is not the same as the trace file path specified in the Simulation custom resource. This is because there's three layers of indirection for running on a local trace: the EC2 host gets mounted into the kind docker container which gets mounted into the SimKube pod.
 
 ## 5. Run your simulation
 ```sh
 skctl run my-simulation --trace-path s3://your-simkube-bucket/path/to/trace
 ```
 
+> [!NOTE] --trace-path defaults to file:///data/trace so this field is optional for local simulations
+
+More information on running simulations with SimKube can be found [here](https://github.com/acrlabs/simkube/blob/main/docs/intro/running.md).
+
+You can check the status of your simulation by running:
+```sh
+kubectl get simulation my-sim-name
+```
+
+[!NOTE] Simulations will start in the `Initializing` state progress to `Running` after they have been scheduled and finally complete with either a `Failed` or `Finished` state.
+
 ## 6. Evaluate your results
-[COMING SOON!]
+Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance.
+
+See [Evaluate your results](./evaluate.md).

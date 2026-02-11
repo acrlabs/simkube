@@ -33,7 +33,9 @@ Note: if using SSM you may need additional permissions to launch instances or us
 }
 ```
 
-You will need to generate an pair of access tokens for in AWS for the IAM user you are using to access AWS resources. Hang onto those you will need them when you configure the secrets.
+You will need to generate a `key pair` in AWS for the IAM user you are using to access AWS resources. Hang onto those; you will need them when you configure the secrets.
+
+AWS provides instructions on creating key pairs in AWS IAM via the console or CLI [here](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-keys-admin-managed.html#admin-create-access-key).
 
 ## 1. GitHub Permissions
 
@@ -62,15 +64,15 @@ To use SimKube in CI the GitHub account will need:
 
 ## 2. Configure secrets
 Add the following secrets to the repo you will be testing in
-- `SIMKUBE_RUNNER_PAT` - personal access token with repo scope
-- `AWS_ACCESS_KEY_ID` - AWS access key
-- `AWS_SECRET_ACCESS_KEY` - AWS secret key
+- `SIMKUBE_RUNNER_PAT` - PAT with repo scope created in Step 1
+- `AWS_ACCESS_KEY_ID` - AWS access key created in Step 0
+- `AWS_SECRET_ACCESS_KEY` - AWS secret key created in Step 0
 
 ## 3. Create a GitHub Actions workflow
 We will be using a custom action created by ACRL called [simkube-ci-action](https://github.com/acrlabs/simkube-ci-action). Our custom action simplifies the setup and teardown of ephemeral runners so you can focus on running impactful simulations in CI.
-To use `simkube-ci-action` use our `launch-runner` and `run-simulation` custom actions in your workflow.
+To use `simkube-ci-action` use the `launch-runner` and `run-simulation` custom actions in your workflow.
 
-### A basic simulation might look like:
+### A basic action workflow file might look like:
 
 ```yaml
 ---
@@ -94,6 +96,11 @@ jobs:
           simkube-runner-pat: ${{ secrets.SIMKUBE_RUNNER_PAT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  run-simulation:
+    needs: launch-runner
+    runs-on: [self-hosted, simkube, ephemeral]
+    steps:
+      - uses: actions/checkout@v5
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@main
         with:
@@ -101,8 +108,18 @@ jobs:
           trace-path: path/to/your/trace
 ```
 
-## 4. You now have a simulation workflow
+## 4. Test your SimKube workflow
 Test your workflow by manually dispatching it in the actions menu or pushing some code
 
-## 5. Collect and analyze your results
-[COMING SOON!]
+Currently `simkube-ci-action` pass/fail. The simulation either runs to completion or it fails. We do not currently have a method for injecting evaluation criteria for simulations.
+
+A successful simulation will exit with code 0 and you will see a `✓ Simulation completed successfully!` in the actions logs.
+
+A failed simulation will exit with a non-zero exit code failing the CI action and printing a detailed failure summary.
+
+## 5. Evaluating your results
+Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance.
+
+See [Evaluate your results](./evaluate.md).
+
+[!NOTE] `simkube-ci-action` runners are epehmeral-only and all data from the simulation is lost. In the future we expect to expose functionality that will allow data to be sent to external prometheus endpoints.
