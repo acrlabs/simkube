@@ -18,6 +18,13 @@ nav:
       - sk-ctrl: docs/components/sk-ctrl.md
       - sk-driver: docs/components/sk-driver.md
       - sk-tracer: docs/components/sk-tracer.md
+  - Prebuilt Simulation Environments:
+      - Overview: docs/infra/overview.md
+      - SimKube AMIs: docs/infra/amis.md
+      - Using SimKube AMIs: docs/infra/usage.md
+      - GithHub Action Runners: docs/infra/github-runners.md
+      - Evaluating Results: docs/infra/evaluate.md
+      - Troubleshooting: docs/infra/troubleshooting.md
   - Contributing:
       - Setting up: docs/dev/setup.md
       - Developer's Guide: docs/dev/contributing.md
