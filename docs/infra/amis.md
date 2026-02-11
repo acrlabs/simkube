@@ -27,19 +27,20 @@ Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitH
 
 ## What's included in the AMIs
 
-| Feature                                             | SimKube AMI | SimKube GitHub Runner AMI |
-|-----------------------------------------------------|:-----------:|:-------------------------:|
-| Ubuntu 24.04 LTS Operating System                  | ✅          | ✅                        |
-| A running Kubernetes cluster, with management tools| ✅          | ✅                        |
-| All SimKube components*                            | ✅          | ✅                        |
-| All SimKube dependencies                           | ✅          | ✅                        |
-| Container runtime + system dependencies            | ✅          | ✅                        |
-| GitHub Actions Runner software                     | ❌          | ✅                        |
+| Feature                                        | SimKube AMI | SimKube GitHub Runner AMI |
+|:-----------------------------------------------|:-----------:|:-------------------------:|
+| Ubuntu 24.04 LTS Operating System              | ✅          | ✅                        |
+| A running Kubernetes cluster & management tools| ✅          | ✅                        |
+| All SimKube components*                        | ✅          | ✅                        |
+| All SimKube dependencies                       | ✅          | ✅                        |
+| Container runtime + system dependencies        | ✅          | ✅                        |
+| GitHub Actions Runner software                 | ❌          | ✅                        |
 
 
 Our AMIs are optimized for running simulations, and are not recommended for any other use cases.
 
-> [!NOTE] more on SimKube components [here](../components/sk-ctrl.md)
+> [!NOTE]
+> More on SimKube components [here](../components/sk-ctrl.md)
 
 ## Next steps
 - [Launch and use SimKube AMIs](./usage.md)

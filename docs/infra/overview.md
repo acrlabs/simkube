@@ -18,7 +18,8 @@ You may wish to use the infrastructure components described here if you want:
 - Amazon Machine Images (AMIs) - Prebuilt EC2 images with SimKube and its dependencies installed and configured; available for free
 - GitHub Actions Runners - Self-hosted runners built on top of our AMIs, designed for running SimKube workloads in CI; available for a small fee
 
-> [!NOTE] These runners are self-hosted in your AWS account using ACRL's runner AMI.
+> [!NOTE]
+> These runners are self-hosted in your AWS account using ACRL's runner AMI.
 
 The next steps cover how to use these components.
 

@@ -52,7 +52,8 @@ Our recommended default instance type is `c7a.2xlarge`:
 
 This instance size supports most simulations reliably but we encourage you to experiment to find the right instance size for your specific simulation needs.
 
-> [!NOTE] Avoid burstable instance types like `t3`, `t4g` as they are not well suited to sustained simulations.
+> [!NOTE]
+> Avoid burstable instance types like `t3`, `t4g` as they are not well suited to sustained simulations.
 
 ## Accessing the instance
 Instances launched from the SimKube AMI support SSH access.
@@ -60,7 +61,8 @@ Instances launched from the SimKube AMI support SSH access.
 - use the default `ubuntu` user
 - authenticate using the SSH key pair specified at launch
 
-> [!NOTE] Notice the default user is `ubuntu` and not `ec2-user`!
+> [!NOTE]
+> Notice the default user is `ubuntu` and not `ec2-user`!
 
 ## AMI versioning and updates
 Each AMI is versioned and immutable.

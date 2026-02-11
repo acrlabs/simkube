@@ -20,7 +20,8 @@ These are the basic AWS IAM permissions required to continue
   "Resource": "*"
 ```
 
-> [!NOTE] Note: SSM requires additional permissions, see:
+> [!NOTE]
+> Note: SSM requires additional permissions, see:
 > [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html)
 > [Connect to EC2 via SSM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html)
 
@@ -70,10 +71,12 @@ aws ec2 describe-images \
 ssh ubuntu@<instance-public-ip>
 ```
 
-> [!NOTE] Our default user is `ubuntu` not `ec2-user`
+> [!NOTE]
+> Our default user is `ubuntu` not `ec2-user`
 
 ## 4. Load your trace
-> [!NOTE] For simplicity and ease of use, we recommend using AWS S3 to store your trace files.
+> [!NOTE]
+> For simplicity and ease of use, we recommend using AWS S3 to store your trace files.
 > If your trace files are in S3, you can skip this step; SimKube will need additional IAM permissions to access your S3 bucket.
 
 Copy your trace to the instance, the default SimKube trace location is /data/trace:
@@ -82,7 +85,8 @@ Copy your trace to the instance, the default SimKube trace location is /data/tra
 scp your_trace_file ubuntu@<instance-ip>:/var/kind/<cluster-name>/trace
 ```
 
-> [!WARNING] The trace file path on the EC2 host is not the same as the trace file path specified in the Simulation custom resource.
+> [!WARNING]
+> The trace file path on the EC2 host is not the same as the trace file path specified in the Simulation custom resource.
 > This is because there's three layers of indirection for running on a local trace: the EC2 host gets mounted into the kind docker
 > container which gets mounted into the SimKube pod.
 
@@ -91,7 +95,8 @@ scp your_trace_file ubuntu@<instance-ip>:/var/kind/<cluster-name>/trace
 skctl run my-simulation --trace-path s3://your-simkube-bucket/path/to/trace
 ```
 
-> [!NOTE] --trace-path defaults to file:///data/trace so this field is optional for local simulations
+> [!NOTE]
+> --trace-path defaults to file:///data/trace so this field is optional for local simulations
 
 More information on running simulations with SimKube can be found [here](https://github.com/acrlabs/simkube/blob/main/docs/intro/running.md).
 
@@ -100,7 +105,8 @@ You can check the status of your simulation by running:
 kubectl get simulation my-sim-name
 ```
 
-> [!NOTE] Simulations will start in the `Initializing` state progress to `Running` once they have been scheduled.
+> [!NOTE]
+> Simulations will start in the `Initializing` state progress to `Running` once they have been scheduled.
 > Finally, the simulation will complete with either a `Failed` or `Finished` state.
 
 ## 6. Evaluate your results
