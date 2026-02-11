@@ -17,9 +17,6 @@ nav:
       - sk-tracer: docs/components/sk-tracer.md
   - Prebuilt Simulation Environments:
       - Overview: docs/infra/overview.md
-      - Quick Start Guides:
-          - Run Simulation: docs/infra/run-sim.md
-          - Run SimKube in CI: docs/infra/ci-sim.md
       - SimKube AMIs: docs/infra/amis.md
       - Using SimKube AMIs: docs/infra/usage.md
       - Custom GithHub Action Runners: docs/infra/github-runners.md

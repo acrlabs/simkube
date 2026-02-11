@@ -8,6 +8,7 @@ How to locate, run and use SimKube AMIs.
 SimKube AMIs are published to the AWS Marketplace and versioned.
 
 You can find the latest AMI by:
+
 - searching for AMIs owned by ACRL
 - using the AWS CLI to filter by name and region
 
@@ -26,6 +27,7 @@ aws ec2 describe-images \
 
 ## Launching the AMI
 You can launch an EC2 instance using the SimKube AMI via:
+
 - the AWS console
 - the AWS CLI
 - infrastructure as code (IAC) tools like Terraform / Pulumi
@@ -42,20 +44,23 @@ When launching an instance:
 SimKube simulations are a compute bound workload.
 
 Our recommended default instance type is `c7a.2xlarge`:
+
 - 8 vCPUs
 - 16 GiB RAM
 - Strong price/performance for compute intensive workloads
 - Cost efficient AMD architecture
 
-This instance size supports most simulations reliably but we encourage you to experiment a little to find the right instance size for your specific simulation needs.
+This instance size supports most simulations reliably but we encourage you to experiment to find the right instance size for your specific simulation needs.
 
-[!NOTE] Avoid burstable instanc types like `t3`, `t4g` as they are not well suited to sustained simulations.
+> [!NOTE] Avoid burstable instance types like `t3`, `t4g` as they are not well suited to sustained simulations.
 
 ## Accessing the instance
 Instances launched from the SimKube AMI support SSH access.
 
 - use the default `ubuntu` user
 - authenticate using the SSH key pair specified at launch
+
+> [!NOTE] Notice the default user is `ubuntu` and not `ec2-user`!
 
 ## AMI versioning and updates
 Each AMI is versioned and immutable.
@@ -70,6 +75,3 @@ Each AMI is versioned and immutable.
 
 ## Next steps
 - [Configure GitHub Actions to run simulations on self-hosted runners](github-runners.md)
-
-
-[TODO] add appropriate instance type

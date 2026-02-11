@@ -2,7 +2,7 @@
 template: docs.html
 -->
 # Prebuilt Simulation Environments Overview
-SimKube can run wherever you run k8s, from local testing environments to automated CI pipelines. For running simulations at scale or integrating SimKube into CI workflows, [Applied Computing Research Group](https://appliedcomputing.io) provides prebuilt infrastructure components to simplify setup and improve reliability.
+SimKube can run wherever you run k8s, from local testing environments to automated CI pipelines. For running simulations at scale or integrating SimKube into CI workflows, [Applied Computing Research Labs](https://appliedcomputing.io) provides prebuilt infrastructure components to simplify setup and improve reliability.
 
 This section documents those components and where you can use them.
 
@@ -15,8 +15,8 @@ You may wish to use the infrastructure components described here if you want:
 - to run SimKube simulations in AWS
 
 ## What's included
-- Amazon Machine Images (AMIs) - Prebuilt EC2 images with SimKube and its dependencies installed and configured available for free
-- GitHub Actions Runners - Self-hosted runners built on top of our AMIs, designed for running SimKube workloads in CI available for a small fee
+- Amazon Machine Images (AMIs) - Prebuilt EC2 images with SimKube and its dependencies installed and configured; available for free
+- GitHub Actions Runners - Self-hosted runners built on top of our AMIs, designed for running SimKube workloads in CI; available for a small fee
 
 > [!NOTE] These runners are self-hosted in your AWS account using ACRL's runner AMI.
 

@@ -3,7 +3,7 @@ template: docs.html
 -->
 # SimKube GitHub Action Runner AMI
 
-[Applied Computing Research Labs](https://appliedcomputing.io) provides support for running simulations on self-hosted GitHub Actions runners that are backed by the SimKube AMIs.
+[Applied Computing Research Labs](https://appliedcomputing.io) provides support for running simulations on self-hosted GitHub Actions runners that are backed by SimKube AMIs.
 
 These runners are intended for teams that want reliable, repeatable simulation as part of their CI pipelines.
 
@@ -25,11 +25,13 @@ For more information on configuration self-hosted GitHub runners, please see the
 Once registered, the runner can be targeted using [GitHub `runs-on` labels](https://docs.github.com/en/actions/how-tos/manage-runners/self-hosted-runners/apply-labels).
 
 Example using our default labels:
+
 ```yaml
 runs-on: [self-hosted, simkube, ephemeral]
 ```
 
 ## SimKube custom GitHub Actions
 We have a set of custom GitHub actions for running SimKube in CI.
+
 - for more visit the [simkube-ci-actions](https://github.com/acrlabs/simkube-ci-action) repo
 - or see an example in our [Run SimKube in CI](./ci-sim.md) quick start guide

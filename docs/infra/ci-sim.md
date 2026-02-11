@@ -122,4 +122,5 @@ Prometheus and Grafana are installed natively. Users can view simulation results
 
 See [Evaluate your results](./evaluate.md).
 
-[!NOTE] `simkube-ci-action` runners are epehmeral-only and all data from the simulation is lost. In the future we expect to expose functionality that will allow data to be sent to external prometheus endpoints.
+> [!NOTE] `simkube-ci-action` runners are epehmeral-only and all data from the simulation is lost.
+> In the future we expect to expose functionality that will allow data to be sent to external prometheus endpoints.
