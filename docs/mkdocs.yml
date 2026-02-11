@@ -19,7 +19,7 @@ nav:
       - Overview: docs/infra/overview.md
       - SimKube AMIs: docs/infra/amis.md
       - Using SimKube AMIs: docs/infra/usage.md
-      - Custom GithHub Action Runners: docs/infra/github-runners.md
+      - GithHub Action Runners: docs/infra/github-runners.md
       - Evaluating Results: docs/infra/evaluate.md
       - Troubleshooting: docs/infra/troubleshooting.md
   - Contributing:
