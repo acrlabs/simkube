@@ -21,8 +21,8 @@ nav:
       - Using SimKube AMIs: docs/infra/usage.md
       - GithHub Action Runners: docs/infra/github-runners.md
       - Quick start guides:
-          - On EC2: docs/infra/run-sim.md
-          - In CI: docs/infra/ci-sim.md
+      - Run SimKube on EC2: docs/infra/run-sim.md
+      - Run SimKube in CI: docs/infra/ci-sim.md
       - Evaluating Results: docs/infra/evaluate.md
       - Troubleshooting: docs/infra/troubleshooting.md
   - Contributing:
