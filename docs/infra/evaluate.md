@@ -4,7 +4,7 @@ template: docs.html
 # Evaluate your results
 Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance:
 
-## 0 Establish an SSH tunnel:
+## 0. Establish an SSH tunnel:
 
 ```sh
 ssh -L 3000:<REMOTE_HOST>:3000 ec2-user@<ec2-instance-ip>
