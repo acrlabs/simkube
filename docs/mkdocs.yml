@@ -30,3 +30,4 @@ nav:
       - API changes: docs/dev/api_changes.md
   - Reference:
       - CRDs: docs/ref/crds.md
+      - IAM Policy Example: docs/ref/aws_iam_policy.md
