@@ -20,8 +20,8 @@ The SimKube AMIs are designed for:
 - running SimKube in CI pipelines
 
 ## Available AMIs
-- SimKube AMI: Suitable for running on demand SimKube workloads and long running simulations.
-- SimKube GitHub Runner AMI: Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitHub Action Runner.
+- **SimKube AMI**: Suitable for running on demand SimKube workloads and long running simulations.
+- **SimKube GitHub Runner AMI**: Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitHub Action Runner.
 
 ## What's included in the AMIs
 
@@ -38,7 +38,7 @@ The SimKube AMIs are designed for:
 Our AMIs are optimized for running simulations, and are not recommended for any other use cases.
 
 > [!NOTE]
-> More on SimKube components [here](../components/sk-ctrl.md)
+> More on SimKube components [here](../components/sk-ctrl.md)!
 
 ## Next steps
 - [Launch and use SimKube AMIs](./usage.md)

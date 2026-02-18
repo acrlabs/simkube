@@ -36,10 +36,10 @@ The basic AWS IAM permissions required to run SimKube AMIs.
 ```
 
 
-## Locating the AMI
+## Locating the AMIs
 SimKube AMIs are published to the AWS Marketplace and versioned.
 
-You can find the latest AMI by:
+You can find the latest AMIs by:
 
 - searching for AMIs owned by ACRL
 - using the AWS CLI to filter by name and region

@@ -42,6 +42,7 @@ To use SimKube in CI the GitHub account will need:
 
 ## 2. Configure secrets
 Add the following secrets to the repo you will be testing in
+
 - `SIMKUBE_RUNNER_PAT` - PAT with repo scope created in Step 1
 - `AWS_ACCESS_KEY_ID` - AWS access key created in Step 0
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key created in Step 0
@@ -53,7 +54,6 @@ To use `simkube-ci-action` use the `launch-runner` and `run-simulation` custom a
 ### A basic action workflow file might look like:
 
 ```yaml
----
 name: Run simulation
 on:
   workflow_dispatch:

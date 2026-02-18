@@ -29,7 +29,7 @@ kubectl port-forward -n monitoring svc/grafana 3000
 
 Here are some queries to try:
 
-#### See all simulated pods over time
+### See all simulated pods over time
 ```promql
 sum(
   kube_pod_status_phase{
@@ -39,7 +39,7 @@ sum(
 )
 ```
 
-#### See all virtual KWOK nodes by instance type
+### See all virtual KWOK nodes by instance type
 ```promql
 sum(
   kube_node_status_condition{
