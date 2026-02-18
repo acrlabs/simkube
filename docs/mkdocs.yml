@@ -15,7 +15,7 @@ nav:
       - sk-ctrl: docs/components/sk-ctrl.md
       - sk-driver: docs/components/sk-driver.md
       - sk-tracer: docs/components/sk-tracer.md
-  - Prebuilt Simulation Environments:
+  - SimKube in the Cloud:
       - Overview: docs/infra/overview.md
       - SimKube AMIs: docs/infra/amis.md
       - Using SimKube AMIs: docs/infra/usage.md

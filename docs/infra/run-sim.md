@@ -5,39 +5,10 @@ template: docs.html
 This guide is intended for users who want to run SimKube in EC2 for one off simulations or longer-lived simulation environments.
 
 ## Assumptions
-- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](https://github.com/acrlabs/simkube/blob/main/docs/intro/running.md).
+- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](../intro/running.md).
+- you have sufficient permissions to managed the AWS resources described, for more on this see the AWS Permissions section on our [usage](./usage.md) page.
 
-[TODO] MOVE TO usage and link to that. Add full IAM policy JSON to examples/aws/
-## 0. AWS IAM Requirements
-These are the basic AWS IAM permissions required to continue
-```json
-  "Effect": "Allow",
-  "Action": [
-    "ec2:DescribeImages",
-    "ec2:DescribeInstances",
-    "ec2:RunInstances",
-  ],
-  "Resource": "*"
-```
-
-> [!NOTE]
-> Note: SSM requires additional permissions, see:
-> [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html)
-> [Connect to EC2 via SSM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html)
-
-- If you plan to import or export traces in AWS S3 you will need permissions for those resources.
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "s3:PutObject",
-    "s3:GetObject"
-  ],
-  "Resource": "arn:aws:s3:::<bucket-name>/*"
-}
-```
-
-## 1.Locate the SimKube AMI
+## 1. Locate the SimKube AMI
 
 ### Via the AWS CLI
 ```sh
@@ -72,17 +43,17 @@ ssh ubuntu@<instance-public-ip>
 ```
 
 > [!NOTE]
-> Our default user is `ubuntu` not `ec2-user`
+> The default username to use to connect to your EC2 instance `ubuntu`, not `ec2-user`.
 
 ## 4. Load your trace
 > [!NOTE]
 > For simplicity and ease of use, we recommend using AWS S3 to store your trace files.
 > If your trace files are in S3, you can skip this step; SimKube will need additional IAM permissions to access your S3 bucket.
 
-Copy your trace to the instance, the default SimKube trace location is /data/trace:
+Copy your trace to the instance, the default SimKube trace location is `/var/kind/cluster/trace`:
 
 ```sh
-scp your_trace_file ubuntu@<instance-ip>:/var/kind/<cluster-name>/trace
+scp your_trace_file ubuntu@<instance-ip>:/var/kind/cluster/trace
 ```
 
 > [!WARNING]

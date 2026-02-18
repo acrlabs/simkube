@@ -5,35 +5,14 @@ template: docs.html
 
 This quickstart guide explains how to use SimKube in CI using GitHub Actions and AWS EC2.
 
-## 0. AWS IAM Requirements
+## Assumptions
+- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](../intro/running.md).
+- you have sufficient permissions to managed the AWS resources described, for more on this see the AWS Permissions section on our [usage](./usage.md) page.
 
-These are the basic AWS IAM permissions required to continue
-```json
-  "Effect": "Allow",
-  "Action": [
-    "ec2:DescribeImages",
-    "ec2:DescribeInstances",
-    "ec2:RunInstances",
-    "ec2:CreateTags",
-  ],
-  "Resource": "*"
-```
 
-Note: if using SSM you may need additional permissions to launch instances or use SSM
+## 0. Create a key pair
 
-- If you plan to import or export traces in AWS S3 you will need permissions for those resources.
-```json
-{
-  "Effect": "Allow",
-  "Action": [
-    "s3:PutObject",
-    "s3:GetObject"
-  ],
-  "Resource": "arn:aws:s3:::<bucket-name>/*"
-}
-```
-
-You will need to generate a `key pair` in AWS for the IAM user you are using to access AWS resources. Hang onto those; you will need them when you configure the secrets.
+You will need to generate a key pair in AWS for the IAM user you are using to access AWS resources. Hang onto those; you will need them when you configure the secrets.
 
 AWS provides instructions on creating key pairs in AWS IAM via the console or CLI [here](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-keys-admin-managed.html#admin-create-access-key).
 
@@ -57,8 +36,7 @@ To use SimKube in CI the GitHub account will need:
 - Select `Only select repositories`
 - Choose the repositories you want to run SimKube in
 - Click `Add permissions`
-- Select Read and Write access for `Actions` and `Administration`
-  Note: `metadata` will be selected by default
+- Select Read and Write access for `Actions` and `Administration`; `metadata` will be selected by default
 - Click `Generate token and request access`
 - In the next step we will add the PAT to our secrets
 
@@ -109,9 +87,9 @@ jobs:
 ```
 
 ## 4. Test your SimKube workflow
-Test your workflow by manually dispatching it in the actions menu or pushing some code
+Test your workflow by manually dispatching it in the actions menu.
 
-Currently `simkube-ci-action` pass/fail. The simulation either runs to completion or it fails. We do not currently have a method for injecting evaluation criteria for simulations.
+Currently `simkube-ci-action` is pass/fail. The simulation either runs to completion or it fails. We do not currently have a method for injecting evaluation criteria for simulations.
 
 A successful simulation will exit with code 0 and you will see a `✓ Simulation completed successfully!` in the actions logs.
 
@@ -120,8 +98,8 @@ A failed simulation will exit with a non-zero exit code failing the CI action an
 ## 5. Evaluating your results
 Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance.
 
-See [Evaluate your results](./evaluate.md).
+See [Evaluate your results](./evaluate.md) for more details.
 
 > [!NOTE]
-> `simkube-ci-action` runners are epehmeral-only and all data from the simulation is lost.
-> In the future we expect to expose functionality that will allow data to be sent to external prometheus endpoints.
+> `simkube-ci-action` runners are ephemeral-only and all data from the simulation is lost.
+> In the future we will expose functionality that will allow data to be sent to external prometheus endpoints.

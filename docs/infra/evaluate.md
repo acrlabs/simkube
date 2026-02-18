@@ -4,16 +4,23 @@ template: docs.html
 # Evaluate your results
 Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance:
 
-## 0. Set up port forwarding:
+## 0 Establish an SSH tunnel:
+
+```sh
+ssh -L 3000:<REMOTE_HOST>:3000 ec2-user@<ec2-instance-ip>
+
+```
+
+## 1. Set up port forwarding:
 
 ```sh
 kubectl port-forward -n monitoring svc/grafana 3000
 ```
 
-## 1. Open the Grafana UI
+## 2. Open the Grafana UI
 <http://localhost:3000/>
 
-## 2. Create a Dashboard
+## 3. Create a Dashboard
 
 - `Dashboards > New > New Dashboard > Add visualization`
 - In the `Data source` field select `prometheus`

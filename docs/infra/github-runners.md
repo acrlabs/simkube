@@ -31,7 +31,7 @@ runs-on: [self-hosted, simkube, ephemeral]
 ```
 
 ## SimKube custom GitHub Actions
-We have a set of custom GitHub actions for running SimKube in CI.
+ACRL maintains a set of custom GitHub actions for running SimKube in CI.
 
 - for more visit the [simkube-ci-actions](https://github.com/acrlabs/simkube-ci-action) repo
 - or see an example in our [Run SimKube in CI](./ci-sim.md) quick start guide

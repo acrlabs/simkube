@@ -20,10 +20,8 @@ The SimKube AMIs are designed for:
 - running SimKube in CI pipelines
 
 ## Available AMIs
-- SimKube AMI
-Suitable for running on demand SimKube workloads and long running simulations.
-- SimKube GitHub Runner AMI
-Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitHub Action Runner.
+- SimKube AMI: Suitable for running on demand SimKube workloads and long running simulations.
+- SimKube GitHub Runner AMI: Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitHub Action Runner.
 
 ## What's included in the AMIs
 
@@ -31,7 +29,7 @@ Designed specifically with CI in mind. Use this AMI as an ephemeral SimKube GitH
 |:-----------------------------------------------|:-----------:|:-------------------------:|
 | Ubuntu 24.04 LTS Operating System              | ✅          | ✅                        |
 | A running Kubernetes cluster & management tools| ✅          | ✅                        |
-| All SimKube components*                        | ✅          | ✅                        |
+| All SimKube components                        | ✅          | ✅                        |
 | All SimKube dependencies                       | ✅          | ✅                        |
 | Container runtime + system dependencies        | ✅          | ✅                        |
 | GitHub Actions Runner software                 | ❌          | ✅                        |

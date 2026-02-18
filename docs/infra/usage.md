@@ -4,6 +4,38 @@ template: docs.html
 # Using SimKube AMIs
 How to locate, run and use SimKube AMIs.
 
+## AWS IAM Permissions
+The basic AWS IAM permissions required to run SimKube AMIs.
+
+```json
+  "Effect": "Allow",
+  "Action": [
+    "ec2:DescribeImages",
+    "ec2:DescribeInstances",
+    "ec2:RunInstances",
+  ],
+  "Resource": "*"
+```
+
+> [!NOTE]
+> SSM requires additional permissions, see:
+> [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html)
+> [Connect to EC2 via SSM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html)
+
+- If you plan to import or export traces in AWS S3 you will need permissions for those resources in S3.
+
+```json
+{
+  "Effect": "Allow",
+  "Action": [
+    "s3:PutObject",
+    "s3:GetObject"
+  ],
+  "Resource": "arn:aws:s3:::<bucket-name>/*"
+}
+```
+
+
 ## Locating the AMI
 SimKube AMIs are published to the AWS Marketplace and versioned.
 
@@ -60,9 +92,6 @@ Instances launched from the SimKube AMI support SSH access.
 
 - use the default `ubuntu` user
 - authenticate using the SSH key pair specified at launch
-
-> [!NOTE]
-> Notice the default user is `ubuntu` and not `ec2-user`!
 
 ## AMI versioning and updates
 Each AMI is versioned and immutable.
