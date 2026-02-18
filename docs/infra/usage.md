@@ -35,6 +35,7 @@ The basic AWS IAM permissions required to run SimKube AMIs.
 }
 ```
 
+We have included a [full IAM policy example](../ref/aws_iam_policy.md) in our reference section.
 
 ## Locating the AMIs
 SimKube AMIs are published to the AWS Marketplace and versioned.
