@@ -39,6 +39,8 @@ url = { workspace = true }
 
 # mock dependencies
 mockall = { workspace = true }
+metrics = { workspace = true }
+metrics-util = { workspace = true }
 
 [dev-dependencies]
 assert_fs = { workspace = true }

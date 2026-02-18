@@ -5,7 +5,9 @@ mod delete;
 mod export;
 mod pauseresume;
 mod run;
+mod skel;
 mod snapshot;
+mod transform;
 mod validation;
 mod xray;
 
@@ -67,6 +69,12 @@ enum SkSubcommand {
     )]
     Snapshot(snapshot::Args),
 
+    #[command(
+        about = "transform a trace file using SKEL (the SimKube Expression Language)",
+        visible_alias = "trans"
+    )]
+    Transform(transform::Args),
+
     #[command(subcommand, visible_alias = "val")]
     Validate(ValidateSubcommand),
 
@@ -81,6 +89,8 @@ enum SkSubcommand {
 async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
     logging::setup_for_cli(&args.verbosity);
+    let metrics_recorder = MemoryRecorder::new()?;
+    kdam::term::init(true);
 
     // Not every subcommand needs a kube client and might actually fail (in CI or whatever)
     // if it can't find a kubeconfig, so that's why we don't construct the client outside
@@ -107,6 +117,10 @@ async fn main() -> EmptyResult {
             run::cmd(args, client).await
         },
         SkSubcommand::Snapshot(args) => snapshot::cmd(args).await,
+        SkSubcommand::Transform(args) => {
+            transform::cmd(args).await?;
+            transform::output_stats(&metrics_recorder)
+        },
         SkSubcommand::Validate(subcommand) => validation::cmd(subcommand).await,
         SkSubcommand::Version => {
             println!("skctl {}", crate_version!());
