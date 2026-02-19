@@ -1,0 +1,39 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+      {
+        "Sid": "SimKubeCanRunEC2",
+        "Action": [
+          "ec2:RunInstances",
+          "ec2:CreateTags",
+          "ec2:DescribeInstances",
+          "ec2:DescribeImages"
+        ],
+        "Effect": "Allow",
+        "Resource": "*",
+        "Condition": {
+          "StringEquals": {
+            "ec2:Owner": "174155008850",
+            "ec2:CreateAction": "RunInstances"
+          }
+        }
+      },
+      {
+        "Sid": "SimKubeListS3Bucket",
+        "Effect": "Allow",
+        "Action": [
+          "s3:ListBucket"
+        ],
+        "Resource": "arn:aws:s3:::your_bucket"
+      },
+      {
+        "Sid": "SimKubeAccessS3Objects",
+        "Action": [
+          "s3:PutObject",
+          "s3:GetObject"
+        ],
+        "Effect": "Allow",
+        "Resource": ["arn:aws:s3:::your_bucket/*"]
+      }
+  ]
+}

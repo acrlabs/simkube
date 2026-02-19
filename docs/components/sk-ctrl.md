@@ -50,7 +50,8 @@ owned by the SimulationRoot, so that users can still see the results and logs fr
 
 ## Configuring Metrics Collection
 
-> [!NOTE] In the future we may move metrics collection out of SimKube proper and instead run it as a standard "hook".
+> [!NOTE]
+> In the future we may move metrics collection out of SimKube proper and instead run it as a standard "hook".
 > If you do not want to use Prometheus for metrics collection, or wish to configure it differently, you can disable
 > metrics collection using `skctl --disable-metrics` and configure your own metrics solution with a preStart hook.
 
