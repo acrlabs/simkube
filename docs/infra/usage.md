@@ -19,7 +19,7 @@ The basic AWS IAM permissions required to run SimKube AMIs.
 
 > [!NOTE]
 > SSM requires additional permissions, see:
-> [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html)
+> [Add SSM permissions to an IAM role](https://docs.aws.amazon.com/systems-manager/latest/userguide/getting-started-add-permissions-to-existing-profile.html) and
 > [Connect to EC2 via SSM](https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/connect-with-systems-manager-session-manager.html)
 
 - If you plan to import or export traces in AWS S3 you will need permissions for those resources in S3.
