@@ -27,7 +27,7 @@ in `./k8s/`.  If you want to make changes to the generated Kubernetes manifests,
 following additional dependencies:
 
 - Python 3.11
-- Python Poetry (https://python-poetry.org/docs/)
+- Python Poetry (<https://python-poetry.org/docs/>)
 - NodeJS
 
 ### Optional prerequisites
@@ -44,7 +44,7 @@ Run `make setup` to install the pre-commit hooks and configure the Poetry virtua
 
 To build all SimKube artifacts for the first time run:
 
-```
+```text
 git clone https://github.com/acrlabs/simkube && cd simkube
 git submodule init && git submodule update
 make build
@@ -61,7 +61,7 @@ To build and push Docker images for all the artifacts, run `DOCKER_REGISTRY=path
 To run the artifacts using the images you built in the previous step, run `make run`.   You should now see the SimKube
 pods running in the `simkube` namespace on your Kubernetes cluster:
 
-```
+```text
 > kubectl get pods -n simkube
 NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
 simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h

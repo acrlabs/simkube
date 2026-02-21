@@ -8,13 +8,15 @@ template: docs.html
 
 The SimKube repo is organized as follows:
 
-```
+```text
 /<root>
     /build     - build scripts and helper functions (git submodule)
+    /config    - standard or recommended configuration files
     /docs      - Documentation
     /examples  - Example YAML files and other configs
     /images    - Dockerfiles for all components
     /k8s       - 🔥Config Python scripts for Kubernetes manifest generation
+    /scripts   - helper scripts for building or linting
     /sk-api    - CRD and OpenAPI v3 definitions for the SimKube API
     /sk-cli    - Rust code for the `skctl` CLI utility
     /sk-core   - Rust code for shared/"core" functionality
@@ -38,7 +40,7 @@ needs to be shared between multiple artifacts should go in either `lib/`.
 
 To build all SimKube artifacts for the first time run:
 
-```
+```text
 git submodule init && git submodule update
 make build` from the root of this repository.
 ```
@@ -49,7 +51,7 @@ All build artifacts are placed in the `.build` directory at the root of the repo
 subset of the SimKube artifacts, you can set the `ARTIFACTS` environment variable.  This will help limit compilation
 time if you are just working on a single or a few components:
 
-```
+```text
 ARTIFACTS="sk-ctrl sk-driver" make build
 ```
 
@@ -114,7 +116,7 @@ is not covered.
 
 If you'd like to generate coverage reports locally, simply set the `WITH_COVERAGE` variable:
 
-```
+```text
 WITH_COVERAGE=1 make test
 ```
 

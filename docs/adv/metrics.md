@@ -87,7 +87,7 @@ If you don't want to hand-craft a Simulation resource specification, you can run
 configured using the `skctl` utility.  It allows you to specify each of these options via command-line flags, or it can
 use sensible default values:
 
-```
+```text
 > skctl run --help
 
 ...
@@ -182,14 +182,14 @@ since `kubeadm` doesn't create these for you by default.
 If you can't figure out why metrics aren't showing up in Prometheus, you can start a simulation and then set up port
 forwarding to inspect the Prometheus pod:
 
-```
+```text
 > export SIM_NAME=testing
 > skctl run -n ${} +1h
 > kubectl port-forward -n monitoring prometheus-sk-${SIM_NAME}-prom 9090
 ```
 
-Then, navigate to http://localhost:9090/targets to see what targets Prometheus is currently scraping, and what problems
-they may be encountering.  You can instead look at http://localhost:9090/config to inspect the Prometheus configuration
-file created by the Prometheus operator, or you can go to http://localhost:9090/service-discovery to see why services
+Then, navigate to <http://localhost:9090/targets> to see what targets Prometheus is currently scraping, and what problems
+they may be encountering.  You can instead look at <http://localhost:9090/config> to inspect the Prometheus configuration
+file created by the Prometheus operator, or you can go to <http://localhost:9090/service-discovery> to see why services
 may not be discovered by Prometheus.  There are some additional troubleshooting steps you can follow in the [Prometheus
 operator docs](https://prometheus-operator.dev/docs/operator/troubleshooting/#troubleshooting-servicemonitor-changes)

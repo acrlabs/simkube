@@ -2,14 +2,15 @@
 template: ref.html
 -->
 
-# Simulation CRD Spec (cluster-scoped)
+## Simulation CRD Spec (cluster-scoped)
 
 - Name: simulations.simkube.io
 - Group: simkube.io
 - Version: v1
 - Kind: Simulation
 
-## Schema
+### Schema
+
 <div class="schema" markdown>
 /// details | `apiVersion`: `string`
 APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized
@@ -20,12 +21,12 @@ https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions
 /// details | `kind`: `string`
 Kind is a string value representing the REST resource this object represents. Servers may infer this from the
 endpoint the client submits requests to. Cannot be updated. In CamelCase. More info:
-https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+<https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds>
 ///
 
 /// details | `metadata`: `ObjectMeta`
 Standard object's metadata. More info:
-https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+<https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata>
 ///
 
 <!-- SimulationSpec start -->
@@ -172,7 +173,7 @@ What namespace to create the simulation Prometheus object in
 
 /// details | `podMonitorNames`: `[]string`
 An array of `PodMonitor` objects to watch.  More info:
-https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PodMonitor
+<https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.PodMonitor>
 ///
 
 /// details | `podMonitorNamespaces`: `[]string`
@@ -185,17 +186,17 @@ Number of Prometheus pods to run
 
 /// details |\*`remoteWriteConfigs`: `RemoteWriteSpec`
 Configuration for a remote write endpoint for the simulation Prometheus object to forward metrics to.
-More info: https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.RemoteWriteSpec
+More info: <https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.RemoteWriteSpec>
 ///
 
 /// details | `serviceAccount`: `string`
 The Kubernetes ServiceAccount the Prometheus pods should use.
-More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+More info: <https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/>
 ///
 
 /// details | `serviceMonitorNames`: `[]string`
 An array of `ServiceMonitor` objects to watch.  More info:
-https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.ServiceMonitor
+<https://prometheus-operator.dev/docs/api-reference/api/#monitoring.coreos.com/v1.ServiceMonitor>
 ///
 
 /// details | `serviceMonitorNamespaces`: `[]string`
@@ -274,12 +275,12 @@ https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions
 /// details | `kind`: `string`
 Kind is a string value representing the REST resource this object represents. Servers may infer this from the
 endpoint the client submits requests to. Cannot be updated. In CamelCase. More info:
-https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+<https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds>
 ///
 
 /// details | `metadata`: `ObjectMeta`
 Standard object's metadata. More info:
-https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+<https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata>
 ///
 
 /// details |\*`spec`: `SimulationSpec`

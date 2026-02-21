@@ -2,7 +2,7 @@
 template: docs.html
 -->
 
-# Transforming SimKube trace files with SKEL
+## Transforming SimKube trace files with SKEL
 
 The SimKube Expression Language is a text-based format that defines a list of transformations to be performed on a trace
 file.  Each expression in a SKEL file is evaluated in order against each event in the trace file; the event list in the
@@ -12,13 +12,13 @@ loops and conditionals are explicitly not supported, nor can you have a SKEL mod
 an evaluation for an earlier or later trace event.  Despite these limitations, SKEL is a surprisingly expressive
 language that can perform most common operations against a trace file.
 
-# Format of a SKEL file
+## Format of a SKEL file
 
 Each expression in a SKEL file is separated by a semi-colon (`;`).  White space, including new lines, does not matter
 and is ignored.  Comments can be inserted anywhere and are prefixed by a hash sign (`#`).  All characters after a
 comment marker are ignored until the end of the line.  Here is an example SKEL file:
 
-```
+```text
 # remove all status fields for every object in the trace:
 remove(status);
 
@@ -39,26 +39,26 @@ remove(
     $x);
 ```
 
-# SKEL expressions
+## SKEL expressions
 
 As you can see from the above example, a SKEL expression has three parts: the command or operation name, an (optional)
 selector field, and the target of the operation.  The full list of supported commands and their arguments is in the
 [SKEL reference](../ref/skel.md).  The arguments to the commands are described in more detail below:
 
-## Selectors
+### Selectors
 
 The first (optional) argument to SKEL commands is a "resource selector".  If no selector is provided, the operation is
 performed against every event in the trace.  Users can also optionally use the star operator (`*`) to indicate "all
 trace events".  In other words, these two expressions are equivalent:
 
-```
+```text
 remove(status);
 remove(*, status);
 ```
 
 Selectors can be chained together using the "and" operator (`&&`).  For example:
 
-```
+```text
 remove(sel1 && sel2, ...);
 ```
 
@@ -67,7 +67,7 @@ applies the `remove` operation to all events that match both `sel1` and `sel2`.
 There are two types of selectors that allow more specific targeting of SKEL operations: timestamp selectors and resource
 selectors.
 
-### Timestamp selectors
+#### Timestamp selectors
 
 A timestamp selector allows filtering based on "when" in the trace file an event occurs.  A timestamp
 selector always starts with the "timestamp marker": `@t`, and any binary comparison operation is supported (`==`, `!=`,
@@ -75,7 +75,7 @@ selector always starts with the "timestamp marker": `@t`, and any binary compari
 unit character (`s`, `m`, or `h` for seconds, minutes, or hours respectively), or an absolute time, which has no suffix.
 For example, these are both valid timestamp selectors:
 
-```
+```text
 # every event after 10 minutes into the simulation
 @t >= 10m
 
@@ -88,7 +88,7 @@ file_, and thus is slightly less convenient to use.  For example, if the trace f
 1, 2025 at 12:00:00 (i.e., Unix timestamp `1764590400`), the trace selector of `@t >= 1764590300` will match every event
 in the trace.
 
-### Resource selectors
+#### Resource selectors
 
 SKEL resource selectors allow filtering based on the type of object recorded in the trace.  Resource selectors use a
 slightly-modified "path reference" to refer to fields in an object.  This syntax is similar to that supported by, e.g.,
@@ -96,7 +96,7 @@ slightly-modified "path reference" to refer to fields in an object.  This syntax
 resource field together with an operation; the resource field indicates "where" in the object's structure to look.
 Both of these are valid resource field specifiers:
 
-```
+```text
 # reference the "simkube.dev/foo" object label
 metadata.labels."simkube.dev/foo"
 
@@ -112,7 +112,7 @@ Operations supported for resource selectors are (currently) "equals", "not equal
 equals and not equals use the standard binary operators (`==` and `!=`), whereas the latter two operators use
 function-like wrappers.  All of the following are valid resource selectors:
 
-```
+```text
 metadata.labels."simkube.dev/foo" == "bar"
 metadata.labels."simkube.dev/foo" != "bar"
 exists(metadata.labels."simkube.dev/foo")
@@ -123,7 +123,7 @@ exists(metadata.labels."simkube.dev/foo")
 > There is a tricky subtlety for operations other than "exists" or "not exists": specifically, the field reference will
 > only match where the path exists _AND_ the condition holds.  For example, in the following array:
 >
->     [{"name": "container1"}, {"image": "container2"}, {"name": "container3"}]
+>     [{"name": "container1"}, {"image": "container2"}, {"name": "container3"}] <!-- markdownlint-disable-line MD046 -->
 >
 > if resource selector is `name != "container1`, only the last element will match the selector and _not_ the middle
 > array element, because the middle array element does not have a name field to test.
@@ -138,7 +138,7 @@ in SKEL always start with a dollar sign (`$`) and are defined using the variable
 selectors always reference a _set of matching paths in the object_ (and, to be explicit can refer to more than one
 matching path when an array index wildcard is used).  The syntax for a variable resource selector is:
 
-```
+```text
 $x := sel | condition on $x
 ```
 
@@ -146,7 +146,7 @@ The `|` is read as "such that", so the entire expression should be interpreted a
 paths pointed to by `sel` _such that_ the condition on `$x` holds".  For example, the following is a valid variable
 resource selector:
 
-```
+```text
 $x := spec.template.spec.containers[*].env[*]
     | exists($x.valueFrom.secretKeyRef)
 ```
@@ -181,7 +181,7 @@ their `valueFrom` field.  For example, if this is the resource's `podTemplateSpe
 
 then the above variable resource selector for `$x` would evaluate to
 
-```
+```text
 {
   spec.template.spec.containers[0].env[0],
   spec.template.spec.containers[2].env[1],
@@ -192,7 +192,7 @@ then the above variable resource selector for `$x` would evaluate to
 Each resource selector can only define a _single_ variable; however, if selectors are chained with `&&`, each selector
 can define a different variable, and the results of previous variables can be used in later selectors.
 
-## Operation effects and targets
+### Operation effects and targets
 
 The second argument to a SKEL command is the "target" or the "effect" of the operation.  These targets reference fields
 in the matched resource, and follow all the same rules for resource fields described above.  These targets can also
@@ -200,7 +200,7 @@ reference variables defined by the resource selectors, and will apply the effect
 variable.  For example, the following expression specifies `$x` as the target of the remove operation, and will remove
 all environment fields that include a `secretKeyRef`:
 
-```
+```text
 remove($x := spec.template.spec.containers[*].env[*]
     | exists($x.valueFrom.secretKeyRef), $x);
 ```
@@ -221,11 +221,11 @@ If this operation is applied to the pod template spec above, the result will be
 }
 ```
 
-# Applying SKEL transformations
+## Applying SKEL transformations
 
 SKEL transformations can be applied by the SimKube CLI using the `transform` subcommand:
 
-```
+```text
 > skctl transform cronjob.sktrace sanitize.skel -o output.sktrace
 
 Applying all transformations from sanitize.skel to cronjob.sktrace...

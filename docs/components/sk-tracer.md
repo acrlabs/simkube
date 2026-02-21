@@ -54,8 +54,8 @@ in the trace for use by the simulator.
 ## Exporting a trace
 
 A user can export a trace by making a post request to the `/export` endpoint and including a JSON object with the export
-configuration.  The API for this is defined in [`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/main/sk-api/schema/v1/simkube.yml).  The
-response from the tracer will be a bytestream of the trace stored in the [SimKube trace format](../ref/trace-files.md).
+configuration.  The API for this is defined in [`api/v1/simkube.yml`](https://github.com/acrlabs/simkube/blob/main/sk-api/schema/v1/simkube.yml).
+The response from the tracer will be a bytestream of the trace stored in the [SimKube trace format](../ref/trace-files.md).
 
 Some initial cleaning of the PodSpec is done to remove objects that can change on each deployment.  The goal/idea is
 that this should be a stable and reproducible hash in the simulated cluster.

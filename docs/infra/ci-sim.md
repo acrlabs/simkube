@@ -6,30 +6,35 @@ template: docs.html
 This quickstart guide explains how to use SimKube in CI using GitHub Actions and AWS EC2.
 
 ## Assumptions
-- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](../intro/running.md).
-- you have sufficient permissions to managed the AWS resources described, for more on this see the AWS Permissions section on our [usage](./usage.md) page.
 
+- you have collected a trace from the cluster you want to simulate, if you still need to do this see [the sk-tracer docs](../intro/running.md).
+- you have sufficient permissions to managed the AWS resources described, for more on this see the AWS Permissions
+  section on our [usage](./usage.md) page.
 
 ## 0. Create a key pair
 
-You will need to generate a key pair in AWS for the IAM user you are using to access AWS resources. Hang onto those; you will need them when you configure the secrets.
+You will need to generate a key pair in AWS for the IAM user you are using to access AWS resources. Hang onto those; you
+will need them when you configure the secrets.
 
 AWS provides instructions on creating key pairs in AWS IAM via the console or CLI [here](https://docs.aws.amazon.com/IAM/latest/UserGuide/access-keys-admin-managed.html#admin-create-access-key).
 
 ## 1. GitHub Permissions
 
 To use SimKube in CI the GitHub account will need:
+
 - permissions to access code and manage custom runners
 - a method of accessing those permissions
 
 ### Example using a fine grained PAT:
 
 #### Setup the PAT in GitHub:
+
 - Go to user `Settings`
 - Click `Developer settings`
 - Under `Personal access tokens`
 - Choose `Fine-grained tokens`
-- Select the `Resource owner`: if the repo is not owned by you it will send an access request to the owner(s) of the repos you select
+- Select the `Resource owner`: if the repo is not owned by you it will send an access request to the owner(s) of the
+  repos you select
 - Give the token a descriptive `Token name` and `Description`
 - The `Request message` should give some context to the admin
 - Choose an `Expiration` that meets your organization's policy requirements
@@ -41,6 +46,7 @@ To use SimKube in CI the GitHub account will need:
 - In the next step we will add the PAT to our secrets
 
 ## 2. Configure secrets
+
 Add the following secrets to the repo you will be testing in
 
 - `SIMKUBE_RUNNER_PAT` - PAT with repo scope created in Step 1
@@ -48,8 +54,11 @@ Add the following secrets to the repo you will be testing in
 - `AWS_SECRET_ACCESS_KEY` - AWS secret key created in Step 0
 
 ## 3. Create a GitHub Actions workflow
-We will be using a custom action created by ACRL called [simkube-ci-action](https://github.com/acrlabs/simkube-ci-action). Our custom action simplifies the setup and teardown of ephemeral runners so you can focus on running impactful simulations in CI.
-To use `simkube-ci-action` use the `launch-runner` and `run-simulation` custom actions in your workflow.
+
+We will be using a custom action created by ACRL called [simkube-ci-action](https://github.com/acrlabs/simkube-ci-action).
+Our custom action simplifies the setup and teardown of ephemeral runners so you can focus on running impactful
+simulations in CI.  To use `simkube-ci-action` use the `launch-runner` and `run-simulation` custom actions in your
+workflow.
 
 ### A basic action workflow file might look like:
 
@@ -87,16 +96,21 @@ jobs:
 ```
 
 ## 4. Test your SimKube workflow
+
 Test your workflow by manually dispatching it in the actions menu.
 
-Currently `simkube-ci-action` is pass/fail. The simulation either runs to completion or it fails. We do not currently have a method for injecting evaluation criteria for simulations.
+Currently `simkube-ci-action` is pass/fail. The simulation either runs to completion or it fails. We do not currently
+have a method for injecting evaluation criteria for simulations.
 
-A successful simulation will exit with code 0 and you will see a `✓ Simulation completed successfully!` in the actions logs.
+A successful simulation will exit with code 0 and you will see a `✓ Simulation completed successfully!` in the actions
+logs.
 
 A failed simulation will exit with a non-zero exit code failing the CI action and printing a detailed failure summary.
 
 ## 5. Evaluating your results
-Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance.
+
+Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on
+your EC2 instance.
 
 See [Evaluate your results](./evaluate.md) for more details.
 

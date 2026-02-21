@@ -2,22 +2,25 @@
 template: docs.html
 -->
 # Evaluate your results
-Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on your EC2 instance:
+
+Prometheus and Grafana are installed natively. Users can view simulation results by connecting to the Grafana pod on
+your EC2 instance:
 
 ## 0. Establish an SSH tunnel:
 
-```sh
-ssh -L 3000:<REMOTE_HOST>:3000 ec2-user@<ec2-instance-ip>
+```text
+> ssh -L 3000:<REMOTE_HOST>:3000 ec2-user@<ec2-instance-ip>
 
 ```
 
 ## 1. Set up port forwarding:
 
-```sh
-kubectl port-forward -n monitoring svc/grafana 3000
+```text
+> kubectl port-forward -n monitoring svc/grafana 3000
 ```
 
 ## 2. Open the Grafana UI
+
 <http://localhost:3000/>
 
 ## 3. Create a Dashboard
@@ -30,6 +33,7 @@ kubectl port-forward -n monitoring svc/grafana 3000
 Here are some queries to try:
 
 ### See all simulated pods over time
+
 ```promql
 sum(
   kube_pod_status_phase{
@@ -40,6 +44,7 @@ sum(
 ```
 
 ### See all virtual KWOK nodes by instance type
+
 ```promql
 sum(
   kube_node_status_condition{

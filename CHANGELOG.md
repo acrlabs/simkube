@@ -3,6 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+
 ## 2.4.4 - 2026-01-29
 
 ### 🐛 Bug Fixes
@@ -92,7 +93,6 @@ Breaking changes are annotated with the ⚠️ symbol.
 - Misaligned error display in skctl xray
 - Validation serialization to yaml/json
 - Validator debug output
-
 
 ## v2.0.0 - 2024-11-20
 

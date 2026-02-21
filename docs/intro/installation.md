@@ -4,7 +4,12 @@ template: docs.html
 
 # Installing SimKube
 
-This guide will walk you through installing the various SimKube components
+This guide will walk you through installing the various SimKube components.
+
+> [!NOTE]
+> If you want a one-click batteries-included experience with SimKube, we have a free-to-use [AWS EC2 AMI](https://aws.amazon.com/marketplace/pp/prodview-m7imofdta3tla)
+> available on the AWS Marketplace.  See the [installation instructions](../infra/run-sim.md) for more details and usage
+> instructions.
 
 ## Prerequisites
 
@@ -65,7 +70,7 @@ images.
 
 Create the cluster by running
 
-```
+```text
 > kind create cluster --name simkube --config kind.yml
 ```
 
@@ -73,7 +78,7 @@ Create the cluster by running
 
 **KWOK**:
 
-```
+```text
 > KWOK_REPO=kubernetes-sigs/kwok
 > KWOK_LATEST_RELEASE=$(curl "https://api.github.com/repos/${KWOK_REPO}/releases/latest" | jq -r '.tag_name')
 > kubectl apply -f "https://github.com/${KWOK_REPO}/releases/download/${KWOK_LATEST_RELEASE}/kwok.yaml"
@@ -82,7 +87,7 @@ Create the cluster by running
 
 **Prometheus Operator**:
 
-```
+```text
 > git clone https://github.com/prometheus-operator/kube-prometheus.git
 > cd kube-prometheus
 > kubectl create -f manifests/setup
@@ -93,7 +98,7 @@ No resources found  # this message is expected
 
 **cert-manager**:
 
-```
+```text
 > kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.3/cert-manager.yaml
 > kubectl wait --for=condition=Ready -l app=webhook -n cert-manager pod --timeout=60s
 ```
@@ -111,7 +116,7 @@ spec:
   selfSigned: {}
 ```
 
-```
+```text
 > kubectl apply -f self-signed.yml
 ```
 
@@ -136,8 +141,7 @@ kubectl --context ${SIM_CONTEXT} apply -k k8s/kustomize/sim
 
 You should now see the SimKube pods running in your cluster:
 
-
-```
+```text
 > kubectl --context ${PROD_CONTEXT} get pods -n simkube
 NAMESPACE   NAME                              READY   STATUS      RESTARTS   AGE
 simkube     sk-tracer-depl-74546ccb48-5gmbc   1/1     Running     0          11h
@@ -149,14 +153,14 @@ simkube     sk-ctrl-depl-b6fbb7744-l8bwm      1/1     Running     0          11h
 You'll need to also install `skctl` to start or interact with simulations; `skctl` is available on
 [crates.io](https://crates.io/crates/skctl) and you can install it with:
 
-```
+```text
 cargo install skctl
 ```
 
 You can test if it worked by running `skctl version` (make sure that your Cargo bin directory is on your `$PATH`, e.g.,
 `echo "export ${CARGO_HOME}/bin:${PATH}" >> ~/.zshrc`):
 
-```
+```text
 > skctl version
 skctl 2.4.4
 ```

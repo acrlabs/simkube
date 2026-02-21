@@ -1,0 +1,24 @@
+---
+default: true
+
+MD001: false
+MD002: false
+MD007: false
+MD013:
+  line_length: 120
+  code_blocks: false
+  headings: false
+  tables: false
+MD024: false
+MD026: false
+MD033: false
+MD041: false
+MD045: false
+MD049: false
+MD051:
+  ignored_pattern: fn
+MD053: false
+MD055: false
+MD056: false
+MD059: false
+MD060: false

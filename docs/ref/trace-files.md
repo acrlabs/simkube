@@ -8,14 +8,13 @@ The SimKube trace file format is a structured object stored as a [msgpack](https
 JSON-like binary format.  You can inspect the contents of the trace using [`skctl xray`](../components/skctl.md) or
 with the `msgpack2json` utility from [msgpack-tools](https://github.com/ludocode/msgpack-tools):
 
-```
+```text
 skctl xray /path/to/trace/file
 ```
 
 or
 
-
-```
+```text
 msgpack2json -di /path/to/trace/file
 ```
 
@@ -23,8 +22,7 @@ msgpack2json -di /path/to/trace/file
 
 The structure of the trace file is a map with the following schema; of data; all entries are (currently) required:
 
-
-```
+```text
 {
     "version": 2,
     "config": {...},
@@ -48,7 +46,7 @@ The `sk-tracer` [sk-tracer config file](../components/sk-tracer.md) is stored al
 
 An entry in the timeseries array looks like this:
 
-```
+```text
 {
     ts: <unix timestamp>,
     applied_objs: [array of Kubernetes object definitions],
@@ -60,7 +58,7 @@ An entry in the timeseries array looks like this:
 
 The "index" (the third entry in the trace) stores the namespaced name of the object along with a hash of the object contents:
 
-```
+```text
 <GVK>: {
     <object 1's  namespaced name>: <object manifest hash>
     <object 2's  namespaced name>: <object manifest hash>
@@ -68,12 +66,13 @@ The "index" (the third entry in the trace) stores the namespaced name of the obj
 }
 ...
 ```
+
 ### Pod lifecycles
 
 The pod lifecycle data has the following format (the key to each entry is a 2-tuple of the pod owner's GVK as well as
 the pod owner's namespaced name):
 
-```
+```text
 {
     (<pod owner's GVK>, <pod owner's namespaced name): {
         <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
