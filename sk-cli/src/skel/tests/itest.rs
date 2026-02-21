@@ -7,7 +7,7 @@ use sk_store::TraceEvent;
 use super::*;
 
 #[rstest]
-#[case::implicit_match_star(
+#[case::remove_implicit_match_star(
     "remove(status);",
     TraceEvent{
         ts: 1234,
@@ -28,7 +28,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::match_star(
+#[case::remove_match_star(
     "remove(*, status);",
     TraceEvent{
         ts: 1234,
@@ -49,7 +49,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::quoted_label_match(
+#[case::remove_quoted_label_match(
     "remove(metadata.labels.\"simkube.dev/foo\" == \"bar\", status);",
     TraceEvent{
         ts: 1234,
@@ -86,7 +86,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::exists(
+#[case::remove_exists(
     "remove(exists(metadata.labels.\"simkube.dev/foo\"), status);",
     TraceEvent{
         ts: 1234,
@@ -123,7 +123,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::not_exists(
+#[case::remove_not_exists(
     "remove(!exists(metadata.labels.\"simkube.dev/foo\"), status);",
     TraceEvent{
         ts: 1234,
@@ -160,7 +160,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::multi_conditional_1(
+#[case::remove_multi_conditional_1(
     "remove(@t >= 123 && metadata.namespace == \"baz\", status);",
     TraceEvent{
         ts: 1234,
@@ -197,7 +197,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::multi_conditional_2(
+#[case::remove_multi_conditional_2(
     "remove(@t < 123 && metadata.namespace == \"baz\", status);",
     TraceEvent{
         ts: 1234,
@@ -234,7 +234,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::wildcards(
+#[case::remove_wildcards(
     "remove(spec.template.spec.containers[*]);",
     TraceEvent{
         ts: 1234,
@@ -282,7 +282,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::variable_def_1(
+#[case::remove_variable_def_1(
     "remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x);",
     TraceEvent{
         ts: 1234,
@@ -340,7 +340,7 @@ use super::*;
         deleted_objs: vec![],
     },
 )]
-#[case::variable_def_2(
+#[case::remove_variable_def_2(
     "remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x.valueFrom);",
     TraceEvent{
         ts: 1234,
@@ -393,6 +393,121 @@ use super::*;
                     },
                 },
                 "status": {"foo": "bar"},
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+#[case::remove_variable_deref(
+    "remove($x := spec.template.spec.containers[*].image | $x == \"asdf\"
+        && metadata.labels.image == $x,
+      metadata.labels.image);",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: Some(BTreeMap::from([("image".into(), "asdf".into())])),
+                ..Default::default()
+            },
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [{"image": "asdf"}],
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: Some(BTreeMap::new()),
+                ..Default::default()
+            },
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [{"image": "asdf"}],
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+#[case::remove_variable_deref_other_variable(
+    "remove($x := spec.template.spec.volumes[*] | exists($x.secret)
+        && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name,
+      $y);",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "volumeMounts": [
+                                        {"name": "empty", "mountPath": "/foo/bar"},
+                                        {"name": "secret", "mountPath": "/etc/shadow"},
+                                    ],
+                                },
+                                {"volumeMounts": [{"name": "empty2", "mountPath": "/baz/buz"}]},
+                                {
+                                    "volumeMounts": [
+                                        {"name": "empty", "mountPath": "/foo/bar"},
+                                        {"name": "secret", "mountPath": "/etc/passwd"},
+                                        {"name": "secret2", "mountPath": "/etc/shadow"},
+                                    ],
+                                },
+                            ],
+                            "volumes": [
+                                {"name": "empty", "emptyDir": {}},
+                                {"name": "empty2", "emptyDir": {}},
+                                {"name": "secret", "secret": {"secretName": "SOOPER_SECRET"}},
+                                {"name": "secret2", "secret": {"secretName": "SOOPER_SECRET_2"}},
+                            ],
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {"volumeMounts": [{"name": "empty", "mountPath": "/foo/bar"}]},
+                                {"volumeMounts": [{"name": "empty2", "mountPath": "/baz/buz"}]},
+                                {"volumeMounts": [{"name": "empty", "mountPath": "/foo/bar"}]},
+                            ],
+                            "volumes": [
+                                {"name": "empty", "emptyDir": {}},
+                                {"name": "empty2", "emptyDir": {}},
+                                {"name": "secret", "secret": {"secretName": "SOOPER_SECRET"}},
+                                {"name": "secret2", "secret": {"secretName": "SOOPER_SECRET_2"}},
+                            ],
+                        },
+                    },
+                },
             }),
         }],
         deleted_objs: vec![],

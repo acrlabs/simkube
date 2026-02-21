@@ -9,3 +9,11 @@ remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.confi
 remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x);
 remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.configMapRef), $x);
 remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.secretRef), $x);
+remove($x := spec.template.spec.volumes[*] | exists($x.secret)
+    && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name,
+    $y);
+remove($x := spec.template.spec.volumes[*] | exists($x.configMap)
+    && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name,
+    $y);
+remove($x := spec.template.spec.volumes[*] | exists($x.secret), $x);
+remove($x := spec.template.spec.volumes[*] | exists($x.configMap), $x);

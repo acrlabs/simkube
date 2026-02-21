@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-
+use anyhow::bail;
 use json_patch_ext::Index;
 use json_patch_ext::prelude::*;
 use metrics::counter;
@@ -12,13 +11,14 @@ use crate::skel::ast::{
     Command,
     CommandAction,
     Conditional,
+    Rhs,
     TestOperation,
     TraceSelector,
     VarDef,
 };
+use crate::skel::context::*;
+use crate::skel::errors::SkelError;
 use crate::skel::metrics::*;
-
-pub(super) type MatchContext = BTreeMap<String, Vec<String>>;
 
 pub(super) fn apply_command_to_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
     // Reinterpret the event as a JSON object so JSON pointers work for all fields
@@ -53,9 +53,9 @@ fn apply_command_to_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyRes
                     patch_ext(obj, remove_operation(ptr))?;
                     modified_counter.increment(1);
                 } else {
-                    for (variable, pointers) in context {
-                        remove_all_pointers(obj, ptr_str, &variable, &pointers)?;
-                        modified_counter.increment(pointers.len() as u64);
+                    for (variable, entry) in context {
+                        remove_all_pointers(obj, ptr_str, &variable, entry.pointers())?;
+                        modified_counter.increment(entry.len() as u64);
                     }
                 }
             },
@@ -77,8 +77,8 @@ pub(super) fn trace_matches(
             for cond in conditions {
                 if !match cond {
                     Conditional::Time { op, ts } => time_conditional_matches(evt_ts, *op, *ts),
-                    Conditional::Resource { ptr, op, val, var } => {
-                        resource_conditional_matches(obj, ptr, *op, val, var, ctx)?
+                    Conditional::Resource { ptr, op, rhs, var } => {
+                        resource_conditional_matches(obj, ptr, *op, rhs, var, ctx)?
                     },
                 } {
                     return Ok(false);
@@ -117,20 +117,21 @@ pub(super) fn time_conditional_matches(evt_ts: i64, op: TestOperation, ts: i64) 
 // considered to match the conditional (_unless_ the operator is NotExists, in which case the logic
 // is reversed).  So you can interpret a command like
 //
-//   remove( spec.template.spec.containers[*].image == "localhost:5000/foo:latest",
-//   spec.template.nodeSelector,)
+//   remove(spec.template.spec.containers[*].image == "localhost:5000/foo:latest",
+//       spec.template.nodeSelector)
 //
 // as saying "if _any_ container image in the pod matches `localhost:5000/foo:latest`, remove that
 // pod's nodeSelector.  In this case, this function would receive
 //
-//   ptr_str = "/spec/template/spec/containers/*/image" val = "localhost:5000/foo:latest" maybe_var
-//   = None
+//   lhs_selector = "/spec/template/spec/containers/*/image"
+//   val = "localhost:5000/foo:latest"
+//   maybe_var = None
 //
 // Where this gets tricky is when we incorporate variables into the mix.  You can interpret
 // variables as referencing the set of things that match.  For example,
 //
-//   remove( $x := spec.template.spec.containers[*] | $x.image == "localhost:5000/foo:latest",
-//   $x.securityContext)
+//   remove($x := spec.template.spec.containers[*] | $x.image == "localhost:5000/foo:latest",
+//       $x.securityContext)
 //
 // has the same conditional as the above query; however, the action should be interpreted as "remove
 // the securityContext for any container matching the conditional".  Handling this in the code is
@@ -155,32 +156,33 @@ pub(super) fn time_conditional_matches(evt_ts: i64, op: TestOperation, ts: i64) 
 //
 // Anyways, in the variable case, this function will receive
 //
-//   ptr_str = "/$x/image" val = "localhost:5000/foo:latest" maybe_var = Some({name: "$x", pointer:
-//   "/spec/template/spec/containers/*"})
+//   lhs_selector = "/$x/image"
+//   val = "localhost:5000/foo:latest"
+//   maybe_var = Some({name: "$x", pointer: "/spec/template/spec/containers/*"})
 //
-// and then it will store
-//
-//   "$x" = vec![ "/spec/template/spec/containers/0", "/spec/template/spec/containers/2", ]
-//
-// in the MatchContext object.  Note that we check for duplicate variable definitions at _parse
-// time_, not at execution time, so inserting the variable here is safe/will not overwrite something
-// else that uses the same name.
+// and then it will store the desired value in the MatchContext.  Note that we check for duplicate
+// variable definitions at _parse time_, not at execution time, so inserting the variable here is
+// safe/will not overwrite something else that uses the same name.
 pub(super) fn resource_conditional_matches(
     obj: &Value,
-    ptr_str: &str,
+    lhs_selector_str: &str,
     op: TestOperation,
-    val: &Option<Value>,
+    rhs: &Option<Rhs>,
     maybe_var: &Option<VarDef>,
-    ctx: &mut MatchContext,
+    ctx: &mut MatchContext, // output parameter
 ) -> anyhow::Result<bool> {
-    let ptr = if let Some(var) = &maybe_var {
-        let replaced_ptr_str = variable_substitution(ptr_str, &var.name, &var.pointer);
-        PointerBuf::parse(&replaced_ptr_str)?
+    let lhs_selector = if let Some(var) = &maybe_var {
+        let replaced_selector_str = variable_substitution(lhs_selector_str, &var.name, &var.pointer);
+        if replaced_selector_str == lhs_selector_str {
+            bail!(SkelError::InvalidLHS(var.name.clone(), lhs_selector_str.to_string()));
+        }
+        PointerBuf::parse(replaced_selector_str)?
     } else {
-        PointerBuf::parse(ptr_str)?
+        PointerBuf::parse(lhs_selector_str)?
     };
 
-    let mut matched_ptrs = vec![];
+    let mut ctx_entry = MatchContextEntry::new();
+    let mut match_found = false;
 
     // A tricky subtlety is that for anything other than Exists/NotExists, we only test the fields
     // where the pointer exists AND the condition holds.  For example, in the following array:
@@ -191,49 +193,37 @@ pub(super) fn resource_conditional_matches(
     // not the middle array element, because the middle array element does not have a name field.
     // This feels like maybe a bit of a footgun but I also don't know an easy way to work around it
     // right now.
-    for (matched_ptr, field) in matches(&ptr, obj).into_iter() {
-        if match op {
-            // Unwraps are safe/guaranteed by the parser
-            TestOperation::Eq => field == val.as_ref().unwrap(),
-            TestOperation::Ne => field != val.as_ref().unwrap(),
-            TestOperation::Lt => unimplemented!(),
-            TestOperation::Gt => unimplemented!(),
-            TestOperation::Le => unimplemented!(),
-            TestOperation::Ge => unimplemented!(),
-            // This is counterintuitive, we want to include matching items here for _either_ exists
-            // or not_exists: that way, when we check the matching length below, we know that if
-            // the object exists when it's not supposed to, it will contribute to the count and we
-            // return the right value
-            TestOperation::Exists | TestOperation::NotExists => true,
-        } {
+    for (lhs_ptr, lhs) in matches(&lhs_selector, obj).into_iter() {
+        // This is extremely subtle: in the event that we're checking for non-existence,
+        // we need to test that _all_ of the possible values don't match.  So we keep track of a
+        // match_found variable that tracks if anything matches, and negate it if the operation is
+        // NotExists and we found something.
+        //
+        // ..... it kinda seems like this is the wrong way to do it, but I can't boolean logic.
+        if op == TestOperation::Exists || op == TestOperation::NotExists || lhs_op_rhs(lhs, op, rhs, ctx)? {
+            match_found = true;
             if let Some(var) = &maybe_var {
-                let ptr_regex = Regex::new(&("^(".to_string() + &var.pointer.clone().replace("*", r"\d+") + ")"))?;
+                let var_ptr_regex = Regex::new(&("^(".to_string() + &var.pointer.clone().replace("*", r"\d+") + ")"))?;
                 // These unwraps _should_ be safe, since we already know that a match exists by
                 // virtue of the fact that we're here visiting this field
-                matched_ptrs.push(
-                    ptr_regex
-                        .captures(matched_ptr.as_str())
-                        .unwrap()
-                        .get(1)
-                        .unwrap()
-                        .as_str()
-                        .into(),
-                )
-            } else {
-                // This is just going to get thrown away later, but whatever
-                matched_ptrs.push(matched_ptr.to_string());
+                let var_ptr = var_ptr_regex
+                    .captures(lhs_ptr.as_str())
+                    .unwrap()
+                    .get(1)
+                    .unwrap()
+                    .as_str()
+                    .to_string();
+                let var_value = matches(&PointerBuf::parse(&var_ptr)?, obj).first().unwrap().1.clone();
+                ctx_entry.insert(var_ptr, var_value);
             }
         }
     }
 
-    // If nothing matches, there are no variables to concretize in the MatchContext,
-    // and if something does match, we return false so we don't need to bother filling in
-    // the MatchContext
     if op == TestOperation::NotExists {
-        Ok(matched_ptrs.is_empty())
-    } else if !matched_ptrs.is_empty() {
+        Ok(!match_found)
+    } else if match_found {
         if let Some(VarDef { name, pointer: _ }) = maybe_var {
-            ctx.insert(name.to_string(), matched_ptrs);
+            ctx.insert(name.to_string(), ctx_entry);
         }
         Ok(true)
     } else {
@@ -248,6 +238,37 @@ pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_p
     // Vars might start or end with a slash, so remove any double-slashes
     replaced_ptr_str = replaced_ptr_str.replace("//", "/");
     replaced_ptr_str
+}
+
+fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchContext) -> anyhow::Result<bool> {
+    let rhs_value_candidates = match rhs {
+        Some(Rhs::Value(v)) => vec![v],
+        Some(Rhs::Path(p)) => {
+            // By the grammar definition, the path must start with a variable, and cannot contain
+            // others, so we just strip it off.
+            let mut rhs_path = p.clone();
+            let rhs_var_token = rhs_path.pop_front().unwrap(); // fucking "temporary value freed while still in use" error
+            let rhs_var = rhs_var_token.decoded();
+            ctx.get(rhs_var.as_ref())
+                .ok_or(SkelError::UndefinedVariable(rhs_var.to_string()))?
+                .values()
+                .iter()
+                .filter_map(|v| rhs_path.resolve(v).ok()) // if the path doesn't resolve, filter it out
+                .clone()
+                .collect()
+        },
+        None => unreachable!(), // cannot be None if we have something other than Exists/NotExists
+    };
+
+    Ok(match op {
+        TestOperation::Eq => rhs_value_candidates.contains(&lhs),
+        TestOperation::Ne => !rhs_value_candidates.contains(&lhs),
+        TestOperation::Lt => unimplemented!(),
+        TestOperation::Gt => unimplemented!(),
+        TestOperation::Le => unimplemented!(),
+        TestOperation::Ge => unimplemented!(),
+        _ => unreachable!(), // exists/not-exists not valid in infix operator context
+    })
 }
 
 fn remove_all_pointers(obj: &mut Value, ptr_str: &str, variable: &str, pointers: &Vec<String>) -> EmptyResult {

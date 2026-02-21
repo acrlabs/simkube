@@ -190,7 +190,22 @@ then the above variable resource selector for `$x` would evaluate to
 ```
 
 Each resource selector can only define a _single_ variable; however, if selectors are chained with `&&`, each selector
-can define a different variable, and the results of previous variables can be used in later selectors.
+can define a different variable.  Variables always refer to an absolute path from the root, which means that chaining
+variables in the conditional or in the operation target (see below) is disallowed; e.g., `$x.$y` is invalid, even if
+both `$x` and `$y` are defined.  A variable, if it is used in a resource path, must always be the first element in the
+path.
+
+You can reference the _value_ of one variable in a conditional expression; for example,
+
+```text
+$x := spec.template.spec.volumes[*] | exists($x.configMap) &&
+$y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name
+```
+
+The above variable resource selector for `$y` selects all of the volume mounts in a container which match the name of a
+defined ConfigMap volume for the pod.  In the above expression, the variable you are _defining_ (that is, `$y` in this
+case) must appear on the left-hand-side of the conditional expression; any other variables that have been previously
+defined must appear on the right-hand-side.
 
 ### Operation effects and targets
 
