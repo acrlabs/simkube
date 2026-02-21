@@ -1,5 +1,7 @@
 pub(super) mod ast;
+mod context;
 pub(super) mod engine;
+mod errors;
 
 use std::fs;
 use std::sync::mpsc;

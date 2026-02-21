@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use anyhow::bail;
+use json_patch_ext::PointerBuf;
 use pest::iterators::{
     Pair,
     Pairs,
@@ -28,6 +29,12 @@ pub(super) struct VarDef {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+pub(super) enum Rhs {
+    Value(Value),
+    Path(PointerBuf),
+}
+
+#[derive(Debug, Eq, PartialEq)]
 pub(super) enum Conditional {
     Time {
         ts: i64,
@@ -36,7 +43,7 @@ pub(super) enum Conditional {
     Resource {
         ptr: String,
         op: TestOperation,
-        val: Option<Value>,
+        rhs: Option<Rhs>,
         var: Option<VarDef>,
     },
 }
@@ -78,7 +85,7 @@ pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Res
                 action: CommandAction::Remove(resource_ptr),
             })
         },
-        _ => unreachable!(),
+        x => unreachable!("Rule::{x:?}"),
     }
 }
 
@@ -92,7 +99,7 @@ pub(super) fn parse_trace_selector(sel: Pair<Rule>, trace_start_ts: i64) -> anyh
             for s in sel.into_inner() {
                 match s.as_rule() {
                     Rule::resource_conditional => {
-                        let cond = parse_resource_conditional(s.into_inner());
+                        let cond = parse_resource_conditional(s.into_inner())?;
                         match cond {
                             Conditional::Resource { ref var, .. } => {
                                 if let Some(var) = var {
@@ -110,16 +117,16 @@ pub(super) fn parse_trace_selector(sel: Pair<Rule>, trace_start_ts: i64) -> anyh
                     Rule::ts_conditional => {
                         conditions.push(parse_ts_conditional(s.into_inner(), trace_start_ts));
                     },
-                    _ => unreachable!(),
+                    x => unreachable!("Rule::{x:?}"),
                 }
             }
             TraceSelector::List(conditions)
         },
-        _ => unreachable!(),
+        x => unreachable!("Rule::{x:?}"),
     })
 }
 
-pub(super) fn parse_resource_conditional(mut cond: Pairs<Rule>) -> Conditional {
+pub(super) fn parse_resource_conditional(mut cond: Pairs<Rule>) -> anyhow::Result<Conditional> {
     // Unwraps are safe/guaranteed by the grammar
     let test_type = cond.next().unwrap();
     let test_rule = test_type.as_rule();
@@ -136,7 +143,7 @@ pub(super) fn parse_resource_conditional(mut cond: Pairs<Rule>) -> Conditional {
             // we don't mark resource_test as quiet so we can match on it above
             parse_resource_test(test.next().unwrap().into_inner().next().unwrap(), Some(var.clone()))
         },
-        _ => unreachable!(),
+        x => unreachable!("Rule::{x:?}"),
     }
 }
 
@@ -158,41 +165,41 @@ pub(super) fn parse_ts_conditional(mut cond: Pairs<Rule>, trace_start_ts: i64) -
                 's' => delta,
                 'm' => delta * 60,
                 'h' => delta * 3600,
-                _ => unreachable!(),
+                x => unreachable!("character: {x}"),
             };
             trace_start_ts + delta_seconds
         },
-        _ => unreachable!(),
+        x => unreachable!("Rule::{x:?}"),
     };
 
     Conditional::Time { ts, op }
 }
 
-fn parse_resource_test(test: Pair<Rule>, var: Option<VarDef>) -> Conditional {
+fn parse_resource_test(test: Pair<Rule>, var: Option<VarDef>) -> anyhow::Result<Conditional> {
     let rule_type = test.as_rule();
     let mut cond = test.into_inner();
     // Unwraps are safe/guaranteed by the grammar
     let resource_ptr = parse_resource_path(cond.next().unwrap());
-    match rule_type {
+    Ok(match rule_type {
         Rule::conditional_test => {
             let op = parse_test_operation(cond.next().unwrap());
-            let val = parse_value(cond.next().unwrap());
-            Conditional::Resource { ptr: resource_ptr, op, val: Some(val), var }
+            let rhs = parse_rhs(cond.next().unwrap())?;
+            Conditional::Resource { ptr: resource_ptr, op, rhs: Some(rhs), var }
         },
         Rule::exists_test => Conditional::Resource {
             ptr: resource_ptr,
             op: TestOperation::Exists,
-            val: None,
+            rhs: None,
             var,
         },
         Rule::not_exists_test => Conditional::Resource {
             ptr: resource_ptr,
             op: TestOperation::NotExists,
-            val: None,
+            rhs: None,
             var,
         },
-        _ => unreachable!(),
-    }
+        x => unreachable!("Rule::{x:?}"),
+    })
 }
 
 pub(super) fn parse_resource_path(path: Pair<Rule>) -> String {
@@ -215,7 +222,7 @@ pub(super) fn parse_resource_path(path: Pair<Rule>) -> String {
                 ptr.push_str(&path_str[pstart + 1..pend - 1].replace("/", "~1"));
                 i = pend;
             },
-            _ => unreachable!(),
+            x => unreachable!("Rule::{x:?}"),
         }
     }
     ptr.push_str(&path_str[i..].replace(".", "/").replace("[", "/").replace("]", ""));
@@ -230,21 +237,22 @@ pub(super) fn parse_test_operation(op: Pair<Rule>) -> TestOperation {
         Rule::lt => TestOperation::Lt,
         Rule::ge => TestOperation::Ge,
         Rule::le => TestOperation::Le,
-        _ => unreachable!(), // exists and !exists handled elsewhere
+        x => unreachable!("Rule::{x:?}"), // exists and !exists handled elsewhere
     }
 }
 
-pub(super) fn parse_value(val: Pair<Rule>) -> Value {
-    match val.as_rule() {
+pub(super) fn parse_rhs(rhs: Pair<Rule>) -> anyhow::Result<Rhs> {
+    Ok(match rhs.as_rule() {
         // For all intents and purposes, this unwrap is safe; the grammar ensures
         // that if we match Rule::number, we have a sequence of digits, which will
         // safely parse into an i64.  TECHNICALLY it is possible to write a number
         // that is larger than will fit in i64 and this will panic, but I do not
         // care about handling that case right now.
-        Rule::number => Value::Number(val.as_str().parse::<i64>().unwrap().into()),
-        Rule::string => Value::String(val.as_str().into()),
-        Rule::true_val => Value::Bool(true),
-        Rule::false_val => Value::Bool(false),
-        _ => unreachable!(),
-    }
+        Rule::number => Rhs::Value(Value::Number(rhs.as_str().parse::<i64>().unwrap().into())),
+        Rule::string => Rhs::Value(Value::String(rhs.as_str().into())),
+        Rule::true_val => Rhs::Value(Value::Bool(true)),
+        Rule::false_val => Rhs::Value(Value::Bool(false)),
+        Rule::var_prefixed_resource_path => Rhs::Path(PointerBuf::parse(parse_resource_path(rhs))?),
+        x => unreachable!("Rule::{x:?}"),
+    })
 }

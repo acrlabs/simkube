@@ -1,3 +1,4 @@
+use json_patch_ext::PointerBuf;
 use serde_json::Value;
 
 use super::*;
@@ -5,15 +6,16 @@ use crate::skel::ast::{
     Command,
     CommandAction,
     Conditional,
+    Rhs,
     TestOperation,
     TraceSelector,
     VarDef,
     parse_command,
     parse_resource_conditional,
     parse_resource_path,
+    parse_rhs,
     parse_trace_selector,
     parse_ts_conditional,
-    parse_value,
 };
 
 #[rstest]
@@ -40,19 +42,19 @@ fn test_parse_command(#[case] cmd_str: &str, #[case] expected: Command) {
         Conditional::Resource{
             ptr: "/metadata/labels".into(),
             op: TestOperation::Eq,
-            val: Some(Value::String("foo".into())),
+            rhs: Some(Rhs::Value(Value::String("foo".into()))),
             var: None,
         },
         Conditional::Resource{
             ptr: "/$x".into(),
             op: TestOperation::Exists,
-            val: None,
+            rhs: None,
             var: Some(VarDef{ name: "$x".into(), pointer: "/metadata/labels".into() }),
         },
         Conditional::Resource{
             ptr: "/$y".into(),
             op: TestOperation::NotExists,
-            val: None,
+            rhs: None,
             var: Some(VarDef{ name: "$y".into(), pointer: "/metadata/annotations".into() }),
         },
     ])
@@ -75,7 +77,7 @@ fn test_parse_trace_selector_dup_var_names() {
     Conditional::Resource{
         ptr: "/metadata/labels".into(),
         op: TestOperation::Eq,
-        val: Some(Value::Number(1234.into())),
+        rhs: Some(Rhs::Value(Value::Number(1234.into()))),
         var: None,
     },
 )]
@@ -84,7 +86,7 @@ fn test_parse_trace_selector_dup_var_names() {
     Conditional::Resource{
         ptr: "/metadata/labels".into(),
         op: TestOperation::Exists,
-        val: None,
+        rhs: None,
         var: None,
     },
 )]
@@ -93,7 +95,7 @@ fn test_parse_trace_selector_dup_var_names() {
     Conditional::Resource{
         ptr: "/metadata/labels".into(),
         op: TestOperation::NotExists,
-        val: None,
+        rhs: None,
         var: None,
     },
 )]
@@ -102,7 +104,7 @@ fn test_parse_trace_selector_dup_var_names() {
     Conditional::Resource{
         ptr: "/$x".into(),
         op: TestOperation::Exists,
-        val: None,
+        rhs: None,
         var: Some(VarDef{name: "$x".into(), pointer: "/metadata/labels".into()}),
     },
 )]
@@ -112,7 +114,7 @@ fn test_parse_resource_conditional(#[case] cond_str: &str, #[case] expected: Con
         .next()
         .unwrap()
         .into_inner();
-    assert_eq!(parse_resource_conditional(cond), expected);
+    assert_ok_eq_x!(&parse_resource_conditional(cond), &expected);
 }
 
 #[rstest]
@@ -135,18 +137,26 @@ fn test_parse_ts_conditional(#[case] cond_str: &str, #[case] expected: Condition
 #[case("metadata.labels.\"foo.bar/baz\"", "/metadata/labels/foo.bar~1baz")]
 #[case("meta-data.namespace", "/meta-data/namespace")]
 #[case("meta_data.namespace", "/meta_data/namespace")]
-#[case("metadata.labels.$x", "/metadata/labels/$x")]
 fn test_parse_resource_path(#[case] path_str: &str, #[case] expected: &str) {
     let path = SkelParser::parse(Rule::resource_path, path_str).unwrap().next().unwrap();
     assert_eq!(parse_resource_path(path), expected);
 }
 
 #[rstest]
-#[case("\"asdf\"", Value::String("asdf".to_string()))]
-#[case("1234", Value::Number(1234.into()))]
-#[case("tRuE", Value::Bool(true))]
-#[case("False", Value::Bool(false))]
-fn test_skel_parse_value(#[case] val_str: &str, #[case] expected: Value) {
-    let val = SkelParser::parse(Rule::val, val_str).unwrap().next().unwrap();
-    assert_eq!(parse_value(val), expected);
+#[case("\"asdf\"", Rhs::Value(Value::String("asdf".to_string())))]
+#[case("1234", Rhs::Value(Value::Number(1234.into())))]
+#[case("tRuE", Rhs::Value(Value::Bool(true)))]
+#[case("False", Rhs::Value(Value::Bool(false)))]
+fn test_skel_parse_rhs_val(#[case] rhs_str: &str, #[case] expected: Rhs) {
+    let rhs = SkelParser::parse(Rule::val, rhs_str).unwrap().next().unwrap();
+    assert_ok_eq_x!(&parse_rhs(rhs), &expected);
+}
+
+#[rstest]
+fn test_skel_parse_rhs_path() {
+    let rhs = SkelParser::parse(Rule::var_prefixed_resource_path, "$x.name")
+        .unwrap()
+        .next()
+        .unwrap();
+    assert_ok_eq_x!(&parse_rhs(rhs), &Rhs::Path(PointerBuf::parse("/$x/name").unwrap()));
 }

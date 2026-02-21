@@ -33,7 +33,7 @@ comparator = _{ eq | ne | le | ge | lt | gt }
 
 // Variables start with $, then letter or underscore, contain alphanumeric or underscore
 // Variable assignment uses :=, e.g. `$x := 32`
-var = !{ "$" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
+var = { "$" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
 // ======================================== PATHS ========================================
 
@@ -50,9 +50,10 @@ var = !{ "$" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 
 path_index = _{ "[" ~ (ASCII_DIGIT+ | "*") ~ "]" }
 quoted_path_part = !{ "\"" ~ label_chars+ ~ "\"" }
-path_part = _{ free_label_chars+ | quoted_path_part | var }
+path_part = _{ free_label_chars+ | quoted_path_part }
 path_cons = _{ "." ~ path_part | path_index }
-resource_path = ${ path_part ~ path_cons* } // no whitespace allowed
+resource_path = ${ (path_part | var) ~ path_cons* } // no whitespace allowed
+var_prefixed_resource_path = ${ var ~ path_cons* } // no whitespace allowed
 
 // =================================== RESOURCE TESTS ====================================
 
@@ -60,7 +61,7 @@ resource_path = ${ path_part ~ path_cons* } // no whitespace allowed
 // the presence or absence of a field, respectively.
 exists_test = { "exists" ~ "(" ~ resource_path ~ ")" }
 not_exists_test = { "!exists" ~ "(" ~ resource_path ~ ")" }
-conditional_test = { resource_path ~ comparator ~ val }
+conditional_test = { resource_path ~ comparator ~ (val | var_prefixed_resource_path) }
 
 // Resource tests filter all resources based on whether they match the conditional in
 // the selector; these are all valid resource tests:
