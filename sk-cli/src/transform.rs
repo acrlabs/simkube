@@ -1,25 +1,14 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
+use blackbox_metrics::{KeyExt, MetricsRead};
 use bytes::Bytes;
 use clockabilly::Local;
 use clockabilly::prelude::*;
 use humantime::format_duration;
-use kdam::{
-    Animation,
-    BarExt,
-    Colour,
-    Spinner,
-    tqdm,
-};
-use metrics::{
-    Key,
-    gauge,
-};
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
+use kdam::{Animation, BarExt, Colour, Spinner, tqdm};
+use metrics::gauge;
+use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
 use sk_core::prelude::*;
 use sk_store::ExportedTrace;
 
@@ -105,13 +94,16 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     Ok(())
 }
 
-pub fn output_stats(metrics: &MemoryRecorder) -> EmptyResult {
-    let duration = Duration::from_millis(metrics.get_gauge(&Key::from_name(TOTAL_EVALUATION_TIME_GAUGE))? as u64);
+pub fn output_stats(metrics: &impl MetricsRead) -> EmptyResult {
+    let duration = Duration::from_millis(metrics.get(&TOTAL_EVALUATION_TIME_GAUGE.into_gauge()).unwrap_or(0.0) as u64);
 
     println!("Summary of changes:");
     println!("{}", "-".repeat(80));
-    println!("  Trace events matched: {}", metrics.get_counter(&Key::from_name(EVENT_MATCHED_COUNTER))?);
-    println!("  Trace resources modified: {}", metrics.get_counter(&Key::from_name(RESOURCE_MODIFIED_COUNTER))?);
+    println!("  Trace events matched: {}", metrics.get(&EVENT_MATCHED_COUNTER.into_counter()).unwrap_or(0));
+    println!(
+        "  Trace resources modified: {}",
+        metrics.get(&RESOURCE_MODIFIED_COUNTER.into_counter()).unwrap_or(0)
+    );
     println!("  Total evaluation time: {}", format_duration(duration));
     println!("{}\n", "-".repeat(80));
     Ok(())

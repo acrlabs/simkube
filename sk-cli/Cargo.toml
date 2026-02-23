@@ -11,6 +11,7 @@ edition.workspace = true
 [dependencies]
 anyhow = { workspace = true }
 assertables = { workspace = true }
+blackbox-metrics = { workspace = true }
 bytes = { workspace = true }
 chrono = { workspace = true }
 clockabilly = { workspace = true }
