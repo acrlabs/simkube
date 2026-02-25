@@ -1,14 +1,26 @@
 use std::sync::mpsc;
 use std::time::Duration;
 
-use blackbox_metrics::{KeyExt, MetricsRead};
+use blackbox_metrics::{
+    KeyExt,
+    MetricsRead,
+};
 use bytes::Bytes;
 use clockabilly::Local;
 use clockabilly::prelude::*;
 use humantime::format_duration;
-use kdam::{Animation, BarExt, Colour, Spinner, tqdm};
+use kdam::{
+    Animation,
+    BarExt,
+    Colour,
+    Spinner,
+    tqdm,
+};
 use metrics::gauge;
-use sk_core::external_storage::{ObjectStoreWrapper, SkObjectStore};
+use sk_core::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
+};
 use sk_core::prelude::*;
 use sk_store::ExportedTrace;
 

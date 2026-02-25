@@ -12,7 +12,12 @@ mod validation;
 mod xray;
 
 use blackbox_metrics::BlackboxRecorder;
-use clap::{CommandFactory, Parser, Subcommand, crate_version};
+use clap::{
+    CommandFactory,
+    Parser,
+    Subcommand,
+    crate_version,
+};
 use sk_core::logging;
 use sk_core::prelude::*;
 
