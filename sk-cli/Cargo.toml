@@ -39,6 +39,7 @@ sk-api = { workspace = true }
 sk-core = { workspace = true }
 sk-store = { workspace = true }
 tokio = { workspace = true }
+blackbox-metrics = "0.0.1"
 
 [dev-dependencies]
 httpmock = { workspace = true }
