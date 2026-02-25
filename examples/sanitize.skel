@@ -3,7 +3,7 @@
 # for more details.
 
 remove(status);
-rmove(spec.template.spec.serviceAccount);
+remove(spec.template.spec.serviceAccount);
 remove(spec.template.spec.serviceAccountName);
 remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.configMapKeyRef), $x);
 remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x);
