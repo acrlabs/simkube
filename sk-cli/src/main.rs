@@ -11,6 +11,7 @@ mod transform;
 mod validation;
 mod xray;
 
+use blackbox_metrics::BlackboxRecorder;
 use clap::{
     CommandFactory,
     Parser,
@@ -89,7 +90,8 @@ enum SkSubcommand {
 async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
     logging::setup_for_cli(&args.verbosity);
-    let metrics_recorder = MemoryRecorder::new()?;
+    let metrics_recorder = BlackboxRecorder::default();
+    metrics::set_global_recorder(metrics_recorder.clone())?;
     kdam::term::init(true);
 
     // Not every subcommand needs a kube client and might actually fail (in CI or whatever)
