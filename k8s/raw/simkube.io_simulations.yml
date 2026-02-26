@@ -539,6 +539,7 @@ spec:
                                 - uppercase
                                 - keepequal
                                 - dropequal
+                                - null
                                 nullable: true
                                 type: string
                               modulus:
@@ -628,6 +629,7 @@ spec:
                 - Paused
                 - Retrying
                 - Running
+                - null
                 nullable: true
                 type: string
             required:
