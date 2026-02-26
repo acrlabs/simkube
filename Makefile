@@ -7,7 +7,7 @@ include build/rust.mk
 include build/image.mk
 include build/k8s.mk
 
-RUST_BUILD_IMAGE ?= rust:1.88-bookworm  # if this changes make sure to update the Dockerfiles to match
+RUST_BUILD_IMAGE ?= rust:1.93-bookworm
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
 RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
