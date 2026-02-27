@@ -65,3 +65,13 @@ api:
 	@printf 'Eventually we would like to automate more of this, but it does not\n'
 	@printf 'happen right now.  :(\n'
 	@printf '\n'
+
+define missing_build_err
+
+
+Build submodule not present; run `git submodule update --init --recursive`
+to fetch it, then try your command again.
+
+
+endef
+$(if $(wildcard build/base.mk),,$(error $(missing_build_err)))
