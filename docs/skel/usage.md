@@ -236,6 +236,47 @@ If this operation is applied to the pod template spec above, the result will be
 }
 ```
 
+### Assignment
+
+Some SKEL commands (such as `modify`) allow you to write a valid JSON value to a specified location within the matched
+object; unlike SKEL variable assignment, which uses the `:=` operator, assigning a value to a matched resource field
+uses a bare equals (`=`) operator.  The right-hand-side of the assignment can _either_ be a raw value, or a variable
+path that references some other location within the matched object.  For example, if we consider the following object:
+
+```json
+{
+  "metadata": {
+    "labels": {"foo": "bar"},
+  },
+  "spec": {
+    "template": {
+      "spec": {
+        "containers": [
+          {"name": "container1"},
+          {"name": "container2"},
+          {"name": "container3"},
+        ]
+      }
+    }
+  }
+}
+```
+
+The following assignment is valid, and would result in the name of all three containers being set to `"foo"`.
+
+```text
+modify($x := metadata.labels.foo | exists($x),
+    spec.template.spec.containers[*].name = $x);
+```
+
+You cannot assign from a variable that points to multiple values, as there is no way to indicate which is the "correct"
+value; in other words, the inverse of the above `modify` is not valid:
+
+```text
+modify($x := spec.template.spec.containers[*].name | exists($x),
+    metadata.labels.foo = $x);  // Results in an error!
+```
+
 ## Applying SKEL transformations
 
 SKEL transformations can be applied by the SimKube CLI using the `transform` subcommand:

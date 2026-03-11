@@ -1,5 +1,10 @@
+use std::collections::HashSet;
+
 use json_patch_ext::PointerBuf;
-use serde_json::Value;
+use serde_json::{
+    Value,
+    json,
+};
 
 use super::*;
 use crate::skel::ast::{
@@ -10,7 +15,8 @@ use crate::skel::ast::{
     TestOperation,
     TraceSelector,
     VarDef,
-    parse_command,
+    parse_modify_command,
+    parse_remove_command,
     parse_resource_conditional,
     parse_resource_path,
     parse_rhs,
@@ -19,20 +25,35 @@ use crate::skel::ast::{
 };
 
 #[rstest]
-#[case(
-    "remove(metadata.labels)",
-    Command{
+fn test_parse_modify_command() {
+    let expected = Command {
         trace_selector: TraceSelector::All,
-        action: CommandAction::Remove("/metadata/labels".into()),
-    },
-)]
-fn test_parse_command(#[case] cmd_str: &str, #[case] expected: Command) {
-    let cmd = SkelParser::parse(Rule::command, cmd_str).unwrap().next().unwrap();
-    assert_ok_eq_x!(&parse_command(cmd, 1234), &expected);
+        action: CommandAction::Apply("/metadata/labels/asdf".into(), Rhs::Value(json!("foo"))),
+    };
+    let cmd = SkelParser::parse(Rule::command, "modify(metadata.labels.asdf = \"foo\")")
+        .unwrap()
+        .next()
+        .unwrap()
+        .into_inner();
+    assert_ok_eq_x!(&parse_modify_command(cmd, 1234), &expected);
 }
 
 #[rstest]
-#[case("*", TraceSelector::All)]
+fn test_parse_remove_command() {
+    let expected = Command {
+        trace_selector: TraceSelector::All,
+        action: CommandAction::Remove("/metadata/labels".into()),
+    };
+    let cmd = SkelParser::parse(Rule::command, "remove(metadata.labels)")
+        .unwrap()
+        .next()
+        .unwrap()
+        .into_inner();
+    assert_ok_eq_x!(&parse_remove_command(cmd, 1234), &expected);
+}
+
+#[rstest]
+#[case("*", TraceSelector::All, HashSet::new())]
 #[case(
     "@t == 1234 && metadata.labels == \"foo\"
         && $x := metadata.labels | exists($x)
@@ -57,19 +78,21 @@ fn test_parse_command(#[case] cmd_str: &str, #[case] expected: Command) {
             rhs: None,
             var: Some(VarDef{ name: "$y".into(), pointer: "/metadata/annotations".into() }),
         },
-    ])
+    ]),
+    HashSet::from(["$x".into(), "$y".into()]),
 )]
-fn test_parse_trace_selector(#[case] sel_str: &str, #[case] expected: TraceSelector) {
+fn test_parse_trace_selector(
+    #[case] sel_str: &str,
+    #[case] expected: TraceSelector,
+    #[case] expected_vars: HashSet<String>,
+) {
+    let mut defined_vars = HashSet::new();
     let sel = SkelParser::parse(Rule::trace_selector_expr, sel_str).unwrap().next().unwrap();
-    assert_ok_eq_x!(&parse_trace_selector(sel, 1234), &expected);
+    let parsed = parse_trace_selector(sel, 1234, &mut defined_vars);
+    assert_ok_eq_x!(&parsed, &expected);
+    assert_bag_eq!(defined_vars, expected_vars);
 }
 
-#[rstest]
-fn test_parse_trace_selector_dup_var_names() {
-    let sel_str = "$x := metadata.labels | exists($x) && $x := metadata.annotations | !exists($x)";
-    let sel = SkelParser::parse(Rule::trace_selector_expr, sel_str).unwrap().next().unwrap();
-    assert_err!(&parse_trace_selector(sel, 1234));
-}
 
 #[rstest]
 #[case(
@@ -109,12 +132,28 @@ fn test_parse_trace_selector_dup_var_names() {
     },
 )]
 fn test_parse_resource_conditional(#[case] cond_str: &str, #[case] expected: Conditional) {
+    let mut defined_vars = HashSet::new();
     let cond = SkelParser::parse(Rule::resource_conditional, cond_str)
         .unwrap()
         .next()
         .unwrap()
         .into_inner();
-    assert_ok_eq_x!(&parse_resource_conditional(cond), &expected);
+    assert_ok_eq_x!(&parse_resource_conditional(cond, &mut defined_vars), &expected);
+    if let Conditional::Resource { var: Some(v), .. } = expected {
+        assert_bag_eq!(defined_vars, [v.name]);
+    }
+}
+
+#[rstest]
+#[case::undefined_name("$x := metadata.labels | exists($y)", HashSet::new())]
+#[case::duplicate_names("$x := metadata.labels | exists($x)", HashSet::from(["$x".into()]))]
+fn test_parse_resource_conditional_errors(#[case] cond_str: &str, #[case] mut defined_vars: HashSet<String>) {
+    let cond = SkelParser::parse(Rule::resource_conditional, cond_str)
+        .unwrap()
+        .next()
+        .unwrap()
+        .into_inner();
+    assert_err!(&parse_resource_conditional(cond, &mut defined_vars));
 }
 
 #[rstest]
@@ -139,7 +178,7 @@ fn test_parse_ts_conditional(#[case] cond_str: &str, #[case] expected: Condition
 #[case("meta_data.namespace", "/meta_data/namespace")]
 fn test_parse_resource_path(#[case] path_str: &str, #[case] expected: &str) {
     let path = SkelParser::parse(Rule::resource_path, path_str).unwrap().next().unwrap();
-    assert_eq!(parse_resource_path(path), expected);
+    assert_ok_eq_x!(&parse_resource_path(path, &HashSet::new()), expected);
 }
 
 #[rstest]
@@ -148,15 +187,26 @@ fn test_parse_resource_path(#[case] path_str: &str, #[case] expected: &str) {
 #[case("tRuE", Rhs::Value(Value::Bool(true)))]
 #[case("False", Rhs::Value(Value::Bool(false)))]
 fn test_skel_parse_rhs_val(#[case] rhs_str: &str, #[case] expected: Rhs) {
+    let mut defined_vars = HashSet::new();
     let rhs = SkelParser::parse(Rule::val, rhs_str).unwrap().next().unwrap();
-    assert_ok_eq_x!(&parse_rhs(rhs), &expected);
+    assert_ok_eq_x!(&parse_rhs(rhs, &mut defined_vars), &expected);
+    assert_is_empty!(defined_vars);
 }
 
 #[rstest]
-fn test_skel_parse_rhs_path() {
-    let rhs = SkelParser::parse(Rule::var_prefixed_resource_path, "$x.name")
+#[case("metadata.name", "/metadata/name")]
+#[case("$x.name", "/$x/name")]
+fn test_skel_parse_rhs_path(#[case] path: &str, #[case] expected: &str) {
+    let defined_vars = HashSet::from(["$x".into()]);
+    let rhs = SkelParser::parse(Rule::resource_path, path).unwrap().next().unwrap();
+    assert_ok_eq_x!(&parse_rhs(rhs, &defined_vars), &Rhs::Path(PointerBuf::parse(expected).unwrap()));
+}
+
+#[rstest]
+fn test_skel_parse_rhs_undefined_var() {
+    let rhs = SkelParser::parse(Rule::resource_path, "$x.path".into())
         .unwrap()
         .next()
         .unwrap();
-    assert_ok_eq_x!(&parse_rhs(rhs), &Rhs::Path(PointerBuf::parse("/$x/name").unwrap()));
+    assert_err!(&parse_rhs(rhs, &HashSet::new()));
 }

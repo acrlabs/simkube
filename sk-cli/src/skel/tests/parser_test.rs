@@ -32,7 +32,7 @@ use super::*;
       $y);"
 )]
 #[case(
-    "apply(@t >= 10m && spec.template.spec.nodeSelector.\"simkube.dev/foo\" == \"bar\",
+    "modify(@t >= 10m && spec.template.spec.nodeSelector.\"simkube.dev/foo\" == \"bar\",
       spec.template.spec.nodeSelector.\"simkube.dev/foo\" = \"baz\");"
 )]
 fn test_skel_should_parse(#[case] command: &str) {
@@ -41,10 +41,10 @@ fn test_skel_should_parse(#[case] command: &str) {
 
 #[rstest]
 #[case("remove(status")]
-#[case("remove(* && status == \"foo\", metadata)")]
-#[case("remove(@status)")]
-#[case("remove(sta%tus)")]
-#[case("remove($x = spec.template.spec.volumes[*] | exists($x.secret), spec.template.spec.$$x")]
+#[case("remove(* && status == \"foo\", metadata);")]
+#[case("remove(@status);")]
+#[case("remove(sta%tus);")]
+#[case("remove($x := spec.template.spec.volumes[*] | exists($x.secret), spec.template.spec.$x);")]
 #[case(
     "remove($x := spec.template.spec.volumes[*] | exists($x.secret)
         && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == /foo/bar/baz,

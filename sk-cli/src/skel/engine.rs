@@ -18,9 +18,9 @@ use crate::skel::ast::{
 };
 use crate::skel::context::*;
 use crate::skel::errors::SkelError;
-use crate::skel::metrics::*;
+use crate::skel::metric_names::*;
 
-pub(super) fn apply_command_to_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
+pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
     // Reinterpret the event as a JSON object so JSON pointers work for all fields
     // This seems sortof inefficient, we'll have to see how it works in practice.
     let mut applied_objs = serde_json::to_value(evt.applied_objs)?;
@@ -29,10 +29,10 @@ pub(super) fn apply_command_to_event(cmd: &Command, mut evt: TraceEvent) -> anyh
     // Sadly chaining these together results in borrow-checker failures :(
     // Unwraps will succeed because these are required fields in the struct
     for obj in applied_objs.as_array_mut().unwrap().iter_mut() {
-        apply_command_to_obj(cmd, obj, evt.ts)?
+        process_event_obj(cmd, obj, evt.ts)?
     }
     for obj in deleted_objs.as_array_mut().unwrap().iter_mut() {
-        apply_command_to_obj(cmd, obj, evt.ts)?
+        process_event_obj(cmd, obj, evt.ts)?
     }
 
     evt.applied_objs = serde_json::from_value(applied_objs)?;
@@ -40,35 +40,57 @@ pub(super) fn apply_command_to_event(cmd: &Command, mut evt: TraceEvent) -> anyh
     Ok(evt)
 }
 
-fn apply_command_to_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
-    let mut context = MatchContext::new();
+fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
+    let mut ctx = MatchContext::new(obj.clone());
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
-    let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
-    if trace_matches(&cmd.trace_selector, evt_ts, obj, &mut context)? {
+    if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
         matched_counter.increment(1);
         match &cmd.action {
-            CommandAction::Remove(ptr_str) => {
-                if context.is_empty() {
-                    let ptr = PointerBuf::parse(ptr_str)?;
-                    patch_ext(obj, remove_operation(ptr))?;
-                    modified_counter.increment(1);
-                } else {
-                    for (variable, entry) in context {
-                        remove_all_pointers(obj, ptr_str, &variable, entry.pointers())?;
-                        modified_counter.increment(entry.len() as u64);
-                    }
-                }
-            },
+            CommandAction::Apply(ptr_str, rhs) => process_modify_event_obj(obj, ptr_str, rhs, &ctx)?,
+            CommandAction::Remove(ptr_str) => process_remove_event_obj(obj, ptr_str, &ctx)?,
         }
     }
 
     Ok(())
 }
 
+pub(super) fn process_modify_event_obj(obj: &mut Value, ptr_str: &str, rhs: &Rhs, ctx: &MatchContext) -> EmptyResult {
+    let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
+    let values = rhs_to_values(rhs, ctx)?;
+    if values.len() != 1 {
+        bail!(SkelError::MultipleMatchingValues(
+            "only one matched value allowed in modify context".into(),
+            // sorta dumb, but I can't pass the vector in to the error because it has references
+            format!("{values:?}"),
+        ));
+    }
+    let val = values[0];
+
+    let reified_ptrs = reify_pointers(ptr_str, ctx)?;
+    for ptr in reified_ptrs.iter().cloned() {
+        // This is slightly inefficient, since we resolve the pointer twice, but I don't
+        // think it's a huge deal right now.
+        match ptr.resolve(obj) {
+            Ok(_) => patch_ext(obj, replace_operation(ptr, val.clone()))?,
+            Err(ResolveError::NotFound { .. }) => patch_ext(obj, add_operation(ptr, val.clone()))?,
+            Err(e) => bail!(e),
+        };
+    }
+    modified_counter.increment(reified_ptrs.len() as u64);
+    Ok(())
+}
+
+pub(super) fn process_remove_event_obj(obj: &mut Value, ptr_str: &str, ctx: &MatchContext) -> EmptyResult {
+    let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
+    let reified_ptrs = reify_pointers(ptr_str, ctx)?;
+    remove_all_pointers(obj, &reified_ptrs)?;
+    modified_counter.increment(reified_ptrs.len() as u64);
+    Ok(())
+}
+
 pub(super) fn trace_matches(
     trace_selector: &TraceSelector,
     evt_ts: i64,
-    obj: &Value,
     ctx: &mut MatchContext,
 ) -> anyhow::Result<bool> {
     match trace_selector {
@@ -78,7 +100,7 @@ pub(super) fn trace_matches(
                 if !match cond {
                     Conditional::Time { op, ts } => time_conditional_matches(evt_ts, *op, *ts),
                     Conditional::Resource { ptr, op, rhs, var } => {
-                        resource_conditional_matches(obj, ptr, *op, rhs, var, ctx)?
+                        resource_conditional_matches(ptr, *op, rhs, var, ctx)?
                     },
                 } {
                     return Ok(false);
@@ -164,7 +186,6 @@ pub(super) fn time_conditional_matches(evt_ts: i64, op: TestOperation, ts: i64) 
 // variable definitions at _parse time_, not at execution time, so inserting the variable here is
 // safe/will not overwrite something else that uses the same name.
 pub(super) fn resource_conditional_matches(
-    obj: &Value,
     lhs_selector_str: &str,
     op: TestOperation,
     rhs: &Option<Rhs>,
@@ -172,10 +193,8 @@ pub(super) fn resource_conditional_matches(
     ctx: &mut MatchContext, // output parameter
 ) -> anyhow::Result<bool> {
     let lhs_selector = if let Some(var) = &maybe_var {
-        let replaced_selector_str = variable_substitution(lhs_selector_str, &var.name, &var.pointer);
-        if replaced_selector_str == lhs_selector_str {
-            bail!(SkelError::InvalidLHS(var.name.clone(), lhs_selector_str.to_string()));
-        }
+        // An undefined variable should have already been caught by the AST code, this unwrap is safe
+        let replaced_selector_str = variable_substitution(lhs_selector_str, &var.name, &var.pointer).unwrap();
         PointerBuf::parse(replaced_selector_str)?
     } else {
         PointerBuf::parse(lhs_selector_str)?
@@ -193,7 +212,7 @@ pub(super) fn resource_conditional_matches(
     // not the middle array element, because the middle array element does not have a name field.
     // This feels like maybe a bit of a footgun but I also don't know an easy way to work around it
     // right now.
-    for (lhs_ptr, lhs) in matches(&lhs_selector, obj).into_iter() {
+    for (lhs_ptr, lhs) in matches(&lhs_selector, ctx.obj()).into_iter() {
         // This is extremely subtle: in the event that we're checking for non-existence,
         // we need to test that _all_ of the possible values don't match.  So we keep track of a
         // match_found variable that tracks if anything matches, and negate it if the operation is
@@ -213,7 +232,7 @@ pub(super) fn resource_conditional_matches(
                     .unwrap()
                     .as_str()
                     .to_string();
-                let var_value = matches(&PointerBuf::parse(&var_ptr)?, obj).first().unwrap().1.clone();
+                let var_value = matches(&PointerBuf::parse(&var_ptr)?, ctx.obj()).first().unwrap().1.clone();
                 ctx_entry.insert(var_ptr, var_value);
             }
         }
@@ -231,32 +250,59 @@ pub(super) fn resource_conditional_matches(
     }
 }
 
-pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> String {
+pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> Option<String> {
     let mut replaced_ptr_str = input.to_string();
     replaced_ptr_str = replaced_ptr_str.replace(variable_name, variable_pointer);
 
     // Vars might start or end with a slash, so remove any double-slashes
     replaced_ptr_str = replaced_ptr_str.replace("//", "/");
-    replaced_ptr_str
+    (replaced_ptr_str != input).then_some(replaced_ptr_str)
+}
+
+pub(super) fn reify_pointers(ptr_str: &str, ctx: &MatchContext) -> anyhow::Result<Vec<PointerBuf>> {
+    let mut reified_ptrs: Vec<String> = ctx
+        .iter()
+        .flat_map(|(variable, entry)| {
+            entry
+                .pointers()
+                .iter()
+                .filter_map(|p| variable_substitution(ptr_str, variable, p))
+        })
+        .collect();
+    if reified_ptrs.is_empty() {
+        reified_ptrs.push(ptr_str.into());
+    }
+    Ok(reified_ptrs.into_iter().map(PointerBuf::parse).collect::<Result<Vec<_>, _>>()?)
+}
+
+pub(super) fn rhs_to_values<'a, 'b>(rhs: &'b Rhs, ctx: &'a MatchContext) -> anyhow::Result<Vec<&'b Value>>
+where
+    'a: 'b,
+{
+    Ok(match rhs {
+        Rhs::Value(v) => vec![v],
+        Rhs::Path(p) => {
+            let mut rhs_path = p.clone();
+            if rhs_path.as_str().starts_with("/$") {
+                let rhs_var_token = rhs_path.pop_front().unwrap(); // fucking "temporary value freed while still in use"
+                let rhs_var = rhs_var_token.decoded();
+
+                ctx[rhs_var.as_ref()] // The AST should have already confirmed that the variables are defined
+                    .values()
+                    .iter()
+                    .filter_map(|v| rhs_path.resolve(v).ok()) // if the path doesn't resolve, filter it out
+                    .clone()
+                    .collect()
+            } else {
+                vec![rhs_path.resolve(ctx.obj())?]
+            }
+        },
+    })
 }
 
 fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchContext) -> anyhow::Result<bool> {
     let rhs_value_candidates = match rhs {
-        Some(Rhs::Value(v)) => vec![v],
-        Some(Rhs::Path(p)) => {
-            // By the grammar definition, the path must start with a variable, and cannot contain
-            // others, so we just strip it off.
-            let mut rhs_path = p.clone();
-            let rhs_var_token = rhs_path.pop_front().unwrap(); // fucking "temporary value freed while still in use" error
-            let rhs_var = rhs_var_token.decoded();
-            ctx.get(rhs_var.as_ref())
-                .ok_or(SkelError::UndefinedVariable(rhs_var.to_string()))?
-                .values()
-                .iter()
-                .filter_map(|v| rhs_path.resolve(v).ok()) // if the path doesn't resolve, filter it out
-                .clone()
-                .collect()
-        },
+        Some(rhs) => rhs_to_values(rhs, ctx)?,
         None => unreachable!(), // cannot be None if we have something other than Exists/NotExists
     };
 
@@ -271,13 +317,10 @@ fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchCont
     })
 }
 
-fn remove_all_pointers(obj: &mut Value, ptr_str: &str, variable: &str, pointers: &Vec<String>) -> EmptyResult {
+fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult {
     let mut removed = 0;
     let mut parent_ptr = PointerBuf::new();
-    for pointer in pointers {
-        let replaced_ptr_str = variable_substitution(ptr_str, variable, pointer);
-        let mut ptr = PointerBuf::parse(&replaced_ptr_str)?;
-
+    for mut ptr in pointers.iter().cloned() {
         // When we remove an entry from the array, the length of the array (and any subsequent array
         // indices) all need to shift down by one; we keep track of the shift with the "removed"
         // value.  However, if there are nested arrays, we need to reset the "removed" counter
@@ -287,7 +330,7 @@ fn remove_all_pointers(obj: &mut Value, ptr_str: &str, variable: &str, pointers:
         // The back of the pointer is guaranteed to exist at this point, so unwrap is safe
         if let Ok(Index::Num(index)) = ptr.back().unwrap().to_index() {
             ptr.pop_back();
-            if ptr != parent_ptr {
+            if *ptr != parent_ptr {
                 removed = 0;
                 parent_ptr = ptr.clone();
             }

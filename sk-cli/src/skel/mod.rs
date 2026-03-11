@@ -11,9 +11,9 @@ use pest_derive::Parser;
 use sk_store::ExportedTrace;
 
 use self::ast::parse_command;
-use self::engine::apply_command_to_event;
+use self::engine::process_event;
 
-pub mod metrics {
+pub mod metric_names {
     pub const EVENT_MATCHED_COUNTER: &str = "trace_events_matched";
     pub const RESOURCE_MODIFIED_COUNTER: &str = "trace_event_resources_modified";
     pub const TOTAL_EVALUATION_TIME_GAUGE: &str = "total_evaluation_time";
@@ -43,7 +43,7 @@ pub async fn apply_skel_file(
     for (evt, _) in trace.iter() {
         let mut new_event = evt.clone();
         for cmd in &parsed_commands {
-            new_event = apply_command_to_event(cmd, new_event)?;
+            new_event = process_event(cmd, new_event)?;
         }
         new_events.push(new_event);
         let _ = update_channel.send(()); // if we can't send on the channel, nbd
