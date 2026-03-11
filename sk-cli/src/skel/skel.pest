@@ -53,7 +53,6 @@ quoted_path_part = !{ "\"" ~ label_chars+ ~ "\"" }
 path_part = _{ free_label_chars+ | quoted_path_part }
 path_cons = _{ "." ~ path_part | path_index }
 resource_path = ${ (path_part | var) ~ path_cons* } // no whitespace allowed
-var_prefixed_resource_path = ${ var ~ path_cons* } // no whitespace allowed
 
 // =================================== RESOURCE TESTS ====================================
 
@@ -61,7 +60,7 @@ var_prefixed_resource_path = ${ var ~ path_cons* } // no whitespace allowed
 // the presence or absence of a field, respectively.
 exists_test = { "exists" ~ "(" ~ resource_path ~ ")" }
 not_exists_test = { "!exists" ~ "(" ~ resource_path ~ ")" }
-conditional_test = { resource_path ~ comparator ~ (val | var_prefixed_resource_path) }
+conditional_test = { resource_path ~ comparator ~ (val | resource_path) }
 
 // Resource tests filter all resources based on whether they match the conditional in
 // the selector; these are all valid resource tests:
@@ -114,16 +113,16 @@ trace_selector_expr = _{ trace_selector_all | trace_selector_list }
 
 // We support four top-level functions:
 //
-//  - apply(trace_selector, operation): performs an operation to every matching item in the trace
 //  - delete(selector): deletes every matching item from the trace
 //  - insert(time, value): inserts an object into the trace at a given time
+//  - modify(trace_selector, operation): performs an operation to every matching item in the trace
 //  - remove(trace_selector, resource_path): removes a field from every matching item in the trace
 
-command = _{  apply_cmd | /* delete_func | insert_func | */ remove_cmd }
+command = _{  modify_cmd | /* delete_func | insert_func | */ remove_cmd }
 
-assignment = { resource_path  ~ "=" ~ val }
-apply_args = _{ trace_selector_expr ~ "," ~ assignment | assignment }
-apply_cmd = { "apply" ~ "(" ~ apply_args ~ ")" }
+assignment = { resource_path  ~ "=" ~ (val | resource_path) }
+modify_args = _{ trace_selector_expr ~ "," ~ assignment | assignment }
+modify_cmd = { "modify" ~ "(" ~ modify_args ~ ")" }
 
 // delete_args = _{ trace_selector_expr }
 // delete_func = { "delete" ~ "(" ~ delete_args ~ ")" }

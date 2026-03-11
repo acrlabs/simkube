@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use anyhow::bail;
+use anyhow::{
+    anyhow,
+    bail,
+};
 use json_patch_ext::PointerBuf;
 use pest::iterators::{
     Pair,
@@ -9,6 +12,7 @@ use pest::iterators::{
 use serde_json::Value;
 
 use crate::skel::Rule;
+use crate::skel::errors::SkelError;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum TestOperation {
@@ -56,6 +60,7 @@ pub(super) enum TraceSelector {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum CommandAction {
+    Apply(String, Rhs),
     Remove(String),
 }
 
@@ -66,52 +71,75 @@ pub(super) struct Command {
 }
 
 pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
-    match cmd.as_rule() {
-        Rule::remove_cmd => {
-            let mut remove_args = cmd.into_inner();
-            let (trace_selector, resource_ptr) =
-                    // unwraps are safe, remove always takes 1-2 args
-                    if remove_args.peek().unwrap().as_rule() == Rule::resource_path{
-                        (TraceSelector::All, parse_resource_path(remove_args.next().unwrap()))
-                    } else {
-                        (
-                            parse_trace_selector(remove_args.next().unwrap(), trace_start_ts)?,
-                            parse_resource_path(remove_args.next().unwrap()),
-                        )
-                    };
+    let rule = cmd.as_rule();
+    let args = cmd.into_inner();
 
-            Ok(Command {
-                trace_selector,
-                action: CommandAction::Remove(resource_ptr),
-            })
-        },
+    Ok(match rule {
+        Rule::modify_cmd => parse_modify_command(args, trace_start_ts)?,
+        Rule::remove_cmd => parse_remove_command(args, trace_start_ts)?,
         x => unreachable!("Rule::{x:?}"),
-    }
+    })
 }
 
-pub(super) fn parse_trace_selector(sel: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<TraceSelector> {
+pub(super) fn parse_modify_command(mut args: Pairs<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
+    let defined_vars = HashSet::new();
+    // unwraps are safe, remove always takes 1-2 args
+    let (trace_selector, resource_ptr, rhs) = if args.peek().unwrap().as_rule() == Rule::assignment {
+        let mut assignment = args.next().unwrap().into_inner();
+        (
+            TraceSelector::All,
+            parse_resource_path(assignment.next().unwrap(), &defined_vars)?,
+            parse_rhs(assignment.next().unwrap(), &defined_vars)?,
+        )
+    } else {
+        let mut defined_vars = HashSet::new();
+        let selector = parse_trace_selector(args.next().unwrap(), trace_start_ts, &mut defined_vars)?;
+        let mut assignment = args.next().unwrap().into_inner();
+        (
+            selector,
+            parse_resource_path(assignment.next().unwrap(), &defined_vars)?,
+            parse_rhs(assignment.next().unwrap(), &defined_vars)?,
+        )
+    };
+
+    Ok(Command {
+        trace_selector,
+        action: CommandAction::Apply(resource_ptr, rhs),
+    })
+}
+
+pub(super) fn parse_remove_command(mut args: Pairs<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
+    let mut defined_vars = HashSet::new();
+    // unwraps are safe, remove always takes 1-2 args
+    let (trace_selector, resource_ptr) = if args.peek().unwrap().as_rule() == Rule::resource_path {
+        (TraceSelector::All, parse_resource_path(args.next().unwrap(), &defined_vars)?)
+    } else {
+        (
+            parse_trace_selector(args.next().unwrap(), trace_start_ts, &mut defined_vars)?,
+            parse_resource_path(args.next().unwrap(), &defined_vars)?,
+        )
+    };
+
+    Ok(Command {
+        trace_selector,
+        action: CommandAction::Remove(resource_ptr),
+    })
+}
+
+pub(super) fn parse_trace_selector(
+    sel: Pair<Rule>,
+    trace_start_ts: i64,
+    defined_vars: &mut HashSet<String>,
+) -> anyhow::Result<TraceSelector> {
     Ok(match sel.as_rule() {
         Rule::trace_selector_all => TraceSelector::All,
         Rule::trace_selector_list => {
-            let mut variables = HashSet::new();
             let mut conditions = Vec::new();
 
             for s in sel.into_inner() {
                 match s.as_rule() {
                     Rule::resource_conditional => {
-                        let cond = parse_resource_conditional(s.into_inner())?;
-                        match cond {
-                            Conditional::Resource { ref var, .. } => {
-                                if let Some(var) = var {
-                                    if let Some(ptr) = variables.get(&var.name) {
-                                        bail!("variable {} already defined as {}", var.name, ptr);
-                                    } else {
-                                        variables.insert(var.name.clone());
-                                    }
-                                }
-                            },
-                            _ => unreachable!(),
-                        }
+                        let cond = parse_resource_conditional(s.into_inner(), defined_vars)?;
                         conditions.push(cond);
                     },
                     Rule::ts_conditional => {
@@ -126,22 +154,30 @@ pub(super) fn parse_trace_selector(sel: Pair<Rule>, trace_start_ts: i64) -> anyh
     })
 }
 
-pub(super) fn parse_resource_conditional(mut cond: Pairs<Rule>) -> anyhow::Result<Conditional> {
+pub(super) fn parse_resource_conditional(
+    mut cond: Pairs<Rule>,
+    defined_vars: &mut HashSet<String>,
+) -> anyhow::Result<Conditional> {
     // Unwraps are safe/guaranteed by the grammar
     let test_type = cond.next().unwrap();
     let test_rule = test_type.as_rule();
     let mut test = test_type.into_inner();
 
     match test_rule {
-        Rule::resource_test => parse_resource_test(test.next().unwrap(), None),
+        Rule::resource_test => parse_resource_test(test.next().unwrap(), None, defined_vars),
         Rule::var_test => {
             let var_name = test.next().unwrap().as_str().trim();
-            let resource_path = parse_resource_path(test.next().unwrap());
+            if defined_vars.contains(var_name) {
+                bail!(SkelError::MultipleVariableDefinitions(var_name.into()));
+            } else {
+                defined_vars.insert(var_name.into());
+            }
+            let resource_path = parse_resource_path(test.next().unwrap(), defined_vars)?;
             let var = VarDef { name: var_name.to_string(), pointer: resource_path };
 
             // the actual resource test _type_ is one layer deeper because
             // we don't mark resource_test as quiet so we can match on it above
-            parse_resource_test(test.next().unwrap().into_inner().next().unwrap(), Some(var.clone()))
+            parse_resource_test(test.next().unwrap().into_inner().next().unwrap(), Some(var.clone()), defined_vars)
         },
         x => unreachable!("Rule::{x:?}"),
     }
@@ -175,15 +211,35 @@ pub(super) fn parse_ts_conditional(mut cond: Pairs<Rule>, trace_start_ts: i64) -
     Conditional::Time { ts, op }
 }
 
-fn parse_resource_test(test: Pair<Rule>, var: Option<VarDef>) -> anyhow::Result<Conditional> {
+fn parse_resource_test(
+    test: Pair<Rule>,
+    var: Option<VarDef>,
+    defined_vars: &HashSet<String>,
+) -> anyhow::Result<Conditional> {
     let rule_type = test.as_rule();
     let mut cond = test.into_inner();
+    // If the resource test contains a variable, it must be a single variable that is used
+    // in both the path string and the LHS of the test; that's why here we construct a new HashSet
+    // containing only that variable name
+    let local_defined_var = var.iter().map(|v| v.name.clone()).collect();
+
     // Unwraps are safe/guaranteed by the grammar
-    let resource_ptr = parse_resource_path(cond.next().unwrap());
+    let resource_path = cond.next().unwrap();
+    let resource_path_str = resource_path.as_str().to_string();
+
+    // Since we are overriding the defined variables, it might be confusing to return an
+    // UndefinedVariable error; if parse_resource_path fails with an undefined variable, we map it
+    // to InvalidLHS, otherwise we leave it alone
+    let resource_ptr =
+        parse_resource_path(resource_path, &local_defined_var).map_err(|e| match e.downcast::<SkelError>() {
+            Ok(SkelError::UndefinedVariable(v)) => anyhow!(SkelError::InvalidLHS(v.clone(), resource_path_str)),
+            Ok(skelerr) => anyhow!(skelerr),
+            Err(err) => anyhow!(err),
+        })?;
     Ok(match rule_type {
         Rule::conditional_test => {
             let op = parse_test_operation(cond.next().unwrap());
-            let rhs = parse_rhs(cond.next().unwrap())?;
+            let rhs = parse_rhs(cond.next().unwrap(), defined_vars)?;
             Conditional::Resource { ptr: resource_ptr, op, rhs: Some(rhs), var }
         },
         Rule::exists_test => Conditional::Resource {
@@ -202,7 +258,7 @@ fn parse_resource_test(test: Pair<Rule>, var: Option<VarDef>) -> anyhow::Result<
     })
 }
 
-pub(super) fn parse_resource_path(path: Pair<Rule>) -> String {
+pub(super) fn parse_resource_path(path: Pair<Rule>, defined_vars: &HashSet<String>) -> anyhow::Result<String> {
     let mut i = 0;
 
     let start = path.as_span().start();
@@ -211,7 +267,13 @@ pub(super) fn parse_resource_path(path: Pair<Rule>) -> String {
     ptr.push('/');
     for p in path.into_inner() {
         match p.as_rule() {
-            Rule::var => continue,
+            Rule::var => {
+                let v = p.as_str();
+                if !defined_vars.contains(v) {
+                    bail!(SkelError::UndefinedVariable(v.into()))
+                }
+                continue;
+            },
             Rule::quoted_path_part => {
                 let (pstart, pend) = (p.as_span().start() - start, p.as_span().end() - start);
                 // . and [ get converted to /, the closing bracket turns into an empty string
@@ -226,7 +288,7 @@ pub(super) fn parse_resource_path(path: Pair<Rule>) -> String {
         }
     }
     ptr.push_str(&path_str[i..].replace(".", "/").replace("[", "/").replace("]", ""));
-    ptr
+    Ok(ptr)
 }
 
 pub(super) fn parse_test_operation(op: Pair<Rule>) -> TestOperation {
@@ -241,7 +303,7 @@ pub(super) fn parse_test_operation(op: Pair<Rule>) -> TestOperation {
     }
 }
 
-pub(super) fn parse_rhs(rhs: Pair<Rule>) -> anyhow::Result<Rhs> {
+pub(super) fn parse_rhs(rhs: Pair<Rule>, defined_vars: &HashSet<String>) -> anyhow::Result<Rhs> {
     Ok(match rhs.as_rule() {
         // For all intents and purposes, this unwrap is safe; the grammar ensures
         // that if we match Rule::number, we have a sequence of digits, which will
@@ -252,7 +314,18 @@ pub(super) fn parse_rhs(rhs: Pair<Rule>) -> anyhow::Result<Rhs> {
         Rule::string => Rhs::Value(Value::String(rhs.as_str().into())),
         Rule::true_val => Rhs::Value(Value::Bool(true)),
         Rule::false_val => Rhs::Value(Value::Bool(false)),
-        Rule::var_prefixed_resource_path => Rhs::Path(PointerBuf::parse(parse_resource_path(rhs))?),
+        Rule::resource_path => {
+            // We can call this with no variables or one variable, but if
+            // there is a variable, it must have been previously defined
+            if let Some((var_prefix, _)) = rhs.as_str().split_once('.')
+                && var_prefix.starts_with('$')
+                && !defined_vars.contains(var_prefix)
+            {
+                bail!(SkelError::UndefinedVariable(var_prefix.into()));
+            }
+            let res_path = parse_resource_path(rhs, defined_vars)?;
+            Rhs::Path(PointerBuf::parse(res_path)?)
+        },
         x => unreachable!("Rule::{x:?}"),
     })
 }

@@ -9,6 +9,14 @@ for more details.  The full SKEL grammar is available [on GitHub](https://github
 
 ## Transform operations
 
+### Modify
+
+The `modify` operation modifies the specified target fields in the matched trace events:
+
+```text
+modify(<selectors>, target = value);
+```
+
 ### Remove
 
 The `remove` operation removes all specified target fields in the matched trace events:

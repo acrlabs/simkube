@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use serde_json::json;
+use sk_core::klabel;
 use sk_core::prelude::*;
 use sk_store::TraceEvent;
 
@@ -61,7 +62,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({"status": {"foo": "bar"}}),
@@ -78,7 +79,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({}),
@@ -98,7 +99,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({"status": {"foo": "bar"}}),
@@ -115,7 +116,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({}),
@@ -135,7 +136,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({"status": {"foo": "bar"}}),
@@ -152,7 +153,7 @@ use super::*;
         DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("simkube.dev/foo".into(), "bar".into())])),
+                labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
             },
             data: json!({"status": {"foo": "bar"}}),
@@ -407,7 +408,7 @@ use super::*;
         applied_objs: vec![DynamicObject{
             types: None,
             metadata: metav1::ObjectMeta{
-                labels: Some(BTreeMap::from([("image".into(), "asdf".into())])),
+                labels: klabel!("image" => "asdf"),
                 ..Default::default()
             },
             data: json!({
@@ -516,6 +517,179 @@ use super::*;
 fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
-    let res = apply_command_to_event(&cmd, evt).unwrap();
+    let res = process_event(&cmd, evt).unwrap();
+    assert_eq!(res, expected);
+}
+
+// We don't need to test all the same "match" selectors here, because most of these are covered by
+// the remove cases above.  Just add the ones that are specific to modify semantics.
+#[rstest]
+#[case::modify_implicit_match_star(
+    "modify(spec.template.spec.nodeSelector.\"simkube.dev/foo\" = \"bar\");",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "nodeSelector": {
+                                "simkube.dev/foo": "bar",
+                            },
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+#[case::modify_subst_key(
+    "modify($x := metadata.labels.\"simkube.dev/key\" | exists($x), $x = \"baz\");",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
+                ..Default::default()
+            },
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "baz", "other_key" => "something_else"),
+                ..Default::default()
+            },
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+#[case::modify_subst_value(
+    "modify($x := metadata.labels.\"simkube.dev/key\" | exists($x),
+        spec.template.spec.nodeSelector.\"simkube.dev/foo\" = $x);",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({}),
+        }, DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "bar"),
+                ..Default::default()
+            },
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({}),
+        }, DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "bar"),
+                ..Default::default()
+            },
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "nodeSelector": {
+                                "simkube.dev/foo": "bar",
+                            },
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+#[case::modify_subst_key_value(
+    "modify($x := metadata.labels.\"simkube.dev/key\" | exists($x)
+            && $y := spec.template.spec.containers[*] | $y.args[0] == \"PLACEHOLDER\",
+       $y.args[0] = $x);",
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
+                ..Default::default()
+            },
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "args": ["PLACEHOLDER", "--foo", "--bar"],
+                                },
+                                {
+                                    "args": ["doit", "-x", "-y"],
+                                },
+                            ]
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+    TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{
+                labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
+                ..Default::default()
+            },
+            data: json!({
+                "spec": {
+                    "template": {
+                        "spec": {
+                            "containers": [
+                                {
+                                    "args": ["bar", "--foo", "--bar"],
+                                },
+                                {
+                                    "args": ["doit", "-x", "-y"],
+                                },
+                            ]
+                        },
+                    },
+                },
+            }),
+        }],
+        deleted_objs: vec![],
+    },
+)]
+fn test_modify_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
+    let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
+    let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
+    let res = process_event(&cmd, evt).unwrap();
     assert_eq!(res, expected);
 }

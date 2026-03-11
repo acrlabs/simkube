@@ -25,7 +25,7 @@ use sk_core::prelude::*;
 use sk_store::ExportedTrace;
 
 use crate::skel::apply_skel_file;
-use crate::skel::metrics::*;
+use crate::skel::metric_names::*;
 
 const SPINNER_REFRESH_RATE: u64 = 50;
 const SPINNER_DOTS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
