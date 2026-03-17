@@ -2,7 +2,6 @@ use anyhow::bail;
 use json_patch_ext::Index;
 use json_patch_ext::prelude::*;
 use metrics::counter;
-use regex::Regex;
 use serde_json::Value;
 use sk_core::prelude::*;
 use sk_store::TraceEvent;
@@ -222,18 +221,10 @@ pub(super) fn resource_conditional_matches(
         if op == TestOperation::Exists || op == TestOperation::NotExists || lhs_op_rhs(lhs, op, rhs, ctx)? {
             match_found = true;
             if let Some(var) = &maybe_var {
-                let var_ptr_regex = Regex::new(&("^(".to_string() + &var.pointer.clone().replace("*", r"\d+") + ")"))?;
-                // These unwraps _should_ be safe, since we already know that a match exists by
-                // virtue of the fact that we're here visiting this field
-                let var_ptr = var_ptr_regex
-                    .captures(lhs_ptr.as_str())
-                    .unwrap()
-                    .get(1)
-                    .unwrap()
-                    .as_str()
-                    .to_string();
-                let var_value = matches(&PointerBuf::parse(&var_ptr)?, ctx.obj()).first().unwrap().1.clone();
-                ctx_entry.insert(var_ptr, var_value);
+                let var_ptr_buf_len = PointerBuf::parse(&var.pointer)?.count();
+                let var_ptr = PointerBuf::from_tokens(lhs_ptr.tokens().take(var_ptr_buf_len));
+                let var_value = matches(&var_ptr, ctx.obj()).first().unwrap().1.clone();
+                ctx_entry.insert(var_ptr.to_string(), var_value);
             }
         }
     }
