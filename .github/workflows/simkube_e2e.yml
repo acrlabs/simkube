@@ -47,6 +47,13 @@ jobs:
         run: |
           set -euo pipefail
 
+          IMAGE=$(cat .build/sk-ctrl-image)
+          echo "Forcing deployment to use image: $IMAGE"
+
+          kubectl set image deployment/sk-ctrl-depl \
+            sk-ctrl=$IMAGE \
+            -n simkube
+
           echo "Waiting for rollout to complete..."
           kubectl rollout status deployment/sk-ctrl-depl \
              -n simkube
