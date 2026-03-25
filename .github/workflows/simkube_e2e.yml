@@ -67,7 +67,7 @@ jobs:
           )
 
           for POD in "${PODS[@]}"; do
-            echo "Inspecting pod: "$POD"..."
+            echo "Inspecting pod: $POD..."
             POD_NAME=$(kubectl get pod \
               -l app.kubernetes.io/name="$POD" \
               -n simkube \
@@ -86,6 +86,7 @@ jobs:
             fi
 
             echo "✅ $POD from local registry"
+          done
 
       - name: Stabilize
         shell: bash
