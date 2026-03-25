@@ -63,7 +63,7 @@ jobs:
 
           PODS=(
             sk-ctrl
-            sk-driver
+            sk-tracer
           )
 
           for POD in "${PODS[@]}"; do
