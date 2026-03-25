@@ -42,34 +42,62 @@ jobs:
       - name: Add .local/bin to PATH
         run: echo "/home/ubuntu/.local/bin" >> $GITHUB_PATH
       - name: Build
-        run: make
-      - name: Verify image is from local registry
+        run: make build image run
+      - name: Wait for cluster rollout
         shell: bash
         run: |
           set -euo pipefail
 
-          echo "Waiting for rollout to complete..."
-          kubectl rollout status deployment/sk-ctrl-depl \
-             -n simkube
+          echo "Waiting for simkube deployments..."
+          for d in $(kubectl get deploy -n simkube -o name); do
+            echo "Waiting for $d"
+            kubectl rollout status $d -n simkube --timeout=120s
+          done
 
-          POD_NAME=$(kubectl get pod \
-            -l app.kubernetes.io/name=sk-ctrl \
-            -n simkube \
-            -o jsonpath='{.items[0].metadata.name}')
+          echo "All deployments rolled out"
 
-          IMAGE_ID=$(kubectl get pod "$POD_NAME" \
-            -n simkube \
-            -o jsonpath='{.status.containerStatuses[0].imageID}')
+      - name: Verify simkube images are from local registry
+        shell: bash
+        run: |
+          set -euo pipefail
 
-          echo "Pod: $POD_NAME"
-          echo "Image ID: $IMAGE_ID"
+          PODS=(
+            sk-ctrl
+            sk-driver
+          )
 
-          if ! echo "$IMAGE_ID" | grep -q "localhost:5000"; then
-            echo "❌ Image NOT from local registry"
-            exit 1
-          fi
+          for POD in "${PODS[@]}"; do
+            echo "Inspecting pod: "$POD"..."
+            POD_NAME=$(kubectl get pod \
+              -l app.kubernetes.io/name="$POD" \
+              -n simkube \
+              -o jsonpath='{.items[0].metadata.name}')
 
-          echo "✅ Image from local registry"
+            IMAGE_ID=$(kubectl get pod "$POD_NAME" \
+              -n simkube \
+              -o jsonpath='{.status.containerStatuses[0].imageID}')
+
+            echo "Pod: $POD_NAME"
+            echo "Image ID: $IMAGE_ID"
+
+            if ! echo "$IMAGE_ID" | grep -q "localhost:5000"; then
+              echo "❌ Image NOT from local registry"
+              exit 1
+            fi
+
+            echo "✅ $POD from local registry"
+
+      - name: Stabilize
+        shell: bash
+        run: |
+          sleep 5
+
+      - name: Final cluster state
+        run: |
+          kubectl get pods -n simkube -o wide
+          kubectl get pods -n simkube \
+            -o jsonpath='{.items[*].spec.containers[*].image}'
+
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@main
         with:
