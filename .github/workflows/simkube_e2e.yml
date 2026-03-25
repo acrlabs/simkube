@@ -59,7 +59,7 @@ jobs:
       - name: Verify simkube images are from local registry
         shell: bash
         run: |
-          set -euo pipefail
+          set -exuo pipefail
 
           PODS=(
             sk-ctrl
