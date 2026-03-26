@@ -85,7 +85,7 @@ jobs:
               exit 1
             fi
 
-            echo "✅ $POD from local registry"
+            echo "✅ $POD image is from local registry"
           done
 
       - name: Stabilize
@@ -99,8 +99,32 @@ jobs:
           kubectl get pods -n simkube \
             -o jsonpath='{.items[*].spec.containers[*].image}'
 
+      - name: Get driver image
+        id: get_driver_image
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f .build/sk-driver-image ]]; then
+            echo "❌ Missing .build/sk-driver-image"
+            exit 1
+          fi
+
+          IMAGE=$(cat .build/sk-driver-image)
+
+          if [[ "$IMAGE" != localhost:5000/* ]]; then
+            echo "❌ Driver image is not from local registry: $IMAGE"
+            exit 1
+          fi
+
+          echo "✅ Driver image is from local registry"
+
+          echo "Driver image: $IMAGE"
+          echo "driver_image=$IMAGE" >> "$GITHUB_OUTPUT"
+
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@main
         with:
           simulation-name: test-cronjob-sim
           trace-path: examples/traces/cronjob.sktrace
+          driver-image: ${{ steps.get_driver_image.outputs.driver_image }}
