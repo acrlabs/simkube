@@ -68,6 +68,7 @@ jobs:
           for POD in "${PODS[@]}"; do
             echo "Inspecting pod: $POD..."
             POD_NAME=$(kubectl get pod \
+              --field-selector=status.phase=Running \
               -l app.kubernetes.io/name="$POD" \
               -n simkube \
               -o jsonpath='{.items[0].metadata.name}')
@@ -86,11 +87,6 @@ jobs:
 
             echo "✅ $POD image is from local registry"
           done
-
-      - name: Stabilize
-        shell: bash
-        run: |
-          sleep 5
 
       - name: Final cluster state
         run: |
