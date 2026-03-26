@@ -88,12 +88,6 @@ jobs:
             echo "✅ $POD image is from local registry"
           done
 
-      - name: Final cluster state
-        run: |
-          kubectl get pods -n simkube -o wide
-          kubectl get pods -n simkube \
-            -o jsonpath='{.items[*].spec.containers[*].image}'
-
       - name: Get driver image
         id: get_driver_image
         shell: bash
@@ -111,8 +105,6 @@ jobs:
             echo "❌ Driver image is not from local registry: $IMAGE"
             exit 1
           fi
-
-          echo "✅ Driver image is from local registry"
 
           echo "Driver image: $IMAGE"
           echo "driver_image=$IMAGE" >> "$GITHUB_OUTPUT"
