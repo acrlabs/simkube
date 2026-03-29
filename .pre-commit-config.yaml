@@ -52,6 +52,14 @@ repos:
     hooks:
       - id: cargo-deny
         args: ["--all-features", "check", "licenses"]
+  - repo: "https://github.com/zizmorcore/zizmor-pre-commit"
+    rev: v1.23.1
+    hooks:
+      - id: zizmor
+        args:
+          - --fix=all
+          - --config
+          - .config/zizmor.yml
   - repo: "https://github.com/igorshubovych/markdownlint-cli"
     rev: v0.47.0
     hooks:

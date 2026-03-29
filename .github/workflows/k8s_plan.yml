@@ -10,32 +10,36 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: {}
+
 jobs:
   plan:
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out main
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: main
           submodules: recursive
+          persist-credentials: false
 
       - name: Install Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405  # v6.2.0
         with:
           python-version: "3.11"
 
       - name: Install Poetry
-        uses: snok/install-poetry@v1
+        uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
 
       - name: Compile k8s charts
         run: make k8s
 
       - name: Check out PR
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           clean: false
+          persist-credentials: false
 
       - name: Compute dag/diff
         run: make k8s
@@ -48,7 +52,7 @@ jobs:
           mv .build/k8s.df ./artifacts/k8s.df
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f  # v7.0.0
         with:
           name: k8s-plan-artifacts
           path: artifacts/

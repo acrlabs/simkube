@@ -1,0 +1,12 @@
+---
+rules:
+  dangerous-triggers:  # we restrict workflows from running except for org members, so this is (slightly) safer
+    ignore:
+      - pr_comment_starting.yml
+      - pr_comment_finished.yml
+  secrets-outside-env:
+    disable: true
+  superfluous-actions:
+    ignore:
+      - pr_comment_starting.yml
+      - pr_comment_finished.yml

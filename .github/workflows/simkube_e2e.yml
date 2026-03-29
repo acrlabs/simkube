@@ -13,12 +13,14 @@ concurrency:
 env:
   IN_CI: "true"
 
+permissions: {}
+
 jobs:
   launch-runner:
     runs-on: ubuntu-latest
     steps:
       - name: Setup SimKube GitHub Action runner
-        uses: acrlabs/simkube-ci-action/actions/launch-runner@main
+        uses: acrlabs/simkube-ci-action/actions/launch-runner@f597bcc52b7bd9ae050dcfa5f3c273e4c69f3a88
         with:
           ami-id: ami-03e5877b8398d4577  # TODO: make this dynamic / latest AMI
           instance-type: m6a.large
@@ -33,9 +35,10 @@ jobs:
     needs: launch-runner
     runs-on: [self-hosted, simkube, ephemeral]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           submodules: recursive
+          persist-credentials: false
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
       - name: Add .local/bin to PATH
@@ -110,7 +113,7 @@ jobs:
           echo "driver_image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Run simulation
-        uses: acrlabs/simkube-ci-action/actions/run-simulation@main
+        uses: acrlabs/simkube-ci-action/actions/run-simulation@f597bcc52b7bd9ae050dcfa5f3c273e4c69f3a88
         with:
           simulation-name: test-cronjob-sim
           trace-path: examples/traces/cronjob.sktrace
