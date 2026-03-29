@@ -7,6 +7,8 @@ on:  # yamllint disable-line rule:truthy
     types:
       - completed
 
+permissions: {}
+
 jobs:
   pr-comment:
     runs-on: ubuntu-latest
@@ -17,7 +19,7 @@ jobs:
       ASSETS_URL: "https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets"
     steps:
       - name: Download artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
         with:
           name: k8s-plan-artifacts
           github-token: ${{ secrets.PR_COMMENT_TOKEN }}
@@ -25,13 +27,13 @@ jobs:
           path: k8s-plan-artifacts
 
       - name: Get PR number
-        uses: mathiasvr/command-output@v2.0.0
+        uses: mathiasvr/command-output@34408ea3d0528273faff3d9e201761ae96106cd0  # v2.0.0
         id: pr
         with:
           run: cat k8s-plan-artifacts/PR
 
       - name: Find previous comment ID
-        uses: peter-evans/find-comment@v2
+        uses: peter-evans/find-comment@b30e6a3c0ed37e7c023ccd3f1db5c6c0b0c23aad  # v4.0.0
         id: fc
         with:
           token: ${{ secrets.PR_COMMENT_TOKEN }}
@@ -52,7 +54,7 @@ jobs:
           cat k8s-plan-artifacts/k8s.df >> fireconfig-comment.md
 
       - name: Comment on PR
-        uses: peter-evans/create-or-update-comment@v3
+        uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9  # v5.0.0
         with:
           token: ${{ secrets.PR_COMMENT_TOKEN }}
           comment-id: ${{ steps.fc.outputs.comment-id }}
