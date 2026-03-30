@@ -24,7 +24,10 @@ use sk_core::prelude::*;
 use tracing::*;
 
 use crate::context::SimulationContext;
-use crate::controller::{error_policy, reconcile};
+use crate::controller::{
+    error_policy,
+    reconcile,
+};
 
 #[derive(Clone, Debug, Default, Parser)]
 struct Options {
