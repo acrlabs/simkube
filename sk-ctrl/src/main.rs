@@ -7,10 +7,18 @@ mod objects;
 use std::sync::Arc;
 
 use clap::Parser;
-use futures::{StreamExt, TryStreamExt, future};
+use futures::{
+    StreamExt,
+    TryStreamExt,
+    future,
+};
 use k8s_openapi::api::batch::v1 as batchv1;
 use kube::runtime::controller::Controller;
-use kube::runtime::{WatchStreamExt, reflector, watcher};
+use kube::runtime::{
+    WatchStreamExt,
+    reflector,
+    watcher,
+};
 use sk_core::logging;
 use sk_core::prelude::*;
 use tracing::*;
