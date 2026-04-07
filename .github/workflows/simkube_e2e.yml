@@ -7,6 +7,17 @@ on:  # yamllint disable-line rule:truthy
       - "main"
     paths-ignore:
       - "docs/**"
+      - "examples/**"
+      - ".cargo/**"
+      - ".config/**"
+      - ".github/**"
+      - ".markdownlint.yaml"
+      - ".markdownlintignore"
+      - ".pre-commit-config.yaml"
+      - ".rustfmt.toml"
+      - ".yamllint"
+      - "*.md"
+      - "deny.toml"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
