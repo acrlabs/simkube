@@ -78,5 +78,7 @@ default](https://docs.github.com/en/site-policy/github-terms/github-terms-of-ser
 
 ## Related Reading
 
+- [Stop Reading Changelogs: safer Kubernetes upgrades with simulation](https://blog.appliedcomputing.io/p/stop-reading-changelogs-safer-kubernetes)
+- [HOWTO: Use SimKube for Cost Forecasting](https://blog.appliedcomputing.io/p/howto-use-simkube-for-cost-forecasting)
 - [Announcing SimKube 1.0](https://blog.appliedcomputing.io/p/announcing-simkube-v10)
 - [Why do we need a simulator?](https://blog.appliedcomputing.io/p/simkube-part-1-why-do-we-need-a-simulator)
