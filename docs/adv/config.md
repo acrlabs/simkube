@@ -8,7 +8,7 @@ The following section describes some options for customizing the behaviour of yo
 using the provided [kustomize](https://github.com/acrlabs/simkube/tree/main/k8s/kustomize) manifests, you can update
 or override these values there.
 
-### Configuration of `sk-tracer`
+## Configuration of `sk-tracer`
 
 The SimKube tracer runs in a real cluster and collects data about changes to objects in that cluster.  You can configure
 what objects it watches via a config file, which is injected into the `sk-tracer` pod as a ConfigMap; if you are using
@@ -55,7 +55,7 @@ rules:
   verbs: ["get", "watch", "list"]
 ```
 
-### Configuring `sk-ctrl`
+## Configuring `sk-ctrl`
 
 The SimKube controller just needs the SimKube custom resources installed in the target environment, and needs no other
 configuration.

@@ -2,14 +2,14 @@
 template: ref.html
 -->
 
-## Simulation CRD Spec (cluster-scoped)
+# Simulation CRD Spec (cluster-scoped)
 
 - Name: simulations.simkube.io
 - Group: simkube.io
 - Version: v1
 - Kind: Simulation
 
-### Schema
+## Schema
 
 <div class="schema" markdown>
 /// details | `apiVersion`: `string`
@@ -256,7 +256,7 @@ The current state of the Simulation; one of `Blocked`, `Initializing`, `Finished
 <!-- SimulationStatus end -->
 </div>
 
-# SimulationRoot CRD Spec (cluster-scoped)
+# SimulationRoot CRD Spec (cluster-scoped) <!-- markdownlint-disable-line MD025 -->
 
 - Name: simulationroots.simkube.io
 - Group: simkube.io

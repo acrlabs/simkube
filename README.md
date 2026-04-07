@@ -7,7 +7,7 @@ template: docs.html
 
 ![build status](https://github.com/acrlabs/simkube/actions/workflows/verify.yml/badge.svg)
 
-<img src="docs/images/logo_with_name.png" width=400 /><img src="docs/images/mascot-2024.png" height=200 align="right"/>
+<img src="docs/images/logo_with_name.png" width=400 /><img src="docs/images/Mascot_purple.png" height=200 align="right"/>
 
 A record-and-replay simulation environment for the Kubernetes control plane based on [KWOK](https://kwok.sigs.k8s.io).
 
