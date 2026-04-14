@@ -1,39 +1,16 @@
 use assertables::*;
 
 use super::*;
-use crate::validation::annotated_trace::Annotation;
 
 #[rstest]
-fn test_validate_trace(test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) {
-    let summary = test_validation_store.validate_trace(&mut annotated_trace, false).unwrap();
+fn test_validate_trace(mut test_validation_store: ValidationStore, trace: ExportedTrace) {
+    let all_annotations = test_validation_store.validate_trace(&trace).unwrap();
 
-    for event in annotated_trace.iter() {
-        if event.data.applied_objs.len() > 1 {
-            assert_all!(event.annotations[&1].iter(), |a: &Annotation| a.code == TEST_VALIDATOR_CODE);
+    for (i, (event, _)) in trace.iter().enumerate() {
+        if event.applied_objs.len() > 1 {
+            assert_bag_eq!(all_annotations[&i][&TEST_VALIDATOR_CODE], [1]);
         } else {
-            for annotation in event.annotations.values() {
-                assert_is_empty!(annotation);
-            }
+            assert_is_empty!(all_annotations[&i][&TEST_VALIDATOR_CODE]);
         }
     }
-
-    assert_eq!(*summary.annotations.get(&TEST_VALIDATOR_CODE).unwrap(), 1);
-    assert_eq!(summary.applied_count, 0);
-}
-
-#[rstest]
-fn test_fix_trace(test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) {
-    let summary = test_validation_store.validate_trace(&mut annotated_trace, true).unwrap();
-
-    for event in annotated_trace.iter() {
-        if event.data.applied_objs.len() > 1 {
-            assert_eq!(event.data.applied_objs[1].data.get("foo").unwrap(), "bar");
-        }
-        for annotation in event.annotations.values() {
-            assert_is_empty!(annotation);
-        }
-    }
-
-    assert_eq!(*summary.annotations.get(&TEST_VALIDATOR_CODE).unwrap(), 1);
-    assert_eq!(summary.applied_count, 5);
 }

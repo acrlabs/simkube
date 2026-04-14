@@ -2,9 +2,10 @@ use chrono::TimeDelta;
 use lazy_static::lazy_static;
 use ratatui::prelude::*;
 use sk_core::prelude::*;
+use sk_store::TraceEvent;
 
 use crate::validation::{
-    AnnotatedTraceEvent,
+    Annotations,
     ValidatorType,
 };
 
@@ -14,21 +15,23 @@ lazy_static! {
     static ref WARN_STYLE: Style = Style::new().white().on_yellow();
 }
 
-pub(super) fn make_event_spans(event: &AnnotatedTraceEvent, start_ts: i64) -> (Span<'_>, Span<'_>) {
-    let d = TimeDelta::new(event.data.ts - start_ts, 0).unwrap();
+pub(super) fn make_event_spans<'a>(
+    event: &'a TraceEvent,
+    annotations: &'a Annotations,
+    start_ts: i64,
+) -> (Span<'a>, Span<'a>) {
+    let d = TimeDelta::new(event.ts - start_ts, 0).unwrap();
     let evt_span = Span::from(format!(
         "{} ({} applied/{} deleted)",
         format_duration(d),
-        event.data.applied_objs.len(),
-        event.data.deleted_objs.len()
+        event.applied_objs.len(),
+        event.deleted_objs.len()
     ));
 
-    let (warnings, errs) = event.annotations.values().fold((0, 0), |(mut w, mut e), annotations| {
-        for a in annotations {
-            match a.code.0 {
-                ValidatorType::Warning => w += 1,
-                ValidatorType::Error => e += 1,
-            }
+    let (warnings, errs) = annotations.iter().fold((0, 0), |(mut w, mut e), (code, indices)| {
+        match code.0 {
+            ValidatorType::Warning => w += indices.len(),
+            ValidatorType::Error => e += indices.len(),
         }
         (w, e)
     });
@@ -49,21 +52,16 @@ pub(super) fn make_object_spans<'a>(
     index: usize,
     obj: &DynamicObject,
     op: char,
-    event: &'a AnnotatedTraceEvent,
+    annotations: &'a Annotations,
 ) -> (Span<'a>, Span<'a>) {
     let obj_span = Span::styled(format!("  {} {}", op, obj.namespaced_name()), Style::new().italic());
-    let (warnings, errs) = event
-        .annotations
-        .get(&index)
-        .unwrap_or(&vec![])
-        .iter()
-        .fold((0, 0), |(mut w, mut e), a| {
-            match a.code.0 {
-                ValidatorType::Warning => w += 1,
-                ValidatorType::Error => e += 1,
-            }
-            (w, e)
-        });
+    let (warnings, errs) = annotations.iter().fold((0, 0), |(mut w, mut e), (code, indices)| {
+        match code.0 {
+            ValidatorType::Warning => w += indices.contains(&index) as usize,
+            ValidatorType::Error => e += indices.contains(&index) as usize,
+        }
+        (w, e)
+    });
     if warnings + errs == 0 {
         (obj_span, Span::default())
     } else {

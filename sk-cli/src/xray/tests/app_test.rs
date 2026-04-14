@@ -1,11 +1,10 @@
 use ratatui::widgets::ListState;
-use sk_store::TraceEvent;
+use sk_store::{
+    ExportedTrace,
+    TraceEvent,
+};
 
 use super::*;
-use crate::validation::{
-    AnnotatedTrace,
-    AnnotatedTraceEvent,
-};
 
 #[rstest]
 fn test_app_update_quit() {
@@ -22,14 +21,14 @@ fn test_app_update_quit() {
 #[case(Message::Select, Mode::EventSelected, Mode::ObjectSelected)]
 #[case(Message::Select, Mode::ObjectSelected, Mode::ObjectSelected)]
 fn test_app_update_selection(#[case] msg: Message, #[case] mode: Mode, #[case] new_mode: Mode) {
-    let annotated_trace = AnnotatedTrace::new_with_events(vec![AnnotatedTraceEvent::new(TraceEvent {
+    let trace = ExportedTrace::new_with_events(vec![TraceEvent {
         ts: 0,
         applied_objs: vec![test_deployment("depl1")],
         ..Default::default()
-    })]);
+    }]);
     let mut app = App {
         mode,
-        annotated_trace,
+        trace,
         event_list_state: ListState::default().with_selected(Some(0)),
         ..Default::default()
     };

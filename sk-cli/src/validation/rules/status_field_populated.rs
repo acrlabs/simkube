@@ -1,22 +1,12 @@
-use std::sync::{
-    Arc,
-    RwLock,
+use sk_store::{
+    TraceEvent,
+    TracerConfig,
 };
 
-use json_patch_ext::prelude::*;
-use lazy_static::lazy_static;
-use sk_store::TracerConfig;
-
 use crate::validation::validator::{
-    CheckResult,
     Diagnostic,
     Validator,
     ValidatorType,
-};
-use crate::validation::{
-    AnnotatedTraceEvent,
-    AnnotatedTracePatch,
-    PatchLocations,
 };
 
 const HELP: &str = r#"Indicates that the status field of a Kubernetes object in
@@ -27,17 +17,9 @@ better to clean them up (and also they take up a lot of space."#;
 #[derive(Default)]
 pub struct StatusFieldPopulated {}
 
-lazy_static! {
-    static ref FIX: AnnotatedTracePatch = AnnotatedTracePatch {
-        locations: PatchLocations::Everywhere,
-        ops: vec![remove_operation(format_ptr!("/status"))],
-    };
-}
-
 impl Diagnostic for StatusFieldPopulated {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, _: &TracerConfig) -> CheckResult {
+    fn check_next_event(&mut self, event: &TraceEvent, _: &TracerConfig) -> anyhow::Result<Vec<usize>> {
         Ok(event
-            .data
             .applied_objs
             .iter()
             .enumerate()
@@ -49,14 +31,12 @@ impl Diagnostic for StatusFieldPopulated {
                     .get("status")
                     .is_some_and(|v| !v.is_null())
                 {
-                    return Some((i, vec![FIX.clone()]));
+                    return Some(i);
                 }
                 None
             })
             .collect())
     }
-
-    fn reset(&mut self) {}
 }
 
 pub fn validator() -> Validator {
@@ -64,6 +44,7 @@ pub fn validator() -> Validator {
         type_: ValidatorType::Warning,
         name: "status_field_populated",
         help: HELP,
-        diagnostic: Arc::new(RwLock::new(StatusFieldPopulated::default())),
+        skel_suggestion: "remove(status);\n",
+        diagnostic: Box::new(StatusFieldPopulated::default()),
     }
 }

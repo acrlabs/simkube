@@ -5,6 +5,7 @@ mod view;
 use ratatui::Terminal;
 use ratatui::backend::Backend;
 use sk_core::prelude::*;
+use sk_store::ExportedTrace;
 
 use self::app::{
     App,
@@ -12,6 +13,7 @@ use self::app::{
 };
 use self::event::handle_event;
 use self::view::view;
+use crate::validation::VALIDATORS;
 
 #[derive(clap::Args)]
 pub struct Args {
@@ -20,7 +22,9 @@ pub struct Args {
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    let app = App::new(&args.trace_path).await?;
+    let trace = ExportedTrace::from_path(&args.trace_path).await?;
+    let event_annotations = VALIDATORS.lock().unwrap().validate_trace(&trace)?;
+    let app = App::new(&args.trace_path, trace, event_annotations);
     let term = ratatui::init();
     let res = run_loop(term, app);
     ratatui::restore();
@@ -28,14 +32,10 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 }
 
 fn run_loop<B: Backend>(mut term: Terminal<B>, mut app: App) -> EmptyResult {
-    let mut trace_changed = true;
     while app.running {
-        if trace_changed {
-            app.rebuild_annotated_trace();
-        }
         term.draw(|frame| view(&mut app, frame))?;
         let msg = handle_event()?;
-        trace_changed = app.update_state(msg);
+        app.update_state(msg);
     }
     Ok(())
 }

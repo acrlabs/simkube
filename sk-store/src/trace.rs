@@ -2,9 +2,14 @@ use std::collections::HashMap;
 
 use anyhow::bail;
 use clockabilly::prelude::*;
+use kube::api::DynamicObject;
 use serde::{
     Deserialize,
     Serialize,
+};
+use sk_core::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
 };
 use sk_core::k8s::{
     GVK,
@@ -51,6 +56,16 @@ impl Default for ExportedTrace {
 }
 
 impl ExportedTrace {
+    pub async fn from_path(path: &str) -> anyhow::Result<Self> {
+        let object_store = SkObjectStore::new(path)?;
+        let trace_data = object_store.get().await?.to_vec();
+        ExportedTrace::import(trace_data, None)
+    }
+
+    pub fn new_with_events(events: Vec<TraceEvent>) -> ExportedTrace {
+        ExportedTrace { events, ..Default::default() }
+    }
+
     pub fn import(data: Vec<u8>, maybe_duration: Option<&String>) -> anyhow::Result<ExportedTrace> {
         let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceError::ParseFailed)?;
 
@@ -82,12 +97,6 @@ impl ExportedTrace {
         Ok(exported_trace)
     }
 
-    pub fn clone_with_events(&self, events: Vec<TraceEvent>) -> ExportedTrace {
-        let mut trace = self.clone();
-        trace.events = events;
-        trace
-    }
-
     pub fn lookup_pod_lifecycle(
         &self,
         owner_gvk: &GVK,
@@ -117,12 +126,33 @@ impl ExportedTrace {
         self.events.clone()
     }
 
+    pub fn get_event(&self, idx: usize) -> Option<&TraceEvent> {
+        self.events.get(idx)
+    }
+
     pub fn has_obj(&self, gvk: &GVK, ns_name: &str) -> bool {
         self.index.contains(gvk, ns_name)
     }
 
+    pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {
+        let event = self.get_event(event_idx)?;
+        let applied_len = event.applied_objs.len();
+        if obj_idx >= applied_len {
+            event.deleted_objs.get(obj_idx - applied_len)
+        } else {
+            event.applied_objs.get(obj_idx)
+        }
+    }
+
     pub fn iter(&self) -> TraceIterator<'_> {
         TraceIterator::new(&self.events)
+    }
+
+    pub fn is_empty_at(&self, idx: usize) -> bool {
+        self.events
+            .get(idx)
+            .map(|evt| evt.applied_objs.is_empty() && evt.deleted_objs.is_empty())
+            .unwrap_or(true)
     }
 
     #[allow(clippy::len_without_is_empty)]
@@ -145,6 +175,7 @@ impl ExportedTrace {
     }
 }
 
+#[derive(Clone)]
 pub struct TraceIterator<'a> {
     events: &'a Vec<TraceEvent>,
     idx: usize,
@@ -176,3 +207,6 @@ impl<'a> Iterator for TraceIterator<'a> {
         ret
     }
 }
+
+#[cfg(test)]
+impl ExportedTrace {}
