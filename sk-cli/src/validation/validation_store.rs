@@ -1,21 +1,23 @@
-use std::collections::BTreeMap; // BTreeMap sorts by key, HashMap doesn't
+use std::collections::BTreeMap;
+use std::sync::{
+    LazyLock,
+    Mutex,
+};
 
 use anyhow::anyhow;
 use assertables::assert_all;
-use lazy_static::lazy_static;
 use serde::Serialize;
 use sk_core::prelude::*;
+use sk_store::ExportedTrace;
 
+use super::PrintFormat;
 use super::rules::*;
-use super::summary::ValidationSummary;
 use super::validator::{
     Validator,
     ValidatorCode,
 };
-use super::{
-    AnnotatedTrace,
-    PrintFormat,
-};
+
+pub type Annotations = BTreeMap<ValidatorCode, Vec<usize>>;
 
 #[derive(Serialize)]
 pub struct ValidationStore {
@@ -23,49 +25,22 @@ pub struct ValidationStore {
 }
 
 impl ValidationStore {
-    pub fn validate_trace(&self, trace: &mut AnnotatedTrace, fix: bool) -> anyhow::Result<ValidationSummary> {
-        for validator in self.validators.values() {
-            validator.reset();
+    pub fn validate_trace(&mut self, trace: &ExportedTrace) -> anyhow::Result<BTreeMap<usize, Annotations>> {
+        let mut annotations: BTreeMap<usize, Annotations> = BTreeMap::new();
+
+        for (i, (event, _)) in trace.iter().enumerate() {
+            for (code, validator) in self.validators.iter_mut() {
+                let mut failed_obj_indices = validator.check_next_event(event, &trace.config)?;
+                annotations
+                    .entry(i)
+                    .or_default()
+                    .entry(*code)
+                    .or_default()
+                    .append(&mut failed_obj_indices);
+            }
         }
 
-        let mut summary = ValidationSummary::default();
-        let mut summary_populated = false;
-        loop {
-            // We re-compute the entire validation on every loop iteration, since there's no good
-            // way to tell if and/how the patches will interact with each other; it is technically
-            // feasible that patches could introduce some kind of infinite loop here, but in
-            // general the "first" patch option (which is the one applied by default) should be
-            // written in a way that it's "safe", i.e., probably don't "add" anything in the
-            // default patch.
-            let s = trace.validate(&self.validators)?;
-
-            // We only fill out the summary annotation information (how many things failed each
-            // validation check) in the first iteration through the loop so that we don't
-            // double-count thingss
-            if !summary_populated {
-                summary.annotations = s;
-                summary_populated = true;
-            }
-
-            if !fix {
-                break;
-            }
-
-            let Some(next_annotation) = trace.get_next_annotation() else {
-                break;
-            };
-
-            let Some(patch) = next_annotation.patches.first().cloned() else {
-                println!("no fix available for {}; continuing", next_annotation.code);
-                break;
-            };
-
-            // `apply_patch` can modify/change many different objects; it returns the number of
-            // objects it touched
-            summary.applied_count += trace.apply_patch(patch)?;
-        }
-
-        Ok(summary)
+        Ok(annotations)
     }
 
     pub(super) fn explain(&self, code: &ValidatorCode) -> EmptyResult {
@@ -133,6 +108,4 @@ impl ValidationStore {
     }
 }
 
-lazy_static! {
-    pub static ref VALIDATORS: ValidationStore = ValidationStore::new();
-}
+pub static VALIDATORS: LazyLock<Mutex<ValidationStore>> = LazyLock::new(|| Mutex::new(ValidationStore::new()));

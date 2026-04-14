@@ -76,8 +76,15 @@ enum SkSubcommand {
     )]
     Transform(transform::Args),
 
-    #[command(subcommand, visible_alias = "val")]
-    Validate(ValidateSubcommand),
+    #[command(visible_alias = "val")]
+    #[command(args_conflicts_with_subcommands = true)]
+    Validate {
+        #[command(flatten)]
+        args: Option<validation::CheckArgs>,
+
+        #[command(subcommand)]
+        sub: Option<ValidateSubcommand>,
+    },
 
     #[command(about = "simkube version")]
     Version,
@@ -123,7 +130,15 @@ async fn main() -> EmptyResult {
             transform::cmd(args).await?;
             transform::output_stats(&metrics_recorder)
         },
-        SkSubcommand::Validate(subcommand) => validation::cmd(subcommand).await,
+        SkSubcommand::Validate { args: maybe_args, sub: maybe_sub } => {
+            // Use .unwrap_or_else here, otherwise it will unconditionally
+            // try to take the "Check" arguments even if a different subcommand
+            // is specified.
+            let sub = maybe_sub
+                .clone()
+                .unwrap_or_else(|| ValidateSubcommand::Check(maybe_args.clone().expect("no subcommand specified")));
+            validation::cmd(&sub).await
+        },
         SkSubcommand::Version => {
             println!("skctl {}", crate_version!());
             Ok(())

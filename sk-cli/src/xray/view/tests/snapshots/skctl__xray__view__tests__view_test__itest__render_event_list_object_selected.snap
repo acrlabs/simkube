@@ -1,0 +1,59 @@
+---
+source: sk-cli/src/xray/view/tests/view_test.rs
+expression: cf
+---
+CompletedFrame {
+    buffer: Buffer {
+        area: Rect { x: 0, y: 0, width: 80, height: 20 },
+        content: [
+            "┌──────────────────────────────────────────────────────────────────────────────┐",
+            "│   00:0┌──────────────────────────────────────────────────────────────┐       │",
+            "│   00:0│{                                                             │       │",
+            "│>> 00:0│  "apiVersion": "apps/v1",                                    │ngs    │",
+            "│++   + │  "kind": "Deployment",                                       │       │",
+            "│     + │  "metadata": {                                               │rnings │",
+            "│     + │    "name": "test_depl1",                                     │xxx... │",
+            "│   00:0│    "namespace": "test-namespace"                             │       │",
+            "│       │  },                                                          │       │",
+            "│       │  "spec": {                                                   │       │",
+            "│       │    "replicas": 42                                            │       │",
+            "│       │  }                                                           │       │",
+            "│       └──────────────────────────────────────────────────────────────┘       │",
+            "│                                                                              │",
+            "└──────────────────────────────────────────────────────────────────────────────┘",
+            "┌──────────────────────────────────────────────────────────────────────────────┐",
+            "│Hello SimKube!                                                                │",
+            "│Use arrows to navigate, space to select, 'q' to quit.                         │",
+            "│                                                                              │",
+            "└──────────────────────────────────────────────────────────────────────────────┘",
+        ],
+        styles: [
+            x: 0, y: 0, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 1, y: 3, fg: Reset, bg: Reset, underline: Reset, modifier: REVERSED,
+            x: 8, y: 3, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 72, y: 3, fg: White, bg: Red, underline: Reset, modifier: REVERSED,
+            x: 79, y: 3, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 1, y: 4, fg: Reset, bg: Blue, underline: Reset, modifier: NONE,
+            x: 4, y: 4, fg: Reset, bg: Blue, underline: Reset, modifier: ITALIC,
+            x: 8, y: 4, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 72, y: 4, fg: Reset, bg: Blue, underline: Reset, modifier: NONE,
+            x: 79, y: 4, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 4, y: 5, fg: Reset, bg: Reset, underline: Reset, modifier: ITALIC,
+            x: 8, y: 5, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 72, y: 5, fg: White, bg: Red, underline: Reset, modifier: NONE,
+            x: 79, y: 5, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 4, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: ITALIC,
+            x: 8, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 72, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: ITALIC,
+            x: 79, y: 6, fg: Reset, bg: Reset, underline: Reset, modifier: NONE,
+            x: 0, y: 15, fg: White, bg: Reset, underline: Reset, modifier: NONE,
+        ]
+    },
+    area: Rect {
+        x: 0,
+        y: 0,
+        width: 80,
+        height: 20,
+    },
+    count: 0,
+}

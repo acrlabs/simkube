@@ -1,20 +1,14 @@
 use std::fmt;
 use std::str::from_utf8;
-use std::sync::{
-    Arc,
-    RwLock,
-};
 
 use anyhow::bail;
 use serde::{
     Serialize,
     Serializer,
 };
-use sk_store::TracerConfig;
-
-use super::annotated_trace::{
-    AnnotatedTraceEvent,
-    AnnotatedTracePatch,
+use sk_store::{
+    TraceEvent,
+    TracerConfig,
 };
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
@@ -67,19 +61,8 @@ impl Serialize for ValidatorCode {
     }
 }
 
-// The CheckResult from a single validator for a specific event is a vector of (object index, patch
-// list) tuples; the object index follows the "applied objects, then deleted objects" convention,
-// and the patch list is the list of potential fixes for this specific issue.
-//
-// This makes it easier for a particular validator to find _multiple_ issues with a single object;
-// for example, a pod could have multiple missing config-map volumes.  In this setting, validator
-// can just stick multiple tuples referencing the same index in the list.  They'll get all
-// aggregated together in the next layer up.
-pub type CheckResult = anyhow::Result<Vec<(usize, Vec<AnnotatedTracePatch>)>>;
-
 pub trait Diagnostic {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult;
-    fn reset(&mut self);
+    fn check_next_event(&mut self, event: &TraceEvent, config: &TracerConfig) -> anyhow::Result<Vec<usize>>;
 }
 
 #[derive(Serialize)]
@@ -91,17 +74,15 @@ pub struct Validator {
     #[serde(serialize_with = "flatten_str")]
     pub help: &'static str,
 
+    pub skel_suggestion: &'static str,
+
     #[serde(skip)]
-    pub diagnostic: Arc<RwLock<dyn Diagnostic + Send + Sync>>,
+    pub diagnostic: Box<dyn Diagnostic + Send + Sync>,
 }
 
 impl Validator {
-    pub fn check_next_event(&self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult {
-        self.diagnostic.write().unwrap().check_next_event(event, config)
-    }
-
-    pub fn reset(&self) {
-        self.diagnostic.write().unwrap().reset()
+    pub fn check_next_event(&mut self, event: &TraceEvent, config: &TracerConfig) -> anyhow::Result<Vec<usize>> {
+        self.diagnostic.check_next_event(event, config)
     }
 
     pub fn help(&self) -> String {

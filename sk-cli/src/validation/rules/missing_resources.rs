@@ -1,9 +1,5 @@
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::sync::{
-    Arc,
-    RwLock,
-};
 
 use const_format::formatcp;
 use corev1::{
@@ -13,24 +9,17 @@ use corev1::{
 };
 use json_patch_ext::prelude::*;
 use k8s_openapi::Resource;
-use serde_json::json;
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
 use sk_store::{
-    TraceAction,
+    TraceEvent,
     TracerConfig,
 };
 
 use crate::validation::validator::{
-    CheckResult,
     Diagnostic,
     Validator,
     ValidatorType,
-};
-use crate::validation::{
-    AnnotatedTraceEvent,
-    AnnotatedTracePatch,
-    PatchLocations,
 };
 
 // Defined as a macro so we can re-use it in format! macros
@@ -46,17 +35,9 @@ if the {resource} does not exist."#,
     };
 }
 
-#[derive(Clone, Copy)]
-pub(super) enum MissingResourceType {
-    EnvVar,
-    TopLevel,
-    Volume,
-}
-
 pub struct MissingResource<T: Resource> {
     pub(super) seen_resources: HashSet<String>,
     ptrs: Vec<&'static str>,
-    type_: MissingResourceType,
 
     _resource_type: PhantomData<T>,
 }
@@ -64,25 +45,24 @@ pub struct MissingResource<T: Resource> {
 impl<T: Resource> MissingResource<T> {
     // The list of pointer strings are relative to the PodSpec (they will have podSpecTemplatePath
     // prepended to them); they should start with a leading '/'
-    pub(super) fn new(ptrs: Vec<&'static str>, type_: MissingResourceType) -> MissingResource<T> {
+    pub(super) fn new(ptrs: Vec<&'static str>) -> MissingResource<T> {
         MissingResource {
             seen_resources: HashSet::new(),
             ptrs,
-            type_,
 
             _resource_type: PhantomData,
         }
     }
 
-    fn record_resources(&mut self, event: &mut AnnotatedTraceEvent) {
-        for obj in &event.data.applied_objs {
+    fn record_resources(&mut self, event: &TraceEvent) {
+        for obj in &event.applied_objs {
             if let Some(ref type_meta) = obj.types
                 && type_meta.kind == T::KIND
             {
                 self.seen_resources.insert(obj.namespaced_name());
             }
         }
-        for obj in &event.data.deleted_objs {
+        for obj in &event.deleted_objs {
             if let Some(ref type_meta) = obj.types
                 && type_meta.kind == T::KIND
             {
@@ -93,15 +73,15 @@ impl<T: Resource> MissingResource<T> {
 }
 
 impl<T: Resource> Diagnostic for MissingResource<T> {
-    fn check_next_event(&mut self, event: &mut AnnotatedTraceEvent, config: &TracerConfig) -> CheckResult {
+    fn check_next_event(&mut self, event: &TraceEvent, config: &TracerConfig) -> anyhow::Result<Vec<usize>> {
         // First we check all the objects in this event and record any resources we see (and remove
         // any resources that got deleted); this way if the resource and the pod referencing it are
         // created at the same time we don't fail (maybe we should, though?  not sure, anyways it's
         // fine for now).
         self.record_resources(event);
 
-        let mut patches = vec![];
-        for (i, obj) in event.data.applied_objs.iter().enumerate() {
+        let mut indices = Vec::new();
+        for (i, obj) in event.applied_objs.iter().enumerate() {
             let gvk = GVK::from_dynamic_obj(obj)?;
             if let Some(pod_spec_template_paths) = config.pod_spec_template_paths(&gvk) {
                 for pod_spec_template_path in pod_spec_template_paths {
@@ -112,169 +92,110 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
                         .collect();
                     let matched_values = ptrs.iter().flat_map(|ptr| matches(ptr, &obj.data));
 
-                    // If this obj references a resource that doesn't exist at this point in
-                    // time, there are two possible fixes:
-                    //
-                    // 1) remove the reference to the resource from the pod template spec (recommended, because the pod
-                    //    won't exist and can't actually _do_ anything anyways), or
-                    // 2) add the resource object in at the beginning of the simulation
-                    for (path, res) in matched_values {
+                    for (_, res) in matched_values {
                         // if we're demanding a resource for a pod, we assume the resource is
                         // namespaced (may be an invalid assumption in the future)
                         let resource_ns = &obj.namespace().unwrap();
                         let resource_name = res.as_str().unwrap();
 
                         if !self.seen_resources.contains(&format!("{resource_ns}/{resource_name}")) {
-                            let (remove_patch, add_patch) = make_remove_add_patches(
-                                obj.types.clone().unwrap(),
-                                obj.namespaced_name(),
-                                T::type_meta(),
-                                self.type_,
-                                resource_ns,
-                                resource_name,
-                                path,
-                            );
-                            patches.push((i, vec![remove_patch, add_patch]));
+                            indices.push(i);
                         }
                     }
                 }
             }
         }
 
-        Ok(patches)
-    }
-
-    fn reset(&mut self) {
-        self.seen_resources.clear();
+        Ok(indices)
     }
 }
 
-// Make the two possible patches described above for the missing resource: either delete the
-// reference to it, or add the resource at the beginning of the trace
-fn make_remove_add_patches(
-    reference_object_type_meta: TypeMeta,
-    reference_object_ns_name: String,
-    missing_type_meta: TypeMeta,
-    missing_type: MissingResourceType,
-    missing_resource_ns: &str,
-    missing_resource_name: &str,
-    path: PointerBuf,
-) -> (AnnotatedTracePatch, AnnotatedTracePatch) {
-    let remove_ops = match missing_type {
-        MissingResourceType::EnvVar => {
-            let env_index_path = get_env_index_path(&path);
-            vec![remove_operation(env_index_path)]
-        },
-        MissingResourceType::TopLevel => vec![remove_operation(path)],
-        MissingResourceType::Volume => {
-            // Rather than trying to remove the volume reference from all of the
-            // potential containers it might be present in, we just replace it
-            // with an empty dir volume.  These unwraps should be safe based on the
-            // paths we pass in from the validator (they're not user-generated in other words)
-            let (remove_path, _) = path.split_back().unwrap();
-            let (volume_root, _) = remove_path.split_back().unwrap();
-            let empty_dir_path = volume_root.with_trailing_token("emptyDir");
-            vec![remove_operation(remove_path.to_buf()), add_operation(empty_dir_path, json!({}))]
-        },
-    };
-    (
-        AnnotatedTracePatch {
-            locations: PatchLocations::ObjectReference(reference_object_type_meta.clone(), reference_object_ns_name),
-            ops: remove_ops,
-        },
-        AnnotatedTracePatch {
-            locations: PatchLocations::InsertAt(
-                0,
-                TraceAction::ObjectApplied,
-                missing_type_meta,
-                Box::new(metav1::ObjectMeta {
-                    namespace: Some(missing_resource_ns.into()),
-                    name: Some(missing_resource_name.into()),
-                    ..Default::default()
-                }),
-            ),
-            ops: vec![],
-        },
-    )
-}
-
-fn get_env_index_path(path: &Pointer) -> PointerBuf {
-    let (mut seen_parent, mut seen_index) = (false, false);
-    PointerBuf::from_tokens(path.tokens().take_while(|t| {
-        if seen_index {
-            return false;
-        } else if seen_parent {
-            seen_index = true;
-        } else if *t == Token::new("env") || *t == Token::new("envFrom") {
-            seen_parent = true;
-        }
-        true
-    }))
-}
-
+// TODO (SK-204) replace the SKEL strings with the magic pts variable
+const SERVICE_ACCOUNT_SKEL: &str = r#"
+# these paths are only correct for Deployments, adjust as needed for other resources
+remove(spec.template.spec.serviceAccount);
+remove(spec.template.spec.serviceAccountName);
+"#;
 pub fn service_account_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "service_account_missing",
         help: resource_help!(ServiceAccount::KIND, "resource"),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<ServiceAccount>::new(
-            vec![
-                // serviceAccount is deprecated but still supported (for now)
-                "/spec/serviceAccount",
-                "/spec/serviceAccountName",
-            ],
-            MissingResourceType::TopLevel,
-        ))),
+        skel_suggestion: SERVICE_ACCOUNT_SKEL,
+        diagnostic: Box::new(MissingResource::<ServiceAccount>::new(vec![
+            // serviceAccount is deprecated but still supported (for now)
+            "/spec/serviceAccount",
+            "/spec/serviceAccountName",
+        ])),
     }
 }
 
+const SECRET_ENVVAR_SKEL: &str = r#"
+# these paths are only correct for Deployments, adjust as needed for other resources
+remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.secretKeyRef), $x);
+remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.secretRef), $x);
+"#;
 pub fn secret_envvar_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "envvar_secret_missing",
         help: resource_help!(Secret::KIND, "environment variable"),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
-            vec!["/spec/containers/*/env/*/valueFrom/secretKeyRef/key", "/spec/containers/*/envFrom/*/secretRef/name"],
-            MissingResourceType::EnvVar,
-        ))),
+        skel_suggestion: SECRET_ENVVAR_SKEL,
+        diagnostic: Box::new(MissingResource::<Secret>::new(vec![
+            "/spec/containers/*/env/*/valueFrom/secretKeyRef/key",
+            "/spec/containers/*/envFrom/*/secretRef/name",
+        ])),
     }
 }
 
+const CONFIGMAP_ENVVAR_SKEL: &str = r#"
+# these paths are only correct for Deployments, adjust as needed for other resources
+remove($x := spec.template.spec.containers[*].env[*] | exists($x.valueFrom.configMapKeyRef), $x);
+remove($x := spec.template.spec.containers[*].envFrom[*] | exists($x.configMapRef), $x);
+"#;
 pub fn configmap_envvar_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "envvar_configmap_missing",
         help: resource_help!(ConfigMap::KIND, "environment variable"),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<ConfigMap>::new(
-            vec![
-                "/spec/containers/*/env/*/valueFrom/configMapKeyRef/key",
-                "/spec/containers/*/envFrom/*/configMapRef/name",
-            ],
-            MissingResourceType::EnvVar,
-        ))),
+        skel_suggestion: CONFIGMAP_ENVVAR_SKEL,
+        diagnostic: Box::new(MissingResource::<ConfigMap>::new(vec![
+            "/spec/containers/*/env/*/valueFrom/configMapKeyRef/key",
+            "/spec/containers/*/envFrom/*/configMapRef/name",
+        ])),
     }
 }
 
+const SECRET_VOLUME_SKEL: &str = r#"
+# these paths are only correct for Deployments, adjust as needed for other resources
+remove($x := spec.template.spec.volumes[*] | exists($x.secret)
+    && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name,
+    $y);
+remove($x := spec.template.spec.volumes[*] | exists($x.secret), $x);
+"#;
 pub fn secret_volume_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "volume_secret_missing",
         help: resource_help!(Secret::KIND, "volume"),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<Secret>::new(
-            vec!["/spec/volumes/*/secret/secretName"],
-            MissingResourceType::Volume,
-        ))),
+        skel_suggestion: SECRET_VOLUME_SKEL,
+        diagnostic: Box::new(MissingResource::<Secret>::new(vec!["/spec/volumes/*/secret/secretName"])),
     }
 }
 
+const CONFIGMAP_VOLUME_SKEL: &str = r#"
+# these paths are only correct for Deployments, adjust as needed for other resources
+remove($x := spec.template.spec.volumes[*] | exists($x.configMap)
+    && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == $x.name,
+    $y);
+remove($x := spec.template.spec.volumes[*] | exists($x.configMap), $x);
+"#;
 pub fn configmap_volume_validator() -> Validator {
     Validator {
         type_: ValidatorType::Error,
         name: "volume_configmap_missing",
         help: resource_help!(ConfigMap::KIND, "volume"),
-        diagnostic: Arc::new(RwLock::new(MissingResource::<ConfigMap>::new(
-            vec!["/spec/volumes/*/configMap/name"],
-            MissingResourceType::Volume,
-        ))),
+        skel_suggestion: CONFIGMAP_VOLUME_SKEL,
+        diagnostic: Box::new(MissingResource::<ConfigMap>::new(vec!["/spec/volumes/*/configMap/name"])),
     }
 }

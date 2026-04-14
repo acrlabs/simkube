@@ -1,36 +1,33 @@
-mod annotated_trace;
 mod rules;
-mod summary;
 mod validation_store;
 mod validator;
 
-use bytes::Bytes;
+use std::collections::BTreeMap;
+use std::io::Write;
+
 use clap::{
     Subcommand,
     ValueEnum,
     value_parser,
 };
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
 use sk_core::prelude::*;
+use sk_store::ExportedTrace;
 
-pub use self::annotated_trace::{
-    AnnotatedTrace,
-    AnnotatedTraceEvent,
-    AnnotatedTracePatch,
-    PatchLocations,
+pub use self::validation_store::{
+    Annotations,
+    VALIDATORS,
+    ValidationStore,
 };
-pub use self::validation_store::VALIDATORS;
 pub use self::validator::{
     ValidatorCode,
     ValidatorType,
 };
 
-#[derive(Subcommand)]
+const WIDTH: usize = 70;
+
+#[derive(Clone, Subcommand)]
 pub enum ValidateSubcommand {
-    #[command(about = "check a trace file")]
+    #[command(about = "explain a rule")]
     Check(CheckArgs),
 
     #[command(about = "explain a rule")]
@@ -40,24 +37,16 @@ pub enum ValidateSubcommand {
     Print(PrintArgs),
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Clone)]
 pub struct CheckArgs {
     #[arg(long_help = "location of the input trace file")]
     pub trace_path: String,
 
-    #[arg(long, long_help = "fix all discovered issues")]
-    pub fix: bool,
-
-    #[arg(
-        short,
-        long,
-        long_help = "output path for modified trace (REQUIRED if --fix is set)",
-        required_if_eq("fix", "true")
-    )]
-    pub output: Option<String>,
+    #[arg(long, long_help = "print sample SKEL code to fix the trace", default_value = "false")]
+    generate_skel: bool,
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Clone)]
 pub struct ExplainArgs {
     #[arg(long_help = "Error code to explain", value_parser = ValidatorCode::parse)]
     pub code: ValidatorCode,
@@ -71,7 +60,7 @@ pub enum PrintFormat {
     Yaml,
 }
 
-#[derive(clap::Args)]
+#[derive(clap::Args, Clone)]
 pub struct PrintArgs {
     #[arg(
         short,
@@ -86,23 +75,58 @@ pub struct PrintArgs {
 pub async fn cmd(subcommand: &ValidateSubcommand) -> EmptyResult {
     match subcommand {
         ValidateSubcommand::Check(args) => {
-            let mut trace = AnnotatedTrace::new(&args.trace_path).await?;
-            let summary = VALIDATORS.validate_trace(&mut trace, args.fix)?;
-            if let Some(output_path) = &args.output {
-                let trace_data = trace.export()?;
-                let object_store = SkObjectStore::new(output_path)?;
-                object_store.put(Bytes::from(trace_data)).await?;
-            }
-            println!("{summary}");
+            let trace = ExportedTrace::from_path(&args.trace_path).await?;
+            let mut validators = VALIDATORS.lock().unwrap();
+            let failed_checks = validators.validate_trace(&trace)?;
+            write_summary(&mut std::io::stdout(), &args.trace_path, &validators, failed_checks, args.generate_skel)?;
         },
-        ValidateSubcommand::Explain(args) => VALIDATORS.explain(&args.code)?,
-        ValidateSubcommand::Print(args) => VALIDATORS.print(&args.format)?,
+        ValidateSubcommand::Explain(args) => VALIDATORS.lock().unwrap().explain(&args.code)?,
+        ValidateSubcommand::Print(args) => VALIDATORS.lock().unwrap().print(&args.format)?,
     }
     Ok(())
 }
 
-#[cfg(test)]
-pub use self::validation_store::ValidationStore;
+pub(super) fn write_summary(
+    f: &mut impl Write,
+    trace_path: &str,
+    validators: &ValidationStore,
+    failed_checks: BTreeMap<usize, Annotations>,
+    generate_skel: bool,
+) -> EmptyResult {
+    let mut summary: BTreeMap<ValidatorCode, usize> = BTreeMap::new();
+    for (_, annotations) in failed_checks {
+        for (code, obj_indices) in annotations {
+            *summary.entry(code).or_default() += obj_indices.len()
+        }
+    }
+
+    let mut skel = String::new();
+
+    writeln!(f, "Validation errors found:")?;
+    writeln!(f, "{}", "-".repeat(WIDTH))?;
+    for (code, count) in summary.iter() {
+        if *count == 0 {
+            continue;
+        }
+        let v = validators.lookup(code);
+        let (name, skel_suggestion) = v.map(|v| (v.name, v.skel_suggestion)).unwrap_or(("<unknown>", ""));
+        let left = format!("{name} ({code})");
+        let right = format!("{count}");
+        let mid_width = WIDTH.saturating_sub(left.len()).saturating_sub(right.len()).saturating_sub(2); // two chars for extra spaces
+        writeln!(f, "{left} {} {right}", ".".repeat(mid_width))?;
+
+        skel += skel_suggestion;
+    }
+
+    if generate_skel {
+        writeln!(f, "{}", "-".repeat(WIDTH))?;
+        writeln!(f, "# Auto-generated SKEL file to fix this trace;")?;
+        writeln!(f, "# Run `skctl transform {trace_path} <SKELFILE>` to apply it\n")?;
+        writeln!(f, "{skel}")?;
+    }
+
+    Ok(())
+}
 
 #[cfg(test)]
 pub mod tests;

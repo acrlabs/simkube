@@ -2,23 +2,22 @@ use insta::assert_debug_snapshot;
 use ratatui::backend::TestBackend;
 use ratatui::prelude::*;
 use ratatui::widgets::ListState;
+use sk_store::ExportedTrace;
 
 use super::*;
+use crate::validation::ValidationStore;
 use crate::validation::tests::{
-    annotated_trace,
     test_validation_store,
-};
-use crate::validation::{
-    AnnotatedTrace,
-    ValidationStore,
+    trace,
 };
 use crate::xray::view::jump_list_state;
 
 #[fixture]
-fn test_app(test_validation_store: ValidationStore, mut annotated_trace: AnnotatedTrace) -> App {
-    test_validation_store.validate_trace(&mut annotated_trace, false).unwrap();
+fn test_app(mut test_validation_store: ValidationStore, trace: ExportedTrace) -> App {
+    let event_annotations = test_validation_store.validate_trace(&trace).unwrap();
     App {
-        annotated_trace,
+        trace,
+        event_annotations,
         event_list_state: ListState::default().with_selected(Some(0)),
         ..Default::default()
     }
@@ -26,8 +25,8 @@ fn test_app(test_validation_store: ValidationStore, mut annotated_trace: Annotat
 
 #[fixture]
 fn test_app_large(test_validation_store: ValidationStore) -> App {
-    let annotated_trace = AnnotatedTrace::new_from_test_json("large_trace");
-    test_app(test_validation_store, annotated_trace)
+    let trace = sk_testutils::exported_trace_from_json("large_trace");
+    test_app(test_validation_store, trace)
 }
 
 #[rstest]
@@ -96,6 +95,16 @@ mod itest {
         set_snapshot_suffix!("{index}");
         test_app.mode = Mode::EventSelected;
         test_app.event_list_state.select(Some(index));
+        test_app.object_list_state.select(Some(0));
+        let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
+        let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();
+        assert_debug_snapshot!(cf);
+    }
+
+    #[rstest]
+    fn test_render_event_list_object_selected(mut test_app: App) {
+        test_app.mode = Mode::ObjectSelected;
+        test_app.event_list_state.select(Some(2));
         test_app.object_list_state.select(Some(0));
         let mut term = Terminal::new(TestBackend::new(80, 20)).unwrap();
         let cf = term.draw(|frame| view(&mut test_app, frame)).unwrap();

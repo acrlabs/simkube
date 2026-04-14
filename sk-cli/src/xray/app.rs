@@ -1,9 +1,9 @@
-use ratatui::widgets::ListState;
+use std::collections::BTreeMap;
 
-use crate::validation::{
-    AnnotatedTrace,
-    VALIDATORS,
-};
+use ratatui::widgets::ListState;
+use sk_store::ExportedTrace;
+
+use crate::validation::Annotations;
 
 #[derive(Copy, Clone, Debug, Default, Eq, PartialEq)]
 pub(super) enum Mode {
@@ -35,7 +35,9 @@ pub(super) struct App {
     pub(super) running: bool,
     pub(super) mode: Mode,
 
-    pub(super) annotated_trace: AnnotatedTrace,
+    pub(super) path: String,
+    pub(super) trace: ExportedTrace,
+    pub(super) event_annotations: BTreeMap<usize, Annotations>,
 
     pub(super) event_list_state: ListState,
     pub(super) object_list_state: ListState,
@@ -45,23 +47,19 @@ pub(super) struct App {
 }
 
 impl App {
-    pub(super) async fn new(trace_path: &str) -> anyhow::Result<App> {
-        Ok(App {
+    pub(super) fn new(trace_path: &str, trace: ExportedTrace, event_annotations: BTreeMap<usize, Annotations>) -> App {
+        App {
             running: true,
-            annotated_trace: AnnotatedTrace::new(trace_path).await?,
+            path: trace_path.into(),
+            trace,
+            event_annotations,
             event_list_state: ListState::default().with_selected(Some(0)),
 
             ..Default::default()
-        })
+        }
     }
 
-    pub(super) fn rebuild_annotated_trace(&mut self) {
-        VALIDATORS
-            .validate_trace(&mut self.annotated_trace, false)
-            .expect("validation failed");
-    }
-
-    pub(super) fn update_state(&mut self, msg: Message) -> bool {
+    pub(super) fn update_state(&mut self, msg: Message) {
         self.jump = None;
         let focused_list_state = match self.mode {
             Mode::ObjectSelected => &mut self.object_contents_list_state,
@@ -85,7 +83,7 @@ impl App {
             Message::Select => match self.mode {
                 Mode::EventSelected => {
                     let i = self.highlighted_event_index();
-                    if !self.annotated_trace.is_empty_at(i) {
+                    if !self.trace.is_empty_at(i) {
                         self.mode = Mode::ObjectSelected;
                         self.object_contents_list_state.select(Some(0));
                         *self.object_contents_list_state.offset_mut() = 0;
@@ -103,8 +101,6 @@ impl App {
 
             Message::Unknown => (),
         }
-
-        false
     }
 
     pub(super) fn highlighted_event_index(&self) -> usize {

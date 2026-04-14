@@ -36,7 +36,7 @@ pub(super) fn view(app: &mut App, frame: &mut Frame) {
         .split(frame.area());
     let (top, bottom) = (layout[0], layout[1]);
 
-    let events_border = Block::bordered().title(app.annotated_trace.path());
+    let events_border = Block::bordered().title(app.path.clone());
     let object_border = Block::bordered();
     let (events_inner, object_inner);
 
@@ -90,30 +90,33 @@ fn render_event_list(app: &mut App, frame: &mut Frame, layout: Rect) {
     // our layout into three sublayouts; the first includes all the events up to the selected one,
     // then we nest in one level and display the applied and deleted objects, then we unnest and
     // display the rest of the events
-    let num_events = app.annotated_trace.len();
-    let start_ts = app.annotated_trace.start_ts().unwrap_or(0);
+    let num_events = app.trace.len();
+    let start_ts = app.trace.start_ts().unwrap_or(0);
 
     // Add one so the selected event is included on top
     let hi_index = app.highlighted_event_index();
     let (sel_index_inclusive, sel_event) = match app.mode {
-        Mode::EventSelected | Mode::ObjectSelected => (hi_index + 1, app.annotated_trace.get_event(hi_index)),
+        Mode::EventSelected | Mode::ObjectSelected => (hi_index + 1, app.trace.get_event(hi_index)),
         _ => (num_events, None),
     };
 
-    let event_spans = app.annotated_trace.iter().map(|event| make_event_spans(event, start_ts));
+    let event_spans = app
+        .trace
+        .iter()
+        .enumerate()
+        .map(|(i, (event, _))| make_event_spans(event, &app.event_annotations[&i], start_ts));
     let mut top_entries = format_list_entries(event_spans, layout.width as usize);
     let bottom_entries = top_entries.split_off(sel_index_inclusive);
 
     // chain together the applied and deleted objects with either a "+" or "-" prefix, respectively
     let obj_spans = sel_event.map_or(vec![], |evt| {
         let mut sublist_items = evt
-            .data
             .applied_objs
             .iter()
             .zip(repeat('+'))
-            .chain(evt.data.deleted_objs.iter().zip(repeat('-')))
+            .chain(evt.deleted_objs.iter().zip(repeat('-')))
             .enumerate()
-            .map(|(i, (obj, op))| make_object_spans(i, obj, op, evt))
+            .map(|(i, (obj, op))| make_object_spans(i, obj, op, &app.event_annotations[&hi_index]))
             .peekable();
         if sublist_items.peek().is_none() {
             // if there are no objects associated with this event, we display an empty span
@@ -182,7 +185,7 @@ fn render_object(app: &mut App, frame: &mut Frame, layout: Rect) {
     let event_idx = app.event_list_state.selected().unwrap();
     let obj_idx = app.object_list_state.selected().unwrap();
 
-    let Some(obj) = app.annotated_trace.get_object(event_idx, obj_idx) else {
+    let Some(obj) = app.trace.get_object(event_idx, obj_idx) else {
         return;
     };
     let obj_str = serde_json::to_string_pretty(obj).unwrap();
