@@ -3,6 +3,17 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.5.0 - 2026-04-15
+
+### 🚀 Features
+
+- SKEL scripting language support: `remove` and `modify` commands for transforming trace files
+- Internal metrics store, progress bars, and emojis for the CLI
+
+### 🪦 Deprecations
+
+- `skctl validate --fix` is no longer supported for modifying trace files; use SKEL instead;
+  `skctl validate --generate-skel` will emit a SKEL script to fix validation errors
 
 ## 2.4.4 - 2026-01-29
 

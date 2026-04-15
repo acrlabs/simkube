@@ -55,7 +55,8 @@ commit_preprocessors = [
 commit_parsers = [
   { message = "^feat", group = "<!-- 0 -->🚀 Features" },
   { message = "^fix", group = "<!-- 1 -->🐛 Bug Fixes" },
-  { message = "^k8s", group = "<!-- 4 -->☸️ Kubernetes" }
+  { message = "^k8s", group = "<!-- 4 -->☸️ Kubernetes" },
+  { message = "^deprecation", group = "<!-- 2 -->🪦 Deprecations" },
 ]
 # filter out the commits that are not matched by commit parsers
 filter_commits = true
