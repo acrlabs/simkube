@@ -33,7 +33,7 @@ pub struct Args {
 
 pub async fn cmd(args: &Args) -> EmptyResult {
     println!("Reading config from {}...", args.config_file);
-    let config = TracerConfig::load(&args.config_file)?;
+    let config = TracerConfig::load(&args.config_file)?.normalize()?;
 
     println!("Taking snapshot from Kubernetes cluster...");
     let client = kube::Client::try_default().await.expect("failed to create kube client");

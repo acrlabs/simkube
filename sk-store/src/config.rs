@@ -137,7 +137,7 @@ fn normalize_paths_for_gvk(
 fn default_path(gvk: &GVK) -> Option<&'static str> {
     match (gvk.group.as_str(), gvk.version.as_str(), gvk.kind.as_str()) {
         // List of supported GVKs where PodTemplatePaths are not required to be user provided
-        ("batch", "v1", "CronJob") => Some("/spec/JobTemplate/spec/template"),
+        ("batch", "v1", "CronJob") => Some("/spec/jobTemplate/spec/template"),
         ("apps", "v1", "DaemonSet") => Some("/spec/template"),
         ("apps", "v1", "Deployment") => Some("/spec/template"),
         ("batch", "v1", "Job") => Some("/spec/template"),
@@ -197,7 +197,7 @@ trackedObjects:
     }
 
     #[rstest]
-    #[case::cronjob(vec!["batch","v1","CronJob"], Some("/spec/JobTemplate/spec/template"))]
+    #[case::cronjob(vec!["batch","v1","CronJob"], Some("/spec/jobTemplate/spec/template"))]
     #[case::daemonset(vec!["apps","v1","DaemonSet"], Some("/spec/template"))]
     #[case::deployment(vec!["apps","v1","Deployment"], Some("/spec/template"))]
     #[case::job(vec!["batch","v1","Job"], Some("/spec/template"))]
@@ -231,7 +231,7 @@ trackedObjects:
     }
 
     #[rstest]
-    #[case::known_gvk_with_valid_path(("batch","v1","CronJob"), Some(vec!["/spec/JobTemplate/spec/template"]), Expected::Ok(vec!["/spec/JobTemplate/spec/template"]))]
+    #[case::known_gvk_with_valid_path(("batch","v1","CronJob"), Some(vec!["/spec/JobTemplate/spec/template"]), Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
     #[case::known_gvk_with_invalid_path(("batch","v1","CronJob"), Some(vec!["/invalid/path"]), Expected::InvalidPath)]
     #[case::known_gvk_with_no_path(("apps","v1","DaemonSet"), Some(vec![]), Expected::Ok(vec!["/spec/template"]))]
     #[case::unknown_gvk_with_path(("fake","v1","Resource"), Some(vec!["/foo/bar"]), Expected::Ok(vec!["/foo/bar"]))]
@@ -244,7 +244,7 @@ trackedObjects:
     ) {
         let gvk = GVK::new(input_gvk.0, input_gvk.1, input_gvk.2);
         let config = config_with(&gvk, input_paths);
-        let result = config.validate();
+        let result = config.normalize();
 
         match expected {
             Expected::InvalidPath => {
