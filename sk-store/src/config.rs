@@ -231,13 +231,13 @@ trackedObjects:
     }
 
     #[rstest]
-    #[case::known_gvk_with_valid_path(("batch","v1","CronJob"), Some(vec!["/spec/JobTemplate/spec/template"]), Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
+    #[case::known_gvk_with_valid_path(("batch","v1","CronJob"), Some(vec!["/spec/jobTemplate/spec/template"]), Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
     #[case::known_gvk_with_invalid_path(("batch","v1","CronJob"), Some(vec!["/invalid/path"]), Expected::InvalidPath)]
     #[case::known_gvk_with_no_path(("apps","v1","DaemonSet"), Some(vec![]), Expected::Ok(vec!["/spec/template"]))]
     #[case::unknown_gvk_with_path(("fake","v1","Resource"), Some(vec!["/foo/bar"]), Expected::Ok(vec!["/foo/bar"]))]
     #[case::unknown_gvk_with_no_path(("fake","v1","Resource"), Some(vec![]), Expected::MissingPath)]
 
-    fn test_validate(
+    fn test_normalize(
         #[case] input_gvk: (&str, &str, &str),
         #[case] input_paths: Option<Vec<&str>>,
         #[case] expected: Expected,
