@@ -38,15 +38,9 @@ data:
   tracer-config.yml: |
     ---
     trackedObjects:
-      apps/v1.Deployment:
-        podSpecTemplatePaths:
-          - /spec/template
-      apps/v1.StatefulSet:
-        podSpecTemplatePaths:
-          - /spec/template
+      apps/v1.Deployment: {}
+      apps/v1.StatefulSet: {}
       batch/v1.CronJob:
-        podSpecTemplatePaths:
-          - /spec/jobTemplate/spec/template
         trackLifecycle: true
 ---
 apiVersion: apps/v1
@@ -78,7 +72,7 @@ spec:
               value: "1"
             - name: POD_OWNER
               value: sk-tracer-depl
-          image: quay.io/appliedcomputing/sk-tracer:v2.5.0
+          image: quay.io/appliedcomputing/sk-tracer:v
           name: sk-tracer
           ports:
             - containerPort: 7777
