@@ -71,7 +71,7 @@ impl TracerConfig {
     pub fn normalize(mut self) -> Result<Self, ConfigError> {
         let mut normalized_objects = HashMap::new();
         for (gvk, mut obj) in self.tracked_objects {
-            let default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).copied();
+            let default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).cloned();
             let normalized_paths = normalize_paths_for_gvk(&gvk, default, obj.pod_spec_template_paths)?;
             obj.pod_spec_template_paths = normalized_paths;
             normalized_objects.insert(gvk, obj);
@@ -95,37 +95,27 @@ impl TracerConfig {
 
 fn normalize_paths_for_gvk(
     gvk: &GVK,
-    default: Option<&str>,
+    default: Option<Vec<&str>>,
     paths: Option<Vec<String>>,
 ) -> Result<Option<Vec<String>>, ConfigError> {
-    match (default, paths) {
-        // Known GVK, no user provided path, use default path
-        (Some(default_path), None) => Ok(Some(vec![default_path.to_string()])),
-        // Known GVK, empty vec, use default path
-        (Some(default_path), Some(p)) if p.is_empty() => Ok(Some(vec![default_path.to_string()])),
-        // Known GVK, user provided paths, must match default
-        (Some(default_path), Some(p)) => {
-            let mut normalized = Vec::new();
-
-            for path in p {
-                if path != default_path {
-                    return Err(ConfigError::InvalidPath {
-                        gvk: gvk.clone(),
-                        path: path.clone(),
-                        expected: default_path.to_string(),
-                    });
-                }
-                normalized.push(default_path.to_string());
+    if let Some(paths) = paths
+        && !paths.is_empty()
+    {
+        if let Some(default) = default {
+            // Invalid podSpecTemplatePaths for supported GVK_POD_SPEC_TEMPLATE_PATHS
+            if paths != *default {
+                return Err(ConfigError::InvalidPath(gvk.clone()));
             }
-            Ok(Some(normalized))
-        },
-        // Unknown GVK, no user provided paths, return error
-        (None, None) => Err(ConfigError::MissingPath { gvk: gvk.clone() }),
-        // handle empty vec
-        (None, Some(p)) if p.is_empty() => Err(ConfigError::MissingPath { gvk: gvk.clone() }),
-        // Unknown GVK, user provided paths, accept as is
-        (None, Some(p)) => Ok(Some(p)),
+        }
+        // Use user provided podSpecTemplatePaths
+        return Ok(Some(paths));
     }
+    if let Some(default) = default {
+        // Fall back to default podSpecTemplatePaths
+        return Ok(Some(default.iter().map(|s| s.to_string()).collect()));
+    }
+    // No available podSpecTemplatePaths
+    Err(ConfigError::MissingPath(gvk.clone()))
 }
 
 #[cfg(test)]
@@ -222,10 +212,10 @@ trackedObjects:
 
         match expected {
             Expected::InvalidPath => {
-                assert_matches!(result, Err(ConfigError::InvalidPath { .. }), "expected InvalidPath, got {:?}", result)
+                assert_matches!(result, Err(ConfigError::InvalidPath(..)))
             },
             Expected::MissingPath => {
-                assert_matches!(result, Err(ConfigError::MissingPath { .. }), "expected MissingPath, got {:?}", result)
+                assert_matches!(result, Err(ConfigError::MissingPath(..)))
             },
             Expected::Ok(expected_paths) => {
                 let validated = result.expect("expected success");

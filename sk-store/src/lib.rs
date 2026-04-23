@@ -13,7 +13,6 @@ pub use crate::config::{
     TracerConfig,
     TrackedObjectConfig,
 };
-pub use crate::errors::ConfigError;
 pub use crate::event::{
     TraceAction,
     TraceEvent,

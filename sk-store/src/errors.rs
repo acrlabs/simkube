@@ -4,8 +4,8 @@ use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum ConfigError {
-    #[error("Invalid path for {gvk}: {path}, expected: {expected}")]
-    InvalidPath { gvk: GVK, path: String, expected: String },
-    #[error("Missing pod spec path for {gvk}")]
-    MissingPath { gvk: GVK },
+    #[error("Invalid path for {0}")]
+    InvalidPath(GVK),
+    #[error("Missing pod spec path for {0}")]
+    MissingPath(GVK),
 }

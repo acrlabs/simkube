@@ -61,13 +61,13 @@ pub static REPLICASET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::ReplicaSet::gvk
 pub static STATEFULSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::StatefulSet::gvk);
 
 // Supported default podSpecTemplatePaths
-pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, &str>> = LazyLock::new(|| {
+pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, Vec<&'static str>>> = LazyLock::new(|| {
     HashMap::from([
-        (CRONJOB_GVK.clone(), "/spec/jobTemplate/spec/template"),
-        (DAEMONSET_GVK.clone(), "/spec/template"),
-        (DEPLOYMENT_GVK.clone(), "/spec/template"),
-        (JOB_GVK.clone(), "/spec/template"),
-        (REPLICASET_GVK.clone(), "/spec"),
-        (STATEFULSET_GVK.clone(), "/spec/template"),
+        (CRONJOB_GVK.clone(), vec!["/spec/jobTemplate/spec/template"]),
+        (DAEMONSET_GVK.clone(), vec!["/spec/template"]),
+        (DEPLOYMENT_GVK.clone(), vec!["/spec/template"]),
+        (JOB_GVK.clone(), vec!["/spec/template"]),
+        (REPLICASET_GVK.clone(), vec!["/spec"]),
+        (STATEFULSET_GVK.clone(), vec!["/spec/template"]),
     ])
 });

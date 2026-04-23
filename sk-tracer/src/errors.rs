@@ -4,10 +4,7 @@ use std::sync::{
 };
 
 use rocket::Responder;
-use sk_store::{
-    ConfigError,
-    TraceStore,
-};
+use sk_store::TraceStore;
 
 #[derive(Responder)]
 pub enum ExportResponseError {
@@ -47,11 +44,5 @@ impl From<object_store::Error> for ExportResponseError {
             },
             _ => Self::StorageError(format!("Could not write to object store: {e}")),
         }
-    }
-}
-
-impl From<ConfigError> for ExportResponseError {
-    fn from(e: ConfigError) -> Self {
-        Self::TracerError(format!("Invalid tracer configuration: {e}"))
     }
 }
