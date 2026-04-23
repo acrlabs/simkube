@@ -222,10 +222,10 @@ mod itest {
         if running_and_has_node_selector {
             let pod_spec_hash = 18161541283955474812;
             trace.pod_lifecycles.insert(
-                (DEPL_GVK.clone(), owner_ns_name.clone()),
+                (DEPLOYMENT_GVK.clone(), owner_ns_name.clone()),
                 PodLifecyclesMap::from([(pod_spec_hash, vec![PodLifecycleData::Finished(0, 42)])]),
             );
-            trace.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), 1234);
+            trace.index.insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), 1234);
         }
 
         let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], trace);

@@ -24,7 +24,6 @@ json-patch-ext = { workspace = true }
 k8s-openapi = { workspace = true }
 kdam = { workspace = true }
 kube = { workspace = true }
-lazy_static = { workspace = true }
 metrics = { workspace = true }
 pest = { workspace = true }
 pest_derive = { workspace = true }

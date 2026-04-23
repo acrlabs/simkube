@@ -11,14 +11,14 @@ pub const TEST_DS_HASH: u64 = 16161139027557399432;
 
 #[fixture]
 pub fn test_deployment(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject {
-    DynamicObject::new(name, &ApiResource::from_gvk(&DEPL_GVK))
+    DynamicObject::new(name, &ApiResource::from_gvk(&DEPLOYMENT_GVK))
         .within(TEST_NAMESPACE)
         .data(json!({"spec": {"replicas": 42}}))
 }
 
 #[fixture]
 pub fn test_daemonset(#[default(TEST_DAEMONSET)] name: &str) -> DynamicObject {
-    DynamicObject::new(name, &ApiResource::from_gvk(&DS_GVK))
+    DynamicObject::new(name, &ApiResource::from_gvk(&DAEMONSET_GVK))
         .within(TEST_NAMESPACE)
         .data(json!({"spec": {"updateStrategy": {"type": "onDelete"}}}))
 }

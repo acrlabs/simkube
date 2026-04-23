@@ -1,6 +1,13 @@
-use lazy_static::lazy_static;
+use std::collections::HashMap;
+use std::sync::LazyLock;
 
-use crate::k8s::GVK;
+use k8s_openapi::api::apps::v1 as appsv1;
+use k8s_openapi::api::batch::v1 as batchv1;
+
+use crate::k8s::{
+    GVK,
+    OpenApiResourceExt,
+};
 
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
@@ -45,6 +52,22 @@ pub const ERROR_RETRY_DELAY_SECONDS: u64 = 30;
 pub const SVC_ACCOUNT_KIND: &str = "ServiceAccount";
 
 // Built-in GVKs
-lazy_static! {
-    pub static ref SVC_ACCOUNT_GVK: GVK = GVK::new("", "v1", SVC_ACCOUNT_KIND);
-}
+pub static SVC_ACCOUNT_GVK: LazyLock<GVK> = LazyLock::new(|| GVK::new("", "v1", SVC_ACCOUNT_KIND));
+pub static CRONJOB_GVK: LazyLock<GVK> = LazyLock::new(batchv1::CronJob::gvk);
+pub static DAEMONSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::DaemonSet::gvk);
+pub static DEPLOYMENT_GVK: LazyLock<GVK> = LazyLock::new(appsv1::Deployment::gvk);
+pub static JOB_GVK: LazyLock<GVK> = LazyLock::new(batchv1::Job::gvk);
+pub static REPLICASET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::ReplicaSet::gvk);
+pub static STATEFULSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::StatefulSet::gvk);
+
+// Supported default podSpecTemplatePaths
+pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, &str>> = LazyLock::new(|| {
+    HashMap::from([
+        (CRONJOB_GVK.clone(), "/spec/jobTemplate/spec/template"),
+        (DAEMONSET_GVK.clone(), "/spec/template"),
+        (DEPLOYMENT_GVK.clone(), "/spec/template"),
+        (JOB_GVK.clone(), "/spec/template"),
+        (REPLICASET_GVK.clone(), "/spec"),
+        (STATEFULSET_GVK.clone(), "/spec/template"),
+    ])
+});

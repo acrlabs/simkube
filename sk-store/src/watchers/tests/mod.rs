@@ -1,8 +1,9 @@
 mod pod_watcher_test;
 
+use std::sync::LazyLock;
+
 use assertables::*;
 use futures::stream;
-use lazy_static::lazy_static;
 use mockall::predicate;
 use sk_core::prelude::*;
 use sk_testutils::*;
@@ -11,13 +12,13 @@ use tokio::sync::mpsc;
 use super::*;
 use crate::watchers::MockEventHandler;
 
-lazy_static! {
-    static ref EXPECTED_INDEX: HashSet<String> = HashSet::from([
+static EXPECTED_INDEX: LazyLock<HashSet<String>> = LazyLock::new(|| {
+    HashSet::from([
         format!("{TEST_NAMESPACE}/depl0"),
         format!("{TEST_NAMESPACE}/depl1"),
         format!("{TEST_NAMESPACE}/depl2"),
-    ]);
-}
+    ])
+});
 
 #[rstest(tokio::test)]
 async fn test_handle_initialize_event() {

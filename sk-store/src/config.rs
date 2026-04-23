@@ -6,6 +6,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sk_core::constants::GVK_POD_SPEC_TEMPLATE_PATHS;
 use sk_core::k8s::GVK;
 use tracing::*;
 
@@ -68,7 +69,14 @@ pub struct TracerConfig {
 
 impl TracerConfig {
     pub fn normalize(mut self) -> Result<Self, ConfigError> {
-        self.tracked_objects = normalize_pod_spec_template_paths(self.tracked_objects)?;
+        let mut normalized_objects = HashMap::new();
+        for (gvk, mut obj) in self.tracked_objects {
+            let default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).copied();
+            let normalized_paths = normalize_paths_for_gvk(&gvk, default, obj.pod_spec_template_paths)?;
+            obj.pod_spec_template_paths = normalized_paths;
+            normalized_objects.insert(gvk, obj);
+        }
+        self.tracked_objects = normalized_objects;
         Ok(self)
     }
 
@@ -85,23 +93,9 @@ impl TracerConfig {
     }
 }
 
-fn normalize_pod_spec_template_paths(
-    objects: HashMap<GVK, TrackedObjectConfig>,
-) -> Result<HashMap<GVK, TrackedObjectConfig>, ConfigError> {
-    let mut normalized_objects = HashMap::new();
-    for (gvk, mut obj) in objects {
-        let default = default_path(&gvk);
-
-        let normalized_paths = normalize_paths_for_gvk(&gvk, default, obj.pod_spec_template_paths)?;
-        obj.pod_spec_template_paths = normalized_paths;
-        normalized_objects.insert(gvk, obj);
-    }
-    Ok(normalized_objects)
-}
-
 fn normalize_paths_for_gvk(
     gvk: &GVK,
-    default: Option<&'static str>,
+    default: Option<&str>,
     paths: Option<Vec<String>>,
 ) -> Result<Option<Vec<String>>, ConfigError> {
     match (default, paths) {
@@ -131,19 +125,6 @@ fn normalize_paths_for_gvk(
         (None, Some(p)) if p.is_empty() => Err(ConfigError::MissingPath { gvk: gvk.clone() }),
         // Unknown GVK, user provided paths, accept as is
         (None, Some(p)) => Ok(Some(p)),
-    }
-}
-
-fn default_path(gvk: &GVK) -> Option<&'static str> {
-    match (gvk.group.as_str(), gvk.version.as_str(), gvk.kind.as_str()) {
-        // List of supported GVKs where PodTemplatePaths are not required to be user provided
-        ("batch", "v1", "CronJob") => Some("/spec/jobTemplate/spec/template"),
-        ("apps", "v1", "DaemonSet") => Some("/spec/template"),
-        ("apps", "v1", "Deployment") => Some("/spec/template"),
-        ("batch", "v1", "Job") => Some("/spec/template"),
-        ("apps", "v1", "ReplicaSet") => Some("/spec"),
-        ("apps", "v1", "StatefulSet") => Some("/spec/template"),
-        _ => None,
     }
 }
 
@@ -196,21 +177,6 @@ trackedObjects:
         assert_eq!(config.tracked_objects[&gvk].pod_spec_template_paths, Some(vec!["/foo/bar".into()]));
     }
 
-    #[rstest]
-    #[case::cronjob(vec!["batch","v1","CronJob"], Some("/spec/jobTemplate/spec/template"))]
-    #[case::daemonset(vec!["apps","v1","DaemonSet"], Some("/spec/template"))]
-    #[case::deployment(vec!["apps","v1","Deployment"], Some("/spec/template"))]
-    #[case::job(vec!["batch","v1","Job"], Some("/spec/template"))]
-    #[case::replicaset(vec!["apps","v1","ReplicaSet"], Some("/spec"))]
-    #[case::statefulset(vec!["apps","v1","StatefulSet"], Some("/spec/template"))]
-    #[case::random(vec!["fake","v1","Resource"], None)]
-
-    fn test_default_path(#[case] input: Vec<&str>, #[case] expected: Option<&str>) {
-        let new_gvk = GVK::new(input[0], input[1], input[2]);
-        let default = default_path(&new_gvk);
-        assert_eq!(default, expected)
-    }
-
     enum Expected {
         Ok(Vec<&'static str>),
         InvalidPath,
@@ -231,11 +197,19 @@ trackedObjects:
     }
 
     #[rstest]
-    #[case::known_gvk_with_valid_path(("batch","v1","CronJob"), Some(vec!["/spec/jobTemplate/spec/template"]), Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
-    #[case::known_gvk_with_invalid_path(("batch","v1","CronJob"), Some(vec!["/invalid/path"]), Expected::InvalidPath)]
-    #[case::known_gvk_with_no_path(("apps","v1","DaemonSet"), Some(vec![]), Expected::Ok(vec!["/spec/template"]))]
-    #[case::unknown_gvk_with_path(("fake","v1","Resource"), Some(vec!["/foo/bar"]), Expected::Ok(vec!["/foo/bar"]))]
-    #[case::unknown_gvk_with_no_path(("fake","v1","Resource"), Some(vec![]), Expected::MissingPath)]
+    #[case::known_gvk_with_valid_paths(("batch","v1","CronJob"), Some(vec!["/spec/jobTemplate/spec/template"]), Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
+    #[case::known_gvk_with_invalid_paths(("batch","v1","CronJob"), Some(vec!["/invalid/path"]), Expected::InvalidPath)]
+    #[case::known_gvk_with_empty_paths(("apps","v1","DaemonSet"), Some(vec![]), Expected::Ok(vec!["/spec/template"]))]
+    #[case::unknown_gvk_with_paths(("fake","v1","Resource"), Some(vec!["/foo/bar"]), Expected::Ok(vec!["/foo/bar"]))]
+    #[case::unknown_gvk_with_empty_paths(("fake","v1","Resource"), Some(vec![]), Expected::MissingPath)]
+    #[case::unknown_gvk_with_none_paths(("fake","v1","Resource"), None, Expected::MissingPath)]
+    // Test all supported defaults in sk-core::constants::GVK_POD_SPEC_TEMPLATE_PATHS
+    #[case::cronjob_none_paths(("batch","v1","CronJob"), None, Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
+    #[case::daemonset_none_paths(("apps","v1","DaemonSet"), None, Expected::Ok(vec!["/spec/template"]))]
+    #[case::deployment_none_paths(("apps","v1","Deployment"), None, Expected::Ok(vec!["/spec/template"]))]
+    #[case::job_none_paths(("batch","v1","Job"), None, Expected::Ok(vec!["/spec/template"]))]
+    #[case::replicaset_none_paths(("apps","v1","ReplicaSet"), None, Expected::Ok(vec!["/spec"]))]
+    #[case::statefulset_none_paths(("apps","v1","StatefulSet"), None, Expected::Ok(vec!["/spec/template"]))]
 
     fn test_normalize(
         #[case] input_gvk: (&str, &str, &str),

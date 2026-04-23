@@ -1,5 +1,6 @@
+use std::sync::LazyLock;
+
 use chrono::TimeDelta;
-use lazy_static::lazy_static;
 use ratatui::prelude::*;
 use sk_core::prelude::*;
 use sk_store::TraceEvent;
@@ -10,10 +11,8 @@ use crate::validation::{
 };
 
 pub(super) const LIST_PADDING: usize = 3;
-lazy_static! {
-    static ref ERR_STYLE: Style = Style::new().white().on_red();
-    static ref WARN_STYLE: Style = Style::new().white().on_yellow();
-}
+static ERR_STYLE: LazyLock<Style> = LazyLock::new(|| Style::new().white().on_red());
+static WARN_STYLE: LazyLock<Style> = LazyLock::new(|| Style::new().white().on_yellow());
 
 pub(super) fn make_event_spans<'a>(
     event: &'a TraceEvent,

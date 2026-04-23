@@ -206,8 +206,13 @@ mod itest {
 
         // First build up the stream of test data and run the watcher (this advances time to the "end")
         let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
-        let w =
-            dyn_obj_watcher::new_from_parts(DEPL_GVK.clone(), dyn_obj_tx, test_stream(*clock.clone()), clock, ready_tx);
+        let w = dyn_obj_watcher::new_from_parts(
+            DEPLOYMENT_GVK.clone(),
+            dyn_obj_tx,
+            test_stream(*clock.clone()),
+            clock,
+            ready_tx,
+        );
         w.start().await;
 
         // Next "handle" all the messages that the watcher sent
