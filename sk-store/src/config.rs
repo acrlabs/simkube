@@ -72,8 +72,29 @@ impl TracerConfig {
         let mut normalized_objects = HashMap::new();
         for (gvk, mut obj) in self.tracked_objects {
             let default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).cloned();
-            let normalized_paths = normalize_paths_for_gvk(&gvk, default, obj.pod_spec_template_paths)?;
-            obj.pod_spec_template_paths = normalized_paths;
+            let resolved_paths = match obj.pod_spec_template_paths {
+                // User provided paths
+                Some(paths) if !paths.is_empty() => {
+                    if let Some(default) = &default
+                        && paths != *default
+                    {
+                        return Err(ConfigError::InvalidPath(gvk.clone()));
+                    }
+                    paths
+                },
+                // No user paths, use default if available
+                _ => {
+                    if let Some(default) = &default {
+                        if default.is_empty() {
+                            return Err(ConfigError::MissingPath(gvk.clone()));
+                        }
+                        default.iter().map(|s| s.to_string()).collect()
+                    } else {
+                        return Err(ConfigError::MissingPath(gvk.clone()));
+                    }
+                },
+            };
+            obj.pod_spec_template_paths = Some(resolved_paths);
             normalized_objects.insert(gvk, obj);
         }
         self.tracked_objects = normalized_objects;
@@ -91,31 +112,6 @@ impl TracerConfig {
     pub fn track_lifecycle_for(&self, gvk: &GVK) -> bool {
         self.tracked_objects.get(gvk).is_some_and(|obj| obj.track_lifecycle)
     }
-}
-
-fn normalize_paths_for_gvk(
-    gvk: &GVK,
-    default: Option<Vec<&str>>,
-    paths: Option<Vec<String>>,
-) -> Result<Option<Vec<String>>, ConfigError> {
-    if let Some(paths) = paths
-        && !paths.is_empty()
-    {
-        if let Some(default) = default {
-            // Invalid podSpecTemplatePaths for supported GVK_POD_SPEC_TEMPLATE_PATHS
-            if paths != *default {
-                return Err(ConfigError::InvalidPath(gvk.clone()));
-            }
-        }
-        // Use user provided podSpecTemplatePaths
-        return Ok(Some(paths));
-    }
-    if let Some(default) = default {
-        // Fall back to default podSpecTemplatePaths
-        return Ok(Some(default.iter().map(|s| s.to_string()).collect()));
-    }
-    // No available podSpecTemplatePaths
-    Err(ConfigError::MissingPath(gvk.clone()))
 }
 
 #[cfg(test)]
