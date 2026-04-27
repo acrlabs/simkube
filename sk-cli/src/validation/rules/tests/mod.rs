@@ -19,7 +19,7 @@ fn test_trace_config() -> TracerConfig {
     TracerConfig {
         tracked_objects: HashMap::from([
             (
-                DEPL_GVK.clone(),
+                DEPLOYMENT_GVK.clone(),
                 TrackedObjectConfig {
                     pod_spec_template_paths: Some(vec!["/spec/template".into()]),
                     ..Default::default()

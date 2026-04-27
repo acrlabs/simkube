@@ -80,7 +80,7 @@ async fn export(
 
 #[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
-    let config = TracerConfig::load(&args.config_file)?;
+    let config = TracerConfig::load(&args.config_file)?.normalize()?;
     let client = Client::try_default().await.expect("failed to create kube client");
     let manager = TraceManager::start(client, config).await?;
     let store = manager.get_store();

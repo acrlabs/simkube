@@ -37,7 +37,7 @@ fn tracer() -> TraceStore {
     TraceStore::new(
         TracerConfig {
             tracked_objects: HashMap::from([(
-                DEPL_GVK.clone(),
+                DEPLOYMENT_GVK.clone(),
                 TrackedObjectConfig {
                     track_lifecycle: true,
                     pod_spec_template_paths: Some(vec!["/spec/template".into()]),
@@ -149,9 +149,9 @@ async fn test_collect_events(mut tracer: TraceStore) {
     assert_bag_eq!(
         index.flattened_keys(),
         [
-            format!("{}:{TEST_NAMESPACE}/obj1", &*DEPL_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj2", &*DEPL_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj3", &*DEPL_GVK)
+            format!("{}:{TEST_NAMESPACE}/obj1", &*DEPLOYMENT_GVK),
+            format!("{}:{TEST_NAMESPACE}/obj2", &*DEPLOYMENT_GVK),
+            format!("{}:{TEST_NAMESPACE}/obj3", &*DEPLOYMENT_GVK)
         ]
         .map(|s| s.to_string())
     );
@@ -167,7 +167,7 @@ async fn test_create_or_update_obj(mut tracer: TraceStore, test_deployment: Dyna
     tracer.create_or_update_obj(&test_deployment, 2445).unwrap();
 
     assert_len_eq_x!(&tracer.index, 1);
-    assert_eq!(tracer.index.get(&DEPL_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
+    assert_eq!(tracer.index.get(&DEPLOYMENT_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
     assert_len_eq_x!(&tracer.events, 1);
     assert_len_eq_x!(&tracer.events[0].applied_objs, 1);
     assert_is_empty!(&tracer.events[0].deleted_objs);
@@ -187,7 +187,7 @@ async fn test_create_or_update_objs(mut tracer: TraceStore) {
     assert_eq!(tracer.index.len(), objs.len());
     for p in objs.iter() {
         let ns_name = p.namespaced_name();
-        assert_eq!(tracer.index.get(&DEPL_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
+        assert_eq!(tracer.index.get(&DEPLOYMENT_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
     }
     assert_eq!(tracer.events.len(), 2);
 
@@ -203,7 +203,7 @@ async fn test_delete_obj(mut tracer: TraceStore, test_deployment: DynamicObject)
     let ns_name = test_deployment.namespaced_name();
     let ts: i64 = 1234;
 
-    tracer.index.insert(DEPL_GVK.clone(), ns_name.clone(), TEST_DEPL_HASH);
+    tracer.index.insert(DEPLOYMENT_GVK.clone(), ns_name.clone(), TEST_DEPL_HASH);
 
     tracer.delete_obj(&test_deployment, ts).unwrap();
 
@@ -231,10 +231,13 @@ fn mock_pod_owners_map(
 ) -> PodOwnersMap {
     PodOwnersMap::new_from_parts(
         HashMap::from([(
-            (DEPL_GVK.clone(), owner_ns_name.into()),
+            (DEPLOYMENT_GVK.clone(), owner_ns_name.into()),
             HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
         )]),
-        HashMap::from([(pod_ns_name.into(), ((DEPL_GVK.clone(), owner_ns_name.into()), pod_spec_hash, pod_seq_idx))]),
+        HashMap::from([(
+            pod_ns_name.into(),
+            ((DEPLOYMENT_GVK.clone(), owner_ns_name.into()), pod_spec_hash, pod_seq_idx),
+        )]),
     )
 }
 
@@ -263,7 +266,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
     assert_some_eq_x!(
         tracer
             .pod_owners
-            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
+            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         &expected_lifecycle_data
     );
 }
@@ -279,7 +282,11 @@ async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: Tra
         .unwrap();
 
     let unused_hash = 0;
-    assert_none!(tracer.pod_owners.lifecycle_data_for(&DEPL_GVK, &owner_ns_name, unused_hash));
+    assert_none!(
+        tracer
+            .pod_owners
+            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, unused_hash)
+    );
 }
 
 #[rstest(tokio::test)]
@@ -296,8 +303,10 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     test_pod.owner_references_mut().push(owner_ref);
 
-    tracer.config.tracked_objects.get_mut(&*DEPL_GVK).unwrap().track_lifecycle = track_lifecycle;
-    tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+    tracer.config.tracked_objects.get_mut(&*DEPLOYMENT_GVK).unwrap().track_lifecycle = track_lifecycle;
+    tracer
+        .index
+        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
     tracer
         .record_pod_lifecycle(&ns_name, &Some(test_pod), &new_lifecycle_data.clone())
         .await
@@ -305,7 +314,7 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
 
     let lifecycle_data = tracer
         .pod_owners
-        .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH);
+        .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH);
     if track_lifecycle {
         assert_some_eq_x!(lifecycle_data, &vec![new_lifecycle_data.clone()]);
     } else {
@@ -328,13 +337,15 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
     test_pod.owner_references_mut().push(owner_ref);
 
-    tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+    tracer
+        .index
+        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
     tracer.pod_owners = PodOwnersMap::new_from_parts(
         HashMap::from([(
-            (DEPL_GVK.clone(), owner_ns_name.clone()),
+            (DEPLOYMENT_GVK.clone(), owner_ns_name.clone()),
             HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
         )]),
-        HashMap::from([("asdf".into(), ((DEPL_GVK.clone(), owner_ns_name.clone()), 1234, 0))]),
+        HashMap::from([("asdf".into(), ((DEPLOYMENT_GVK.clone(), owner_ns_name.clone()), 1234, 0))]),
     );
 
     tracer
@@ -345,7 +356,7 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(
     assert_some_eq_x!(
         tracer
             .pod_owners
-            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
+            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         &expected_lifecycle_data,
     );
 }
@@ -359,7 +370,9 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
     let pod_ns_name = test_pod.namespaced_name();
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_REPLICASET);
 
-    tracer.index.insert(DEPL_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+    tracer
+        .index
+        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
     tracer.pod_owners = mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, 0);
 
     tracer
@@ -370,7 +383,7 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
     assert_some_eq_x!(
         tracer
             .pod_owners
-            .lifecycle_data_for(&DEPL_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
+            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
         &expected_lifecycle_data,
     );
 }

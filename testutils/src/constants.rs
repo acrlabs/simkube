@@ -1,10 +1,3 @@
-use k8s_openapi::api::apps::v1 as appsv1;
-use lazy_static::lazy_static;
-use sk_core::k8s::{
-    GVK,
-    OpenApiResourceExt,
-};
-
 pub const EMPTY_POD_SPEC_HASH: u64 = 17506812802394981455;
 pub const TEST_DEPLOYMENT: &str = "the-deployment";
 pub const TEST_REPLICASET: &str = "the-replicaset";
@@ -19,9 +12,3 @@ pub const TEST_DRIVER_ROOT_NAME: &str = "sk-test-driver-12345-root";
 pub const TEST_VIRT_NS_PREFIX: &str = "virt-test";
 pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
 pub const TEST_DRIVER_SECRET_NAME: &str = "test-sk-secret";
-
-lazy_static! {
-    pub static ref DEPL_GVK: GVK = appsv1::Deployment::gvk();
-    pub static ref DS_GVK: GVK = appsv1::DaemonSet::gvk();
-    pub static ref REPLICASET_GVK: GVK = appsv1::ReplicaSet::gvk();
-}

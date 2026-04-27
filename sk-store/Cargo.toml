@@ -29,7 +29,6 @@ tracing = { workspace = true }
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }
-lazy_static = { workspace = true }
 mockall = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }

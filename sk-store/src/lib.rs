@@ -1,5 +1,6 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
 mod config;
+mod errors;
 mod event;
 mod index;
 mod manager;
