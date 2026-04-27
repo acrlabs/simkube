@@ -71,27 +71,21 @@ impl TracerConfig {
     pub fn normalize(mut self) -> Result<Self, ConfigError> {
         let mut normalized_objects = HashMap::new();
         for (gvk, mut obj) in self.tracked_objects {
-            let default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).cloned();
+            let maybe_default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).cloned();
             let resolved_paths = match obj.pod_spec_template_paths {
                 // User provided paths
                 Some(paths) if !paths.is_empty() => {
-                    if let Some(default) = &default
-                        && paths != *default
-                    {
+                    if maybe_default.as_ref().is_some_and(|default| paths != *default) {
                         return Err(ConfigError::InvalidPath(gvk.clone()));
                     }
                     paths
                 },
                 // No user paths, use default if available
                 _ => {
-                    if let Some(default) = &default {
-                        if default.is_empty() {
-                            return Err(ConfigError::MissingPath(gvk.clone()));
-                        }
-                        default.iter().map(|s| s.to_string()).collect()
-                    } else {
-                        return Err(ConfigError::MissingPath(gvk.clone()));
-                    }
+                    let default = maybe_default
+                        .filter(|d| !d.is_empty())
+                        .ok_or_else(|| ConfigError::MissingPath(gvk.clone()))?;
+                    default.iter().map(|s| s.to_string()).collect()
                 },
             };
             obj.pod_spec_template_paths = Some(resolved_paths);
