@@ -23,6 +23,10 @@ pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.kwok.io/stage-error-ti
 // Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
 
+// Certificates
+pub const DRIVER_CERT_NAME: &str = "sk-driver-cert";
+pub const CERT_MANAGER_INJECT_ANNOTATION_KEY: &str = "cert-manager.io/inject-ca-from";
+
 // Taint/toleration key
 pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
 

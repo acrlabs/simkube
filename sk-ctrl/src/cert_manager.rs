@@ -11,12 +11,10 @@ use sk_core::macros::*;
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::context::SimulationContext;
-
+use crate::controller::ReconcileContext;
 
 // Adapted from the "full" cert-manager CRD output from kopium
 
-pub const DRIVER_CERT_NAME: &str = "sk-driver-cert";
 pub const CERT_MANAGER_GROUP: &str = "cert-manager.io";
 pub const CERT_MANAGER_VERSION: &str = "v1";
 pub const CERTIFICATE_KIND: &str = "Certificate";
@@ -74,7 +72,7 @@ fn api_resource() -> ApiResource {
 }
 
 pub async fn create_certificate_if_not_present(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
 ) -> EmptyResult {
@@ -88,7 +86,7 @@ pub async fn create_certificate_if_not_present(
     if cert_api.get_opt(DRIVER_CERT_NAME).await?.is_none() {
         info!(
             "creating cert-manager certificate {} using issuer {}",
-            DRIVER_CERT_NAME, ctx.opts.cert_manager_issuer,
+            DRIVER_CERT_NAME, sim.spec.driver.cert_manager_issuer,
         );
         let obj = PartialCertificate {
             metadata: build_object_meta(&sim.spec.driver.namespace, DRIVER_CERT_NAME, &ctx.name, owner),
@@ -99,7 +97,7 @@ pub async fn create_certificate_if_not_present(
                     labels: klabel!(SIMULATION_LABEL_KEY => ctx.name),
                 }),
                 issuer_ref: CertificateIssuerRef {
-                    name: ctx.opts.cert_manager_issuer.clone(),
+                    name: sim.spec.driver.cert_manager_issuer.clone(),
                     kind: Some("ClusterIssuer".into()),
                     ..Default::default()
                 },

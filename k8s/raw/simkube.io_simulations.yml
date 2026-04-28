@@ -54,6 +54,9 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  certManagerIssuer:
+                    default: selfsigned
+                    type: string
                   image:
                     type: string
                   namespace:

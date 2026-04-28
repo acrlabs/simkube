@@ -21,9 +21,6 @@ class SkCtrl(fire.AppPackage):
             image=image,
             args=[
                 "/sk-ctrl",
-                "--use-cert-manager",
-                "--cert-manager-issuer",
-                "selfsigned",
             ],
         ).with_env(env)
         if debug:

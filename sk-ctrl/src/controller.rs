@@ -36,10 +36,12 @@ use tokio::task::block_in_place;
 use tokio::time::Duration;
 use tracing::*;
 
-use crate::cert_manager;
-use crate::context::SimulationContext;
 use crate::errors::*;
 use crate::objects::*;
+use crate::{
+    GlobalContext,
+    cert_manager,
+};
 
 pub const REQUEUE_DURATION: Duration = Duration::from_secs(RETRY_DELAY_SECONDS);
 pub const REQUEUE_ERROR_DURATION: Duration = Duration::from_secs(ERROR_RETRY_DELAY_SECONDS);
@@ -48,7 +50,38 @@ pub const JOB_STATUS_CONDITION_FAILED: &str = "Failed";
 
 type SimulationStatusPatch = serde_json::Value;
 
-async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
+#[derive(Clone)]
+pub struct ReconcileContext {
+    pub client: kube::Client,
+    pub recorder: SkEventRecorder,
+
+    pub name: String,
+    pub metaroot_name: String,
+    pub driver_name: String,
+    pub driver_svc: String,
+    pub prometheus_name: String,
+    pub webhook_name: String,
+}
+
+impl ReconcileContext {
+    pub fn new(sim: &Simulation, client: kube::Client, recorder: SkEventRecorder) -> ReconcileContext {
+        let name = sim.name_any();
+
+        ReconcileContext {
+            client,
+            recorder,
+
+            name: name.clone(),
+            metaroot_name: format!("sk-{}-metaroot", name),
+            driver_name: format!("sk-{}-driver", name),
+            driver_svc: format!("sk-{}-driver-svc", name),
+            prometheus_name: format!("sk-{}-prom", name),
+            webhook_name: format!("sk-{}-mutatepods", name),
+        }
+    }
+}
+
+async fn setup_sim_metaroot(ctx: &ReconcileContext, sim: &Simulation) -> anyhow::Result<SimulationRoot> {
     let roots_api = kube::Api::<SimulationRoot>::all(ctx.client.clone());
     match roots_api.get_opt(&ctx.metaroot_name).await? {
         None => {
@@ -66,7 +99,7 @@ async fn setup_sim_metaroot(ctx: &SimulationContext, sim: &Simulation) -> anyhow
 type DriverState = (SimulationState, SimulationStatusPatch, u64);
 
 pub(crate) async fn fetch_driver_state(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
     ctrl_ns: &str,
@@ -135,14 +168,26 @@ pub(crate) async fn fetch_driver_state(
 }
 
 pub async fn setup_simulation(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
     ctrl_ns: &str,
 ) -> anyhow::Result<Action> {
     info!("setting up simulation");
+    debug!("simulation object: {sim:#?}");
 
-    hooks::execute(sim, hooks::Type::PreStart).await?;
+    // The very first time we see a simulation object, there is no status that has
+    // been set (unless the user has intentionally written to the Status field
+    // when they created the CR, which would be dumb, don't do that), so this is a hack
+    // to only send the "SimulationStarted" event once.
+    if sim.status.is_none() {
+        ctx.recorder.send_sim_started_event(&sim.name_any()).await?;
+    }
+
+    // TODO (SK-205): these are not idempotent right now, it will run the PreStart hooks every time
+    // we call setup.  It's on the user to make sure the hooks are idempotent (which is also not
+    // noted in the documentation).  We should improve this situation somewhat.
+    hooks::execute(sim, hooks::Type::PreStart, &ctx.recorder).await?;
 
     // Validate the input before doing anything
     let ns_api = kube::Api::<corev1::Namespace>::all(ctx.client.clone());
@@ -184,6 +229,7 @@ pub async fn setup_simulation(
 
     if !prom_ready {
         info!("waiting for prometheus to be ready");
+        ctx.recorder.send_waiting_for_metrics_event().await?;
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
 
@@ -195,9 +241,11 @@ pub async fn setup_simulation(
         driver_svc_api.create(&Default::default(), &obj).await?;
     }
 
-    if ctx.opts.use_cert_manager {
-        cert_manager::create_certificate_if_not_present(ctx, sim, metaroot).await?;
-    }
+    // CertManager creates two parts, a CA Bundle that is injected directly into
+    // the mutating webhook configuration, and a secret that needs to be provided
+    // to the driver pod for it to act as a webhook.  We need to wait for both of
+    // these to be ready before we can start the simulation.
+    cert_manager::create_certificate_if_not_present(ctx, sim, metaroot).await?;
 
     let secrets_api = kube::Api::<corev1::Secret>::namespaced(ctx.client.clone(), &sim.spec.driver.namespace);
     let secrets = secrets_api
@@ -209,6 +257,7 @@ pub async fn setup_simulation(
     let driver_cert_secret_name = match secrets.items.len() {
         0 => {
             info!("waiting for secret to be created");
+            ctx.recorder.send_waiting_for_secret_event().await?;
             return Ok(Action::requeue(REQUEUE_DURATION));
         },
         x if x > 1 => bail!("found multiple secrets for experiment"),
@@ -223,6 +272,7 @@ pub async fn setup_simulation(
         webhook_api.create(&Default::default(), &obj).await?;
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
+
     if let Some(mwc) = &mwc_opt
         && let Some(webhooks) = &mwc.webhooks
         // We create one webhook in this configuration but webhooks is a Vec<MutatingWebhooks>
@@ -235,6 +285,7 @@ pub async fn setup_simulation(
             "MutatingWebhookConfiguration {} exists but caBundle not yet populated, requeuing.",
             ctx.webhook_name
         );
+        ctx.recorder.send_waiting_for_webhook_cert_event().await?;
         return Ok(Action::requeue(REQUEUE_DURATION));
     }
 
@@ -243,29 +294,33 @@ pub async fn setup_simulation(
     if jobs_api.get_opt(&ctx.driver_name).await?.is_none() {
         info!("creating simulation driver {}", ctx.driver_name);
         let obj = build_driver_job(ctx, sim, &driver_cert_secret_name, ctrl_ns)?;
-        jobs_api.create(&Default::default(), &obj).await?;
+        let job = jobs_api.create(&Default::default(), &obj).await?;
+        ctx.recorder.send_driver_created_event(&job).await?;
     }
-
     Ok(Action::await_change())
 }
 
-pub async fn cleanup_simulation(ctx: &SimulationContext, sim: &Simulation) {
+pub async fn cleanup_simulation(ctx: &ReconcileContext, sim: &Simulation) {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
 
     info!("cleaning up simulation {}", ctx.name);
     if let Err(e) = roots_api.delete(&ctx.metaroot_name, &Default::default()).await {
         error!("Error cleaning up simulation: {e:?}");
+        let _ = ctx // if we fail to send the event, it's fine
+            .recorder
+            .send_sim_cleanup_failed_event()
+            .await;
     }
 
-    if let Err(e) = hooks::execute(sim, hooks::Type::PostStop).await {
+    if let Err(e) = hooks::execute(sim, hooks::Type::PostStop, &ctx.recorder).await {
         error!("Error running PostStop hooks: {e:?}");
     }
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=sim.name_any()))]
-pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Result<Action, AnyhowError> {
+pub async fn reconcile(sim: Arc<Simulation>, global_ctx: Arc<GlobalContext>) -> Result<Action, AnyhowError> {
     let sim = sim.deref();
-    let ctx = ctx.with_sim(sim);
+    let ctx = ReconcileContext::new(sim, global_ctx.client.clone(), global_ctx.recorder.with_sim(sim));
     let ctrl_ns = env::var(CTRL_NS_ENV_VAR).map_err(|e| anyhow!(e))?;
 
     let metaroot = setup_sim_metaroot(&ctx, sim).await?;
@@ -282,6 +337,7 @@ pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Res
         SimulationState::Initializing => setup_simulation(&ctx, sim, &metaroot, &ctrl_ns).await.map_err(|e| e.into()),
         SimulationState::Blocked => {
             info!("simulation blocked; sleeping for {blocked_duration} seconds");
+            ctx.recorder.send_sim_blocked_event().await?;
             Ok(Action::requeue(Duration::from_secs(blocked_duration)))
         },
         SimulationState::Running | SimulationState::Paused => Ok(Action::await_change()),
@@ -303,7 +359,7 @@ pub async fn reconcile(sim: Arc<Simulation>, ctx: Arc<SimulationContext>) -> Res
     }
 }
 
-pub fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<SimulationContext>) -> Action {
+pub fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, global_ctx: Arc<GlobalContext>) -> Action {
     skerr!(err, "reconcile failed on simulation {}", sim.namespaced_name());
     let (action, state) = if err.is::<SkControllerError>() {
         (Action::await_change(), SimulationState::Failed)
@@ -311,7 +367,7 @@ pub fn error_policy(sim: Arc<Simulation>, err: &AnyhowError, ctx: Arc<Simulation
         (Action::requeue(REQUEUE_ERROR_DURATION), SimulationState::Retrying)
     };
 
-    let sim_api: kube::Api<Simulation> = kube::Api::all(ctx.client.clone());
+    let sim_api: kube::Api<Simulation> = kube::Api::all(global_ctx.client.clone());
     if let Err(e) = block_in_place(|| {
         Handle::current().block_on(sim_api.patch_status(
             &sim.name_any(),

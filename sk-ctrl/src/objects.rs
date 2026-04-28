@@ -24,8 +24,7 @@ use sk_core::macros::*;
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::cert_manager::DRIVER_CERT_NAME;
-use crate::context::SimulationContext;
+use crate::controller::ReconcileContext;
 
 const METRICS_NAME_LABEL: &str = "__name__";
 const SIMKUBE_META_LABEL: &str = "simkube_meta";
@@ -38,7 +37,7 @@ const SSL_MOUNT_PATH: &str = "/usr/local/etc/ssl";
 
 type VolumeInfo = (corev1::VolumeMount, corev1::Volume, String);
 
-pub(crate) fn build_driver_namespace(ctx: &SimulationContext, sim: &Simulation) -> corev1::Namespace {
+pub(crate) fn build_driver_namespace(ctx: &ReconcileContext, sim: &Simulation) -> corev1::Namespace {
     let owner = sim;
     corev1::Namespace {
         metadata: build_global_object_meta(&sim.spec.driver.namespace, &ctx.name, owner),
@@ -118,18 +117,16 @@ pub(crate) fn build_prometheus(
 }
 
 pub(crate) fn build_mutating_webhook(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
 ) -> admissionv1::MutatingWebhookConfiguration {
     let owner = metaroot;
     let mut metadata = build_global_object_meta(&ctx.webhook_name, &ctx.name, owner);
-    if ctx.opts.use_cert_manager {
-        metadata.annotations.get_or_insert_default().insert(
-            "cert-manager.io/inject-ca-from".into(),
-            format!("{}/{}", sim.spec.driver.namespace, DRIVER_CERT_NAME),
-        );
-    }
+    metadata.annotations.get_or_insert_default().insert(
+        CERT_MANAGER_INJECT_ANNOTATION_KEY.into(),
+        format!("{}/{}", sim.spec.driver.namespace, DRIVER_CERT_NAME),
+    );
 
     admissionv1::MutatingWebhookConfiguration {
         metadata,
@@ -164,7 +161,7 @@ pub(crate) fn build_mutating_webhook(
 }
 
 pub(crate) fn build_driver_service(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
 ) -> corev1::Service {
@@ -185,7 +182,7 @@ pub(crate) fn build_driver_service(
 }
 
 pub(crate) fn build_driver_job(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     cert_secret_name: &str,
     ctrl_ns: &str,
@@ -305,7 +302,7 @@ pub(crate) fn build_local_trace_volume(sim: &Simulation) -> anyhow::Result<Optio
 }
 
 fn build_driver_args(
-    ctx: &SimulationContext,
+    ctx: &ReconcileContext,
     sim: &Simulation,
     cert_mount_path: String,
     trace_path: String,

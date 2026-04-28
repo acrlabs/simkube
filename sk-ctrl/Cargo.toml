@@ -31,6 +31,7 @@ assertables = { workspace = true }
 httpmock = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
+sk-core = { workspace = true, features = ["mock"] }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
 tracing-test = { workspace = true }

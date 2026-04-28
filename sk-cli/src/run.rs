@@ -232,6 +232,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
                 secrets: args.driver_secrets.clone(),
                 trace_path: args.trace_path.clone(),
                 virtual_ns_prefix: args.virtual_ns_prefix.clone(),
+                cert_manager_issuer: "selfsigned".into(),
             },
             duration: args.duration.clone(),
             hooks,

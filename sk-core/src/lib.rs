@@ -1,6 +1,7 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
 pub mod constants;
 pub mod errors;
+pub mod events;
 pub mod external_storage;
 pub mod hooks;
 pub mod jsonutils;
@@ -27,6 +28,7 @@ pub mod prelude {
 
     pub use crate::constants::*;
     pub use crate::errors::EmptyResult;
+    pub use crate::events::SkEventRecorder;
     pub use crate::k8s::{
         KubeResourceExt,
         OpenApiResourceExt,

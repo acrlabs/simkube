@@ -22,6 +22,7 @@ pub fn test_sim() -> Simulation {
                 secrets: Some(vec![TEST_DRIVER_SECRET_NAME.into()]),
                 trace_path: "file:///foo/bar".into(),
                 virtual_ns_prefix: "test-".into(),
+                cert_manager_issuer: "selfsigned".into(),
             },
             metrics: Some(Default::default()),
             hooks: Some(SimulationHooksConfig {

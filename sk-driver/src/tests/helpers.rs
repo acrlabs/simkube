@@ -39,5 +39,6 @@ pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace) -> 
         virtual_ns_prefix: TEST_VIRT_NS_PREFIX.into(),
         owners_cache: Arc::new(Mutex::new(owners_cache)),
         trace: Arc::new(trace),
+        recorder: SkEventRecorder::mock(),
     }
 }
