@@ -74,6 +74,7 @@ pub struct DriverContext {
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
     trace: Arc<ExportedTrace>,
+    recorder: SkEventRecorder,
 }
 
 #[instrument(ret, err)]
@@ -93,6 +94,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     let apiset = DynamicApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));
+    let recorder = SkEventRecorder::new(client.clone(), "sk-driver".into()).with_sim(&sim);
     let ctx = DriverContext {
         name,
         sim_name: opts.sim_name.clone(),
@@ -101,6 +103,7 @@ async fn run(opts: Options) -> EmptyResult {
         virtual_ns_prefix: sim.spec.driver.virtual_ns_prefix.clone(),
         owners_cache,
         trace,
+        recorder,
     };
 
     let rkt_config = rocket::Config {
@@ -119,7 +122,7 @@ async fn run(opts: Options) -> EmptyResult {
     // before starting the sim
     sleep(Duration::from_secs(5)).await;
 
-    hooks::execute(&sim, hooks::Type::PreRun).await?;
+    hooks::execute(&sim, hooks::Type::PreRun, &ctx.recorder).await?;
 
     let runner_task = tokio::spawn(run_trace(ctx.clone(), client, sim.clone()));
     tokio::select! {
@@ -132,7 +135,7 @@ async fn run(opts: Options) -> EmptyResult {
         },
     }?;
 
-    hooks::execute(&sim, hooks::Type::PostRun).await
+    hooks::execute(&sim, hooks::Type::PostRun, &ctx.recorder).await
 }
 
 #[tokio::main]

@@ -1,4 +1,5 @@
 use std::env;
+use std::sync::Arc;
 
 use clockabilly::prelude::*;
 use httpmock::prelude::*;
@@ -15,15 +16,6 @@ use crate::controller::*;
 use crate::errors::SkControllerError;
 use crate::objects::*;
 
-#[fixture]
-fn opts() -> Options {
-    Options {
-        use_cert_manager: false,
-        cert_manager_issuer: "".into(),
-        verbosity: "info".into(),
-    }
-}
-
 enum WebhookState {
     NotCreated,
     CaBundleNone,
@@ -31,10 +23,14 @@ enum WebhookState {
     ReadyWithCaBundle,
 }
 
+fn reconcile_ctx(test_sim: &Simulation, client: &kube::Client) -> Arc<ReconcileContext> {
+    Arc::new(ReconcileContext::new(test_sim, client.clone(), SkEventRecorder::mock()))
+}
+
 #[rstest(tokio::test)]
-async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
@@ -53,9 +49,9 @@ async fn test_fetch_driver_state_no_driver(test_sim: Simulation, test_sim_root: 
 }
 
 #[rstest(tokio::test)]
-async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
@@ -77,9 +73,9 @@ async fn test_fetch_driver_state_driver_no_status(test_sim: Simulation, test_sim
 }
 
 #[rstest(tokio::test)]
-async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
     let lease_obj = build_lease(&test_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
 
     let driver_name = ctx.driver_name.clone();
@@ -110,7 +106,6 @@ async fn test_fetch_driver_state_driver_running(test_sim: Simulation, test_sim_r
 async fn test_fetch_driver_state_driver_finished(
     test_sim: Simulation,
     test_sim_root: SimulationRoot,
-    opts: Options,
     #[case] status: &'static str,
 ) {
     let expected_state = if status == JOB_STATUS_CONDITION_COMPLETE {
@@ -120,7 +115,7 @@ async fn test_fetch_driver_state_driver_finished(
     };
 
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
 
     let driver_name = ctx.driver_name.clone();
     // No lease handler because we don't claim the lease if we're done
@@ -141,9 +136,9 @@ async fn test_fetch_driver_state_driver_finished(
 }
 
 #[rstest(tokio::test)]
-async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
     let mut other_sim = test_sim.clone();
     other_sim.metadata.name = Some("blocking-sim".into());
     let other_lease_obj = build_lease(&other_sim, &test_sim_root, TEST_CTRL_NAMESPACE, UtcClock.now());
@@ -165,9 +160,9 @@ async fn test_fetch_driver_state_lease_waiting(test_sim: Simulation, test_sim_ro
 }
 
 #[rstest(tokio::test)]
-async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
 
     let driver_name = ctx.driver_name.clone();
     fake_apiserver.handle_not_found(format!("/apis/batch/v1/namespaces/{TEST_NAMESPACE}/jobs/{driver_name}"));
@@ -198,9 +193,9 @@ async fn test_fetch_driver_state_lease_claim_fails(test_sim: Simulation, test_si
 }
 
 #[rstest(tokio::test)]
-async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
     fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{DEFAULT_METRICS_NS}"));
 
     assert!(matches!(
@@ -215,9 +210,9 @@ async fn test_setup_simulation_no_ns(test_sim: Simulation, test_sim_root: Simula
 }
 
 #[rstest(tokio::test)]
-async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: SimulationRoot, opts: Options) {
+async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: SimulationRoot) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
 
     let prom_name = ctx.prometheus_name.clone();
     let driver_ns_obj = build_driver_namespace(&ctx, &test_sim);
@@ -261,7 +256,6 @@ async fn test_setup_simulation_create_prom(test_sim: Simulation, test_sim_root: 
 async fn test_setup_simulation_wait_prom(
     mut test_sim: Simulation,
     test_sim_root: SimulationRoot,
-    opts: Options,
     #[case] ready_to_create_webhook: bool,
     #[case] disabled: bool,
     #[case] initial_webhook_state: WebhookState,
@@ -269,7 +263,7 @@ async fn test_setup_simulation_wait_prom(
     // SAFETY: it's fine it's a test
     unsafe { env::set_var("POD_SVC_ACCOUNT", "asdf") };
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
+    let ctx = reconcile_ctx(&test_sim, &client);
 
     let prom_name = ctx.prometheus_name.clone();
     let driver_svc_name = ctx.driver_svc.clone();
@@ -309,6 +303,15 @@ async fn test_setup_simulation_wait_prom(
     }
 
     if ready_to_create_webhook {
+        fake_apiserver.handle(move |when, then| {
+            when.method(GET)
+                .path(format!("/apis/cert-manager.io/v1/namespaces/{TEST_NAMESPACE}/certificates/{DRIVER_CERT_NAME}"));
+            then.json_body(json!({
+                "kind": "Certificate",
+                "metadata": {},
+                "spec": {"secretName": DRIVER_CERT_NAME, "issuerRef": {"name": "selfsigned", "kind": "ClusterIssuer"}},
+            }));
+        });
         fake_apiserver.handle_not_found(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services/{driver_svc_name}"));
         fake_apiserver.handle(move |when, then| {
             when.method(POST).path(format!("/api/v1/namespaces/{TEST_NAMESPACE}/services"));
@@ -393,10 +396,9 @@ async fn test_setup_simulation_wait_prom(
 
 #[rstest(tokio::test)]
 #[traced_test]
-async fn test_cleanup_simulation(test_sim: Simulation, opts: Options) {
+async fn test_cleanup_simulation(test_sim: Simulation) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
-    let ctx = Arc::new(SimulationContext::new(client, opts)).with_sim(&test_sim);
-
+    let ctx = reconcile_ctx(&test_sim, &client);
     let root = ctx.metaroot_name.clone();
 
     fake_apiserver.handle(move |when, then| {

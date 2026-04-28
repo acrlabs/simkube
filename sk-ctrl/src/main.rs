@@ -1,5 +1,4 @@
 mod cert_manager;
-mod context;
 mod controller;
 mod errors;
 mod objects;
@@ -23,7 +22,6 @@ use sk_core::logging;
 use sk_core::prelude::*;
 use tracing::*;
 
-use crate::context::SimulationContext;
 use crate::controller::{
     error_policy,
     reconcile,
@@ -31,15 +29,13 @@ use crate::controller::{
 
 #[derive(Clone, Debug, Default, Parser)]
 struct Options {
-    // TODO: should support non-cert-manager for configuring certs as well
-    #[arg(long)]
-    use_cert_manager: bool,
-
-    #[arg(long, default_value = "")]
-    cert_manager_issuer: String,
-
     #[arg(short, long, default_value = "info")]
     verbosity: String,
+}
+
+struct GlobalContext {
+    client: kube::Client,
+    recorder: SkEventRecorder,
 }
 
 #[instrument(ret, err)]
@@ -68,9 +64,13 @@ async fn run(opts: Options) -> EmptyResult {
             )
         });
 
+    let ctx = GlobalContext {
+        client: client.clone(),
+        recorder: SkEventRecorder::new(client.clone(), "sk-ctrl".into()),
+    };
     let ctrl = Controller::for_stream(sim_stream, reader)
         .owns(job_api, Default::default())
-        .run(reconcile, error_policy, Arc::new(SimulationContext::new(client, opts)))
+        .run(reconcile, error_policy, Arc::new(ctx))
         .for_each(|_| future::ready(()));
 
     ctrl.await;

@@ -531,6 +531,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "convert_case"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "633458d4ef8c78b72454de2d54fd6ab2e60f9e02be22f3c6104cdc8a4e0fceb9"
+dependencies = [
+ "unicode-segmentation",
+]
+
+[[package]]
 name = "cookie"
 version = "0.18.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -730,22 +739,12 @@ version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
+ "convert_case",
  "proc-macro2",
  "quote",
  "rustc_version",
  "syn",
-]
-
-[[package]]
-name = "derive_setters"
-version = "0.1.9"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b7e6f6fa1f03c14ae082120b84b3c7fbd7b8588d924cf2d7c3daf9afd49df8b9"
-dependencies = [
- "darling 0.21.3",
- "proc-macro2",
- "quote",
- "syn",
+ "unicode-xid",
 ]
 
 [[package]]
@@ -3661,6 +3660,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "clockabilly",
+ "derive_more",
  "either",
  "httpmock",
  "k8s-openapi",
@@ -3836,7 +3836,6 @@ dependencies = [
  "clap_complete",
  "clockabilly",
  "const_format",
- "derive_setters",
  "dirs",
  "httpmock",
  "humantime",

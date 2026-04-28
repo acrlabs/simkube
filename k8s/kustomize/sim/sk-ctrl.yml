@@ -37,9 +37,6 @@ spec:
       containers:
         - args:
             - /sk-ctrl
-            - --use-cert-manager
-            - --cert-manager-issuer
-            - selfsigned
           env:
             - name: RUST_BACKTRACE
               value: "1"

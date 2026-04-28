@@ -17,7 +17,6 @@ clockabilly = { workspace = true }
 clap = { workspace = true }
 clap_complete = { workspace = true }
 const_format = { workspace = true }
-derive_setters = { workspace = true }
 dirs = { workspace = true }
 humantime = { workspace = true }
 json-patch-ext = { workspace = true }

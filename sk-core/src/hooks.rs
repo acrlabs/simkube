@@ -5,6 +5,7 @@ use anyhow::{
     anyhow,
     bail,
 };
+use derive_more::Display;
 use sk_api::v1::SimulationHooksConfig;
 use tokio::io::{
     AsyncWriteExt,
@@ -15,7 +16,8 @@ use tracing::*;
 
 use crate::prelude::*;
 
-#[derive(Debug)]
+#[derive(Debug, Display)]
+#[display("{_variant}")]
 pub enum Type {
     PreStart,
     PreRun,
@@ -45,7 +47,7 @@ pub fn merge_hooks(maybe_files: &Option<Vec<String>>) -> anyhow::Result<Option<S
     .transpose()
 }
 
-pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
+pub async fn execute(sim: &Simulation, type_: Type, recorder: &SkEventRecorder) -> EmptyResult {
     let maybe_hooks = match &sim.spec.hooks {
         Some(hooks_config) => match type_ {
             Type::PreStart => hooks_config.pre_start_hooks.as_ref(),
@@ -72,17 +74,20 @@ pub async fn execute(sim: &Simulation, type_: Type) -> EmptyResult {
                 stdin.write_all(&serde_json::to_vec(sim)?).await?;
                 stdin.flush().await?;
             }
+            let cmd_str = format!("{} {}", hook.cmd, hook.args.clone().unwrap_or_default().join(" "));
             let output = child.wait_with_output().await?;
             info!("Hook output: {:?}", output);
-            match hook.ignore_failure {
-                Some(true) => (),
-                _ => {
-                    if !output.status.success() {
-                        bail!("hook failed");
-                    }
-                },
+
+            if !output.status.success()
+                && let Some(false) = hook.ignore_failure
+            {
+                recorder
+                    .send_hook_failed_event(&format!("{type_}"), &cmd_str, output.status.code())
+                    .await?;
+                bail!("hook failed");
             }
         }
+        recorder.send_hooks_succeeded_event(&format!("{type_}")).await?;
         info!("Done executing {:?} hooks", type_);
     };
 
@@ -199,18 +204,23 @@ postStopHooks:
         assert_eq!(merged_config, serde_yaml::from_str(EXPECTED_MERGED).unwrap());
     }
 
+    #[fixture]
+    fn event_recorder() -> SkEventRecorder {
+        SkEventRecorder::mock()
+    }
+
     #[rstest(tokio::test)]
-    async fn test_execute_hooks(test_sim: Simulation) {
+    async fn test_execute_hooks(test_sim: Simulation, event_recorder: SkEventRecorder) {
         // Should print "foo"
-        let res = execute(&test_sim, Type::PreStart).await;
+        let res = execute(&test_sim, Type::PreStart, &event_recorder).await;
         assert!(res.is_ok());
 
         // No PreStop hook defined
-        let res = execute(&test_sim, Type::PostStop).await;
+        let res = execute(&test_sim, Type::PostStop, &event_recorder).await;
         assert!(res.is_ok());
 
         // PreRun hook calls bad command
-        let res = execute(&test_sim, Type::PreRun).await;
+        let res = execute(&test_sim, Type::PreRun, &event_recorder).await;
         assert!(res.is_err());
     }
 }

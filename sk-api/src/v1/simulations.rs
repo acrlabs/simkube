@@ -34,6 +34,8 @@ pub struct SimulationDriverConfig {
     pub trace_path: String,
     #[serde(default = "default_ns_prefix")]
     pub virtual_ns_prefix: String,
+    #[serde(default = "default_cert_issuer")]
+    pub cert_manager_issuer: String,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
@@ -112,4 +114,8 @@ impl Simulation {
 
 fn default_ns_prefix() -> String {
     "virtual".into()
+}
+
+fn default_cert_issuer() -> String {
+    "selfsigned".into()
 }
