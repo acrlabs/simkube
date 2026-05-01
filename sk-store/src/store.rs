@@ -1,7 +1,6 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use anyhow::bail;
 use kube::Resource;
 use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
@@ -17,7 +16,6 @@ use sk_core::prelude::*;
 use tokio::sync::Mutex;
 use tracing::*;
 
-use crate::config::TracerConfig;
 use crate::event::{
     TraceAction,
     TraceEvent,
@@ -173,6 +171,9 @@ impl TraceStore {
     pub(super) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
         let gvk = GVK::from_dynamic_obj(obj)?;
         let ns_name = obj.namespaced_name();
+        if self.config.skip_owned_for(&gvk) && !obj.owner_references().is_empty() {
+            return Ok(());
+        }
 
         let new_hash = jsonutils::hash_option(obj.data.get("spec"));
         let old_hash = self.index.get(&gvk, &ns_name);
@@ -186,6 +187,11 @@ impl TraceStore {
 
     pub(super) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
         let gvk = GVK::from_dynamic_obj(obj)?;
+
+        // We don't check for skip_owned here, in principle if the object made it past the
+        // insertion check, it won't have magically received an ownerref in the interim.  And even
+        // if it somehow magically did, I think maybe we still want to delete it?
+
         let ns_name = obj.namespaced_name();
         append_event(&mut self.events, ts, obj, TraceAction::ObjectDeleted);
         self.index.remove(gvk, &ns_name);
@@ -243,7 +249,7 @@ impl TraceStore {
                 break;
             }
         } else {
-            bail!("no pod ownership data found for {}, cannot store", ns_name);
+            warn!("no pod ownership data found for {}, cannot store lifecycle events", ns_name);
         }
 
         Ok(())

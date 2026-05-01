@@ -1,4 +1,5 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
+pub mod config;
 pub mod constants;
 pub mod errors;
 pub mod events;
@@ -26,6 +27,10 @@ pub mod prelude {
         SimulationRoot,
     };
 
+    pub use crate::config::{
+        TracerConfig,
+        TrackedObjectConfig,
+    };
     pub use crate::constants::*;
     pub use crate::errors::EmptyResult;
     pub use crate::events::SkEventRecorder;

@@ -4,10 +4,7 @@ use std::io::Write;
 use clockabilly::prelude::*;
 use sk_api::v1::ExportFilters;
 use sk_core::prelude::*;
-use sk_store::{
-    TraceManager,
-    TracerConfig,
-};
+use sk_store::TraceManager;
 
 #[derive(clap::Args)]
 pub struct Args {
