@@ -1,6 +1,4 @@
 #![cfg_attr(coverage, feature(coverage_attribute))]
-mod config;
-mod errors;
 mod event;
 mod index;
 mod manager;
@@ -9,10 +7,6 @@ mod store;
 mod trace;
 mod watchers;
 
-pub use crate::config::{
-    TracerConfig,
-    TrackedObjectConfig,
-};
 pub use crate::event::{
     TraceAction,
     TraceEvent,

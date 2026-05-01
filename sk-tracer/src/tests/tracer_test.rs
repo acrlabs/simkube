@@ -4,7 +4,6 @@ use sk_core::external_storage::{
     SkObjectStore,
 };
 use sk_core::k8s::DynamicApiSet;
-use sk_store::TracerConfig;
 
 use super::*;
 

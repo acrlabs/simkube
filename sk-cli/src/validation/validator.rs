@@ -6,10 +6,8 @@ use serde::{
     Serialize,
     Serializer,
 };
-use sk_store::{
-    TraceEvent,
-    TracerConfig,
-};
+use sk_core::prelude::*;
+use sk_store::TraceEvent;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]
 pub enum ValidatorType {

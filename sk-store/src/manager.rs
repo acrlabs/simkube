@@ -9,7 +9,6 @@ use tokio::sync::{
 use tokio::task::JoinSet;
 use tracing::*;
 
-use crate::config::TracerConfig;
 use crate::event::TraceAction;
 use crate::store::TraceStore;
 use crate::watchers::{
