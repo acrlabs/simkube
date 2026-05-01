@@ -86,7 +86,7 @@ tracing-test = "0.2.5"
 [workspace.dependencies.kube]
 # tied to version of k8s-openapi
 version = "2.0.1"
-features = ["client", "derive", "runtime", "rustls-tls", "admission", "unstable-runtime"]
+features = ["client", "derive", "http-proxy", "runtime", "rustls-tls", "admission", "unstable-runtime"]
 default-features = false
 
 [workspace.lints.rust]
