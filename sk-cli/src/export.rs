@@ -54,7 +54,7 @@ pub struct Args {
         short,
         long,
         long_help = "location to save exported trace",
-        default_value = "file:///tmp/kind-node-data"
+        default_value = "output.sktrace"
     )]
     pub output_path: String,
 }
