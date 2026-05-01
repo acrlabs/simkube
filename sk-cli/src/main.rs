@@ -3,6 +3,8 @@ mod completions;
 mod crd;
 mod delete;
 mod export;
+mod info;
+mod list;
 mod pauseresume;
 mod run;
 mod skel;
@@ -91,6 +93,12 @@ enum SkSubcommand {
 
     #[command(about = "explore or prepare trace data for simulation")]
     Xray(xray::Args),
+
+    #[command(about = "show a summary of simulations", visible_alias = "ls")]
+    List(list::Args),
+
+    #[command(about = "show detailed information about a simulation", visible_alias = "i")]
+    Info(info::Args),
 }
 
 #[tokio::main]
@@ -144,5 +152,14 @@ async fn main() -> EmptyResult {
             Ok(())
         },
         SkSubcommand::Xray(args) => xray::cmd(args).await,
+
+        SkSubcommand::List(args) => {
+            let client = kube::Client::try_default().await?;
+            list::cmd(args, client).await
+        },
+        SkSubcommand::Info(args) => {
+            let client = kube::Client::try_default().await?;
+            info::cmd(args, client).await
+        },
     }
 }
