@@ -77,9 +77,6 @@ jobs:
           python-version: "3.11"
       - name: Install poetry
         uses: snok/install-poetry@76e04a911780d5b312d89783f7b1cd627778900a  # v1.4.1
-      # tomlq (included with yq) is needed to check the package version in Cargo.toml
-      - name: Install tomlq
-        run: pip install yq
       - name: Run pre-commit
         uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd  # v3.0.1
 
