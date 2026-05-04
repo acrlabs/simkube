@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use k8s_openapi::api::apps::v1 as appsv1;
 use k8s_openapi::api::batch::v1 as batchv1;
+use k8s_openapi::api::core::v1 as corev1;
 
 use crate::k8s::{
     GVK,
@@ -63,6 +64,7 @@ pub static DEPLOYMENT_GVK: LazyLock<GVK> = LazyLock::new(appsv1::Deployment::gvk
 pub static JOB_GVK: LazyLock<GVK> = LazyLock::new(batchv1::Job::gvk);
 pub static REPLICASET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::ReplicaSet::gvk);
 pub static STATEFULSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::StatefulSet::gvk);
+pub static POD_GVK: LazyLock<GVK> = LazyLock::new(corev1::Pod::gvk);
 
 // Supported default podSpecTemplatePaths
 pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, Vec<&'static str>>> = LazyLock::new(|| {
@@ -73,5 +75,6 @@ pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, Vec<&'static str>>
         (JOB_GVK.clone(), vec!["/spec/template"]),
         (REPLICASET_GVK.clone(), vec!["/spec"]),
         (STATEFULSET_GVK.clone(), vec!["/spec/template"]),
+        (POD_GVK.clone(), vec!["/"]),
     ])
 });
