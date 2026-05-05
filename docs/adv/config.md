@@ -25,8 +25,7 @@ trackedObjects:
 > [!NOTE] SimKube does some sanitization of the resources it watches, which is why it needs to know where the
 > `podSpecTemplatePaths` is; especially for custom resources, the path to the `podSpecTemplate` is not necessarily
 > standard or well-known. The sk-tracer config supports default `podSpecTemplatePaths` for a commonly tracked resources.
-> The list of supported defaults can be found in
-> [the tracer documentation](../components/sk-tracer.md#config-file-format).
+> The list of supported defaults can be found in [the tracer-config reference](../ref/tracer-config.md).
 
 `sk-tracer` needs an RBAC policy that grants "get", "list" and "watch" access to all configured objects in the cluster,
 as well as pods. For example, if you use the above configuration, you will need the following RBAC policy attached to
