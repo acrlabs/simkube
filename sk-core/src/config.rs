@@ -6,14 +6,22 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::constants::GVK_POD_SPEC_TEMPLATE_PATHS;
-use sk_core::k8s::GVK;
+use thiserror::Error;
 use tracing::*;
 
-use crate::errors::ConfigError;
+use crate::constants::GVK_POD_SPEC_TEMPLATE_PATHS;
+use crate::k8s::GVK;
+
+#[derive(Debug, Error)]
+pub enum ConfigError {
+    #[error("Invalid path for {0}")]
+    InvalidPath(GVK),
+    #[error("Missing pod spec path for {0}")]
+    MissingPath(GVK),
+}
 
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 struct TrackedObjectConfigWithDeprecatedFields {
     #[deprecated]
     pub pod_spec_template_path: Option<String>,
@@ -21,6 +29,9 @@ struct TrackedObjectConfigWithDeprecatedFields {
 
     #[serde(default)]
     pub track_lifecycle: bool,
+
+    #[serde(default)]
+    pub skip_owned: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -30,6 +41,9 @@ pub struct TrackedObjectConfig {
 
     #[serde(skip_serializing_if = "<&bool>::not")]
     pub track_lifecycle: bool,
+
+    #[serde(skip_serializing_if = "<&bool>::not")]
+    pub skip_owned: bool,
 }
 
 impl From<TrackedObjectConfigWithDeprecatedFields> for TrackedObjectConfig {
@@ -37,6 +51,7 @@ impl From<TrackedObjectConfigWithDeprecatedFields> for TrackedObjectConfig {
         let mut output = TrackedObjectConfig {
             pod_spec_template_paths: input.pod_spec_template_paths.clone(),
             track_lifecycle: input.track_lifecycle,
+            skip_owned: input.skip_owned,
         };
 
         #[allow(deprecated)]
@@ -105,6 +120,10 @@ impl TracerConfig {
 
     pub fn track_lifecycle_for(&self, gvk: &GVK) -> bool {
         self.tracked_objects.get(gvk).is_some_and(|obj| obj.track_lifecycle)
+    }
+
+    pub fn skip_owned_for(&self, gvk: &GVK) -> bool {
+        self.tracked_objects.get(gvk).is_some_and(|obj| obj.skip_owned)
     }
 }
 

@@ -18,7 +18,6 @@ use sk_core::prelude::*;
 use sk_store::{
     TraceManager,
     TraceStore,
-    TracerConfig,
 };
 use tokio::sync::Mutex;
 use tracing::*;

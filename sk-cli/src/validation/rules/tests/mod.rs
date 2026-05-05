@@ -6,10 +6,6 @@ use std::collections::HashMap;
 
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
-use sk_store::{
-    TracerConfig,
-    TrackedObjectConfig,
-};
 use sk_testutils::*;
 
 use super::*;

@@ -15,12 +15,12 @@ use sk_core::k8s::{
     GVK,
     PodLifecycleData,
 };
+use sk_core::prelude::*;
 use sk_core::time::duration_to_ts_from;
 use thiserror::Error;
 use tracing::*;
 
 use crate::CURRENT_TRACE_FORMAT_VERSION;
-use crate::config::TracerConfig;
 use crate::event::TraceEvent;
 use crate::index::TraceIndex;
 use crate::pod_owners_map::PodLifecyclesMap;

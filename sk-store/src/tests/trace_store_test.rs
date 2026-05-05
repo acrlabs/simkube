@@ -158,13 +158,23 @@ async fn test_collect_events(mut tracer: TraceStore) {
 }
 
 #[rstest(tokio::test)]
-async fn test_create_or_update_obj(mut tracer: TraceStore, test_deployment: DynamicObject) {
+async fn test_create_or_update_obj(
+    mut tracer: TraceStore,
+    mut test_deployment: DynamicObject,
+    owner_ref: metav1::OwnerReference,
+) {
+    tracer.config.tracked_objects.get_mut(&DEPLOYMENT_GVK).unwrap().skip_owned = true;
+
     let ns_name = test_deployment.namespaced_name();
     let ts: i64 = 1234;
 
     // test idempotency, if we create the same obj twice nothing should change
     tracer.create_or_update_obj(&test_deployment, ts).unwrap();
     tracer.create_or_update_obj(&test_deployment, 2445).unwrap();
+
+    // add an ownerref and make sure this gets skipped
+    test_deployment.metadata.name = Some("foo".into());
+    test_deployment.owner_references_mut().push(owner_ref);
 
     assert_len_eq_x!(&tracer.index, 1);
     assert_eq!(tracer.index.get(&DEPLOYMENT_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
@@ -216,10 +226,12 @@ async fn test_delete_obj(mut tracer: TraceStore, test_deployment: DynamicObject)
 
 #[rstest(tokio::test)]
 async fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore) {
+    let ns_name = format!("{TEST_NAMESPACE}/{TEST_POD}");
     let res = tracer
-        .record_pod_lifecycle(&format!("{TEST_NAMESPACE}/{TEST_POD}"), &None, &PodLifecycleData::Running(1))
+        .record_pod_lifecycle(&ns_name, &None, &PodLifecycleData::Running(1))
         .await;
-    assert!(matches!(res, Err(_)));
+    assert_ok!(res);
+    assert!(!tracer.pod_owners.has_pod(&ns_name));
 }
 
 fn mock_pod_owners_map(

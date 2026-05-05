@@ -1,9 +1,6 @@
 use assertables::*;
 use serde_json::json;
-use sk_store::{
-    TraceEvent,
-    TracerConfig,
-};
+use sk_store::TraceEvent;
 
 use super::missing_resources::service_account_validator;
 use super::*;
