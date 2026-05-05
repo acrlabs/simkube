@@ -34,5 +34,6 @@ nav:
   - Reference:
       - CRDs: docs/ref/crds.md
       - IAM Policy Example: docs/ref/aws_iam_policy.md
-      - SimKube Trace Format: docs/ref/trace-files.md
+      - Tracer Config Schema: docs/ref/tracer-config.md
+      - Trace Format: docs/ref/trace-files.md
       - SKEL reference: docs/ref/skel.md
