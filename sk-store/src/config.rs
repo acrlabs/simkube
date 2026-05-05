@@ -190,6 +190,7 @@ trackedObjects:
     #[case::job_none_paths(("batch","v1","Job"), None, Expected::Ok(vec!["/spec/template"]))]
     #[case::replicaset_none_paths(("apps","v1","ReplicaSet"), None, Expected::Ok(vec!["/spec"]))]
     #[case::statefulset_none_paths(("apps","v1","StatefulSet"), None, Expected::Ok(vec!["/spec/template"]))]
+    #[case::statefulset_none_paths(("","v1","Pod"), None, Expected::Ok(vec!["/"]))]
 
     fn test_normalize(
         #[case] input_gvk: (&str, &str, &str),
