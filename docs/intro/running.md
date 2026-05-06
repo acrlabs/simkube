@@ -22,7 +22,7 @@ production cluster with the following command:
 > skctl snapshot -c config.yml
 ```
 
-The config file referenced should be in the same format as expected by `sk-tracer`. Here's a basic one you can use:
+The config file referenced should be in the same format as expected by `sk-tracer`.  Here's a basic one you can use:
 
 ```yaml
 # config.yml
@@ -95,7 +95,7 @@ testing                           Initializing
 ```
 
 During the "Initializing" phase, `sk-ctrl` is setting up a temporary high-resolution Prometheus pod to scrape data from
-the simulation, as well as configuring other needed components. After 30-50 seconds, you should see the simulation
+the simulation, as well as configuring other needed components.  After 30-50 seconds, you should see the simulation
 transition to "Running":
 
 ```text
@@ -112,5 +112,5 @@ NAME      START TIME             END TIME               STATE
 testing   2024-03-01T04:58:48Z   2024-03-01T04:59:06Z   Finished
 ```
 
-Congratulations! You did it! Read on to learn more about how you can do some more advanced things in your simulated
+Congratulations!  You did it!  Read on to learn more about how you can do some more advanced things in your simulated
 environment.
