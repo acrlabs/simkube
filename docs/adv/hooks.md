@@ -47,8 +47,7 @@ If you are using `skctl` to run your simulation, you can provide a set of hooks 
 following, using the `--hooks` CLI argument:
 
 ```bash exec="on" result="yaml"
-pwd
-find . | grep hooks
+cat ./temp_dir/simkube/examples/hooks/hook.yml
 ```
 
 Note that you can specify multiple hooks files, separated by a colon, as in
