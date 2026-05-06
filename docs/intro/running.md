@@ -27,9 +27,7 @@ The config file referenced should be in the same format as expected by `sk-trace
 ```yaml
 # config.yml
 trackedObjects:
-  apps/v1.Deployment:
-    podSpecTemplatePaths:
-      - /spec/template
+  apps/v1.Deployment: {}
 ```
 
 ## Step 2: Create some virtual nodes
@@ -51,9 +49,9 @@ metadata:
   name: fake-node-1
 spec:
   taints:
-  - effect: NoSchedule
-    key: kwok-provider
-    value: "true"
+    - effect: NoSchedule
+      key: kwok-provider
+      value: "true"
 status:
   allocatable:
     cpu: 35

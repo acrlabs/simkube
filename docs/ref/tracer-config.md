@@ -59,6 +59,7 @@ resources with pre-defined `podSpecTemplatePaths` is:
 - batch/v1.Job
 - apps/v1.ReplicaSet
 - apps/v1.StatefulSet
+- v1.Pod
 
 ## JSON Pointer Extension
 

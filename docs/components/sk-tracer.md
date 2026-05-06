@@ -22,7 +22,7 @@ tracer _also_ establishes a watch on all pods in the cluster.  Whenever a new po
 ownership chain to determine if any of the pod's ancestors are being tracked.  If so, _and_ if the `trackLifecycle`
 flags is set for that owner, the tracer will record the pod lifecycle events (currently just start and end timestamps)
 in the trace for use by the simulator.  The objects that the tracer will watch can be configured via a passed in config
-file (see the [tracer config reference](../ref/tracer-config.md).
+file (see the [tracer config reference](../ref/tracer-config.md)).
 
 ## Exporting a trace
 

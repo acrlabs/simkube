@@ -5,8 +5,8 @@ template: docs.html
 # SimKube Configuration
 
 The following section describes some options for customizing the behaviour of your SimKube installation; if you are
-using the provided [kustomize](https://github.com/acrlabs/simkube/tree/main/k8s/kustomize) manifests, you can update
-or override these values there.
+using the provided [kustomize](https://github.com/acrlabs/simkube/tree/main/k8s/kustomize) manifests, you can update or
+override these values there.
 
 ## Configuration of `sk-tracer`
 
@@ -17,22 +17,16 @@ example config that tells sk-tracer to watch Deployments, Jobs, and StatefulSets
 
 ```yaml
 trackedObjects:
-  apps/v1.Deployment:
-    podSpecTemplatePaths:
-      - /spec/template
-  batch/v1.Job:
-    podSpecTemplatePaths:
-      - /spec/template
-  apps/v1.StatefulSet:
-    podSpecTemplatePaths:
-      - /spec/template
+  apps/v1.Deployment: {}
+  batch/v1.Job: {}
+  apps/v1.StatefulSet: {}
 ```
 
 > [!NOTE]
 > SimKube does some sanitization of the resources it watches, which is why it needs to know where the
 > `podSpecTemplatePaths` is; especially for custom resources, the path to the `podSpecTemplate` is not necessarily
-> standard or well-known.  In a future version of SimKube we'll make this parameter optional for all "standard"
-> Kubernetes objects.
+> standard or well-known. The sk-tracer config supports default `podSpecTemplatePaths` for a commonly tracked resources.
+> The list of supported defaults can be found in [the tracer-config reference](../ref/tracer-config.md).
 
 `sk-tracer` needs an RBAC policy that grants "get", "list" and "watch" access to all configured objects in the cluster,
 as well as pods.  For example, if you use the above configuration, you will need the following RBAC policy attached to
@@ -44,15 +38,15 @@ kind: ClusterRole
 metadata:
   name: sk-tracer
 rules:
-- apiGroups: [""]
-  resources: ["pods"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["apps/v1"]
-  resources: ["deployment", "statefulset"]
-  verbs: ["get", "watch", "list"]
-- apiGroups: ["batch/v1"]
-  resources: ["job"]
-  verbs: ["get", "watch", "list"]
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["apps/v1"]
+    resources: ["deployment", "statefulset"]
+    verbs: ["get", "watch", "list"]
+  - apiGroups: ["batch/v1"]
+    resources: ["job"]
+    verbs: ["get", "watch", "list"]
 ```
 
 ## Configuring `sk-ctrl`
