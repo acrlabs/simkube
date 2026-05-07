@@ -522,7 +522,56 @@ fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] e
 }
 
 // We don't need to test all the same "match" selectors here, because most of these are covered by
-// the remove cases above.  Just add the ones that are specific to modify semantics.
+// the remove cases above.  Just add the ones that are specific to the individual command's
+// semantics.
+
+#[rstest]
+#[case::delete_all_event_objs(
+    "delete(*);",
+    vec![TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: Default::default(),
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    }],
+    vec![],
+)]
+#[case::delete_some_event_objs(
+    "delete(metadata.name == \"foo\");",
+    vec![TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{ name: Some("foo".into()), ..Default::default()},
+            data: json!({}),
+        }, DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{ name: Some("bar".into()), ..Default::default()},
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    }],
+    vec![TraceEvent{
+        ts: 1234,
+        applied_objs: vec![DynamicObject{
+            types: None,
+            metadata: metav1::ObjectMeta{ name: Some("bar".into()), ..Default::default()},
+            data: json!({}),
+        }],
+        deleted_objs: vec![],
+    }],
+)]
+fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[case] expected: Vec<TraceEvent>) {
+    let trace = ExportedTrace::new_with_events(evts);
+    let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
+    let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
+    let res = process_trace(&trace, &vec![cmd], None).unwrap();
+    assert_eq!(res, expected);
+}
+
 #[rstest]
 #[case::modify_implicit_match_star(
     "modify(spec.template.spec.nodeSelector.\"simkube.dev/foo\" = \"bar\");",

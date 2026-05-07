@@ -35,6 +35,7 @@ use super::*;
     "modify(@t >= 10m && spec.template.spec.nodeSelector.\"simkube.dev/foo\" == \"bar\",
       spec.template.spec.nodeSelector.\"simkube.dev/foo\" = \"baz\");"
 )]
+#[case("delete(@t >= 10m && spec.template.spec.nodeSelector.\"simkube.dev/foo\" == \"bar\");")]
 fn test_skel_should_parse(#[case] command: &str) {
     assert_ok!(SkelParser::parse(Rule::skel, command));
 }

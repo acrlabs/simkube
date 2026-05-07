@@ -15,6 +15,7 @@ use crate::skel::ast::{
     TestOperation,
     TraceSelector,
     VarDef,
+    parse_delete_command,
     parse_modify_command,
     parse_remove_command,
     parse_resource_conditional,
@@ -25,10 +26,24 @@ use crate::skel::ast::{
 };
 
 #[rstest]
+fn test_parse_delete_command() {
+    let expected = Command {
+        trace_selector: TraceSelector::All,
+        action: CommandAction::Delete,
+    };
+    let cmd = SkelParser::parse(Rule::command, "delete(*)")
+        .unwrap()
+        .next()
+        .unwrap()
+        .into_inner();
+    assert_ok_eq_x!(&parse_delete_command(cmd, 1234), &expected);
+}
+
+#[rstest]
 fn test_parse_modify_command() {
     let expected = Command {
         trace_selector: TraceSelector::All,
-        action: CommandAction::Apply("/metadata/labels/asdf".into(), Rhs::Value(json!("foo"))),
+        action: CommandAction::Modify("/metadata/labels/asdf".into(), Rhs::Value(json!("foo"))),
     };
     let cmd = SkelParser::parse(Rule::command, "modify(metadata.labels.asdf = \"foo\")")
         .unwrap()

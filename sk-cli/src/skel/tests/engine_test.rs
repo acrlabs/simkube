@@ -4,13 +4,17 @@ use blackbox_metrics::{
     MetricsRead,
 };
 use json_patch_ext::PointerBuf;
+use kube::api::DynamicObject;
 use serde_json::{
     Value,
     json,
 };
+use sk_store::TraceEvent;
 
 use super::*;
 use crate::skel::ast::{
+    Command,
+    CommandAction,
     Conditional,
     Rhs,
     TestOperation,
@@ -19,6 +23,7 @@ use crate::skel::ast::{
 };
 use crate::skel::context::*;
 use crate::skel::engine::{
+    process_event,
     process_modify_event_obj,
     process_remove_event_obj,
     reify_pointers,
@@ -64,6 +69,32 @@ fn ctx_with_x(mut ctx: MatchContext) -> MatchContext {
         ),
     );
     ctx
+}
+
+#[rstest]
+fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
+    let mut evt = TraceEvent {
+        ts: 1234,
+        applied_objs: vec![test_deployment],
+        deleted_objs: vec![],
+    };
+    evt = process_event(
+        &Command {
+            action: CommandAction::Delete,
+            trace_selector: TraceSelector::All,
+        },
+        evt,
+    )
+    .unwrap();
+
+    assert_eq!(
+        evt,
+        TraceEvent {
+            ts: 1234,
+            applied_objs: vec![],
+            deleted_objs: vec![]
+        }
+    );
 }
 
 #[rstest]
