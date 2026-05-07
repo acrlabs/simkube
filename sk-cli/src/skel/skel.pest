@@ -118,14 +118,14 @@ trace_selector_expr = _{ trace_selector_all | trace_selector_list }
 //  - modify(trace_selector, operation): performs an operation to every matching item in the trace
 //  - remove(trace_selector, resource_path): removes a field from every matching item in the trace
 
-command = _{  modify_cmd | /* delete_func | insert_func | */ remove_cmd }
+command = _{  modify_cmd | delete_cmd | /* insert_func | */ remove_cmd }
 
 assignment = { resource_path  ~ "=" ~ (val | resource_path) }
 modify_args = _{ trace_selector_expr ~ "," ~ assignment | assignment }
 modify_cmd = { "modify" ~ "(" ~ modify_args ~ ")" }
 
-// delete_args = _{ trace_selector_expr }
-// delete_func = { "delete" ~ "(" ~ delete_args ~ ")" }
+delete_args = _{ trace_selector_expr }
+delete_cmd = { "delete" ~ "(" ~ delete_args ~ ")" }
 
 // insert_args = _{ ts_val ~ "," ~ resource }
 // insert_func = { "insert" ~ "(" ~ insert_args ~ ")" }

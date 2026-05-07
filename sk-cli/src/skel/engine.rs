@@ -35,8 +35,10 @@ pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Resul
         process_event_obj(cmd, obj, evt.ts)?
     }
 
-    evt.applied_objs = serde_json::from_value(applied_objs)?;
-    evt.deleted_objs = serde_json::from_value(deleted_objs)?;
+    // trim_event_objects removes all the null entries for deleted elements; then, if there are no
+    // objects left in either field we just prune the entire event
+    evt.applied_objs = serde_json::from_value(trim_event_objects(applied_objs))?;
+    evt.deleted_objs = serde_json::from_value(trim_event_objects(deleted_objs))?;
     Ok(evt)
 }
 
@@ -46,7 +48,8 @@ fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult
     if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
         matched_counter.increment(1);
         match &cmd.action {
-            CommandAction::Apply(ptr_str, rhs) => process_modify_event_obj(obj, ptr_str, rhs, &ctx)?,
+            CommandAction::Delete => *obj = Value::Null,
+            CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(obj, ptr_str, rhs, &ctx)?,
             CommandAction::Remove(ptr_str) => process_remove_event_obj(obj, ptr_str, &ctx)?,
         }
     }
@@ -341,4 +344,15 @@ fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult 
     }
 
     Ok(())
+}
+
+fn trim_event_objects(objs: Value) -> Value {
+    Value::Array(
+        objs.as_array()
+            .unwrap() // it is an error to pass a non-array to this function
+            .iter()
+            .filter(|o| !o.is_null())
+            .cloned()
+            .collect(),
+    )
 }

@@ -60,12 +60,13 @@ pub(super) enum TraceSelector {
 
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum CommandAction {
-    Apply(String, Rhs),
+    Delete,
+    Modify(String, Rhs),
     Remove(String),
 }
 
 #[derive(Debug, Eq, PartialEq)]
-pub(super) struct Command {
+pub struct Command {
     pub(super) trace_selector: TraceSelector,
     pub(super) action: CommandAction,
 }
@@ -75,10 +76,25 @@ pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Res
     let args = cmd.into_inner();
 
     Ok(match rule {
+        Rule::delete_cmd => parse_delete_command(args, trace_start_ts)?,
         Rule::modify_cmd => parse_modify_command(args, trace_start_ts)?,
         Rule::remove_cmd => parse_remove_command(args, trace_start_ts)?,
         x => unreachable!("Rule::{x:?}"),
     })
+}
+
+pub(super) fn parse_delete_command(mut args: Pairs<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
+    let mut defined_vars = HashSet::new();
+    let ts = args.next().unwrap();
+    let trace_selector = match ts.as_rule() {
+        // It is _technically_ possible to delete everything in a trace, though I don't know why you
+        // would want to...
+        Rule::trace_selector_all => TraceSelector::All,
+        Rule::trace_selector_list => parse_trace_selector(ts, trace_start_ts, &mut defined_vars)?,
+        x => unreachable!("Rule::{x:?}"),
+    };
+
+    Ok(Command { trace_selector, action: CommandAction::Delete })
 }
 
 pub(super) fn parse_modify_command(mut args: Pairs<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
@@ -104,7 +120,7 @@ pub(super) fn parse_modify_command(mut args: Pairs<Rule>, trace_start_ts: i64) -
 
     Ok(Command {
         trace_selector,
-        action: CommandAction::Apply(resource_ptr, rhs),
+        action: CommandAction::Modify(resource_ptr, rhs),
     })
 }
 
