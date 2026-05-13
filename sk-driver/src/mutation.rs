@@ -107,7 +107,8 @@ pub async fn mutate_pod(
     add_empty_labels_annotations(pod, &mut patches);
     if !pod.labels_contains_key(SIMULATION_LABEL_KEY) {
         info!("first time seeing pod, adding tracking annotations");
-        patches.push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.name)));
+        patches
+            .push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.sim_name)));
         add_node_selector_tolerations(pod, &mut patches)?;
         add_pod_hash_annotations(hash, seq, &mut patches);
     }
