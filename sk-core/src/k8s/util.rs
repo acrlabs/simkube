@@ -1,7 +1,10 @@
 use std::collections::BTreeMap;
 
 use kube::api::Resource;
-use serde_json as json;
+use serde_json::{
+    Map,
+    Value,
+};
 
 use super::*;
 use crate::errors::*;
@@ -43,7 +46,7 @@ pub fn build_deletable(gvk: &GVK, ns_name: &str) -> DynamicObject {
             ..Default::default()
         },
         types: Some(gvk.into_type_meta()),
-        data: json::Value::Null,
+        data: Value::Null,
     }
 }
 
@@ -72,6 +75,18 @@ where
     build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
 }
 
+pub fn dyn_obj_spec(obj: &DynamicObject) -> Option<&Map<String, Value>> {
+    obj.data
+        .as_object()
+        .and_then(|data| data.get("spec").and_then(|spec| spec.as_object()))
+}
+
+pub fn dyn_obj_spec_mut(obj: &mut DynamicObject) -> Option<&mut Map<String, Value>> {
+    obj.data
+        .as_object_mut()
+        .and_then(|data| data.get_mut("spec").and_then(|spec| spec.as_object_mut()))
+}
+
 pub fn dyn_obj_type_str(obj: &DynamicObject) -> String {
     obj.types
         .as_ref()
@@ -83,7 +98,7 @@ pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
     format!("{gvk}:{ns_name}")
 }
 
-pub fn sanitize_obj(obj: &mut DynamicObject, api_version: &str, kind: &str) {
+pub fn sanitize_obj(gvk: &GVK, obj: &mut DynamicObject) {
     // N.B. We do not sanitize owner references here, since we need them
     // to compute owner chains in the TraceStore
     obj.metadata.creation_timestamp = None;
@@ -94,12 +109,16 @@ pub fn sanitize_obj(obj: &mut DynamicObject, api_version: &str, kind: &str) {
     obj.metadata.resource_version = None;
     obj.metadata.uid = None;
 
-    if let Some(a) = obj.metadata.annotations.as_mut() {
-        a.remove(LAST_APPLIED_CONFIG_LABEL_KEY);
-        a.remove(DEPL_REVISION_LABEL_KEY);
-    }
+    obj.annotations_mut().remove(LAST_APPLIED_CONFIG_LABEL_KEY);
+    obj.annotations_mut().remove(DEPL_REVISION_LABEL_KEY);
 
-    obj.types = Some(TypeMeta { api_version: api_version.into(), kind: kind.into() });
+    // If we are tracking pod objects (whether bare or not!), we want to ignore the node it was
+    // assigned to "in production" since this will certainly not exist in the simulation.
+    dyn_obj_spec_mut(obj).map(|spec| spec.remove("nodeName"));
+
+    // I don't quite remember what this is for, but I vaguely recall that for "deleted" resources
+    // it may not fill out the TypeMeta, so we set it here.
+    obj.types = Some(gvk.into_type_meta());
 }
 
 pub fn split_namespaced_name(name: &str) -> (String, String) {
