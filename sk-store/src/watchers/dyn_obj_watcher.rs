@@ -36,18 +36,18 @@ pub async fn new_with_stream(
     dyn_obj_tx: Sender,
     ready_tx: mpsc::Sender<bool>,
 ) -> anyhow::Result<ObjWatcher<DynamicObject>> {
-    // TODO if this fails (e.g., because some custom resource isn't present in the cluster)
-    // it will prevent the tracer from starting up
-    let api_version = gvk.api_version().clone();
-    let kind = gvk.kind.clone();
+    // TODO if this function fails (e.g., because some requested custom resource isn't present in
+    // the cluster) it will prevent the tracer from starting up
+
+    // The GVK needs to be cloned ahead of time because it's moved into the stream
+    let stream_gvk = gvk.clone();
 
     // The "unnamespaced" api variant can list/watch in all namespaces
     let (api, _) = apiset.unnamespaced_api_by_gvk(gvk).await?;
 
     let dyn_obj_handler = Box::new(DynObjHandler { gvk: gvk.clone(), dyn_obj_tx });
     let dyn_obj_stream = watcher(api.clone(), Default::default())
-        // All these objects need to be cloned because they're moved into the stream here
-        .modify(move |obj| sanitize_obj(obj, &api_version, &kind))
+        .modify(move |obj| sanitize_obj(&stream_gvk, obj))
         .map_err(|e| e.into())
         .boxed();
 

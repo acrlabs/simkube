@@ -1,6 +1,9 @@
 use assertables::*;
 use clockabilly::Utc;
-use serde_json as json;
+use serde_json::{
+    Value,
+    json,
+};
 
 use super::*;
 
@@ -29,10 +32,10 @@ fn test_sanitize_obj() {
             ..Default::default()
         },
         types: None,
-        data: json::Value::Null,
+        data: Value::Null,
     };
 
-    sanitize_obj(&mut obj, "bar.blah.sh/v2", "Stuff");
+    sanitize_obj(&GVK::new("bar.blah.sh", "v2", "Stuff"), &mut obj);
 
     assert_some!(obj.metadata.owner_references);
 
@@ -49,6 +52,28 @@ fn test_sanitize_obj() {
         obj.types
             .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff")
     );
+}
+
+#[rstest]
+fn test_sanitize_pod_obj() {
+    let mut obj = DynamicObject {
+        metadata: metav1::ObjectMeta {
+            name: Some("test-obj".into()),
+            namespace: Some(TEST_NAMESPACE.into()),
+
+            ..Default::default()
+        },
+        types: None,
+        data: json!({
+            "spec": {
+                "nodeName": "ip-1-2-3-4.internal",
+            }
+        }),
+    };
+
+    sanitize_obj(&*POD_GVK, &mut obj);
+
+    assert!(!dyn_obj_spec(&obj).unwrap().contains_key("nodeName"));
 }
 
 fn build_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {
