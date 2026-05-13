@@ -1,7 +1,3 @@
-## Related Links
-<!-- include a link to the issue(s) this resolves and/or any related design docs -->
-- TODO
-
 ## Description and Rationale
 <!-- a short bulleted list of the high-level changes you made, along with the reason why; if any change needs a more
 detailed explanation, feel free to break this up into subsections -->
