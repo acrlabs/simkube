@@ -58,7 +58,7 @@ pub fn build_virtual_ns(ctx: &DriverContext, root: &SimulationRoot, namespace: &
 }
 
 pub fn build_virtual_obj(
-    ctx: &DriverContext,
+    sim_name: &str,
     root: &SimulationRoot,
     original_ns: &str,
     virtual_ns: &str,
@@ -67,23 +67,31 @@ pub fn build_virtual_obj(
 ) -> anyhow::Result<DynamicObject> {
     let owner = root;
     let mut vobj = obj.clone();
-    add_common_metadata(&ctx.name, owner, &mut vobj.metadata);
+    add_common_metadata(sim_name, owner, &mut vobj.metadata);
     vobj.metadata.namespace = Some(virtual_ns.into());
     klabel_insert!(vobj, VIRTUAL_LABEL_KEY => "true");
     patch_ext(&mut vobj.data, remove_operation(format_ptr!("/status")))?;
 
     if let Some(pod_spec_template_paths) = maybe_pod_spec_template_paths {
         for pod_spec_template_path in pod_spec_template_paths {
-            patch_ext(
-                &mut vobj.data,
-                add_operation(
-                    format_ptr!(
-                        "{pod_spec_template_path}/metadata/annotations/{}",
-                        escape(ORIG_NAMESPACE_ANNOTATION_KEY)
+            if pod_spec_template_path.is_empty() {
+                // For anything that has an empty pod_spec_template_path (afaik the only thing this
+                // would be is bare pods), we need to modify the DynamicObject's metadata field
+                // instead of setting a value on vobj.data, otherwise we get serialization issues.
+                vobj.annotations_mut()
+                    .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), original_ns.into());
+            } else {
+                patch_ext(
+                    &mut vobj.data,
+                    add_operation(
+                        format_ptr!(
+                            "{pod_spec_template_path}/metadata/annotations/{}",
+                            escape(ORIG_NAMESPACE_ANNOTATION_KEY)
+                        ),
+                        json!(original_ns),
                     ),
-                    json!(original_ns),
-                ),
-            )?;
+                )?;
+            }
 
             // This is semi-duplicated from the pod mutation webhook; we need to set the tolerations
             // and nodeSelectors _here_ so that, e.g., things like DaemonSets will schedule properly
@@ -198,7 +206,7 @@ pub(crate) async fn run_trace_internal(
             }
 
             let pod_spec_template_path = ctx.trace.config.pod_spec_template_paths(&gvk);
-            let vobj = build_virtual_obj(ctx, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
+            let vobj = build_virtual_obj(&ctx.sim_name, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
 
             info!("applying {} {}", dyn_obj_type_str(&vobj), vobj.namespaced_name());
             apiset

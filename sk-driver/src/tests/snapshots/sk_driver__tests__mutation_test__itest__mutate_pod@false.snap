@@ -13,7 +13,7 @@ Object {
         },
         "labels": Object {
             "foo": String("bar"),
-            "simkube.io/simulation": String("sk-test-driver-12345"),
+            "simkube.io/simulation": String("test-sim"),
         },
         "name": String("the-pod"),
         "namespace": String("test-namespace"),

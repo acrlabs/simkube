@@ -22,17 +22,13 @@ use crate::util::DRIVER_PAUSED_WAIT_SECONDS;
 // Must match the namespace in tests/data/trace.json
 const TEST_NS_NAME: &str = "default";
 
-#[rstest(tokio::test)]
-async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
-    let (_, client) = make_fake_apiserver();
-    let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
-    let ctx = build_driver_context(cache, ExportedTrace::default());
-
+#[rstest]
+fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
     let pod_spec_template_paths = Some(vec!["/spec/template1".into(), "/spec/template2".into()]);
 
     let virtual_ns = format!("virtual-{TEST_NAMESPACE}");
     let vobj = build_virtual_obj(
-        &ctx,
+        TEST_SIM_NAME,
         &test_sim_root,
         TEST_NAMESPACE,
         &virtual_ns,
@@ -41,7 +37,7 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
     )
     .unwrap();
 
-    assert_eq!(vobj.metadata.namespace.unwrap(), virtual_ns);
+    assert_eq!(vobj.namespace().unwrap(), virtual_ns);
     assert_eq!(
         vobj.data,
         json!({
@@ -88,6 +84,40 @@ async fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationR
                         ],
                     },
                 },
+            }
+        })
+    );
+}
+
+#[rstest]
+fn test_build_virtual_object_bare_pod(test_sim_root: SimulationRoot, test_dynamic_pod: DynamicObject) {
+    let pod_spec_template_paths = Some(vec!["".into()]);
+
+    let virtual_ns = format!("virtual-{TEST_NAMESPACE}");
+    let vobj = build_virtual_obj(
+        TEST_SIM_NAME,
+        &test_sim_root,
+        TEST_NAMESPACE,
+        &virtual_ns,
+        &test_dynamic_pod,
+        pod_spec_template_paths.as_deref(),
+    )
+    .unwrap();
+
+    assert_eq!(vobj.namespace().unwrap(), virtual_ns);
+    assert_eq!(vobj.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY).unwrap(), TEST_NAMESPACE);
+    assert_eq!(
+        vobj.data,
+        json!({
+            "spec": {
+                // Ensure that if there is no nodeSelector/tolerations defined,
+                // they get created anyways
+                "nodeSelector": {"type": "virtual" },
+                "tolerations": [{
+                    "key": VIRTUAL_NODE_TOLERATION_KEY,
+                    "operator": "Exists",
+                    "effect": "NoSchedule",
+                }],
             }
         })
     );

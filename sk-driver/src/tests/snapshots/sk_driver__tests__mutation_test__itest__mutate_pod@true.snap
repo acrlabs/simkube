@@ -14,7 +14,7 @@ Object {
         },
         "labels": Object {
             "foo": String("bar"),
-            "simkube.io/simulation": String("sk-test-driver-12345"),
+            "simkube.io/simulation": String("test-sim"),
             "simkube.kwok.io/stage-complete": String("true"),
         },
         "name": String("the-pod"),

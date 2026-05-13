@@ -75,6 +75,6 @@ pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, Vec<&'static str>>
         (JOB_GVK.clone(), vec!["/spec/template"]),
         (REPLICASET_GVK.clone(), vec!["/spec"]),
         (STATEFULSET_GVK.clone(), vec!["/spec/template"]),
-        (POD_GVK.clone(), vec!["/"]),
+        (POD_GVK.clone(), vec![""]),
     ])
 });

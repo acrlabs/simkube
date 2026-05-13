@@ -1,5 +1,7 @@
 use clockabilly::DateTime;
+use kube::api::DynamicObject;
 use rstest::fixture;
+use serde_json::json;
 use sk_core::macros::*;
 use sk_core::prelude::*;
 
@@ -19,6 +21,20 @@ pub fn test_pod(#[default(TEST_POD.into())] name: String) -> corev1::Pod {
         },
         spec: Some(corev1::PodSpec { ..Default::default() }),
         status: Some(corev1::PodStatus { ..Default::default() }),
+    }
+}
+
+#[fixture]
+pub fn test_dynamic_pod(#[default(TEST_POD.into())] name: String) -> DynamicObject {
+    DynamicObject {
+        types: Some(POD_GVK.into_type_meta()),
+        metadata: metav1::ObjectMeta {
+            labels: klabel!("foo" => "bar"),
+            namespace: Some(TEST_NAMESPACE.into()),
+            name: Some(name),
+            ..Default::default()
+        },
+        data: json!({}),
     }
 }
 
