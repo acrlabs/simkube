@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.6.0 - 2026-05-14
+
+### 🚀 Features
+
+- Add default `podSpecTemplatePaths` for known Kubernetes resources
+- `skip_owned` flag for tracer config to skip tracing owned Kubernetes resources
+- Delete command for SKEL
+
+### 🐛 Bug Fixes
+
+- Support http-proxy feature in kubeconfig
+- Default exported trace saved to current dir
+- Drop nodeName field for tracked pod objects
+- Set bare pod metadata correctly, and set sim name label correctly
+- Truncate long labels
+
 ## 2.5.0 - 2026-04-15
 
 ### 🚀 Features

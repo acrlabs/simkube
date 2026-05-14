@@ -3639,7 +3639,7 @@ checksum = "b2aa850e253778c88a04c3d7323b043aeda9d3e30d5971937c1855769763678e"
 
 [[package]]
 name = "sk-api"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "clockabilly",
  "k8s-openapi",
@@ -3651,7 +3651,7 @@ dependencies = [
 
 [[package]]
 name = "sk-core"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "assert_fs",
@@ -3689,7 +3689,7 @@ dependencies = [
 
 [[package]]
 name = "sk-ctrl"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "assertables",
@@ -3718,7 +3718,7 @@ dependencies = [
 
 [[package]]
 name = "sk-driver"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "assertables",
@@ -3749,7 +3749,7 @@ dependencies = [
 
 [[package]]
 name = "sk-store"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "assertables",
@@ -3800,7 +3800,7 @@ dependencies = [
 
 [[package]]
 name = "sk-tracer"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "bytes",
@@ -3825,7 +3825,7 @@ dependencies = [
 
 [[package]]
 name = "skctl"
-version = "2.5.0"
+version = "2.6.0"
 dependencies = [
  "anyhow",
  "assertables",
