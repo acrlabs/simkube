@@ -10,13 +10,18 @@ use super::*;
 use crate::errors::*;
 use crate::prelude::*;
 
+const MAX_LABEL_LENGTH: usize = 63;
+
 pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta)
 where
     K: Resource<DynamicType = ()>,
 {
     let labels = &mut meta.labels.get_or_insert_default();
-    labels.insert(SIMULATION_LABEL_KEY.into(), sim_name.into());
-    labels.insert(APP_KUBERNETES_IO_NAME_KEY.into(), meta.name.clone().unwrap());
+    labels.insert(SIMULATION_LABEL_KEY.into(), truncate_label(sim_name.into()));
+    labels.insert(
+        APP_KUBERNETES_IO_NAME_KEY.into(),
+        truncate_label(meta.name.clone().unwrap()), // everything should have a name (???)
+    );
 
     meta.owner_references.get_or_insert_default().push(metav1::OwnerReference {
         api_version: K::api_version(&()).into(),
@@ -126,6 +131,14 @@ pub fn split_namespaced_name(name: &str) -> (String, String) {
         Some((namespace, name)) => (namespace.into(), name.into()),
         None => ("".into(), name.into()),
     }
+}
+
+pub fn truncate_label(mut value: String) -> String {
+    if value.len() > MAX_LABEL_LENGTH {
+        value.truncate(MAX_LABEL_LENGTH - 4);
+        value.push_str("XXXX");
+    }
+    value
 }
 
 impl<T: Resource> KubeResourceExt for T {
