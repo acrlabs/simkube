@@ -126,7 +126,7 @@ jobs:
           echo "driver_image=$IMAGE" >> "$GITHUB_OUTPUT"
 
       - name: Run simulation
-        uses: acrlabs/simkube-ci-action/actions/run-simulation@f597bcc52b7bd9ae050dcfa5f3c273e4c69f3a88
+        uses: acrlabs/simkube-ci-action/actions/run-simulation@94f82b722827cc670d51b9aaa24d8bfacb802075
         with:
           simulation-name: test-cronjob-sim
           trace-path: examples/traces/cronjob.sktrace
