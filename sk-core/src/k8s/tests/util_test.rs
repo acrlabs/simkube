@@ -76,6 +76,21 @@ fn test_sanitize_pod_obj() {
     assert!(!dyn_obj_spec(&obj).unwrap().contains_key("nodeName"));
 }
 
+#[rstest]
+#[case::way_too_short("x", "x")]
+#[case::too_short("asdfasdfasdfasdf", "asdfasdfasdfasdf")]
+#[case::limit(
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+)]
+#[case::too_long(
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbb",
+    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaXXXX"
+)]
+fn test_truncate_label(#[case] input: &str, #[case] expected: &str) {
+    assert_eq!(truncate_label(input.into()), expected);
+}
+
 fn build_label_sel(key: &str, op: &str, value: Option<&str>) -> metav1::LabelSelector {
     metav1::LabelSelector {
         match_expressions: Some(vec![metav1::LabelSelectorRequirement {

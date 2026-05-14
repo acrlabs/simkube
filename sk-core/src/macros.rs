@@ -4,14 +4,14 @@ pub use std::collections::BTreeMap;
 #[macro_export]
 macro_rules! klabel {
     ($($key:expr=>$val:expr),+$(,)?) => {
-        Some(BTreeMap::from([$(($key.to_string(), $val.to_string())),+]))
+        Some(BTreeMap::from([$(($key.to_string(), $crate::k8s::truncate_label($val.to_string()))),+]))
     };
 }
 
 #[macro_export]
 macro_rules! klabel_insert {
     ($obj:ident, $($key:tt=>$val:tt),+$(,)?) => {
-        $($obj.labels_mut().insert($key.to_string(), $val.to_string()));+
+        $($obj.labels_mut().insert($key.to_string(), $crate::k8s::truncate_label($val.to_string())));+
     };
 }
 
