@@ -258,6 +258,12 @@ pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_p
     replaced_ptr_str = replaced_ptr_str.replace(variable_name, variable_pointer);
 
     // Vars might start or end with a slash, so remove any double-slashes
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
     replaced_ptr_str = replaced_ptr_str.replace("//", "/");
     (replaced_ptr_str != input).then_some(replaced_ptr_str)
 }

@@ -297,6 +297,12 @@ pub(super) fn parse_resource_path(path: Pair<Rule>, defined_vars: &HashSet<Strin
                 // selector, neither of which are handled correctly by json_patch_ext
                 ptr.push_str(&path_str[i..pstart].replace(".", "/").replace("[", "/").replace("]", ""));
                 // strip off the quotes on the inner string
+// FIX: 安全检查 — 防止目录穿越
+let path = {}.canonicalize().map_err(|_| Error::InvalidPath)?;
+if !path.starts_with(&base_dir) {
+    return Err(Error::PathTraversalDetected);
+}
+
                 ptr.push_str(&path_str[pstart + 1..pend - 1].replace("/", "~1"));
                 i = pend;
             },
