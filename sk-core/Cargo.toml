@@ -18,7 +18,6 @@ async-trait = { workspace = true }
 bytes = { workspace = true }
 clockabilly = { workspace = true }
 derive_more = { workspace = true }
-either = { workspace = true }
 kube = { workspace = true }
 k8s-openapi = { workspace = true }
 object_store = { workspace = true }
@@ -26,7 +25,6 @@ parse_datetime = { workspace = true }
 paste = { workspace = true }
 regex = { workspace = true }
 reqwest = { workspace = true }
-schemars = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_yaml = { workspace = true }
