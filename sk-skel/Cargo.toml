@@ -11,22 +11,22 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
-assertables = { workspace = true }
 json-patch-ext = { workspace = true }
 metrics = { workspace = true }
+pest = { workspace = true }
+pest_derive = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }
 sk-core = { workspace = true }
 sk-store = { workspace = true }
-pest = { workspace = true }
-pest_derive = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]
+assertables = { workspace = true }
+blackbox-metrics = { workspace = true }
 kube = { workspace = true }
 rstest = { workspace = true }
 sk-testutils = { workspace = true }
-blackbox-metrics = { workspace = true }
 
 [lints]
 workspace = true
