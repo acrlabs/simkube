@@ -1,6 +1,6 @@
 [package]
 name = "sk-skel"
-description = "Trace parsing language"
+description = "DSL for querying and transforming SimKube traces"
 version.workspace = true
 authors.workspace = true
 documentation.workspace = true
