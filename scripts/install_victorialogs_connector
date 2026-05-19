@@ -1,0 +1,121 @@
+#!/usr/bin/bash
+
+set -euxo pipefail
+
+kubectl apply -f - <<EOF
+---
+# Source: victoria-logs-collector/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: victoria-logs-collector
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/instance: collector
+    app.kubernetes.io/name: victoria-logs-collector
+    app.kubernetes.io/version: v1.50.0
+  annotations:
+    {}
+automountServiceAccountToken: true
+---
+# Source: victoria-logs-collector/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: victoria-logs-collector
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/instance: collector
+    app.kubernetes.io/name: victoria-logs-collector
+    app.kubernetes.io/version: v1.50.0
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "namespaces", "pods"]
+    verbs: ["get", "list", "watch"]
+---
+# Source: victoria-logs-collector/templates/rbac.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: victoria-logs-collector
+  namespace: monitoring
+  labels:
+    app.kubernetes.io/instance: collector
+    app.kubernetes.io/name: victoria-logs-collector
+    app.kubernetes.io/version: v1.50.0
+subjects:
+  - kind: ServiceAccount
+    name: victoria-logs-collector
+    namespace: monitoring
+roleRef:
+  kind: ClusterRole
+  name: victoria-logs-collector
+  apiGroup: rbac.authorization.k8s.io
+---
+# Source: victoria-logs-collector/templates/server.yaml
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: victoria-logs-collector
+  namespace: monitoring
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: collector
+      app.kubernetes.io/name: victoria-logs
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/component: collector
+        app.kubernetes.io/name: victoria-logs
+    spec:
+      serviceAccountName: victoria-logs-collector
+      securityContext: {}
+      containers:
+        - name: vlagent
+          image: victoriametrics/vlagent:v1.50.0
+          imagePullPolicy: IfNotPresent
+          securityContext: {}
+          ports:
+            - name: http
+              containerPort: 9429
+              protocol: TCP
+          args:
+            - --envflag.enable
+            - --envflag.prefix=VL_
+            - --kubernetesCollector
+            - --kubernetesCollector.includeNodeAnnotations=false
+            - --kubernetesCollector.includeNodeLabels=false
+            - --kubernetesCollector.includePodAnnotations=false
+            - --kubernetesCollector.includePodLabels
+            - --kubernetesCollector.msgField=message,msg,log
+            - --kubernetesCollector.streamFields=kubernetes.container_name,kubernetes.pod_name,kubernetes.pod_namespace,kubernetes.pod_labels.app.kubernetes.io/name,kubernetes.pod_labels.app.kubernetes.io/component,app,source,cluster,username
+            - --kubernetesCollector.timeField=time,ts,timestamp
+            - '--kubernetesCollector.extraFields={"source": "simkube", "cluster": "simkube-e2e"}'
+            - --loggerFormat=json
+            - --remoteWrite.headers="AccountID:0^^ProjectID:0"
+            - --remoteWrite.url=https://logs.acrl.dev/insert/native
+            - --tmpDataPath=/var/lib/vl-collector
+          volumeMounts:
+            - mountPath: /var/log
+              name: varlog
+              readOnly: true
+            - mountPath: /var/lib
+              name: varlib
+              readOnly: true
+            - name: vl-collector-data
+              mountPath: /var/lib/vl-collector
+      tolerations:
+        - key: node-role.kubernetes.io/control-plane
+          effect: NoSchedule
+      volumes:
+        - hostPath:
+            path: /var/log
+          name: varlog
+        - hostPath:
+            path: /var/lib
+          name: varlib
+        - name: vl-collector-data
+          hostPath:
+            path: /var/lib/vl-collector
+EOF

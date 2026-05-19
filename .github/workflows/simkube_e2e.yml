@@ -56,6 +56,8 @@ jobs:
         uses: ./.github/actions/setup-builder
       - name: Add .local/bin to PATH
         run: echo "/home/ubuntu/.local/bin" >> $GITHUB_PATH
+      - name: Set up logging connector
+        run: ./scripts/install_victorialogs_connector
       - name: Build
         run: make build image run
       - name: Wait for cluster rollout
