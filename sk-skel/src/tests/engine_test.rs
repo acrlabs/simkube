@@ -12,7 +12,7 @@ use serde_json::{
 use sk_store::TraceEvent;
 
 use super::*;
-use crate::skel::ast::{
+use crate::ast::{
     Command,
     CommandAction,
     Conditional,
@@ -21,8 +21,8 @@ use crate::skel::ast::{
     TraceSelector,
     VarDef,
 };
-use crate::skel::context::*;
-use crate::skel::engine::{
+use crate::context::*;
+use crate::engine::{
     process_event,
     process_modify_event_obj,
     process_remove_event_obj,
@@ -33,8 +33,8 @@ use crate::skel::engine::{
     trace_matches,
     variable_substitution,
 };
-use crate::skel::errors::SkelError;
-use crate::skel::metric_names::*;
+use crate::errors::SkelError;
+use crate::metric_names::*;
 
 #[fixture]
 fn test_obj() -> Value {
@@ -222,7 +222,6 @@ fn test_trace_matches_list(#[case] op: TestOperation, #[case] expected: bool, mu
         expected
     );
 }
-
 
 #[rstest]
 #[case(TestOperation::Eq, 1, 1, true)]

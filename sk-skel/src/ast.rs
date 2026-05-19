@@ -11,8 +11,8 @@ use pest::iterators::{
 };
 use serde_json::Value;
 
-use crate::skel::Rule;
-use crate::skel::errors::SkelError;
+use crate::Rule;
+use crate::errors::SkelError;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum TestOperation {

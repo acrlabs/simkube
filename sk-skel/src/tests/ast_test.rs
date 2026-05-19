@@ -7,7 +7,7 @@ use serde_json::{
 };
 
 use super::*;
-use crate::skel::ast::{
+use crate::ast::{
     Command,
     CommandAction,
     Conditional,
@@ -107,7 +107,6 @@ fn test_parse_trace_selector(
     assert_ok_eq_x!(&parsed, &expected);
     assert_bag_eq!(defined_vars, expected_vars);
 }
-
 
 #[rstest]
 #[case(

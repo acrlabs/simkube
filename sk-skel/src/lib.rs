@@ -1,7 +1,7 @@
-pub(super) mod ast;
-mod context;
-pub(super) mod engine;
-mod errors;
+pub mod ast;
+pub mod context;
+pub mod engine;
+pub mod errors;
 
 use std::fs;
 use std::sync::mpsc;
@@ -27,7 +27,7 @@ pub mod metric_names {
 
 #[allow(dead_code)]
 #[derive(Parser)]
-#[grammar = "src/skel/skel.pest"]
+#[grammar = "src/skel.pest"]
 struct SkelParser;
 
 pub fn process_trace(

@@ -7,7 +7,7 @@ use serde_json::Value;
 use sk_core::prelude::*;
 use sk_store::TraceEvent;
 
-use crate::skel::ast::{
+use crate::ast::{
     Command,
     CommandAction,
     Conditional,
@@ -16,9 +16,9 @@ use crate::skel::ast::{
     TraceSelector,
     VarDef,
 };
-use crate::skel::context::*;
-use crate::skel::errors::SkelError;
-use crate::skel::metric_names::*;
+use crate::context::*;
+use crate::errors::SkelError;
+use crate::metric_names::*;
 
 pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
     // Reinterpret the event as a JSON object so JSON pointers work for all fields

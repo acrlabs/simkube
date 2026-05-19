@@ -5,7 +5,7 @@ members = [
     "sk-cli",
     "sk-core",
     "sk-ctrl",
-    "sk-driver",
+    "sk-driver", "sk-skel",
     "sk-store",
     "sk-tracer",
 
@@ -25,11 +25,13 @@ rust-version = "1.93"
 sk-api = { version = "2.6.0", path = "sk-api" }
 sk-core = { version = "2.6.0", path = "sk-core" }
 sk-store = { version = "2.6.0", path = "sk-store" }
+sk-skel = { version = "2.6.0", path = "sk-skel" }
 
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 assertables = "9.8.0"
 async-recursion = "1.1.1"
 async-trait = "0.1.88"
+blackbox-metrics = "0.0.1"
 bytes = "1.11.1"
 chrono = "0.4.41"
 clap = { version = "4.5.40", features = ["cargo", "derive", "string"] }
