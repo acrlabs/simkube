@@ -39,3 +39,6 @@ test-log = { workspace = true }
 
 [lints]
 workspace = true
+
+[package.metadata.cargo-machete]
+ignored = ["thiserror"]
