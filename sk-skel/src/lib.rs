@@ -1,6 +1,6 @@
-pub(super) mod ast;
+mod ast;
 mod context;
-pub(super) mod engine;
+mod engine;
 mod errors;
 
 use std::fs;
@@ -27,7 +27,7 @@ pub mod metric_names {
 
 #[allow(dead_code)]
 #[derive(Parser)]
-#[grammar = "src/skel/skel.pest"]
+#[grammar = "src/skel.pest"]
 struct SkelParser;
 
 pub fn process_trace(
@@ -82,4 +82,4 @@ pub async fn apply_skel_file(
 }
 
 #[cfg(test)]
-pub mod tests;
+mod tests;

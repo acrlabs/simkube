@@ -3748,6 +3748,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "sk-skel"
+version = "2.6.0"
+dependencies = [
+ "anyhow",
+ "assertables",
+ "blackbox-metrics",
+ "json-patch-ext",
+ "kube",
+ "metrics",
+ "pest",
+ "pest_derive",
+ "regex",
+ "rstest",
+ "serde_json",
+ "sk-core",
+ "sk-store",
+ "sk-testutils",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "sk-store"
 version = "2.6.0"
 dependencies = [
@@ -3845,12 +3866,8 @@ dependencies = [
  "kdam",
  "kube",
  "metrics",
- "pest",
- "pest_derive",
  "ratatui",
- "regex",
  "reqwest 0.13.2",
- "rmp-serde",
  "rstest",
  "rstest-log",
  "serde",
@@ -3858,10 +3875,10 @@ dependencies = [
  "serde_yaml",
  "sk-api",
  "sk-core",
+ "sk-skel",
  "sk-store",
  "sk-testutils",
  "test-log",
- "thiserror 2.0.18",
  "tokio",
 ]
 
