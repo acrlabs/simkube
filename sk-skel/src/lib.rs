@@ -82,4 +82,4 @@ pub async fn apply_skel_file(
 }
 
 #[cfg(test)]
-pub mod tests;
+mod tests;
