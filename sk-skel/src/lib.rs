@@ -1,7 +1,7 @@
-pub mod ast;
-pub mod context;
-pub mod engine;
-pub mod errors;
+mod ast;
+mod context;
+mod engine;
+mod errors;
 
 use std::fs;
 use std::sync::mpsc;
