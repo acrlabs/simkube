@@ -1,9 +1,9 @@
 use std::collections::BTreeMap;
 
 use serde_json::json;
+use sk_core::event::TraceEvent;
 use sk_core::klabel;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use super::*;
 

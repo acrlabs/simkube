@@ -4,6 +4,7 @@ use assertables::*;
 use kube::discovery::ApiResource;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
+use sk_core::event::TraceEvent;
 use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,

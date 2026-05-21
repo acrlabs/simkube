@@ -7,10 +7,6 @@ mod store;
 mod trace;
 mod watchers;
 
-pub use crate::event::{
-    TraceAction,
-    TraceEvent,
-};
 pub use crate::index::TraceIndex;
 pub use crate::manager::TraceManager;
 pub use crate::pod_owners_map::PodLifecyclesMap;

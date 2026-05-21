@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use assertables::*;
+use sk_core::event::TraceEvent;
 use sk_core::k8s::PodLifecycleData;
 
 use super::*;

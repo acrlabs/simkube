@@ -1,6 +1,6 @@
 use assertables::*;
 use serde_json::json;
-use sk_store::TraceEvent;
+use sk_core::event::TraceEvent;
 
 use super::*;
 

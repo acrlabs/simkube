@@ -3,6 +3,10 @@ use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
+use sk_core::event::{
+    TraceAction,
+    TraceEvent,
+};
 use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
@@ -16,11 +20,7 @@ use sk_core::prelude::*;
 use tokio::sync::Mutex;
 use tracing::*;
 
-use crate::event::{
-    TraceAction,
-    TraceEvent,
-    append_event,
-};
+use crate::event::append_event;
 use crate::index::TraceIndex;
 use crate::pod_owners_map::PodOwnersMap;
 use crate::trace::ExportedTrace;

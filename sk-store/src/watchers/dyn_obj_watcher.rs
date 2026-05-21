@@ -6,6 +6,7 @@ use futures::{
 use kube::runtime::WatchStreamExt;
 use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
+use sk_core::event::TraceAction;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
@@ -15,7 +16,6 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 use tokio::sync::mpsc;
 
-use crate::TraceAction;
 use crate::watchers::{
     EventHandler,
     ObjWatcher,

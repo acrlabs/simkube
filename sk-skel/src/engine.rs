@@ -4,8 +4,8 @@ use json_patch_ext::prelude::*;
 use metrics::counter;
 use regex::Regex;
 use serde_json::Value;
+use sk_core::event::TraceEvent;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::ast::{
     Command,
