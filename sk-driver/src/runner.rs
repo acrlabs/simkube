@@ -221,11 +221,14 @@ pub(crate) async fn run_trace_internal(
             let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
             let mut vobj = obj.clone();
             vobj.metadata.namespace = Some(virtual_ns);
-            apiset
+            if let Err(e) = apiset
                 .api_for_obj(&vobj)
                 .await?
                 .delete(&obj.name_any(), &Default::default())
-                .await?;
+                .await
+            {
+                tracing::warn!("delete failed, continuing: {:?}", e)
+            };
         }
 
         if let Some(next_ts) = maybe_next_ts {
