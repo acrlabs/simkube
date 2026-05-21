@@ -2,6 +2,7 @@
 pub mod config;
 pub mod constants;
 pub mod errors;
+pub mod event;
 pub mod events;
 pub mod external_storage;
 pub mod hooks;

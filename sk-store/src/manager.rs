@@ -1,5 +1,6 @@
 use std::sync::Arc;
 
+use sk_core::event::TraceAction;
 use sk_core::k8s::DynamicApiSet;
 use sk_core::prelude::*;
 use tokio::sync::{
@@ -9,7 +10,6 @@ use tokio::sync::{
 use tokio::task::JoinSet;
 use tracing::*;
 
-use crate::event::TraceAction;
 use crate::store::TraceStore;
 use crate::watchers::{
     dyn_obj_watcher,

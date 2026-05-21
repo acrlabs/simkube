@@ -51,7 +51,6 @@ fn rs(idx: i64) -> DynamicObject {
     obj
 }
 
-
 // Set up a test stream to ensure that imports and exports work correctly.
 //
 // We use stream::unfold to build a stream from a set of events; the unfold takes a "state" tuple
@@ -229,7 +228,7 @@ mod itest {
 
         let (start_ts, end_ts) = (15, 46);
         let store = s.lock().await;
-        match store.export(start_ts, end_ts, &filter).await {
+        match store.export(start_ts, end_ts, &filter, None).await {
             Ok(data) => {
                 // Confirm that the results match what we expect
                 let trace = ExportedTrace::import(data, duration.as_ref()).unwrap();

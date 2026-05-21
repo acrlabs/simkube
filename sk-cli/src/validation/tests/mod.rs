@@ -2,8 +2,8 @@ mod validation_store_test;
 
 use std::collections::BTreeMap;
 
+use sk_core::event::TraceEvent;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 use sk_testutils::*;
 
 use super::validator::{

@@ -7,6 +7,7 @@ use serde::{
     Deserialize,
     Serialize,
 };
+use sk_core::event::TraceEvent;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
@@ -21,7 +22,6 @@ use thiserror::Error;
 use tracing::*;
 
 use crate::CURRENT_TRACE_FORMAT_VERSION;
-use crate::event::TraceEvent;
 use crate::index::TraceIndex;
 use crate::pod_owners_map::PodLifecyclesMap;
 

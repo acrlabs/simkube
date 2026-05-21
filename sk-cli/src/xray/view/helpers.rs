@@ -2,8 +2,8 @@ use std::sync::LazyLock;
 
 use chrono::TimeDelta;
 use ratatui::prelude::*;
+use sk_core::event::TraceEvent;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::validation::{
     Annotations,
