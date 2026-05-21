@@ -71,7 +71,7 @@ pub struct Command {
     pub(super) action: CommandAction,
 }
 
-pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
+pub fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
     let rule = cmd.as_rule();
     let args = cmd.into_inner();
 

@@ -7,6 +7,8 @@ mod store;
 mod trace;
 mod watchers;
 
+pub mod process;
+
 pub use crate::index::TraceIndex;
 pub use crate::manager::TraceManager;
 pub use crate::pod_owners_map::PodLifecyclesMap;

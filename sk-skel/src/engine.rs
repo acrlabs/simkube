@@ -20,7 +20,7 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
-pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
+pub fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
     // Reinterpret the event as a JSON object so JSON pointers work for all fields
     // This seems sortof inefficient, we'll have to see how it works in practice.
     let mut applied_objs = serde_json::to_value(evt.applied_objs)?;

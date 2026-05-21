@@ -1,6 +1,7 @@
 use std::collections::HashSet;
 
 use json_patch_ext::PointerBuf;
+use pest::Parser;
 use serde_json::{
     Value,
     json,

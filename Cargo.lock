@@ -3759,7 +3759,6 @@ dependencies = [
  "rstest",
  "serde_json",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "thiserror 2.0.18",
 ]
@@ -3777,6 +3776,7 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "mockall",
+ "pest",
  "rmp-serde",
  "rstest",
  "rstest-log",
@@ -3785,6 +3785,7 @@ dependencies = [
  "serde_yaml",
  "sk-api",
  "sk-core",
+ "sk-skel",
  "sk-testutils",
  "test-log",
  "thiserror 2.0.18",

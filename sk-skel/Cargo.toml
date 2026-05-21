@@ -18,7 +18,6 @@ pest_derive = { workspace = true }
 regex = { workspace = true }
 serde_json = { workspace = true }
 sk-core = { workspace = true }
-sk-store = { workspace = true }
 thiserror = { workspace = true }
 
 [dev-dependencies]

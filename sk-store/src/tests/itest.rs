@@ -1,11 +1,19 @@
 use std::collections::BTreeMap;
 
+use pest::Parser;
 use serde_json::json;
 use sk_core::event::TraceEvent;
 use sk_core::klabel;
 use sk_core::prelude::*;
+use sk_skel::ast::parse_command;
+use sk_skel::engine::process_event;
+use sk_skel::{
+    Rule,
+    SkelParser,
+};
 
 use super::*;
+use crate::process::process_trace;
 
 #[rstest]
 #[case::remove_implicit_match_star(
