@@ -10,7 +10,7 @@
 
 use super::*;
 
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ExportFilters {
     #[serde(rename = "excluded_namespaces")]
     pub excluded_namespaces: Vec<String>,
