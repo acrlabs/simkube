@@ -10,7 +10,7 @@
 
 use super::*;
 
-#[derive(Clone, Default, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 pub struct ExportRequest {
     #[serde(rename = "start_ts")]
     pub start_ts: i64,
@@ -20,6 +20,8 @@ pub struct ExportRequest {
     pub export_path: String,
     #[serde(rename = "filters")]
     pub filters: Box<ExportFilters>,
+    #[serde(rename = "transform", skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
 }
 
 impl ExportRequest {
@@ -29,6 +31,7 @@ impl ExportRequest {
             end_ts,
             export_path,
             filters: Box::new(filters),
+            transform: None,
         }
     }
 }

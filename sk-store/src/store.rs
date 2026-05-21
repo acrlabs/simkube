@@ -53,7 +53,13 @@ impl TraceStore {
         }
     }
 
-    pub async fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
+    pub async fn export(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        filter: &ExportFilters,
+        maybe_skel_file: Option<&str>,
+    ) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs between {start_ts} and {end_ts} with filters: {filter:?}");
 
         // First, we collect all the events in our trace that match our configured filters.  This
@@ -74,6 +80,11 @@ impl TraceStore {
             ..Default::default()
         }
         .to_bytes()?;
+
+        // transform the trace
+        if let Some(skel_file) = maybe_skel_file {
+            println!("the skel file: {skel_file}")
+        }
 
         info!("Exported {} events", num_events);
         Ok(data)
