@@ -197,7 +197,7 @@ mod itest {
     #[rstest(tokio::test)]
     #[case::has_start_marker(true, true)]
     #[case::no_start_marker(false, true)]
-    #[case::start_marker_obj_not_found(true, false)]
+    #[case::delete_obj_not_found(true, false)]
     async fn test_driver_run(test_sim: Simulation, #[case] has_start_marker: bool, #[case] delete_obj_exists: bool) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
         let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
