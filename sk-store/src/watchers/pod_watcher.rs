@@ -32,7 +32,7 @@ pub fn new_with_stream(
     ready_tx: mpsc::Sender<bool>,
 ) -> anyhow::Result<ObjWatcher<corev1::Pod>> {
     let pod_api: kube::Api<corev1::Pod> = kube::Api::all(client);
-    let pod_handler = Box::new(PodHandler { owned_pods: HashMap::new(), pod_tx });
+    let pod_handler = Box::new(PodHandler { tracked_pods: HashMap::new(), pod_tx });
     let pod_stream = watcher(pod_api, Default::default()).map_err(|e| e.into()).boxed();
     Ok(ObjWatcher::new(pod_handler, pod_stream, ready_tx))
 }
@@ -47,18 +47,18 @@ pub fn new_with_stream(
 // lifecycle data (currently start time and end time) have changed.  If so we forward that info
 // on to the store.
 pub(super) struct PodHandler {
-    // We store the list of owned pods in memory here, and cache the ownership chain for each pod;
+    // We store the list of tracked pods in memory here, and cache the current lifecycle data here.
     // This is a simpler data structure than what the object store needs, to allow for easy lookup
     // by pod name.  (The object store needs to store a bunch of extra metadata about sequence
     // number and pod hash and so forth).
-    owned_pods: HashMap<String, PodLifecycleData>,
+    tracked_pods: HashMap<String, PodLifecycleData>,
     pod_tx: Sender,
 }
 
 impl PodHandler {
     async fn handle_pod_applied(&mut self, ns_name: &str, pod: corev1::Pod) -> EmptyResult {
         let new_lifecycle_data = PodLifecycleData::new_for(&pod)?;
-        let current_lifecycle_data = self.owned_pods.get(ns_name);
+        let current_lifecycle_data = self.tracked_pods.get(ns_name);
 
         // We only store data if the lifecycle data has changed; there is some magic happening in
         // the > operator here; see pod_lifecycle.rs for details, but in short, we only allow
@@ -67,7 +67,7 @@ impl PodHandler {
         // Note that we only store non-empty lifecycle data, which is enforced since
         // PodLifecycleData::Empty < everything.
         if new_lifecycle_data > current_lifecycle_data {
-            self.owned_pods.insert(ns_name.into(), new_lifecycle_data.clone());
+            self.tracked_pods.insert(ns_name.into(), new_lifecycle_data.clone());
             self.send_pod_lifecycle_data(ns_name, Some(pod), new_lifecycle_data).await?;
         } else if !new_lifecycle_data.empty() && new_lifecycle_data != current_lifecycle_data {
             warn!(
@@ -89,7 +89,7 @@ impl PodHandler {
         ts: i64,
     ) -> EmptyResult {
         // Always remove the pod from our tracker, regardless of what else happens
-        self.owned_pods.remove(ns_name);
+        self.tracked_pods.remove(ns_name);
 
         // If the current lifecycle data is finished, we know it's already been written to the
         // store so we don't store it a second time.
@@ -123,7 +123,7 @@ impl PodHandler {
 
 #[async_trait]
 impl EventHandler<corev1::Pod> for PodHandler {
-    // TODO test it's OK to leave extra things in the owned_pods index (if it's still there when
+    // TODO test it's OK to leave extra things in the tracked_pods index (if it's still there when
     // we're done with all this
     async fn applied(&mut self, pod: corev1::Pod, _ts: i64) -> EmptyResult {
         let ns_name = pod.namespaced_name();
@@ -131,7 +131,7 @@ impl EventHandler<corev1::Pod> for PodHandler {
     }
 
     async fn deleted(&mut self, ns_name: &str, ts: i64) -> EmptyResult {
-        let Some(current_lifecycle_data) = self.owned_pods.get(ns_name) else {
+        let Some(current_lifecycle_data) = self.tracked_pods.get(ns_name) else {
             warn!("pod {ns_name} deleted but not tracked, may have already been processed");
             return Ok(());
         };
@@ -142,11 +142,11 @@ impl EventHandler<corev1::Pod> for PodHandler {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl PodHandler {
-    pub(crate) fn new_from_parts(owned_pods: HashMap<String, PodLifecycleData>, pod_tx: Sender) -> PodHandler {
-        PodHandler { owned_pods, pod_tx }
+    pub(crate) fn new_from_parts(tracked_pods: HashMap<String, PodLifecycleData>, pod_tx: Sender) -> PodHandler {
+        PodHandler { tracked_pods, pod_tx }
     }
 
     pub(crate) fn get_owned_pod_lifecycle(&self, ns_name: &str) -> Option<&PodLifecycleData> {
-        self.owned_pods.get(ns_name)
+        self.tracked_pods.get(ns_name)
     }
 }

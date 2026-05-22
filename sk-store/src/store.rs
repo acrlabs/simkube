@@ -118,7 +118,7 @@ impl TraceStore {
                     continue;
                 }
 
-                if evt.ts < start_ts {
+                if evt.ts < start_ts && !self.obj_is_finished_pod(obj, start_ts)? {
                     flattened_objects.insert(ns_name.clone(), obj.clone());
                 } else {
                     filtered_applied_objs.push(obj.clone());
@@ -215,12 +215,27 @@ impl TraceStore {
         if self.pod_owners.has_pod(ns_name) {
             self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
         } else if let Some(pod) = maybe_pod {
-            let owners = self
-                .owners_cache
-                .lock()
-                .await
-                .lookup_by_name_or_obj(&corev1::Pod::gvk(), ns_name, maybe_pod.as_ref())
-                .await;
+            // TODO (SK-254) we may still want to do this if the pod is owned but we are choosing
+            // to not track the owner for whatever reason
+            let owners = if pod.owner_references().is_empty() {
+                // If we have a bare pod, then we make the pod its own owner, which is a
+                // little weird and not, like, technically correct, but will work fine for our
+                // purposes; the bare pods are tracked in the index, so this will pass all the
+                // checks below.
+                vec![metav1::OwnerReference {
+                    api_version: "v1".into(),
+                    kind: POD_GVK.kind.clone(),
+                    name: pod.name_any(),
+                    ..Default::default()
+                }]
+            } else {
+                // If it's not a bare pod, then we look up the owners in the cache.
+                self.owners_cache
+                    .lock()
+                    .await
+                    .lookup_by_name_or_obj(&corev1::Pod::gvk(), ns_name, maybe_pod.as_ref())
+                    .await
+            };
 
             for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
@@ -288,7 +303,23 @@ impl TraceStore {
         }
         Ok(false)
     }
+
+    fn obj_is_finished_pod(&self, obj: &DynamicObject, start_ts: i64) -> anyhow::Result<bool> {
+        Ok(
+            if GVK::from_dynamic_obj(obj)? == *POD_GVK
+                && let lifecycles = self.pod_owners.get_lifecycle_for(&obj.namespaced_name())
+                // if it's a bare pod, there "should" only be one recorded lifecycle
+                && let Some(PodLifecycleData::Finished(_, finish)) = lifecycles.first()
+                && *finish < start_ts
+            {
+                true
+            } else {
+                false
+            },
+        )
+    }
 }
+
 
 fn object_matches_filter(obj: &DynamicObject, f: &ExportFilters) -> bool {
     obj.metadata

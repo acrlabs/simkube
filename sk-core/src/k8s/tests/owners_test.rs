@@ -1,41 +1,33 @@
 use std::collections::HashMap;
 
 use assertables::*;
-use k8s_openapi::Metadata;
 use serde_json::json;
 
 use super::*;
 
 #[fixture]
-fn rsref() -> metav1::OwnerReference {
-    metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "ReplicaSet".into(),
-        name: TEST_REPLICASET.into(),
-        uid: "asdfasdf".into(),
-        ..Default::default()
-    }
-}
-
-#[fixture]
-fn deplref() -> metav1::OwnerReference {
-    metav1::OwnerReference {
-        api_version: "apps/v1".into(),
-        kind: "Deployment".into(),
-        name: TEST_DEPLOYMENT.into(),
+fn test_shell_pod(mut test_pod: corev1::Pod) -> corev1::Pod {
+    // overwrite the defaults in test_pod
+    test_pod.metadata.owner_references = Some(vec![metav1::OwnerReference {
+        api_version: "tortoise/v1".into(),
+        kind: "Shell".into(),
+        name: "the-tortoise-shell".into(),
         uid: "yuioyoiuy".into(),
         ..Default::default()
-    }
+    }]);
+
+    test_pod
 }
 
 #[rstest(tokio::test)]
 async fn test_compute_owners_for_cached(
     mut test_pod: corev1::Pod,
-    rsref: metav1::OwnerReference,
-    deplref: metav1::OwnerReference,
+    rs_owner_ref: metav1::OwnerReference,
+    depl_owner_ref: metav1::OwnerReference,
 ) {
-    test_pod.owner_references_mut().push(rsref.clone());
-    let expected_owners = vec![rsref, deplref];
+    // overwrite the defaults in test_pod
+    test_pod.metadata.owner_references = Some(vec![rs_owner_ref.clone()]);
+    let expected_owners = vec![rs_owner_ref, depl_owner_ref];
 
     let (_, client) = make_fake_apiserver();
     let owners = HashMap::from([((corev1::Pod::gvk(), test_pod.namespaced_name()), expected_owners.clone())]);
@@ -48,8 +40,8 @@ async fn test_compute_owners_for_cached(
 #[rstest(tokio::test)]
 async fn test_compute_owners_for(
     mut test_pod: corev1::Pod,
-    rsref: metav1::OwnerReference,
-    deplref: metav1::OwnerReference,
+    rs_owner_ref: metav1::OwnerReference,
+    depl_owner_ref: metav1::OwnerReference,
 ) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle_multiple(2, |when, then| {
@@ -57,7 +49,7 @@ async fn test_compute_owners_for(
         then.json_body(apps_v1_discovery());
     });
 
-    let rs_owner = deplref.clone();
+    let rs_owner = depl_owner_ref.clone();
     fake_apiserver.handle(move |when, then| {
         when.path("/apis/apps/v1/replicasets");
         then.json_body(json!({
@@ -91,10 +83,11 @@ async fn test_compute_owners_for(
 
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
 
-    test_pod.owner_references_mut().push(rsref.clone());
+    // overwrite the defaults in test_pod
+    test_pod.metadata.owner_references = Some(vec![rs_owner_ref.clone()]);
     let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
 
-    assert_iter_eq!(res, vec![rsref, deplref]);
+    assert_iter_eq!(res, vec![rs_owner_ref, depl_owner_ref]);
     fake_apiserver.assert();
 }
 
@@ -102,7 +95,8 @@ async fn test_compute_owners_for(
 async fn test_compute_owners_for_bad_ref(mut test_pod: corev1::Pod) {
     let (fake_apiserver, client) = make_fake_apiserver();
 
-    test_pod.metadata_mut().owner_references = Some(vec![metav1::OwnerReference {
+    // overwrite the defaults in test_pod
+    test_pod.metadata.owner_references = Some(vec![metav1::OwnerReference {
         api_version: "tortoise/asdf/bar".into(),
         kind: "Shell".into(),
         name: "the-tortoise-shell".into(),
@@ -118,27 +112,18 @@ async fn test_compute_owners_for_bad_ref(mut test_pod: corev1::Pod) {
 }
 
 #[rstest(tokio::test)]
-async fn test_compute_owners_for_api_not_found(mut test_pod: corev1::Pod) {
+async fn test_compute_owners_for_api_not_found(test_shell_pod: corev1::Pod) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle_not_found("/apis/tortoise/v1".into());
-
-    test_pod.metadata_mut().owner_references = Some(vec![metav1::OwnerReference {
-        api_version: "tortoise/v1".into(),
-        kind: "Shell".into(),
-        name: "the-tortoise-shell".into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    }]);
-
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
 }
 
 #[rstest(tokio::test)]
-async fn test_compute_owners_for_list_fails(mut test_pod: corev1::Pod) {
+async fn test_compute_owners_for_list_fails(test_shell_pod: corev1::Pod) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle(|when, then| {
         when.path("/apis/tortoise/v1");
@@ -161,23 +146,15 @@ async fn test_compute_owners_for_list_fails(mut test_pod: corev1::Pod) {
 
     fake_apiserver.handle_not_found("/apis/tortoise/v1/shells".into());
 
-    test_pod.metadata_mut().owner_references = Some(vec![metav1::OwnerReference {
-        api_version: "tortoise/v1".into(),
-        kind: "Shell".into(),
-        name: "the-tortoise-shell".into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    }]);
-
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
 }
 
 #[rstest(tokio::test)]
-async fn test_compute_owners_for_too_many(mut test_pod: corev1::Pod) {
+async fn test_compute_owners_for_too_many(test_shell_pod: corev1::Pod) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle(|when, then| {
         when.path("/apis/tortoise/v1");
@@ -219,17 +196,8 @@ async fn test_compute_owners_for_too_many(mut test_pod: corev1::Pod) {
         }));
     });
 
-
-    test_pod.metadata_mut().owner_references = Some(vec![metav1::OwnerReference {
-        api_version: "tortoise/v1".into(),
-        kind: "Shell".into(),
-        name: "the-tortoise-shell".into(),
-        uid: "yuioyoiuy".into(),
-        ..Default::default()
-    }]);
-
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();

@@ -1,5 +1,6 @@
 use assertables::*;
 use clockabilly::Utc;
+use kube::api::TypeMeta;
 use serde_json::{
     Value,
     json,
@@ -55,7 +56,9 @@ fn test_sanitize_obj() {
 }
 
 #[rstest]
-fn test_sanitize_pod_obj() {
+#[case::no_type(None)]
+#[case::some_type(Some(POD_GVK.into_type_meta()))]
+fn test_sanitize_pod_obj(#[case] types: Option<TypeMeta>) {
     let mut obj = DynamicObject {
         metadata: metav1::ObjectMeta {
             name: Some("test-obj".into()),
@@ -63,7 +66,7 @@ fn test_sanitize_pod_obj() {
 
             ..Default::default()
         },
-        types: None,
+        types,
         data: json!({
             "spec": {
                 "nodeName": "ip-1-2-3-4.internal",

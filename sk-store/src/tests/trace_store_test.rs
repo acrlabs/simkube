@@ -38,11 +38,7 @@ fn tracer() -> TraceStore {
         TracerConfig {
             tracked_objects: HashMap::from([(
                 DEPLOYMENT_GVK.clone(),
-                TrackedObjectConfig {
-                    track_lifecycle: true,
-                    pod_spec_template_paths: Some(vec!["/spec/template".into()]),
-                    ..Default::default()
-                },
+                TrackedObjectConfig { track_lifecycle: true, ..Default::default() },
             )]),
         },
         apiset,
@@ -86,6 +82,95 @@ async fn test_collect_events_filtered(mut tracer: TraceStore) {
     // Always an empty event at the beginning
     assert_eq!(events, vec![TraceEvent { ts: 1, ..Default::default() }]);
     assert_is_empty!(index);
+}
+
+#[rstest(tokio::test)]
+async fn test_collect_events_finished_pod(mut tracer: TraceStore) {
+    let pod1 = test_dynamic_pod("finished-before-start".into());
+    let pod1_ns_name = format!("{TEST_NAMESPACE}/finished-before-start");
+    let pod2 = test_dynamic_pod("running-before-start".into());
+    let pod2_ns_name = format!("{TEST_NAMESPACE}/running-before-start");
+    let pod3 = test_dynamic_pod("finished-after-start".into());
+    let pod3_ns_name = format!("{TEST_NAMESPACE}/finished-after-start");
+    let pod4 = test_dynamic_pod("running-after-start".into());
+    let pod4_ns_name = format!("{TEST_NAMESPACE}/running-after-start");
+    tracer.events = vec![
+        // This pod gets filtered
+        TraceEvent {
+            ts: 1,
+            applied_objs: vec![pod1],
+            deleted_objs: vec![],
+        },
+        // These three pods don't
+        TraceEvent {
+            ts: 2,
+            applied_objs: vec![pod2.clone()],
+            deleted_objs: vec![],
+        },
+        TraceEvent {
+            ts: 5,
+            applied_objs: vec![pod3.clone()],
+            deleted_objs: vec![],
+        },
+        TraceEvent {
+            ts: 7,
+            applied_objs: vec![pod4.clone()],
+            deleted_objs: vec![],
+        },
+    ];
+
+    tracer.pod_owners.store_new_pod_lifecycle(
+        &pod1_ns_name,
+        &*POD_GVK,
+        &pod1_ns_name,
+        1234,
+        &PodLifecycleData::Finished(1, 2),
+    );
+    tracer.pod_owners.store_new_pod_lifecycle(
+        &pod2_ns_name,
+        &*POD_GVK,
+        &pod2_ns_name,
+        1234,
+        &PodLifecycleData::Running(1),
+    );
+    tracer.pod_owners.store_new_pod_lifecycle(
+        &pod3_ns_name,
+        &*POD_GVK,
+        &pod3_ns_name,
+        1234,
+        &PodLifecycleData::Finished(5, 6),
+    );
+    tracer.pod_owners.store_new_pod_lifecycle(
+        &pod4_ns_name,
+        &*POD_GVK,
+        &pod4_ns_name,
+        1234,
+        &PodLifecycleData::Running(7),
+    );
+
+    let (events, _) = tracer.collect_events(3, 10, &Default::default(), false).await.unwrap();
+
+    // Always an empty event at the beginning
+    assert_eq!(
+        events,
+        vec![
+            TraceEvent {
+                ts: 3,
+                applied_objs: vec![pod2.clone()],
+                deleted_objs: vec![]
+            },
+            TraceEvent {
+                ts: 5,
+                applied_objs: vec![pod3.clone()],
+                deleted_objs: vec![]
+            },
+            TraceEvent {
+                ts: 7,
+                applied_objs: vec![pod4.clone()],
+                deleted_objs: vec![]
+            },
+        ]
+    );
 }
 
 #[rstest(tokio::test)]
@@ -267,7 +352,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
     expected_lifecycle_data[pod_seq_idx] = new_lifecycle_data.clone();
 
     let pod_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_POD);
-    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_REPLICASET);
+    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
     tracer.pod_owners =
         mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, pod_seq_idx);
     tracer
@@ -286,7 +371,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
 #[rstest(tokio::test)]
 async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: TraceStore, test_pod: corev1::Pod) {
     let ns_name = test_pod.namespaced_name();
-    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_REPLICASET);
+    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     tracer
         .record_pod_lifecycle(&ns_name, &Some(test_pod), &new_lifecycle_data.clone())
@@ -306,14 +391,12 @@ async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: Tra
 #[case::dont_track_lifecycle(false)]
 async fn test_record_pod_lifecycle_with_new_pod_hash(
     mut tracer: TraceStore,
-    mut test_pod: corev1::Pod,
-    owner_ref: metav1::OwnerReference,
+    test_pod: corev1::Pod,
     #[case] track_lifecycle: bool,
 ) {
     let ns_name = test_pod.namespaced_name();
-    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
+    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
-    test_pod.owner_references_mut().push(owner_ref);
 
     tracer.config.tracked_objects.get_mut(&*DEPLOYMENT_GVK).unwrap().track_lifecycle = track_lifecycle;
     tracer
@@ -335,19 +418,14 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
 }
 
 #[rstest(tokio::test)]
-async fn test_record_pod_lifecycle_with_new_pod_existing_hash(
-    mut tracer: TraceStore,
-    mut test_pod: corev1::Pod,
-    owner_ref: metav1::OwnerReference,
-) {
+async fn test_record_pod_lifecycle_with_new_pod_existing_hash(mut tracer: TraceStore, test_pod: corev1::Pod) {
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     let init_lifecycle_data = vec![PodLifecycleData::Running(5)];
     let mut expected_lifecycle_data = init_lifecycle_data.clone();
     expected_lifecycle_data.push(new_lifecycle_data.clone());
 
     let pod_ns_name = test_pod.namespaced_name();
-    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, owner_ref.name);
-    test_pod.owner_references_mut().push(owner_ref);
+    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
 
     tracer
         .index
@@ -380,7 +458,7 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
     let expected_lifecycle_data = vec![new_lifecycle_data.clone()];
 
     let pod_ns_name = test_pod.namespaced_name();
-    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_REPLICASET);
+    let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
 
     tracer
         .index
@@ -396,6 +474,38 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
         tracer
             .pod_owners
             .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
+        &expected_lifecycle_data,
+    );
+}
+
+// All we're really testing here is that using the pod as its own owner gets through this
+// logic successfully, we assume the other tests cover all the remaining cases
+#[rstest(tokio::test)]
+async fn test_record_bare_pod_lifecycle(mut tracer: TraceStore, mut test_pod: corev1::Pod) {
+    let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
+    let expected_lifecycle_data = vec![new_lifecycle_data.clone()];
+
+    test_pod.metadata.owner_references = None;
+    let pod_ns_name = test_pod.namespaced_name();
+
+    // Configure bare pod tracking
+    tracer.index.insert(POD_GVK.clone(), pod_ns_name.clone(), 1);
+    tracer.config = TracerConfig {
+        tracked_objects: HashMap::from([(
+            POD_GVK.clone(),
+            TrackedObjectConfig { track_lifecycle: true, ..Default::default() },
+        )]),
+    };
+
+    tracer
+        .record_pod_lifecycle(&pod_ns_name, &Some(test_pod), &new_lifecycle_data)
+        .await
+        .unwrap();
+
+    assert_some_eq_x!(
+        tracer
+            .pod_owners
+            .lifecycle_data_for(&POD_GVK, &pod_ns_name, EMPTY_POD_SPEC_HASH),
         &expected_lifecycle_data,
     );
 }

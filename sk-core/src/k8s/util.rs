@@ -7,8 +7,8 @@ use serde_json::{
 };
 
 use super::*;
+use crate::constants::*;
 use crate::errors::*;
-use crate::prelude::*;
 
 const MAX_LABEL_LENGTH: usize = 63;
 
@@ -104,6 +104,19 @@ pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
 }
 
 pub fn sanitize_obj(gvk: &GVK, obj: &mut DynamicObject) {
+    // Kubernetes does not always fill out the TypeMeta (possibly for deleted resources, but I'm
+    // pretty sure definitely for the results of a List API call -- you know, like when you run
+    // ListAndWatch to start a new informer).  I _believe_ the type information for the list call only
+    // gets populated on the outer wrapper of the list and not for individual objects in the list.
+    //
+    // There are a couple related GitHub issues here:
+    //   - https://github.com/kubernetes-sigs/controller-runtime/issues/1517
+    //   - https://github.com/kubernetes-sigs/controller-runtime/issues/1735
+    //
+    // ANYWAYS as a result of this extremely annoying behaviour, we fill in the type meta here,
+    // which we know as a part of setting up the informer.
+    obj.types = Some(gvk.into_type_meta());
+
     // N.B. We do not sanitize owner references here, since we need them
     // to compute owner chains in the TraceStore
     obj.metadata.creation_timestamp = None;
@@ -119,11 +132,9 @@ pub fn sanitize_obj(gvk: &GVK, obj: &mut DynamicObject) {
 
     // If we are tracking pod objects (whether bare or not!), we want to ignore the node it was
     // assigned to "in production" since this will certainly not exist in the simulation.
-    dyn_obj_spec_mut(obj).map(|spec| spec.remove("nodeName"));
-
-    // I don't quite remember what this is for, but I vaguely recall that for "deleted" resources
-    // it may not fill out the TypeMeta, so we set it here.
-    obj.types = Some(gvk.into_type_meta());
+    if gvk == &*POD_GVK {
+        dyn_obj_spec_mut(obj).map(|spec| spec.remove("nodeName"));
+    }
 }
 
 pub fn split_namespaced_name(name: &str) -> (String, String) {

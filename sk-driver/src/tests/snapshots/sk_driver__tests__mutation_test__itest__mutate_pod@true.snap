@@ -19,6 +19,14 @@ Object {
         },
         "name": String("the-pod"),
         "namespace": String("test-namespace"),
+        "ownerReferences": Array [
+            Object {
+                "apiVersion": String("apps/v1"),
+                "kind": String("Deployment"),
+                "name": String("the-deployment"),
+                "uid": String("yuioyoiuy"),
+            },
+        ],
     },
     "spec": Object {
         "containers": Array [],
