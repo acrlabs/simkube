@@ -95,7 +95,7 @@ fn test_filter_lifecycles_map() {
             // These overlap
             PodLifecycleData::Running(6),
             PodLifecycleData::Finished(7, 9),
-            PodLifecycleData::Finished(1, 8),
+            PodLifecycleData::Finished(1, 8), // This one will get truncated
             PodLifecycleData::Finished(5, 10),
             // These don't
             PodLifecycleData::Running(10),
@@ -103,7 +103,14 @@ fn test_filter_lifecycles_map() {
             PodLifecycleData::Finished(1, 2),
         ],
     )]);
-    let expected_map = PodLifecyclesMap::from([(1234, lifecycles_map[&1234][0..4].into())]);
+    let expected_map = PodLifecyclesMap::from([(
+        1234,
+        lifecycles_map[&1234][0..4]
+            .iter()
+            .cloned()
+            .map(|l| l.bound_start_ts(5))
+            .collect(),
+    )]);
     let res = filter_lifecycles_map(START_TS, END_TS, &lifecycles_map).unwrap();
     assert_eq!(res, expected_map);
 }

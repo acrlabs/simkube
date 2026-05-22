@@ -64,6 +64,14 @@ impl PodOwnersMap {
         self.index.contains_key(ns_name)
     }
 
+    pub(crate) fn get_lifecycle_for(&self, ns_name: &str) -> Vec<PodLifecycleData> {
+        self.index.get(ns_name).map_or(vec![], |((gvk, owner_ns_name), hash, _len)| {
+            self.m
+                .get(&(gvk.clone(), owner_ns_name.clone()))
+                .map_or(vec![], |data| data.get(hash).cloned().unwrap_or_default())
+        })
+    }
+
     pub(crate) fn store_new_pod_lifecycle(
         &mut self,
         pod_ns_name: &str,
@@ -155,7 +163,22 @@ pub(crate) fn filter_lifecycles_map(
     let filtered_map: PodLifecyclesMap = lifecycles_map
         .iter()
         .filter_map(|(hash, lifecycles)| {
-            let new_lifecycles: Vec<_> = lifecycles.iter().filter(|l| l.overlaps(start_ts, end_ts)).cloned().collect();
+            let new_lifecycles: Vec<_> = lifecycles
+                .iter()
+                .cloned()
+                .filter_map(|l| {
+                    if l.overlaps(start_ts, end_ts) {
+                        // The timing for any lifecycle that _contains_ the start time of the trace
+                        // will get truncated; this is necessary for the "bare pods" scenario, and
+                        // in any other scenario it can either be correct or incorrect to do so.
+                        // For the ease of the code right now, I'm just unilaterally truncating the
+                        // time, but if we need to make it more rigorous later we can do so.
+                        Some(l.bound_start_ts(start_ts))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
             if new_lifecycles.is_empty() {
                 return None;
             }

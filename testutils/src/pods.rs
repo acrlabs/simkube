@@ -11,12 +11,36 @@ const CONTAINER_PREFIX: &str = "container";
 const INIT_CONTAINER_PREFIX: &str = "init-container";
 
 #[fixture]
-pub fn test_pod(#[default(TEST_POD.into())] name: String) -> corev1::Pod {
+pub fn rs_owner_ref() -> metav1::OwnerReference {
+    metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "ReplicaSet".into(),
+        name: TEST_REPLICASET.into(),
+        uid: "asdfasdf".into(),
+        ..Default::default()
+    }
+}
+
+#[fixture]
+pub fn depl_owner_ref() -> metav1::OwnerReference {
+    metav1::OwnerReference {
+        api_version: "apps/v1".into(),
+        kind: "Deployment".into(),
+        name: TEST_DEPLOYMENT.into(),
+        uid: "yuioyoiuy".into(),
+        ..Default::default()
+    }
+}
+
+
+#[fixture]
+pub fn test_pod(#[default(TEST_POD.into())] name: String, depl_owner_ref: metav1::OwnerReference) -> corev1::Pod {
     corev1::Pod {
         metadata: metav1::ObjectMeta {
             labels: klabel!("foo" => "bar"),
             namespace: Some(TEST_NAMESPACE.into()),
             name: Some(name),
+            owner_references: Some(vec![depl_owner_ref]),
             ..Default::default()
         },
         spec: Some(corev1::PodSpec { ..Default::default() }),

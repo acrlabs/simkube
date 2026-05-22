@@ -105,6 +105,15 @@ impl PodLifecycleData {
         }
     }
 
+    pub fn bound_start_ts(mut self, min_start_ts: i64) -> Self {
+        match self {
+            PodLifecycleData::Empty => (),
+            PodLifecycleData::Running(ref mut ts) => *ts = max(*ts, min_start_ts),
+            PodLifecycleData::Finished(ref mut ts, _) => *ts = max(*ts, min_start_ts),
+        }
+        self
+    }
+
     pub fn empty(&self) -> bool {
         self == PodLifecycleData::Empty
     }
