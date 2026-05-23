@@ -195,9 +195,10 @@ mod itest {
     use super::*;
 
     #[rstest(tokio::test)]
-    #[case::has_start_marker(true)]
-    #[case::no_start_marker(false)]
-    async fn test_driver_run(test_sim: Simulation, #[case] has_start_marker: bool) {
+    #[case::has_start_marker(true, true)]
+    #[case::no_start_marker(false, true)]
+    #[case::delete_obj_not_found(true, false)]
+    async fn test_driver_run(test_sim: Simulation, #[case] has_start_marker: bool, #[case] delete_obj_exists: bool) {
         let (mut fake_apiserver, client) = make_fake_apiserver();
         let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
@@ -255,11 +256,12 @@ mod itest {
                 .path(format!("/apis/simkube.io/v1/simulations/{TEST_SIM_NAME}"));
             then.json_body_obj(&test_sim_clone);
         });
-        fake_apiserver.handle(|when, then| {
+        let delete_status = if delete_obj_exists { status_ok() } else { status_not_found() };
+        fake_apiserver.handle(move |when, then| {
             when.method(DELETE).path(format!(
                 "/apis/apps/v1/namespaces/{TEST_VIRT_NS_PREFIX}-{TEST_NS_NAME}/deployments/nginx-deployment-2"
             ));
-            then.json_body(status_ok());
+            then.json_body(delete_status.clone());
         });
         fake_apiserver.handle(|when, then| {
             when.path(format!("/apis/simkube.io/v1/simulationroots/{TEST_DRIVER_ROOT_NAME}"))

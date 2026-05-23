@@ -221,11 +221,14 @@ pub(crate) async fn run_trace_internal(
             let virtual_ns = format!("{}-{}", ctx.virtual_ns_prefix, obj.namespace().unwrap());
             let mut vobj = obj.clone();
             vobj.metadata.namespace = Some(virtual_ns);
-            apiset
-                .api_for_obj(&vobj)
-                .await?
-                .delete(&obj.name_any(), &Default::default())
-                .await?;
+            let api = apiset.api_for_obj(&vobj).await?;
+            match api.delete(&obj.name_any(), &Default::default()).await {
+                Ok(_) => {},
+                Err(kube::Error::Api(e)) if e.code == 404 => {
+                    warn!("delete failed, continuing: {:?}", e);
+                },
+                Err(e) => return Err(e.into()),
+            }
         }
 
         if let Some(next_ts) = maybe_next_ts {
