@@ -1,4 +1,3 @@
-use std::fs;
 use std::sync::mpsc;
 
 use pest::Parser;
@@ -39,13 +38,12 @@ pub fn process_trace(
     Ok(new_events)
 }
 
-pub async fn apply_skel_file(
+pub async fn apply_skel(
     trace: &ExportedTrace,
-    skel_file: &str,
+    skel_str: &str,
     update_channel: mpsc::Sender<()>,
 ) -> anyhow::Result<ExportedTrace> {
-    let skel_str = fs::read_to_string(skel_file)?;
-    let skel = SkelParser::parse(Rule::skel, &skel_str)?;
+    let skel = SkelParser::parse(Rule::skel, skel_str)?;
 
     let parsed_commands = skel
         .filter_map(|cmd| match cmd.as_rule() {

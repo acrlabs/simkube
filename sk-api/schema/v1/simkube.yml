@@ -47,7 +47,6 @@ paths:
                         $ref: 'https://raw.githubusercontent.com/kubernetes/kubernetes/master/api/openapi-spec/v3/api__v1_openapi.json#/components/schemas/io.k8s.apimachinery.pkg.apis.meta.v1.LabelSelector'  # yamllint disable-line rule:line-length
                 transform:
                   type: string
-                  format: uri
       responses:
         '200':
           description: OK

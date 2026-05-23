@@ -1,5 +1,8 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    mpsc,
+};
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
@@ -23,6 +26,7 @@ use tracing::*;
 use crate::event::append_event;
 use crate::index::TraceIndex;
 use crate::pod_owners_map::PodOwnersMap;
+use crate::process::apply_skel;
 use crate::trace::ExportedTrace;
 
 pub struct TraceStore {
@@ -67,7 +71,7 @@ impl TraceStore {
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
         let (events, index) = self.collect_events(start_ts, end_ts, filter, true).await?;
-        let num_events = events.len();
+        // let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
@@ -78,16 +82,28 @@ impl TraceStore {
             index,
             pod_lifecycles,
             ..Default::default()
-        }
-        .to_bytes()?;
+        };
 
         // transform the trace
-        if let Some(skel_file) = maybe_skel_file {
-            println!("the skel file: {skel_file}")
-        }
+        let data_bytes = if let Some(skel_file) = maybe_skel_file {
+            println!("\nApplying all transformations from {}...", skel_file);
 
-        info!("Exported {} events", num_events);
-        Ok(data)
+            let (tx, _rx) = mpsc::channel();
+            let skel_filename = skel_file.to_string();
+            let transform_task = tokio::spawn(async move { apply_skel(&data, &skel_filename, tx).await });
+
+            let transformed_trace_data = match transform_task.await? {
+                Ok(data) => data.to_bytes()?,
+                Err(err) => {
+                    return Err(err);
+                },
+            };
+            return Ok(transformed_trace_data);
+        } else {
+            data.to_bytes()?
+        };
+
+        Ok(data_bytes)
     }
 
     pub(super) async fn collect_events(
