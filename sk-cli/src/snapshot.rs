@@ -42,7 +42,6 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![]);
     let start_ts = UtcClock.now_ts();
     let end_ts = start_ts + 1;
-    // Snapshot should probably also accept an optional transformation file for consistency
     let data = manager
         .get_store()
         .lock()
