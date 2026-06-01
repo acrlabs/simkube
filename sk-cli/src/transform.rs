@@ -25,7 +25,7 @@ use sk_core::external_storage::{
 use sk_core::prelude::*;
 use sk_skel::metric_names::*;
 use sk_store::ExportedTrace;
-use sk_store::process::apply_skel;
+use sk_store::transform::apply_skel;
 
 const SPINNER_REFRESH_RATE: u64 = 50;
 const SPINNER_DOTS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];

@@ -7,7 +7,7 @@ mod store;
 mod trace;
 mod watchers;
 
-pub mod process;
+pub mod transform;
 
 pub use crate::index::TraceIndex;
 pub use crate::manager::TraceManager;

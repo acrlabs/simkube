@@ -13,7 +13,7 @@ use sk_skel::{
 };
 
 use super::*;
-use crate::process::process_trace;
+use crate::transform::process_trace;
 
 #[rstest]
 #[case::remove_implicit_match_star(

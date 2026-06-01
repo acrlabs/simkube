@@ -26,8 +26,8 @@ use tracing::*;
 use crate::event::append_event;
 use crate::index::TraceIndex;
 use crate::pod_owners_map::PodOwnersMap;
-use crate::process::apply_skel;
 use crate::trace::ExportedTrace;
+use crate::transform::apply_skel;
 
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
@@ -71,7 +71,7 @@ impl TraceStore {
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
         let (events, index) = self.collect_events(start_ts, end_ts, filter, true).await?;
-        // let num_events = events.len();
+        let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
@@ -83,6 +83,8 @@ impl TraceStore {
             pod_lifecycles,
             ..Default::default()
         };
+
+        info!("Collected {} events", num_events);
 
         // transform the trace
         let data_bytes = if let Some(skel_file) = maybe_skel_file {

@@ -45,7 +45,7 @@ pub struct Args {
     )]
     pub excluded_namespaces: Vec<String>,
 
-    #[arg(long, long_help = "location of .skel transformation file")]
+    #[arg(long, long_help = "path to .skel transformation file")]
     pub transform: Option<String>,
 
     #[arg(
