@@ -6,7 +6,6 @@ use serde::{
     Serialize,
     Serializer,
 };
-use sk_core::event::TraceEvent;
 use sk_core::prelude::*;
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd, Serialize)]

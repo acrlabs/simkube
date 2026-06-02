@@ -9,7 +9,6 @@ use corev1::{
 };
 use json_patch_ext::prelude::*;
 use k8s_openapi::Resource;
-use sk_core::event::TraceEvent;
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
 

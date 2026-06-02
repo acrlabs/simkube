@@ -1,7 +1,4 @@
-use sk_core::event::{
-    TraceAction,
-    TraceEvent,
-};
+use sk_core::event::TraceAction;
 use sk_core::k8s::dyn_obj_type_str;
 use sk_core::prelude::*;
 use tracing::*;

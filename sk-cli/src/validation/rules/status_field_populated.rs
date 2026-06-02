@@ -1,4 +1,3 @@
-use sk_core::event::TraceEvent;
 use sk_core::prelude::*;
 
 use crate::validation::validator::{
