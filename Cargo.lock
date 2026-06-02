@@ -3736,7 +3736,6 @@ dependencies = [
  "serde_json",
  "sk-api",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "test-log",
  "thiserror 2.0.18",

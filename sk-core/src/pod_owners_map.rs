@@ -164,7 +164,7 @@ pub(crate) fn filter_lifecycles_map(
     Some(filtered_map)
 }
 
-#[cfg(test)]
+#[cfg(any(test, feature = "testing"))]
 #[cfg_attr(coverage, coverage(off))]
 impl PodOwnersMap {
     pub fn lifecycle_data_for<'a>(

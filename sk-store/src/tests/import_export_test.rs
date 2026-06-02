@@ -12,6 +12,7 @@ use kube::discovery::ApiResource;
 use kube::runtime::watcher::Event;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
+use sk_core::ExportedTrace;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
@@ -233,7 +234,7 @@ mod itest {
                 // Confirm that the results match what we expect
                 let trace = ExportedTrace::import(data, duration.as_ref()).unwrap();
                 let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-                let expected_objs = store.objs_at(import_end_ts, &filter).await;
+                let expected_objs = store.objs_at(import_end_ts, &filter, None).await;
                 let actual_objs = objs_in_trace(&trace);
 
                 println!("{actual_objs:?}");

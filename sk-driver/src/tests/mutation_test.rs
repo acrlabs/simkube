@@ -18,11 +18,9 @@ use kube::core::{
 };
 use rocket::serde::json::Json;
 use serde_json::json;
+use sk_core::ExportedTrace;
 use sk_core::k8s::PodLifecycleData;
-use sk_store::{
-    ExportedTrace,
-    PodLifecyclesMap,
-};
+use sk_core::pod_owners_map::PodLifecyclesMap;
 
 use super::helpers::build_driver_context;
 use super::*;
@@ -181,7 +179,6 @@ fn test_add_node_selector_tolerations_other_tols_exist(mut test_pod: corev1::Pod
         )
     );
 }
-
 
 mod itest {
     use super::*;

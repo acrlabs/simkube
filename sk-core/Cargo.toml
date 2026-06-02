@@ -10,6 +10,7 @@ edition.workspace = true
 
 [features]
 mock = []
+testing = []
 
 [dependencies]
 anyhow = { workspace = true }

@@ -340,7 +340,7 @@ mod test {
     impl TraceStore {
         // This is really stupid to have async, it's a consequence of collect_events now
         // querying ownership information.... probably should fix this at some point
-        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters, maybe_skel_file: Option<&Str>) -> Vec<String> {
+        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters, maybe_skel_file: Option<&str>) -> Vec<String> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
             let (_, index) = self

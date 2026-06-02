@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use assertables::*;
-use sk_core::k8s::PodLifecycleData;
 
 use super::*;
+use crate::k8s::PodLifecycleData;
+use crate::prelude::*;
 
 #[fixture]
 fn trace() -> ExportedTrace {
