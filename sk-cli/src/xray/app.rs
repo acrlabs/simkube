@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use ratatui::widgets::ListState;
-use sk_store::ExportedTrace;
+use sk_core::ExportedTrace;
 
 use crate::validation::Annotations;
 

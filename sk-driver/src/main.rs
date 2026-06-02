@@ -25,10 +25,10 @@ use sk_core::k8s::{
 };
 use sk_core::prelude::*;
 use sk_core::{
+    ExportedTrace,
     hooks,
     logging,
 };
-use sk_store::ExportedTrace;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;

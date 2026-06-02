@@ -9,9 +9,9 @@ use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,
 };
+use sk_core::pod_owners_map::PodOwnersMap;
 
 use super::*;
-use crate::pod_owners_map::PodOwnersMap;
 
 #[fixture]
 fn tracer() -> TraceStore {
@@ -80,6 +80,7 @@ async fn test_collect_events_filtered(mut tracer: TraceStore) {
                 ..Default::default()
             },
             false,
+            None,
         )
         .await
         .unwrap();
@@ -104,7 +105,7 @@ async fn test_collect_events_owned_by_tracked_object(mut tracer: TraceStore, tes
 
     tracer.create_or_update_obj(&test_deployment, 4).unwrap();
     tracer.create_or_update_obj(&replicaset, 5).unwrap();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
 
     // Only have the deployment in the index
     assert_len_eq_x!(index, 1);
@@ -142,7 +143,7 @@ async fn test_collect_events(mut tracer: TraceStore) {
         deleted_objs: vec![test_deployment("obj1")],
     });
     tracer.events = all_events.clone().into();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
 
     // The first object was created before the collection started so the timestamp changes
     all_events[0].ts = 1;

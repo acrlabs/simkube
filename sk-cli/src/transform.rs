@@ -17,6 +17,7 @@ use kdam::{
     tqdm,
 };
 use metrics::gauge;
+use sk_core::ExportedTrace;
 use sk_core::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
@@ -24,7 +25,6 @@ use sk_core::external_storage::{
 use sk_core::prelude::*;
 use sk_skel::apply_skel_file;
 use sk_skel::metric_names::*;
-use sk_store::ExportedTrace;
 
 const SPINNER_REFRESH_RATE: u64 = 50;
 const SPINNER_DOTS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];

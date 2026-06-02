@@ -3670,6 +3670,7 @@ dependencies = [
  "paste",
  "regex",
  "reqwest 0.13.2",
+ "rmp-serde",
  "rstest",
  "rstest-log",
  "serde",
@@ -3759,7 +3760,6 @@ dependencies = [
  "rstest",
  "serde_json",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "thiserror 2.0.18",
 ]
@@ -3777,17 +3777,15 @@ dependencies = [
  "k8s-openapi",
  "kube",
  "mockall",
- "rmp-serde",
  "rstest",
  "rstest-log",
- "serde",
  "serde_json",
  "serde_yaml",
  "sk-api",
  "sk-core",
+ "sk-skel",
  "sk-testutils",
  "test-log",
- "thiserror 2.0.18",
  "tokio",
  "tracing",
 ]
@@ -3806,7 +3804,6 @@ dependencies = [
  "serde_json",
  "sk-api",
  "sk-core",
- "sk-store",
 ]
 
 [[package]]

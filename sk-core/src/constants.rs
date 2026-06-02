@@ -10,6 +10,9 @@ use crate::k8s::{
     OpenApiResourceExt,
 };
 
+// Trace Format Version
+pub const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
+
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";

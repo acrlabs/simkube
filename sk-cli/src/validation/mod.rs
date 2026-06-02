@@ -10,8 +10,8 @@ use clap::{
     ValueEnum,
     value_parser,
 };
+use sk_core::ExportedTrace;
 use sk_core::prelude::*;
-use sk_store::ExportedTrace;
 
 pub use self::validation_store::{
     Annotations,

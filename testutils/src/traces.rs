@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::BufReader;
 
-use sk_store::ExportedTrace;
+use sk_core::ExportedTrace;
 
 pub fn exported_trace_from_json(trace_type: &str) -> ExportedTrace {
     let filename = format!("{}/data/{trace_type}.json", env!("CARGO_MANIFEST_DIR"));

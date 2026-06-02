@@ -7,23 +7,22 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::event::TraceEvent;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
-use sk_core::k8s::{
-    GVK,
-    PodLifecycleData,
-};
-use sk_core::prelude::*;
-use sk_core::time::duration_to_ts_from;
 use thiserror::Error;
 use tracing::*;
 
-use crate::CURRENT_TRACE_FORMAT_VERSION;
+use crate::constants::CURRENT_TRACE_FORMAT_VERSION;
+use crate::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
+};
 use crate::index::TraceIndex;
+use crate::k8s::{
+    GVK,
+    PodLifecycleData,
+};
 use crate::pod_owners_map::PodLifecyclesMap;
+use crate::prelude::*;
+use crate::time::duration_to_ts_from;
 
 #[derive(Debug, Error)]
 pub enum TraceError {

@@ -3,11 +3,8 @@ use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
-use sk_core::event::{
-    TraceAction,
-    TraceEvent,
-};
-use sk_core::jsonutils;
+use sk_core::event::TraceAction;
+use sk_core::index::TraceIndex;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
@@ -16,14 +13,20 @@ use sk_core::k8s::{
     PodLifecycleData,
     format_gvk_name,
 };
+use sk_core::pod_owners_map::PodOwnersMap;
 use sk_core::prelude::*;
+use sk_core::{
+    ExportedTrace,
+    jsonutils,
+};
+use sk_skel::{
+    parse_skel_commands,
+    process_event,
+};
 use tokio::sync::Mutex;
 use tracing::*;
 
 use crate::event::append_event;
-use crate::index::TraceIndex;
-use crate::pod_owners_map::PodOwnersMap;
-use crate::trace::ExportedTrace;
 
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
@@ -66,7 +69,7 @@ impl TraceStore {
         // will return an index of objects that we collected, and we set the keep_deleted flag =
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
-        let (events, index) = self.collect_events(start_ts, end_ts, filter, true).await?;
+        let (events, index) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
         let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
@@ -81,11 +84,6 @@ impl TraceStore {
         }
         .to_bytes()?;
 
-        // transform the trace
-        if let Some(skel_file) = maybe_skel_file {
-            println!("the skel file: {skel_file}")
-        }
-
         info!("Exported {} events", num_events);
         Ok(data)
     }
@@ -96,6 +94,7 @@ impl TraceStore {
         end_ts: i64,
         filter: &ExportFilters,
         keep_deleted: bool,
+        maybe_skel_str: Option<&str>,
     ) -> anyhow::Result<(Vec<TraceEvent>, TraceIndex)> {
         // TODO this is not a huge inefficiency but it is a little annoying to have
         // an empty event at the start_ts if there aren't any events that happened
@@ -107,6 +106,9 @@ impl TraceStore {
         let mut flattened_objects = HashMap::new();
         let mut index = TraceIndex::new();
 
+        let parsed_commands =
+            if let Some(skel_str) = maybe_skel_str { parse_skel_commands(skel_str, start_ts)? } else { vec![] };
+
         for evt in self.events.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
             // end_ts or greater gets discarded.  The event list is stored in
@@ -114,6 +116,19 @@ impl TraceStore {
             if evt.ts >= end_ts {
                 break;
             }
+
+            // process event with skel commands
+            let transformed_evt;
+            let evt = if !parsed_commands.is_empty() {
+                let mut current = evt.clone();
+                for cmd in &parsed_commands {
+                    current = process_event(cmd, current)?;
+                }
+                transformed_evt = current;
+                &transformed_evt
+            } else {
+                evt
+            };
 
             let mut filtered_applied_objs = vec![];
             let mut filtered_deleted_objs = vec![];
@@ -325,10 +340,13 @@ mod test {
     impl TraceStore {
         // This is really stupid to have async, it's a consequence of collect_events now
         // querying ownership information.... probably should fix this at some point
-        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> Vec<String> {
+        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters, maybe_skel_file: Option<&Str>) -> Vec<String> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
-            let (_, index) = self.collect_events(0, end_ts, filter, false).await.expect("testing code");
+            let (_, index) = self
+                .collect_events(0, end_ts, filter, false, maybe_skel_file)
+                .await
+                .expect("testing code");
             index.flattened_keys()
         }
     }

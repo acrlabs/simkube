@@ -4,8 +4,8 @@ mod view;
 
 use ratatui::Terminal;
 use ratatui::backend::Backend;
+use sk_core::ExportedTrace;
 use sk_core::prelude::*;
-use sk_store::ExportedTrace;
 
 use self::app::{
     App,

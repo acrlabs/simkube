@@ -8,14 +8,14 @@ use std::sync::mpsc;
 
 use pest::Parser;
 use pest_derive::Parser;
+use sk_core::ExportedTrace;
 use sk_core::event::TraceEvent;
-use sk_store::ExportedTrace;
 
 use self::ast::{
     Command,
     parse_command,
 };
-use self::engine::process_event;
+pub use self::engine::process_event;
 
 pub mod metric_names {
     pub const EVENT_MATCHED_COUNTER: &str = "trace_events_matched";
@@ -58,14 +58,7 @@ pub async fn apply_skel_file(
     update_channel: mpsc::Sender<()>,
 ) -> anyhow::Result<ExportedTrace> {
     let skel_str = fs::read_to_string(skel_file)?;
-    let skel = SkelParser::parse(Rule::skel, &skel_str)?;
-
-    let parsed_commands = skel
-        .filter_map(|cmd| match cmd.as_rule() {
-            Rule::EOI => None,
-            _ => Some(parse_command(cmd, trace.start_ts().unwrap_or_default())),
-        })
-        .collect::<Result<Vec<_>, anyhow::Error>>()?;
+    let parsed_commands = parse_skel_commands(&skel_str, trace.start_ts().unwrap_or_default())?;
 
     let new_events = process_trace(trace, &parsed_commands, Some(update_channel))?;
     let new_trace = ExportedTrace {
@@ -77,6 +70,15 @@ pub async fn apply_skel_file(
     };
 
     Ok(new_trace)
+}
+
+pub fn parse_skel_commands(skel_str: &str, start_ts: i64) -> anyhow::Result<Vec<Command>> {
+    let skel = SkelParser::parse(Rule::skel, skel_str)?;
+    skel.filter_map(|cmd| match cmd.as_rule() {
+        Rule::EOI => None,
+        _ => Some(parse_command(cmd, start_ts)),
+    })
+    .collect::<Result<Vec<_>, anyhow::Error>>()
 }
 
 #[cfg(test)]
