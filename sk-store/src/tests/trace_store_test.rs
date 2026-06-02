@@ -160,6 +160,29 @@ async fn test_collect_events(mut tracer: TraceStore) {
 }
 
 #[rstest(tokio::test)]
+async fn test_collect_events_with_skel(mut tracer: TraceStore) {
+    let all_events: Vec<_> = [("obj1", 0), ("obj2", 1), ("obj3", 5), ("obj4", 10), ("obj5", 15)]
+        .iter()
+        .map(|(name, ts)| TraceEvent {
+            ts: *ts,
+            applied_objs: vec![test_deployment(name)],
+            deleted_objs: vec![],
+        })
+        .collect();
+    tracer.events = all_events.clone().into();
+
+    // test_deployment() sets name which maps to metadata.name so we can test a basic
+    // SKEL transformation by excluding events for a given metadata.name.
+    let skel_str = r#"delete(metadata.name == "obj2");"#;
+    let (events, index) = tracer
+        .collect_events(1, 10, &Default::default(), true, Some(skel_str))
+        .await
+        .unwrap();
+    assert_none!(events.iter().flat_map(|e| &e.applied_objs).find(|o| o.name_any() == "obj2"));
+    assert_none!(index.flattened_keys().iter().find(|k| k.contains("obj2")));
+}
+
+#[rstest(tokio::test)]
 async fn test_create_or_update_obj(
     mut tracer: TraceStore,
     mut test_deployment: DynamicObject,
