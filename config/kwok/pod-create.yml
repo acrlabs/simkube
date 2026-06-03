@@ -1,0 +1,68 @@
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: pod-create
+spec:
+  delay:
+    durationMilliseconds: 1000
+    durationFrom:
+      expressionFrom: .metadata.annotations["pod-create.stage.kwok.x-k8s.io/delay"]
+    jitterDurationMilliseconds: 5000
+    jitterDurationFrom:
+      expressionFrom: .metadata.annotations["pod-create.stage.kwok.x-k8s.io/jitter-delay"]
+  next:
+    event:
+      type: Normal
+      reason: Pulling
+      message: Simulating pod image pull
+    statusTemplate: |
+      {{ $now := Now }}
+
+      conditions:
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        status: "True"
+        type: Initialized
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        message: 'containers with unready status: [{{ range .spec.containers }} {{ .name }} {{ end }}]'
+        reason: ContainersNotReady
+        status: "False"
+        type: Ready
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        message: 'containers with unready status: [{{ range .spec.containers }} {{ .name }} {{ end }}]'
+        reason: ContainersNotReady
+        status: "False"
+        type: ContainersReady
+      {{ range .spec.readinessGates }}
+      - lastTransitionTime: {{ $now | Quote }}
+        status: "True"
+        type: {{ .conditionType | Quote }}
+      {{ end }}
+
+      containerStatuses:
+      {{ range .spec.containers }}
+      - image: {{ .image | Quote }}
+        name: {{ .name | Quote }}
+        ready: false
+        restartCount: 0
+        started: false
+        state:
+          waiting:
+            reason: ContainerCreating
+      {{ end }}
+
+      phase: Pending
+  resourceRef:
+    apiGroup: v1
+    kind: Pod
+  selector:
+    matchExpressions:
+      - key: .metadata.deletionTimestamp
+        operator: DoesNotExist
+      - key: .status.podIP
+        operator: DoesNotExist
+      - key: .status.phase
+        operator: DoesNotExist
