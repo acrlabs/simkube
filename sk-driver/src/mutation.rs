@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::iter;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -8,6 +9,7 @@ use kube::core::admission::{
     AdmissionRequest,
     AdmissionResponse,
     AdmissionReview,
+    Operation as AdmissionOperation,
 };
 use rocket::serde::json::Json;
 use serde_json::{
@@ -19,6 +21,7 @@ use sk_core::k8s::{
     GVK,
     PodExt,
     PodLifecycleData,
+    build_pod_self_owner_reference,
 };
 use sk_core::prelude::*;
 use tracing::*;
@@ -59,7 +62,7 @@ pub async fn handler(
 
     let mut resp = AdmissionResponse::from(&req);
     if let Some(pod) = &req.object {
-        resp = mutate_pod(ctx, sim, resp, pod, mut_data, UtcClock::boxed())
+        resp = mutate_pod(ctx, sim, req.operation.clone(), resp, pod, mut_data, UtcClock::boxed())
             .await
             .unwrap_or_else(|err| {
                 error!("could not perform mutation, blocking pod object: {err:?}");
@@ -75,6 +78,9 @@ pub async fn handler(
 pub async fn mutate_pod(
     ctx: &DriverContext,
     sim: &Simulation,
+    // BE AWARE: this gets called on both CREATE and UPDATE events, which means
+    // this function should not change any read-only fields on UPDATE.
+    op: AdmissionOperation,
     resp: AdmissionResponse,
     // TODO when we get the pod object, the final name hasn't been filled in yet;
     // make sure this doesn't cause any problems
@@ -95,7 +101,11 @@ pub async fn mutate_pod(
 
     let hash = match pod.annotations().get(POD_SPEC_STABLE_HASH_KEY) {
         Some(hash_str) => hash_str.parse::<u64>()?,
-        None => jsonutils::hash(&serde_json::to_value(&pod.stable_spec()?)?),
+        None => {
+            let stable_spec = pod.stable_spec()?;
+            debug!("computing pod stable spec: {:?}", stable_spec);
+            jsonutils::hash(&serde_json::to_value(&stable_spec)?)
+        },
     };
     let seq = match pod.annotations().get(POD_SEQUENCE_NUMBER_KEY) {
         Some(seq_str) => seq_str.parse::<usize>()?,
@@ -105,13 +115,14 @@ pub async fn mutate_pod(
 
     let mut patches = vec![];
     add_empty_labels_annotations(pod, &mut patches);
-    if !pod.labels_contains_key(SIMULATION_LABEL_KEY) {
+    if op == AdmissionOperation::Create {
         info!("first time seeing pod, adding tracking annotations");
         patches
             .push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.sim_name)));
         add_node_selector_tolerations(pod, &mut patches)?;
         add_pod_hash_annotations(hash, seq, &mut patches);
     }
+
     if matches!(pod.status.as_ref(), Some(corev1::PodStatus{phase: Some(phase), ..}) if phase == "Running")
         && !pod.labels_contains_key(KWOK_STAGE_COMPLETE_KEY)
     {
@@ -183,15 +194,18 @@ fn add_lifecycle_fields(
     clock: Box<dyn Clockable + Send>,
 ) -> EmptyResult {
     if let Some(orig_ns) = pod.annotations().get(ORIG_NAMESPACE_ANNOTATION_KEY) {
-        for owner in owners {
+        // To handle the "bare pod" case, we also look to see if the pod has been recorded as its
+        // own owner in the trace file
+        for owner in owners.iter().chain(iter::once(&build_pod_self_owner_reference(pod))) {
             let owner_gvk = GVK::from_owner_ref(owner)?;
             let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
             if !ctx.trace.has_obj(&owner_gvk, &owner_ns_name) {
+                debug!("owner {owner_gvk}.{owner_ns_name} for {} not found in trace", pod.namespaced_name());
                 continue;
             }
             let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
             if let Some(patch) = to_completion_time_annotation(sim.speed(), &lifecycle, &*clock) {
-                info!("applying lifecycle annotations");
+                info!("applying lifecycle labels and annotations");
                 patches.push(add_operation(
                     format_ptr!("/metadata/labels/{}", escape(KWOK_STAGE_COMPLETE_KEY)),
                     json!("true"),

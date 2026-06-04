@@ -147,7 +147,18 @@ pub(crate) fn build_mutating_webhook(
             rules: Some(vec![admissionv1::RuleWithOperations {
                 api_groups: Some(vec!["".into()]),
                 api_versions: Some(vec!["v1".into()]),
-                operations: Some(vec!["CREATE".into()]),
+                // In the CI runner/cert-manager postmortem, there is a bunch of ink spilled about
+                // how the webhook only needs to watch CREATE instead of both CREATE and UPDATE, and
+                // some dumb engineer made an early-on decision to watch both.  Well, ha, joke's on
+                // you, Mr. Blog Post Writer, actually that dumb engineer was correct and we do need
+                // both CREATE and UPDATE messages; specifically, when KWOK changes the phase from
+                // "Pending" to "Running", we need to get notified so that we can apply the
+                // lifecycle annotations correctly.  This will likely require a bit of defensive
+                // care in the mutation webhook handler.
+                //
+                // Blog post for reference:
+                // https://blog.appliedcomputing.io/p/postmortem-intermittent-failure-in?utm_source=publication-search
+                operations: Some(vec!["CREATE".into(), "UPDATE".into()]),
                 resources: Some(vec!["pods".into(), "pods/status".into()]),
                 scope: Some("Namespaced".into()),
             }]),

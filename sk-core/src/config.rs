@@ -9,7 +9,7 @@ use serde::{
 use thiserror::Error;
 use tracing::*;
 
-use crate::constants::GVK_POD_SPEC_TEMPLATE_PATHS;
+use crate::constants::KNOWN_GVKS_METADATA;
 use crate::k8s::GVK;
 
 #[derive(Debug, Error)]
@@ -86,7 +86,7 @@ impl TracerConfig {
     pub fn normalize(mut self) -> Result<Self, ConfigError> {
         let mut normalized_objects = HashMap::new();
         for (gvk, mut obj) in self.tracked_objects {
-            let maybe_default = GVK_POD_SPEC_TEMPLATE_PATHS.get(&gvk).cloned();
+            let maybe_default = KNOWN_GVKS_METADATA.get(&gvk).cloned();
             let resolved_paths = match obj.pod_spec_template_paths {
                 // User provided paths
                 Some(paths) if !paths.is_empty() => {
@@ -202,7 +202,7 @@ trackedObjects:
     #[case::unknown_gvk_with_paths(("fake","v1","Resource"), Some(vec!["/foo/bar"]), Expected::Ok(vec!["/foo/bar"]))]
     #[case::unknown_gvk_with_empty_paths(("fake","v1","Resource"), Some(vec![]), Expected::MissingPath)]
     #[case::unknown_gvk_with_none_paths(("fake","v1","Resource"), None, Expected::MissingPath)]
-    // Test all supported defaults in sk-core::constants::GVK_POD_SPEC_TEMPLATE_PATHS
+    // Test all supported defaults in KNOWN_GVKS
     #[case::cronjob_none_paths(("batch","v1","CronJob"), None, Expected::Ok(vec!["/spec/jobTemplate/spec/template"]))]
     #[case::daemonset_none_paths(("apps","v1","DaemonSet"), None, Expected::Ok(vec!["/spec/template"]))]
     #[case::deployment_none_paths(("apps","v1","Deployment"), None, Expected::Ok(vec!["/spec/template"]))]

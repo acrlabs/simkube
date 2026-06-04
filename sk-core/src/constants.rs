@@ -18,10 +18,10 @@ pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 // Common annotations and labels for SimKube
 pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "simkube.io/original-namespace";
 pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
-pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
+pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volue-mount";
 pub const POD_SPEC_STABLE_HASH_KEY: &str = "simkube.io/pod-spec-stable-hash";
 pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
-pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volue-mount";
+pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 
 // Lifecycle management labels and annotations
 pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.kwok.io/stage-complete";
@@ -67,7 +67,7 @@ pub static STATEFULSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::StatefulSet::g
 pub static POD_GVK: LazyLock<GVK> = LazyLock::new(corev1::Pod::gvk);
 
 // Supported default podSpecTemplatePaths
-pub static GVK_POD_SPEC_TEMPLATE_PATHS: LazyLock<HashMap<GVK, Vec<&'static str>>> = LazyLock::new(|| {
+pub static KNOWN_GVKS_METADATA: LazyLock<HashMap<GVK, Vec<&'static str>>> = LazyLock::new(|| {
     HashMap::from([
         (CRONJOB_GVK.clone(), vec!["/spec/jobTemplate/spec/template"]),
         (DAEMONSET_GVK.clone(), vec!["/spec/template"]),
