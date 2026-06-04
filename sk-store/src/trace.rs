@@ -68,6 +68,7 @@ impl ExportedTrace {
 
     pub fn import(data: Vec<u8>, maybe_duration: Option<&String>) -> anyhow::Result<ExportedTrace> {
         let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceError::ParseFailed)?;
+        exported_trace.config = exported_trace.config.normalize()?;
 
         if exported_trace.version != CURRENT_TRACE_FORMAT_VERSION {
             bail!("unsupported trace version: {}", exported_trace.version);
@@ -104,10 +105,14 @@ impl ExportedTrace {
         pod_hash: u64,
         seq: usize,
     ) -> PodLifecycleData {
+        let should_check_hash = use_stable_hash_for_lifecycle(owner_gvk);
+        if !should_check_hash {
+            debug!("ignoring stable hash for object because it is a known GVK");
+        }
         let maybe_lifecycle_data = self
             .pod_lifecycles
             .get(&(owner_gvk.clone(), owner_ns_name.into()))
-            .and_then(|l| l.get(&pod_hash));
+            .and_then(|l| if should_check_hash { l.get(&pod_hash) } else { l.iter().next().map(|(_, v)| v) });
         match maybe_lifecycle_data {
             Some(data) => data[seq % data.len()].clone(),
             _ => PodLifecycleData::Empty,
@@ -174,6 +179,17 @@ impl ExportedTrace {
         Ok(rmp_serde::to_vec_named(self)?)
     }
 }
+
+fn use_stable_hash_for_lifecycle(owner_gvk: &GVK) -> bool {
+    // Any of the standard Kubernetes resources only have one type of pod that they monitor, so we
+    // can safely ignore the stable hash data for these.  Any custom resource types may or may not
+    // have multiple pods per resource; for right now we default to requiring the use of the stable
+    // hash value for these resources, but this is maybe not the ideal solution in the long run.
+    //
+    // See also: SK-270, SK-271
+    !KNOWN_GVKS_METADATA.contains_key(owner_gvk)
+}
+
 
 #[derive(Clone)]
 pub struct TraceIterator<'a> {
