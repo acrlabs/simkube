@@ -54,15 +54,19 @@ spec:
             reason: ContainerCreating
       {{ end }}
 
+      podIP: {{ PodIPWith .spec.nodeName
+                ( or .spec.hostNetwork false )
+                ( or .metadata.uid "" )
+                ( or .metadata.name "" )
+                ( or .metadata.namespace "" )
+                | Quote }}
       phase: Pending
   resourceRef:
     apiGroup: v1
     kind: Pod
   selector:
     matchExpressions:
-      - key: .metadata.deletionTimestamp
-        operator: DoesNotExist
-      - key: .status.podIP
-        operator: DoesNotExist
-      - key: .status.phase
-        operator: DoesNotExist
+      - key: '.metadata.deletionTimestamp'
+        operator: 'DoesNotExist'
+      - key: '.status.podIP'
+        operator: 'DoesNotExist'
