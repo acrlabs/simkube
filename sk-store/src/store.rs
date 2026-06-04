@@ -10,6 +10,7 @@ use sk_core::k8s::{
     OwnersCache,
     PodExt,
     PodLifecycleData,
+    build_pod_self_owner_reference,
     format_gvk_name,
 };
 use sk_core::prelude::*;
@@ -222,12 +223,7 @@ impl TraceStore {
                 // little weird and not, like, technically correct, but will work fine for our
                 // purposes; the bare pods are tracked in the index, so this will pass all the
                 // checks below.
-                vec![metav1::OwnerReference {
-                    api_version: "v1".into(),
-                    kind: POD_GVK.kind.clone(),
-                    name: pod.name_any(),
-                    ..Default::default()
-                }]
+                vec![build_pod_self_owner_reference(pod)]
             } else {
                 // If it's not a bare pod, then we look up the owners in the cache.
                 self.owners_cache
@@ -258,7 +254,9 @@ impl TraceStore {
                 // of data that are unique to each pod that won't materially impact the behaviour?
                 // This does occur for example with coredns's volume mounts.  We may need to filter
                 // more things out from this and/or allow users to specify what is filtered out.
-                let hash = jsonutils::hash(&serde_json::to_value(pod.stable_spec()?)?);
+                let stable_spec = pod.stable_spec()?;
+                debug!("computing pod stable spec: {:?}", stable_spec);
+                let hash = jsonutils::hash(&serde_json::to_value(stable_spec)?);
                 self.pod_owners
                     .store_new_pod_lifecycle(ns_name, &owner_gvk, &owner_ns_name, hash, lifecycle_data);
                 break;

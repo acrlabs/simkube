@@ -129,9 +129,17 @@ async fn test_mutate_pod_not_owned_by_sim(
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
     let ctx = ctx(test_pod.clone(), vec![owner.clone()], ExportedTrace::default());
     test_pod.owner_references_mut().push(owner);
-    adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
-        .await
-        .unwrap();
+    adm_resp = mutate_pod(
+        &ctx,
+        &test_sim,
+        Operation::Create,
+        adm_resp,
+        &test_pod,
+        &MutationData::new(),
+        MockUtcClock::boxed(0),
+    )
+    .await
+    .unwrap();
     assert_eq!(adm_resp.patch, None);
 }
 
@@ -188,8 +196,8 @@ mod itest {
 
     #[rstest(tokio::test)]
     // don't need the cross-product of these cases
-    #[case(true)]
-    #[case(false)]
+    #[case::running_with_node_selector(true)]
+    #[case::not_running_or_no_node_selector(false)]
     async fn test_mutate_pod(
         mut test_sim: Simulation,
         mut test_pod: corev1::Pod,
@@ -230,9 +238,17 @@ mod itest {
 
         let ctx = ctx(test_pod.clone(), vec![root.clone(), depl.clone()], trace);
 
-        adm_resp = mutate_pod(&ctx, &test_sim, adm_resp, &test_pod, &MutationData::new(), MockUtcClock::boxed(0))
-            .await
-            .unwrap();
+        adm_resp = mutate_pod(
+            &ctx,
+            &test_sim,
+            Operation::Create,
+            adm_resp,
+            &test_pod,
+            &MutationData::new(),
+            MockUtcClock::boxed(0),
+        )
+        .await
+        .unwrap();
         let mut json_pod = serde_json::to_value(&test_pod).unwrap();
         let pod_patch: Patch = serde_json::from_slice(&adm_resp.patch.unwrap()).unwrap();
         for p in pod_patch.0 {

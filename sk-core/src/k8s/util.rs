@@ -80,6 +80,15 @@ where
     build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
 }
 
+pub fn build_pod_self_owner_reference(pod: &corev1::Pod) -> metav1::OwnerReference {
+    metav1::OwnerReference {
+        api_version: "v1".into(),
+        kind: POD_GVK.kind.clone(),
+        name: pod.name_any(),
+        ..Default::default()
+    }
+}
+
 pub fn dyn_obj_spec(obj: &DynamicObject) -> Option<&Map<String, Value>> {
     obj.data
         .as_object()

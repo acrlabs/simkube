@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.6.1 - 2026-06-04
+
+### 🐛 Bug Fixes
+
+- Prevent driver panic on failed deletes
+- Pod lifecycle tracking works for bare pods
+- Pod lifecycle KWOK annotations work for bare pods
+
 ## 2.6.0 - 2026-05-14
 
 ### 🚀 Features
