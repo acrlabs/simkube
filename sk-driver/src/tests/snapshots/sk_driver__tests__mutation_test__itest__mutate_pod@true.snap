@@ -11,6 +11,10 @@ Object {
             "simkube.io/pod-sequence-number": String("0"),
             "simkube.io/pod-spec-stable-hash": String("18161541283955474812"),
             "simkube.kwok.io/stage-complete-time": String("1970-01-01T00:00:21+00:00"),
+            "simkube.kwok.io/stage-create-delay": String("0ms"),
+            "simkube.kwok.io/stage-create-delay-jitter": String("0ms"),
+            "simkube.kwok.io/stage-ready-delay": String("0ms"),
+            "simkube.kwok.io/stage-ready-delay-jitter": String("0ms"),
         },
         "labels": Object {
             "foo": String("bar"),

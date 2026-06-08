@@ -5,12 +5,10 @@ metadata:
   name: pod-create
 spec:
   delay:
-    durationMilliseconds: 1000
     durationFrom:
-      expressionFrom: .metadata.annotations["pod-create.stage.kwok.x-k8s.io/delay"]
-    jitterDurationMilliseconds: 5000
+      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-create-delay"]
     jitterDurationFrom:
-      expressionFrom: .metadata.annotations["pod-create.stage.kwok.x-k8s.io/jitter-delay"]
+      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-create-delay-jitter"]
   next:
     event:
       type: Normal
@@ -66,7 +64,7 @@ spec:
     kind: Pod
   selector:
     matchExpressions:
-      - key: '.metadata.deletionTimestamp'
-        operator: 'DoesNotExist'
-      - key: '.status.podIP'
-        operator: 'DoesNotExist'
+      - key: .metadata.deletionTimestamp
+        operator: DoesNotExist
+      - key: .status.podIP
+        operator: DoesNotExist

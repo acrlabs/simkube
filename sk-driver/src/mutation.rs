@@ -121,6 +121,7 @@ pub async fn mutate_pod(
             .push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.sim_name)));
         add_node_selector_tolerations(pod, &mut patches)?;
         add_pod_hash_annotations(hash, seq, &mut patches);
+        add_delay_annotations(sim, &mut patches);
     }
 
     if matches!(pod.status.as_ref(), Some(corev1::PodStatus{phase: Some(phase), ..}) if phase == "Running")
@@ -132,6 +133,25 @@ pub async fn mutate_pod(
     // We can't use json_patch_ext stuff here because the AdmissionResponse is a part of Kubernetes
     // and doesn't know anything at all about our custom json_patch extensions
     Ok(resp.with_patch(Patch(patches))?)
+}
+
+fn add_delay_annotations(sim: &Simulation, patches: &mut Vec<PatchOperation>) {
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_CREATE_DELAY_KEY)),
+        json!(format!("{}ms", sim.spec.image_pull_delay.unwrap_or(0).to_string())),
+    ));
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_CREATE_DELAY_JITTER_KEY)),
+        json!(format!("{}ms", sim.spec.image_pull_jitter.unwrap_or(0).to_string())),
+    ));
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_READY_DELAY_KEY)),
+        json!(format!("{}ms", sim.spec.pod_startup_delay.unwrap_or(0).to_string())),
+    ));
+    patches.push(add_operation(
+        format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_READY_DELAY_JITTER_KEY)),
+        json!(format!("{}ms", sim.spec.pod_startup_jitter.unwrap_or(0).to_string())),
+    ));
 }
 
 fn add_empty_labels_annotations(pod: &corev1::Pod, patches: &mut Vec<PatchOperation>) {

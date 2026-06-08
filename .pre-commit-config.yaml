@@ -7,20 +7,20 @@ repos:
         language: system
         entry: bash -c "which python || which python3"
         always_run: true
-        exclude: ".*"
+        exclude: .*
         verbose: true
-  - repo: "https://github.com/pre-commit/pre-commit-hooks"
+  - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
     hooks:
       - id: end-of-file-fixer
       - id: trailing-whitespace
-  - repo: "https://github.com/adrienverge/yamllint"
+  - repo: https://github.com/adrienverge/yamllint
     rev: v1.35.1
     hooks:
       - id: yamllint
-        args: ['--strict']
-        exclude: "config/metrics"
-  - repo: "https://github.com/doublify/pre-commit-rust"
+        args: [--strict, -d, .config/.yamllint.yaml]
+        exclude: config/metrics
+  - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
       - id: clippy
@@ -37,22 +37,22 @@ repos:
         language: system
         entry: scripts/fmt
         files: \.rs
-  - repo: "https://github.com/pre-commit/mirrors-mypy"
+  - repo: https://github.com/pre-commit/mirrors-mypy
     rev: v1.19.1
     hooks:
       - id: mypy
-  - repo: "https://github.com/astral-sh/ruff-pre-commit"
+  - repo: https://github.com/astral-sh/ruff-pre-commit
     rev: v0.4.2
     hooks:
       - id: ruff
-        args: ["--fix"]
+        args: [--fix]
       - id: ruff-format
-  - repo: "https://github.com/EmbarkStudios/cargo-deny"
+  - repo: https://github.com/EmbarkStudios/cargo-deny
     rev: 0.18.5
     hooks:
       - id: cargo-deny
-        args: ["--all-features", "check", "licenses"]
-  - repo: "https://github.com/zizmorcore/zizmor-pre-commit"
+        args: [--all-features, check, licenses]
+  - repo: https://github.com/zizmorcore/zizmor-pre-commit
     rev: v1.23.1
     hooks:
       - id: zizmor
@@ -60,7 +60,7 @@ repos:
           - --fix=all
           - --config
           - .config/zizmor.yml
-  - repo: "https://github.com/igorshubovych/markdownlint-cli"
+  - repo: https://github.com/igorshubovych/markdownlint-cli
     rev: v0.47.0
     hooks:
       - id: markdownlint-fix
@@ -71,14 +71,14 @@ repos:
         language: system
         entry: bash -c 'make kustomize && git diff --quiet'
         pass_filenames: false
-        files: "sk-api/.*|k8s/.*|Cargo.toml"
+        files: sk-api/.*|k8s/.*|Cargo.toml
       - id: check-validation-readme
         name: Check Validation README
         language: system
         entry: bash -c 'make validation_rules && git diff --quiet'
         pass_filenames: false
-        files: "sk-cli/src/validation/.*"
-  - repo: "https://github.com/bnjbvr/cargo-machete"
+        files: sk-cli/src/validation/.*
+  - repo: https://github.com/bnjbvr/cargo-machete
     rev: v0.9.2
     hooks:
       - id: cargo-machete

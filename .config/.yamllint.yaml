@@ -1,0 +1,11 @@
+---
+extends: default
+rules:
+  line-length:
+    max: 120
+  quoted-strings:
+    required: only-when-needed
+    quote-type: double
+ignore: |
+  k8s/raw/
+  k8s/kustomize/sim/

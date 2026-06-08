@@ -171,6 +171,14 @@ spec:
                     nullable: true
                     type: array
                 type: object
+              imagePullDelay:
+                format: int32
+                nullable: true
+                type: integer
+              imagePullJitter:
+                format: int32
+                nullable: true
+                type: integer
               metrics:
                 nullable: true
                 properties:
@@ -593,6 +601,14 @@ spec:
                 format: date-time
                 nullable: true
                 type: string
+              podStartupDelay:
+                format: int32
+                nullable: true
+                type: integer
+              podStartupJitter:
+                format: int32
+                nullable: true
+                type: integer
               repetitions:
                 format: int32
                 nullable: true

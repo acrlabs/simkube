@@ -5,12 +5,10 @@ metadata:
   name: pod-ready
 spec:
   delay:
-    durationMilliseconds: 1000
     durationFrom:
-      expressionFrom: .metadata.annotations["pod-ready.stage.kwok.x-k8s.io/delay"]
-    jitterDurationMilliseconds: 5000
+      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-ready-delay"]
     jitterDurationFrom:
-      expressionFrom: .metadata.annotations["pod-ready.stage.kwok.x-k8s.io/jitter-delay"]
+      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-ready-delay-jitter"]
   next:
     patches:
       - subresource: status
@@ -25,9 +23,13 @@ spec:
           - lastTransitionTime: {{ $now | Quote }}
             status: "True"
             type: Ready
+            reason: ""
+            message: ""
           - lastTransitionTime: {{ $now | Quote }}
             status: "True"
             type: ContainersReady
+            reason: ""
+            message: ""
           {{ range .spec.readinessGates }}
           - lastTransitionTime: {{ $now | Quote }}
             status: "True"
@@ -73,15 +75,15 @@ spec:
     kind: Pod
   selector:
     matchExpressions:
-      - key: '.metadata.deletionTimestamp'
-        operator: 'DoesNotExist'
-      - key: '.status.phase'
-        operator: 'In'
+      - key: .metadata.deletionTimestamp
+        operator: DoesNotExist
+      - key: .status.phase
+        operator: In
         values:
-          - 'Pending'
-      - key: '.status.conditions.[] | select( .type == "Initialized" ) | .status'
-        operator: 'In'
+          - Pending
+      - key: .status.conditions.[] | select( .type == "Initialized" ) | .status
+        operator: In
         values:
-          - 'True'
-      - key: '.status.containerStatuses.[].state.running.startedAt'
-        operator: 'DoesNotExist'
+          - "True"
+      - key: .status.containerStatuses.[].state.running.startedAt
+        operator: DoesNotExist

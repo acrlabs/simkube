@@ -22,7 +22,6 @@ pub enum SimulationState {
     Running,
 }
 
-
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct SimulationDriverConfig {
@@ -93,6 +92,10 @@ pub struct SimulationSpec {
     pub speed: Option<f64>,
     pub paused_time: Option<DateTime<Utc>>,
     pub hooks: Option<SimulationHooksConfig>,
+    pub image_pull_delay: Option<i32>,
+    pub image_pull_jitter: Option<i32>,
+    pub pod_startup_delay: Option<i32>,
+    pub pod_startup_jitter: Option<i32>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
