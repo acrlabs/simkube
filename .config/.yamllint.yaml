@@ -8,4 +8,4 @@ rules:
     quote-type: double
 ignore: |
   k8s/raw/
-  k8s/kustomize/sim/
+  k8s/kustomize/

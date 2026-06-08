@@ -4,20 +4,20 @@ on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
   push:
     branches:
-      - "main"
+      - main
     paths-ignore:
-      - "docs/**"
-      - "examples/**"
-      - ".cargo/**"
-      - ".config/**"
-      - ".github/**"
-      - ".markdownlint.yaml"
-      - ".markdownlintignore"
-      - ".pre-commit-config.yaml"
-      - ".rustfmt.toml"
-      - ".yamllint"
+      - docs/**
+      - examples/**
+      - .cargo/**
+      - .config/**
+      - .github/**
+      - .markdownlint.yaml
+      - .markdownlintignore
+      - .pre-commit-config.yaml
+      - .rustfmt.toml
+      - .yamllint
       - "*.md"
-      - "deny.toml"
+      - deny.toml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
