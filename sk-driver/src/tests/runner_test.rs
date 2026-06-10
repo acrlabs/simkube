@@ -130,7 +130,7 @@ async fn test_cleanup_trace_error() {
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
     let trace = ExportedTrace::default();
-    let ctx = build_driver_context(cache, trace);
+    let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(0);
 
@@ -156,7 +156,7 @@ async fn test_cleanup_trace_timeout() {
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
     let trace = ExportedTrace::default();
-    let ctx = build_driver_context(cache, trace);
+    let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
 
@@ -176,7 +176,7 @@ async fn test_cleanup_trace() {
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
     let trace = ExportedTrace::default();
-    let ctx = build_driver_context(cache, trace);
+    let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(0);
 
@@ -204,7 +204,7 @@ mod itest {
 
         let trace_data = build_trace_data(has_start_marker, None);
         let trace = ExportedTrace::import(trace_data, None).unwrap();
-        let ctx = build_driver_context(cache, trace);
+        let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {
@@ -268,7 +268,7 @@ mod itest {
                 .method(DELETE);
             then.json_body(status_ok());
         });
-        run_trace(ctx, client, test_sim).await.unwrap();
+        run_trace(ctx, test_sim).await.unwrap();
         fake_apiserver.assert();
     }
 
@@ -285,7 +285,7 @@ mod itest {
 
         let trace_data = build_trace_data(false, Some(10));
         let trace = ExportedTrace::import(trace_data, None).unwrap();
-        let ctx = build_driver_context(cache, trace);
+        let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {
@@ -343,9 +343,7 @@ mod itest {
             });
         }
 
-        run_trace_internal(&ctx, client, 1.0, root, TRACE_START, clock.clone())
-            .await
-            .unwrap();
+        run_trace_internal(&ctx, 1.0, root, TRACE_START, clock.clone()).await.unwrap();
         fake_apiserver.assert();
         assert_eq!(expected_end_ts, clock.now_ts());
     }
@@ -357,7 +355,7 @@ mod itest {
 
         let trace_data = build_trace_data(false, Some(10));
         let trace = ExportedTrace::import(trace_data, None).unwrap();
-        let ctx = build_driver_context(cache, trace);
+        let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {
             metadata: metav1::ObjectMeta {
@@ -429,9 +427,7 @@ mod itest {
             });
         });
 
-        run_trace_internal(&ctx, client, 1.0, root, TRACE_START, clock.clone())
-            .await
-            .unwrap();
+        run_trace_internal(&ctx, 1.0, root, TRACE_START, clock.clone()).await.unwrap();
         fake_apiserver.assert();
         assert_eq!(37, clock.now_ts());
     }

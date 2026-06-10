@@ -152,8 +152,8 @@ pub fn build_virtual_obj(
 }
 
 #[instrument(parent=None, skip_all, fields(simulation=ctx.name))]
-pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation) -> EmptyResult {
-    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
+pub async fn run_trace(ctx: DriverContext, sim: Simulation) -> EmptyResult {
+    let roots_api: kube::Api<SimulationRoot> = kube::Api::all(ctx.client.clone());
     let root = if let Some(root) = roots_api.get_opt(&ctx.root_name).await? {
         warn!("Driver root {} already exists; continuing...", ctx.root_name);
         root
@@ -171,8 +171,8 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation
         sim.speed()
     );
 
-    try_update_lease(client.clone(), &sim, &ctx.ctrl_ns, sim_duration as u64).await?;
-    run_trace_internal(&ctx, client, sim.speed(), root, sim_ts, clock.clone()).await?;
+    try_update_lease(ctx.client.clone(), &sim, &ctx.ctrl_ns, sim_duration as u64).await?;
+    run_trace_internal(&ctx, sim.speed(), root, sim_ts, clock.clone()).await?;
 
     let timeout = clock.now_ts() + DRIVER_CLEANUP_TIMEOUT_SECONDS;
     cleanup_trace(&ctx, roots_api, clock, timeout).await
@@ -180,17 +180,16 @@ pub async fn run_trace(ctx: DriverContext, client: kube::Client, sim: Simulation
 
 pub(crate) async fn run_trace_internal(
     ctx: &DriverContext,
-    client: kube::Client,
     sim_speed: f64,
     root: SimulationRoot,
     mut current_ts: i64,
     clock: Box<dyn Clockable + Send>,
 ) -> EmptyResult {
-    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(client.clone());
-    let mut apiset = DynamicApiSet::new(client.clone());
+    let ns_api: kube::Api<corev1::Namespace> = kube::Api::all(ctx.client.clone());
+    let mut apiset = DynamicApiSet::new(ctx.client.clone());
 
     for (evt, maybe_next_ts) in ctx.trace.iter() {
-        current_ts += wait_if_paused(client.clone(), &ctx.sim_name, clock.clone()).await?;
+        current_ts += wait_if_paused(ctx.client.clone(), &ctx.sim_name, clock.clone()).await?;
 
         // We're currently assuming that all tracked objects are namespace-scoped,
         // this will panic/fail if that is not true.

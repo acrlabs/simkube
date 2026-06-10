@@ -116,7 +116,7 @@ pub(crate) fn build_prometheus(
     }
 }
 
-pub(crate) fn build_mutating_webhook(
+pub(crate) fn build_mutating_webhooks(
     ctx: &ReconcileContext,
     sim: &Simulation,
     metaroot: &SimulationRoot,
@@ -128,46 +128,61 @@ pub(crate) fn build_mutating_webhook(
         format!("{}/{}", sim.spec.driver.namespace, DRIVER_CERT_NAME),
     );
 
+    // In the CI runner/cert-manager postmortem, there is a bunch of ink spilled about
+    // how the webhook only needs to watch CREATE instead of both CREATE and UPDATE, and
+    // some dumb engineer made an early-on decision to watch both.  Well, ha, joke's on
+    // you, Mr. Blog Post Writer, actually that dumb engineer was correct and we do need
+    // both CREATE and UPDATE messages; specifically, when KWOK changes the phase from
+    // "Pending" to "Running", we need to get notified so that we can apply the
+    // lifecycle annotations correctly.  This will likely require a bit of defensive
+    // care in the mutation webhook handler.
+    //
+    // Blog post for reference:
+    // https://blog.appliedcomputing.io/p/postmortem-intermittent-failure-in?utm_source=publication-search
+    let mut webhook_params = vec![(
+        vec!["CREATE".into(), "UPDATE".into()],
+        format!("object.metadata.namespace.startsWith('{}-')", sim.spec.driver.virtual_ns_prefix),
+    )];
+    if let Some(true) = sim.spec.reschedule_interrupted_bare_pods {
+        webhook_params.push((
+            vec!["DELETE".into()],
+            format!("oldObject.metadata.namespace.startsWith('{}-')", sim.spec.driver.virtual_ns_prefix),
+        ));
+    }
     admissionv1::MutatingWebhookConfiguration {
         metadata,
-        webhooks: Some(vec![admissionv1::MutatingWebhook {
-            admission_review_versions: vec!["v1".into()],
-            client_config: admissionv1::WebhookClientConfig {
-                service: Some(admissionv1::ServiceReference {
-                    namespace: sim.spec.driver.namespace.clone(),
-                    name: ctx.driver_svc.clone(),
-                    port: Some(sim.spec.driver.port),
+        webhooks: Some(
+            webhook_params
+                .into_iter()
+                .map(|(operations, match_cond)| admissionv1::MutatingWebhook {
+                    admission_review_versions: vec!["v1".into()],
+                    client_config: admissionv1::WebhookClientConfig {
+                        service: Some(admissionv1::ServiceReference {
+                            namespace: sim.spec.driver.namespace.clone(),
+                            name: ctx.driver_svc.clone(),
+                            port: Some(sim.spec.driver.port),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    },
+                    failure_policy: Some("Fail".into()),
+                    name: format!("{}.{WEBHOOK_NAME}", operations.join("-").to_ascii_lowercase()),
+                    side_effects: "None".into(),
+                    rules: Some(vec![admissionv1::RuleWithOperations {
+                        api_groups: Some(vec!["".into()]),
+                        api_versions: Some(vec!["v1".into()]),
+                        operations: Some(operations),
+                        resources: Some(vec!["pods".into(), "pods/status".into()]),
+                        scope: Some("Namespaced".into()),
+                    }]),
+                    match_conditions: Some(vec![admissionv1::MatchCondition {
+                        name: "virtual-namespaces-only".into(),
+                        expression: match_cond,
+                    }]),
                     ..Default::default()
-                }),
-                ..Default::default()
-            },
-            failure_policy: Some("Fail".into()),
-            name: WEBHOOK_NAME.into(),
-            side_effects: "None".into(),
-            rules: Some(vec![admissionv1::RuleWithOperations {
-                api_groups: Some(vec!["".into()]),
-                api_versions: Some(vec!["v1".into()]),
-                // In the CI runner/cert-manager postmortem, there is a bunch of ink spilled about
-                // how the webhook only needs to watch CREATE instead of both CREATE and UPDATE, and
-                // some dumb engineer made an early-on decision to watch both.  Well, ha, joke's on
-                // you, Mr. Blog Post Writer, actually that dumb engineer was correct and we do need
-                // both CREATE and UPDATE messages; specifically, when KWOK changes the phase from
-                // "Pending" to "Running", we need to get notified so that we can apply the
-                // lifecycle annotations correctly.  This will likely require a bit of defensive
-                // care in the mutation webhook handler.
-                //
-                // Blog post for reference:
-                // https://blog.appliedcomputing.io/p/postmortem-intermittent-failure-in?utm_source=publication-search
-                operations: Some(vec!["CREATE".into(), "UPDATE".into()]),
-                resources: Some(vec!["pods".into(), "pods/status".into()]),
-                scope: Some("Namespaced".into()),
-            }]),
-            match_conditions: Some(vec![admissionv1::MatchCondition {
-                name: "virtual-namespaces-only".into(),
-                expression: format!("object.metadata.namespace.startsWith('{}-')", sim.spec.driver.virtual_ns_prefix),
-            }]),
-            ..Default::default()
-        }]),
+                })
+                .collect(),
+        ),
     }
 }
 

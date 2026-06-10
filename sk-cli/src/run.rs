@@ -43,6 +43,12 @@ pub struct Args {
     )]
     pub repetitions: i32,
 
+    #[arg(
+        long,
+        long_help = "if a bare pod is deleted before it's finished, SimKube should reschedule it"
+    )]
+    pub reschedule_interrupted_bare_pods: bool,
+
     #[arg(long, long_help = "start the simulation in the \"paused\" state")]
     pub start_paused: bool,
 
@@ -271,6 +277,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
             hooks,
             metrics: metrics_config,
             paused_time,
+            reschedule_interrupted_bare_pods: Some(args.reschedule_interrupted_bare_pods),
             repetitions: Some(args.repetitions),
             speed: Some(args.speed),
             lifecycle_params: LifecycleParams {

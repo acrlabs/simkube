@@ -268,7 +268,7 @@ pub async fn setup_simulation(
     let mwc_opt = webhook_api.get_opt(&ctx.webhook_name).await?;
     if mwc_opt.is_none() {
         info!("creating mutating webhook configuration {}", ctx.webhook_name);
-        let obj = build_mutating_webhook(ctx, sim, metaroot);
+        let obj = build_mutating_webhooks(ctx, sim, metaroot);
         webhook_api.create(&Default::default(), &obj).await?;
         return Ok(Action::requeue(REQUEUE_DURATION));
     }

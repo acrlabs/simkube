@@ -1,10 +1,6 @@
 use assertables::*;
 use clockabilly::Utc;
-use kube::api::TypeMeta;
-use serde_json::{
-    Value,
-    json,
-};
+use serde_json::Value;
 
 use super::*;
 
@@ -36,7 +32,7 @@ fn test_sanitize_obj() {
         data: Value::Null,
     };
 
-    sanitize_obj(&GVK::new("bar.blah.sh", "v2", "Stuff"), &mut obj);
+    sanitize_obj(&mut obj);
 
     assert_some!(obj.metadata.owner_references);
 
@@ -49,35 +45,8 @@ fn test_sanitize_obj() {
     assert_none!(obj.metadata.uid);
 
     assert_eq!(obj.metadata.annotations, klabel!("some_random_annotation" => "blah"));
-    assert!(
-        obj.types
-            .is_some_and(|tm| tm.api_version == "bar.blah.sh/v2" && tm.kind == "Stuff")
-    );
 }
 
-#[rstest]
-#[case::no_type(None)]
-#[case::some_type(Some(POD_GVK.into_type_meta()))]
-fn test_sanitize_pod_obj(#[case] types: Option<TypeMeta>) {
-    let mut obj = DynamicObject {
-        metadata: metav1::ObjectMeta {
-            name: Some("test-obj".into()),
-            namespace: Some(TEST_NAMESPACE.into()),
-
-            ..Default::default()
-        },
-        types,
-        data: json!({
-            "spec": {
-                "nodeName": "ip-1-2-3-4.internal",
-            }
-        }),
-    };
-
-    sanitize_obj(&*POD_GVK, &mut obj);
-
-    assert!(!dyn_obj_spec(&obj).unwrap().contains_key("nodeName"));
-}
 
 #[rstest]
 #[case::way_too_short("x", "x")]

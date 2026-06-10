@@ -30,7 +30,7 @@ pub fn build_trace_data(has_start_marker: bool, duration: Option<i64>) -> Vec<u8
     rmp_serde::to_vec_named(&exported_trace).unwrap()
 }
 
-pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace) -> DriverContext {
+pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace, client: kube::Client) -> DriverContext {
     DriverContext {
         name: TEST_DRIVER_NAME.into(),
         sim_name: TEST_SIM_NAME.into(),
@@ -38,6 +38,7 @@ pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace) -> 
         ctrl_ns: TEST_CTRL_NAMESPACE.into(),
         virtual_ns_prefix: TEST_VIRT_NS_PREFIX.into(),
         owners_cache: Arc::new(Mutex::new(owners_cache)),
+        client,
         trace: Arc::new(trace),
         recorder: SkEventRecorder::mock(),
     }

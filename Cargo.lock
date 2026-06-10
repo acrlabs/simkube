@@ -3728,6 +3728,7 @@ dependencies = [
  "json-patch-ext",
  "kube",
  "mockall",
+ "regex",
  "rmp-serde",
  "rocket",
  "rstest",
@@ -3741,6 +3742,7 @@ dependencies = [
  "thiserror 2.0.18",
  "tokio",
  "tracing",
+ "tracing-test",
 ]
 
 [[package]]
@@ -3774,6 +3776,7 @@ dependencies = [
  "clockabilly",
  "futures",
  "httpmock",
+ "insta",
  "k8s-openapi",
  "kube",
  "mockall",

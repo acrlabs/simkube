@@ -93,6 +93,24 @@ pub fn status_not_found() -> serde_json::Value {
     })
 }
 
+pub fn v1_discovery() -> serde_json::Value {
+    json!({
+        "kind":"APIResourceList",
+        "apiVersion":"v1",
+        "groupVersion":"v1",
+        "resources":[
+            {
+                "name":"pods",
+                "singularName":"pod",
+                "namespaced":true,
+                "kind":"Pod",
+                "verbs":["create","delete","deletecollection","get","list","patch","update","watch"],
+                "storageVersionHash":"asdf1234cBU=",
+            },
+        ]
+    })
+}
+
 pub fn apps_v1_discovery() -> serde_json::Value {
     json!({
         "kind":"APIResourceList",
