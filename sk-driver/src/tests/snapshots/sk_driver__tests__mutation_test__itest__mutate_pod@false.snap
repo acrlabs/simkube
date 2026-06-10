@@ -7,13 +7,13 @@ Object {
     "kind": String("Pod"),
     "metadata": Object {
         "annotations": Object {
+            "simkube.io/kwok-stage-create-delay": String("0ms"),
+            "simkube.io/kwok-stage-create-delay-jitter": String("0ms"),
+            "simkube.io/kwok-stage-ready-delay": String("0ms"),
+            "simkube.io/kwok-stage-ready-delay-jitter": String("0ms"),
             "simkube.io/original-namespace": String("test-namespace"),
             "simkube.io/pod-sequence-number": String("0"),
             "simkube.io/pod-spec-stable-hash": String("17506812802394981455"),
-            "simkube.kwok.io/stage-create-delay": String("0ms"),
-            "simkube.kwok.io/stage-create-delay-jitter": String("0ms"),
-            "simkube.kwok.io/stage-ready-delay": String("0ms"),
-            "simkube.kwok.io/stage-ready-delay-jitter": String("0ms"),
         },
         "labels": Object {
             "foo": String("bar"),

@@ -18,19 +18,19 @@ pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 // Common annotations and labels for SimKube
 pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "simkube.io/original-namespace";
 pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
-pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volue-mount";
+pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volume-mount";
 pub const POD_SPEC_STABLE_HASH_KEY: &str = "simkube.io/pod-spec-stable-hash";
 pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 
 // Lifecycle management labels and annotations
-pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.io/stage-complete";
-pub const KWOK_STAGE_COMPLETE_TIMESTAMP_KEY: &str = "simkube.io/stage-complete-time";
-pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.io/stage-error-time";
-pub const KWOK_STAGE_CREATE_DELAY_KEY: &str = "simkube.io/stage-create-delay";
-pub const KWOK_STAGE_CREATE_DELAY_JITTER_KEY: &str = "simkube.io/stage-create-delay-jitter";
-pub const KWOK_STAGE_READY_DELAY_KEY: &str = "simkube.io/stage-ready-delay";
-pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.io/stage-ready-delay-jitter";
+pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.io/kwok-stage-complete";
+pub const KWOK_STAGE_COMPLETE_TIMESTAMP_KEY: &str = "simkube.io/kwok-stage-complete-time";
+pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.io/kwok-stage-error-time";
+pub const KWOK_STAGE_CREATE_DELAY_KEY: &str = "simkube.io/kwok-stage-create-delay";
+pub const KWOK_STAGE_CREATE_DELAY_JITTER_KEY: &str = "simkube.io/kwok-stage-create-delay-jitter";
+pub const KWOK_STAGE_READY_DELAY_KEY: &str = "simkube.io/kwok-stage-ready-delay";
+pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.io/kwok-stage-ready-delay-jitter";
 
 // Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
@@ -52,10 +52,6 @@ pub const DEFAULT_METRICS_NS: &str = "monitoring";
 pub const DEFAULT_METRICS_SVC_ACCOUNT: &str = "prometheus-k8s";
 pub const DRIVER_ADMISSION_WEBHOOK_PORT: &str = "8888";
 pub const SK_LEASE_NAME: &str = "sk-lease";
-pub const POD_STARTUP_DELAY: &str = "0";
-pub const POD_STARTUP_JITTER: &str = "0";
-pub const IMAGE_PULL_DELAY: &str = "0";
-pub const IMAGE_PULL_JITTER: &str = "0";
 
 // Timing
 pub const RETRY_DELAY_SECONDS: u64 = 5;

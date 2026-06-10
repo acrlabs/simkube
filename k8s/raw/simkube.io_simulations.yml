@@ -171,14 +171,6 @@ spec:
                     nullable: true
                     type: array
                 type: object
-              imagePullDelay:
-                format: int32
-                nullable: true
-                type: integer
-              imagePullJitter:
-                format: int32
-                nullable: true
-                type: integer
               metrics:
                 nullable: true
                 properties:
@@ -601,24 +593,40 @@ spec:
                 format: date-time
                 nullable: true
                 type: string
-              podStartupDelay:
-                format: int32
-                nullable: true
-                type: integer
-              podStartupJitter:
-                format: int32
-                nullable: true
-                type: integer
               repetitions:
                 format: int32
                 nullable: true
                 type: integer
+              simulationDelayParameters:
+                properties:
+                  imagePullDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  imagePullJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                type: object
               speed:
                 format: double
                 nullable: true
                 type: number
             required:
             - driver
+            - simulationDelayParameters
             type: object
           status:
             nullable: true

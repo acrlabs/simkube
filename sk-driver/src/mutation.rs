@@ -138,19 +138,19 @@ pub async fn mutate_pod(
 fn add_delay_annotations(sim: &Simulation, patches: &mut Vec<PatchOperation>) {
     patches.push(add_operation(
         format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_CREATE_DELAY_KEY)),
-        json!(format!("{}ms", sim.spec.image_pull_delay.unwrap_or(0).to_string())),
+        json!(format!("{}ms", sim.spec.simulation_delay_parameters.image_pull_delay.unwrap_or(0).to_string())),
     ));
     patches.push(add_operation(
         format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_CREATE_DELAY_JITTER_KEY)),
-        json!(format!("{}ms", sim.spec.image_pull_jitter.unwrap_or(0).to_string())),
+        json!(format!("{}ms", sim.spec.simulation_delay_parameters.image_pull_jitter.unwrap_or(0).to_string())),
     ));
     patches.push(add_operation(
         format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_READY_DELAY_KEY)),
-        json!(format!("{}ms", sim.spec.pod_startup_delay.unwrap_or(0).to_string())),
+        json!(format!("{}ms", sim.spec.simulation_delay_parameters.pod_startup_delay.unwrap_or(0).to_string())),
     ));
     patches.push(add_operation(
         format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_READY_DELAY_JITTER_KEY)),
-        json!(format!("{}ms", sim.spec.pod_startup_jitter.unwrap_or(0).to_string())),
+        json!(format!("{}ms", sim.spec.simulation_delay_parameters.pod_startup_jitter.unwrap_or(0).to_string())),
     ));
 }
 

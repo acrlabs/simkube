@@ -21,6 +21,14 @@ pub enum SimulationState {
     Retrying,
     Running,
 }
+#[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SimulationDelayParameters {
+    pub image_pull_delay: Option<u32>,
+    pub image_pull_jitter: Option<u32>,
+    pub pod_startup_delay: Option<u32>,
+    pub pod_startup_jitter: Option<u32>,
+}
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -92,10 +100,7 @@ pub struct SimulationSpec {
     pub speed: Option<f64>,
     pub paused_time: Option<DateTime<Utc>>,
     pub hooks: Option<SimulationHooksConfig>,
-    pub image_pull_delay: Option<i32>,
-    pub image_pull_jitter: Option<i32>,
-    pub pod_startup_delay: Option<i32>,
-    pub pod_startup_jitter: Option<i32>,
+    pub simulation_delay_parameters: SimulationDelayParameters,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]

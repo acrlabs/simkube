@@ -9,7 +9,7 @@ spec:
     kind: Pod
   selector:
     matchExpressions:
-      - key: .metadata.labels."simkube.io/stage-complete"
+      - key: .metadata.labels."simkube.io/kwok-stage-complete"
         operator: Exists
       - key: .metadata.deletionTimestamp
         operator: DoesNotExist
@@ -19,7 +19,7 @@ spec:
           - Running
   delay:
     durationFrom:
-      expressionFrom: .metadata.annotations."simkube.io/stage-complete-time"
+      expressionFrom: .metadata.annotations."simkube.io/kwok-stage-complete-time"
   next:
     patches:
       - subresource: status
