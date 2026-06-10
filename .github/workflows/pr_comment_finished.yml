@@ -16,7 +16,7 @@ jobs:
       github.event.workflow_run.event == 'pull_request' &&
       github.event.workflow_run.conclusion == 'success'
     env:
-      ASSETS_URL: https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets
+      ASSETS_URL: "https://raw.githubusercontent.com/acrlabs/fireconfig/master/assets"
     steps:
       - name: Download artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
