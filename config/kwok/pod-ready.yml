@@ -6,9 +6,9 @@ metadata:
 spec:
   delay:
     durationFrom:
-      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-ready-delay"]
+      expressionFrom: .metadata.annotations["simkube.io/stage-ready-delay"]
     jitterDurationFrom:
-      expressionFrom: .metadata.annotations["simkube.kwok.io/stage-ready-delay-jitter"]
+      expressionFrom: .metadata.annotations["simkube.io/stage-ready-delay-jitter"]
   next:
     patches:
       - subresource: status

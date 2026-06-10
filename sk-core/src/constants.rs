@@ -24,13 +24,13 @@ pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 
 // Lifecycle management labels and annotations
-pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.kwok.io/stage-complete";
-pub const KWOK_STAGE_COMPLETE_TIMESTAMP_KEY: &str = "simkube.kwok.io/stage-complete-time";
-pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.kwok.io/stage-error-time";
-pub const KWOK_STAGE_CREATE_DELAY_KEY: &str = "simkube.kwok.io/stage-create-delay";
-pub const KWOK_STAGE_CREATE_DELAY_JITTER_KEY: &str = "simkube.kwok.io/stage-create-delay-jitter";
-pub const KWOK_STAGE_READY_DELAY_KEY: &str = "simkube.kwok.io/stage-ready-delay";
-pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.kwok.io/stage-ready-delay-jitter";
+pub const KWOK_STAGE_COMPLETE_KEY: &str = "simkube.io/stage-complete";
+pub const KWOK_STAGE_COMPLETE_TIMESTAMP_KEY: &str = "simkube.io/stage-complete-time";
+pub const KWOK_STAGE_ERROR_TIMESTAMP_KEY: &str = "simkube.io/stage-error-time";
+pub const KWOK_STAGE_CREATE_DELAY_KEY: &str = "simkube.io/stage-create-delay";
+pub const KWOK_STAGE_CREATE_DELAY_JITTER_KEY: &str = "simkube.io/stage-create-delay-jitter";
+pub const KWOK_STAGE_READY_DELAY_KEY: &str = "simkube.io/stage-ready-delay";
+pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.io/stage-ready-delay-jitter";
 
 // Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
