@@ -15,8 +15,8 @@ pub use simulation_roots::{
     SimulationRootSpec,
 };
 pub use simulations::{
+    LifecycleParams,
     Simulation,
-    SimulationDelayParameters,
     SimulationDriverConfig,
     SimulationHook,
     SimulationHooksConfig,

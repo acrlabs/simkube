@@ -3,7 +3,7 @@ use clockabilly::prelude::*;
 use serde::Serialize;
 use sk_api::prometheus::PrometheusRemoteWrite;
 use sk_api::v1::{
-    SimulationDelayParameters,
+    LifecycleParams,
     SimulationDriverConfig,
     SimulationMetricsConfig,
     SimulationSpec,
@@ -193,7 +193,7 @@ pub struct Args {
         long,
         long_help = "image pull delay in milliseconds",
         default_value = "0",
-        help_heading = "Delays"
+        help_heading = "Lifecycle Configuration"
     )]
     pub image_pull_delay: u32,
 
@@ -201,7 +201,7 @@ pub struct Args {
         long,
         long_help = "image pull jitter in milliseconds",
         default_value = "0",
-        help_heading = "Delays"
+        help_heading = "Lifecycle Configuration"
     )]
     pub image_pull_jitter: u32,
 
@@ -209,7 +209,7 @@ pub struct Args {
         long,
         long_help = "pod startup delay in milliseconds",
         default_value = "0",
-        help_heading = "Delays"
+        help_heading = "Lifecycle Configuration"
     )]
     pub pod_startup_delay: u32,
 
@@ -217,7 +217,7 @@ pub struct Args {
         long,
         long_help = "pod startup jitter in milliseconds",
         default_value = "0",
-        help_heading = "Delays"
+        help_heading = "Lifecycle Configuration"
     )]
     pub pod_startup_jitter: u32,
 
@@ -273,7 +273,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
             paused_time,
             repetitions: Some(args.repetitions),
             speed: Some(args.speed),
-            simulation_delay_parameters: SimulationDelayParameters {
+            lifecycle_params: LifecycleParams {
                 image_pull_delay: Some(args.image_pull_delay),
                 image_pull_jitter: Some(args.image_pull_jitter),
                 pod_startup_delay: Some(args.pod_startup_delay),

@@ -171,6 +171,29 @@ spec:
                     nullable: true
                     type: array
                 type: object
+              lifecycleParams:
+                properties:
+                  imagePullDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  imagePullJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                type: object
               metrics:
                 nullable: true
                 properties:
@@ -597,36 +620,13 @@ spec:
                 format: int32
                 nullable: true
                 type: integer
-              simulationDelayParameters:
-                properties:
-                  imagePullDelay:
-                    format: uint32
-                    minimum: 0.0
-                    nullable: true
-                    type: integer
-                  imagePullJitter:
-                    format: uint32
-                    minimum: 0.0
-                    nullable: true
-                    type: integer
-                  podStartupDelay:
-                    format: uint32
-                    minimum: 0.0
-                    nullable: true
-                    type: integer
-                  podStartupJitter:
-                    format: uint32
-                    minimum: 0.0
-                    nullable: true
-                    type: integer
-                type: object
               speed:
                 format: double
                 nullable: true
                 type: number
             required:
             - driver
-            - simulationDelayParameters
+            - lifecycleParams
             type: object
           status:
             nullable: true

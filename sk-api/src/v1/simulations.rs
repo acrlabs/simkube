@@ -23,7 +23,7 @@ pub enum SimulationState {
 }
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
 #[serde(rename_all = "camelCase")]
-pub struct SimulationDelayParameters {
+pub struct LifecycleParams {
     pub image_pull_delay: Option<u32>,
     pub image_pull_jitter: Option<u32>,
     pub pod_startup_delay: Option<u32>,
@@ -100,7 +100,7 @@ pub struct SimulationSpec {
     pub speed: Option<f64>,
     pub paused_time: Option<DateTime<Utc>>,
     pub hooks: Option<SimulationHooksConfig>,
-    pub simulation_delay_parameters: SimulationDelayParameters,
+    pub lifecycle_params: LifecycleParams,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, JsonSchema, Serialize)]
