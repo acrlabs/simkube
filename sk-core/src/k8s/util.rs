@@ -80,11 +80,11 @@ where
     build_object_meta_helper(Some(namespace.into()), name, sim_name, owner)
 }
 
-pub fn build_pod_self_owner_reference(pod: &corev1::Pod) -> metav1::OwnerReference {
+pub fn build_pod_self_owner_reference(pod_name: String) -> metav1::OwnerReference {
     metav1::OwnerReference {
-        api_version: "v1".into(),
+        api_version: POD_GVK.version.clone(),
         kind: POD_GVK.kind.clone(),
-        name: pod.name_any(),
+        name: pod_name,
         ..Default::default()
     }
 }
@@ -112,38 +112,23 @@ pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
     format!("{gvk}:{ns_name}")
 }
 
-pub fn sanitize_obj(gvk: &GVK, obj: &mut DynamicObject) {
-    // Kubernetes does not always fill out the TypeMeta (possibly for deleted resources, but I'm
-    // pretty sure definitely for the results of a List API call -- you know, like when you run
-    // ListAndWatch to start a new informer).  I _believe_ the type information for the list call only
-    // gets populated on the outer wrapper of the list and not for individual objects in the list.
-    //
-    // There are a couple related GitHub issues here:
-    //   - https://github.com/kubernetes-sigs/controller-runtime/issues/1517
-    //   - https://github.com/kubernetes-sigs/controller-runtime/issues/1735
-    //
-    // ANYWAYS as a result of this extremely annoying behaviour, we fill in the type meta here,
-    // which we know as a part of setting up the informer.
-    obj.types = Some(gvk.into_type_meta());
-
+pub fn sanitize_obj<T: kube::Resource>(obj: &mut T) {
     // N.B. We do not sanitize owner references here, since we need them
     // to compute owner chains in the TraceStore
-    obj.metadata.creation_timestamp = None;
-    obj.metadata.deletion_timestamp = None;
-    obj.metadata.deletion_grace_period_seconds = None;
-    obj.metadata.generation = None;
-    obj.metadata.managed_fields = None;
-    obj.metadata.resource_version = None;
-    obj.metadata.uid = None;
+    obj.meta_mut().creation_timestamp = None;
+    obj.meta_mut().deletion_timestamp = None;
+    obj.meta_mut().deletion_grace_period_seconds = None;
+    obj.meta_mut().generation = None;
+    obj.meta_mut().managed_fields = None;
+    obj.meta_mut().resource_version = None;
+    obj.meta_mut().uid = None;
 
     obj.annotations_mut().remove(LAST_APPLIED_CONFIG_LABEL_KEY);
     obj.annotations_mut().remove(DEPL_REVISION_LABEL_KEY);
+}
 
-    // If we are tracking pod objects (whether bare or not!), we want to ignore the node it was
-    // assigned to "in production" since this will certainly not exist in the simulation.
-    if gvk == &*POD_GVK {
-        dyn_obj_spec_mut(obj).map(|spec| spec.remove("nodeName"));
-    }
+pub fn pod_is_running(pod: &corev1::Pod) -> bool {
+    matches!(pod.status.as_ref(), Some(corev1::PodStatus{phase: Some(phase), ..}) if phase == "Running")
 }
 
 pub fn split_namespaced_name(name: &str) -> (String, String) {

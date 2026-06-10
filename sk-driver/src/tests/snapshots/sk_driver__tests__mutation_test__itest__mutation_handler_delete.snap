@@ -1,0 +1,34 @@
+---
+source: sk-driver/src/tests/mutation_test.rs
+expression: resp
+---
+Json(
+    AdmissionReview {
+        types: TypeMeta {
+            api_version: "",
+            kind: "",
+        },
+        request: None,
+        response: Some(
+            AdmissionResponse {
+                types: TypeMeta {
+                    api_version: "",
+                    kind: "",
+                },
+                uid: "12345-12345",
+                allowed: true,
+                result: Status {
+                    status: None,
+                    code: 0,
+                    message: "",
+                    reason: "",
+                    details: None,
+                },
+                patch: None,
+                patch_type: None,
+                audit_annotations: {},
+                warnings: None,
+            },
+        ),
+    },
+)

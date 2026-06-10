@@ -11,6 +11,15 @@ const CONTAINER_PREFIX: &str = "container";
 const INIT_CONTAINER_PREFIX: &str = "init-container";
 
 #[fixture]
+pub fn root_owner_ref() -> metav1::OwnerReference {
+    metav1::OwnerReference {
+        api_version: "simkube.io/v1".into(),
+        name: TEST_DRIVER_ROOT_NAME.into(),
+        ..Default::default()
+    }
+}
+
+#[fixture]
 pub fn rs_owner_ref() -> metav1::OwnerReference {
     metav1::OwnerReference {
         api_version: "apps/v1".into(),
@@ -31,7 +40,6 @@ pub fn depl_owner_ref() -> metav1::OwnerReference {
         ..Default::default()
     }
 }
-
 
 #[fixture]
 pub fn test_pod(#[default(TEST_POD.into())] name: String, depl_owner_ref: metav1::OwnerReference) -> corev1::Pod {

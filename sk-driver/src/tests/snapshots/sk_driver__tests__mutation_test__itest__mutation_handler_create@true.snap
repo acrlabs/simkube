@@ -12,9 +12,9 @@ Object {
             "simkube.io/kwok-stage-create-delay-jitter": String("0ms"),
             "simkube.io/kwok-stage-ready-delay": String("0ms"),
             "simkube.io/kwok-stage-ready-delay-jitter": String("0ms"),
-            "simkube.io/original-namespace": String("test-namespace"),
-            "simkube.io/pod-sequence-number": String("0"),
-            "simkube.io/pod-spec-stable-hash": String("18161541283955474812"),
+            "static.simkube.io/original-namespace": String("test-namespace"),
+            "static.simkube.io/pod-sequence-number": String("0"),
+            "static.simkube.io/pod-spec-stable-hash": String("18161541283955474812"),
         },
         "labels": Object {
             "foo": String("bar"),

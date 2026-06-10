@@ -15,12 +15,13 @@ pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
 pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
 
+// Annotations that go on the Simulation CR itself
+// TODO (SK-277) maybe this just belongs in the CRD specification?
+pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "controller.simkube.io/skip-local-volume-mount";
+
 // Common annotations and labels for SimKube
-pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "simkube.io/original-namespace";
+pub const SIMKUBE_IO_PREFIX: &str = "simkube.io";
 pub const SIMULATION_LABEL_KEY: &str = "simkube.io/simulation";
-pub const SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY: &str = "simkube.io/skip-local-volume-mount";
-pub const POD_SPEC_STABLE_HASH_KEY: &str = "simkube.io/pod-spec-stable-hash";
-pub const POD_SEQUENCE_NUMBER_KEY: &str = "simkube.io/pod-sequence-number";
 pub const VIRTUAL_LABEL_KEY: &str = "simkube.io/virtual";
 
 // Lifecycle management labels and annotations
@@ -31,6 +32,13 @@ pub const KWOK_STAGE_CREATE_DELAY_KEY: &str = "simkube.io/kwok-stage-create-dela
 pub const KWOK_STAGE_CREATE_DELAY_JITTER_KEY: &str = "simkube.io/kwok-stage-create-delay-jitter";
 pub const KWOK_STAGE_READY_DELAY_KEY: &str = "simkube.io/kwok-stage-ready-delay";
 pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.io/kwok-stage-ready-delay-jitter";
+
+// Static annotations/labels for SimKube (we don't want these to be wiped out with
+// sanitization because bare pod rescheduling depends on them)
+pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "static.simkube.io/original-namespace";
+pub const ORIG_OWNER_ANNOTATION_KEY: &str = "static.simkube.io/original-owner";
+pub const POD_SPEC_STABLE_HASH_KEY: &str = "static.simkube.io/pod-spec-stable-hash";
+pub const POD_SEQUENCE_NUMBER_KEY: &str = "static.simkube.io/pod-sequence-number";
 
 // Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";

@@ -159,4 +159,9 @@ impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
             index: HashSet::new(),
         }
     }
+
+    pub(crate) async fn handle_next_event(&mut self) -> EmptyResult {
+        let evt = self.stream.next().await.unwrap().unwrap();
+        self.handle_event(&evt, self.clock.now_ts()).await
+    }
 }

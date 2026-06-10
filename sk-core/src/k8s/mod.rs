@@ -66,15 +66,15 @@ pub trait OpenApiResourceExt {
 }
 
 impl<T: k8s_openapi::Resource> OpenApiResourceExt for T {
+    fn gvk() -> GVK {
+        GVK::new(T::GROUP, T::VERSION, T::KIND)
+    }
+
     fn type_meta() -> TypeMeta {
         TypeMeta {
             api_version: T::API_VERSION.into(),
             kind: T::KIND.into(),
         }
-    }
-
-    fn gvk() -> GVK {
-        GVK::new(T::GROUP, T::VERSION, T::KIND)
     }
 }
 

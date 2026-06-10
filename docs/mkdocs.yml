@@ -10,6 +10,7 @@ nav:
       - Collecting Metrics: docs/adv/metrics.md
       - Traces: docs/adv/traces.md
       - Hooks: docs/adv/hooks.md
+      - Bare Pods: docs/adv/bare-pods.md
   - SKEL:
       - Introduction: docs/skel/intro.md
       - Usage: docs/skel/usage.md

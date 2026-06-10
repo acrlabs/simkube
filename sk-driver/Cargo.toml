@@ -15,6 +15,7 @@ clockabilly = { workspace = true }
 either = { workspace = true }
 kube = { workspace = true }
 json-patch-ext = { workspace = true }
+regex = { workspace = true }
 rocket = { workspace = true }
 serde_json = { workspace = true }
 sk-api = { workspace = true }
@@ -36,6 +37,7 @@ rstest-log = { workspace = true }
 sk-store = { workspace = true }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
+tracing-test = { workspace = true }
 
 [lints]
 workspace = true

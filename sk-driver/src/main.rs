@@ -73,6 +73,7 @@ pub struct DriverContext {
     ctrl_ns: String,
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
+    client: kube::Client,
     trace: Arc<ExportedTrace>,
     recorder: SkEventRecorder,
 }
@@ -102,6 +103,7 @@ async fn run(opts: Options) -> EmptyResult {
         ctrl_ns: opts.controller_ns.clone(),
         virtual_ns_prefix: sim.spec.driver.virtual_ns_prefix.clone(),
         owners_cache,
+        client,
         trace,
         recorder,
     };
@@ -124,7 +126,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     hooks::execute(&sim, hooks::Type::PreRun, &ctx.recorder).await?;
 
-    let runner_task = tokio::spawn(run_trace(ctx.clone(), client, sim.clone()));
+    let runner_task = tokio::spawn(run_trace(ctx.clone(), sim.clone()));
     tokio::select! {
         res = mutation_task => Err(anyhow!("mutation server terminated: {res:#?}")),
         res = runner_task => {

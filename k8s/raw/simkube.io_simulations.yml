@@ -620,6 +620,9 @@ spec:
                 format: int32
                 nullable: true
                 type: integer
+              rescheduleInterruptedBarePods:
+                nullable: true
+                type: boolean
               speed:
                 format: double
                 nullable: true

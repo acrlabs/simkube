@@ -29,6 +29,7 @@ tracing = { workspace = true }
 assertables = { workspace = true }
 clockabilly = { workspace = true, features = ["mock"] }
 httpmock = { workspace = true }
+insta = { workspace = true }
 mockall = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }

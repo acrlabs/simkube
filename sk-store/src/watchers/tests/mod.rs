@@ -1,3 +1,4 @@
+mod dyn_obj_watcher_test;
 mod pod_watcher_test;
 
 use std::sync::LazyLock;

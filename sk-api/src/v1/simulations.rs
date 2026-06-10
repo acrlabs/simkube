@@ -98,6 +98,7 @@ pub struct SimulationSpec {
     pub duration: Option<String>,
     pub repetitions: Option<i32>,
     pub speed: Option<f64>,
+    pub reschedule_interrupted_bare_pods: Option<bool>,
     pub paused_time: Option<DateTime<Utc>>,
     pub hooks: Option<SimulationHooksConfig>,
     pub lifecycle_params: LifecycleParams,

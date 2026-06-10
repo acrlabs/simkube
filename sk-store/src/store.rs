@@ -223,7 +223,7 @@ impl TraceStore {
                 // little weird and not, like, technically correct, but will work fine for our
                 // purposes; the bare pods are tracked in the index, so this will pass all the
                 // checks below.
-                vec![build_pod_self_owner_reference(pod)]
+                vec![build_pod_self_owner_reference(pod.name_any())]
             } else {
                 // If it's not a bare pod, then we look up the owners in the cache.
                 self.owners_cache
