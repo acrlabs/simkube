@@ -7,15 +7,19 @@ Object {
     "kind": String("Pod"),
     "metadata": Object {
         "annotations": Object {
+            "simkube.io/kwok-stage-complete-time": String("1970-01-01T00:00:21+00:00"),
+            "simkube.io/kwok-stage-create-delay": String("0ms"),
+            "simkube.io/kwok-stage-create-delay-jitter": String("0ms"),
+            "simkube.io/kwok-stage-ready-delay": String("0ms"),
+            "simkube.io/kwok-stage-ready-delay-jitter": String("0ms"),
             "simkube.io/original-namespace": String("test-namespace"),
             "simkube.io/pod-sequence-number": String("0"),
             "simkube.io/pod-spec-stable-hash": String("18161541283955474812"),
-            "simkube.kwok.io/stage-complete-time": String("1970-01-01T00:00:21+00:00"),
         },
         "labels": Object {
             "foo": String("bar"),
+            "simkube.io/kwok-stage-complete": String("true"),
             "simkube.io/simulation": String("test-sim"),
-            "simkube.kwok.io/stage-complete": String("true"),
         },
         "name": String("the-pod"),
         "namespace": String("test-namespace"),

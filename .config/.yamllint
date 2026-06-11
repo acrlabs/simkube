@@ -1,14 +1,15 @@
 ---
 extends: default
 
-ignore:
-  - examples/metrics
-  - k8s/raw/simkube.io_simulations.yml
-  - k8s/kustomize
-
 rules:
   line-length:
     max: 120
   quoted-strings:
-    required: false
+    required: only-when-needed
     extra-required: [^http://, ^https://]
+    quote-type: double
+
+ignore:
+  - k8s/raw
+  - k8s/kustomize
+  - examples/metrics

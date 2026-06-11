@@ -171,6 +171,29 @@ spec:
                     nullable: true
                     type: array
                 type: object
+              lifecycleParams:
+                properties:
+                  imagePullDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  imagePullJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupDelay:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                  podStartupJitter:
+                    format: uint32
+                    minimum: 0.0
+                    nullable: true
+                    type: integer
+                type: object
               metrics:
                 nullable: true
                 properties:
@@ -603,6 +626,7 @@ spec:
                 type: number
             required:
             - driver
+            - lifecycleParams
             type: object
           status:
             nullable: true

@@ -1,0 +1,70 @@
+---
+apiVersion: kwok.x-k8s.io/v1alpha1
+kind: Stage
+metadata:
+  name: pod-create
+spec:
+  delay:
+    durationFrom:
+      expressionFrom: .metadata.annotations["simkube.io/kwok-stage-create-delay"]
+    jitterDurationFrom:
+      expressionFrom: .metadata.annotations["simkube.io/kwok-stage-create-delay-jitter"]
+  next:
+    event:
+      type: Normal
+      reason: Pulling
+      message: Simulating pod image pull
+    statusTemplate: |
+      {{ $now := Now }}
+
+      conditions:
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        status: "True"
+        type: Initialized
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        message: 'containers with unready status: [{{ range .spec.containers }} {{ .name }} {{ end }}]'
+        reason: ContainersNotReady
+        status: "False"
+        type: Ready
+      - lastProbeTime: null
+        lastTransitionTime: {{ $now | Quote }}
+        message: 'containers with unready status: [{{ range .spec.containers }} {{ .name }} {{ end }}]'
+        reason: ContainersNotReady
+        status: "False"
+        type: ContainersReady
+      {{ range .spec.readinessGates }}
+      - lastTransitionTime: {{ $now | Quote }}
+        status: "True"
+        type: {{ .conditionType | Quote }}
+      {{ end }}
+
+      containerStatuses:
+      {{ range .spec.containers }}
+      - image: {{ .image | Quote }}
+        name: {{ .name | Quote }}
+        ready: false
+        restartCount: 0
+        started: false
+        state:
+          waiting:
+            reason: ContainerCreating
+      {{ end }}
+
+      podIP: {{ PodIPWith .spec.nodeName
+                ( or .spec.hostNetwork false )
+                ( or .metadata.uid "" )
+                ( or .metadata.name "" )
+                ( or .metadata.namespace "" )
+                | Quote }}
+      phase: Pending
+  resourceRef:
+    apiGroup: v1
+    kind: Pod
+  selector:
+    matchExpressions:
+      - key: .metadata.deletionTimestamp
+        operator: DoesNotExist
+      - key: .status.podIP
+        operator: DoesNotExist

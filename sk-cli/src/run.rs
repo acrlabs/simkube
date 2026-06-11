@@ -3,6 +3,7 @@ use clockabilly::prelude::*;
 use serde::Serialize;
 use sk_api::prometheus::PrometheusRemoteWrite;
 use sk_api::v1::{
+    LifecycleParams,
     SimulationDriverConfig,
     SimulationMetricsConfig,
     SimulationSpec,
@@ -188,6 +189,38 @@ pub struct Args {
     )]
     pub remote_write_endpoint: Option<String>,
 
+    #[arg(
+        long,
+        long_help = "image pull delay in milliseconds",
+        default_value = "0",
+        help_heading = "Lifecycle Configuration"
+    )]
+    pub image_pull_delay: u32,
+
+    #[arg(
+        long,
+        long_help = "image pull jitter in milliseconds",
+        default_value = "0",
+        help_heading = "Lifecycle Configuration"
+    )]
+    pub image_pull_jitter: u32,
+
+    #[arg(
+        long,
+        long_help = "pod startup delay in milliseconds",
+        default_value = "0",
+        help_heading = "Lifecycle Configuration"
+    )]
+    pub pod_startup_delay: u32,
+
+    #[arg(
+        long,
+        long_help = "pod startup jitter in milliseconds",
+        default_value = "0",
+        help_heading = "Lifecycle Configuration"
+    )]
+    pub pod_startup_jitter: u32,
+
     // We override help and version here so that it shows up in its own help group at the bottom
     // See https://github.com/clap-rs/clap/issues/4367 and https://github.com/clap-rs/clap/issues/4831
     // for more details.
@@ -240,6 +273,12 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
             paused_time,
             repetitions: Some(args.repetitions),
             speed: Some(args.speed),
+            lifecycle_params: LifecycleParams {
+                image_pull_delay: Some(args.image_pull_delay),
+                image_pull_jitter: Some(args.image_pull_jitter),
+                pod_startup_delay: Some(args.pod_startup_delay),
+                pod_startup_jitter: Some(args.pod_startup_jitter),
+            },
         },
     );
     if args.skip_local_volume_mount {

@@ -13,7 +13,7 @@ on:  # yamllint disable-line rule:truthy
   #######################################################################################
   pull_request_target:
     paths:
-      - 'k8s/**'
+      - k8s/**
 
 permissions: {}
 
@@ -28,7 +28,7 @@ jobs:
         with:
           token: ${{ secrets.PR_COMMENT_TOKEN }}
           issue-number: ${{ github.event.pull_request.number }}
-          body-includes: "<!-- 🔥config summary -->"
+          body-includes: <!-- 🔥config summary -->
 
       - name: Comment on PR
         uses: peter-evans/create-or-update-comment@e8674b075228eee787fea43ef493e45ece1004c9  # v5.0.0

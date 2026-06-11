@@ -3,7 +3,7 @@ name: Comment on the PR
 
 on:  # yamllint disable-line rule:truthy
   workflow_run:
-    workflows: ["Compute k8s plan"]
+    workflows: [Compute k8s plan]
     types:
       - completed
 
@@ -38,7 +38,7 @@ jobs:
         with:
           token: ${{ secrets.PR_COMMENT_TOKEN }}
           issue-number: ${{ steps.pr.outputs.stdout }}
-          body-includes: "<!-- 🔥config summary -->"
+          body-includes: <!-- 🔥config summary -->
 
       - name: Render Comment Template
         run: |
