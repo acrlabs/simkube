@@ -66,6 +66,9 @@ artifacts, you can limit the scope with the `ARTIFACTS` environment variable.  Y
 container registry by setting the `DOCKER_REGISTRY` environment variable; it defaults to `localhost:5000`.  Docker is
 used by default.  Set `CONTAINER_ENGINE=podman` to use Podman for the artifact and image builds.
 
+Container builds target `linux/amd64` by default.  The Rust artifacts use an architecture-specific target directory so
+native ARM64 build output cannot be reused accidentally in the AMD64 image.
+
 Image builds and registry pushes are separate operations.  After authenticating the selected container engine, use
 `scripts/push-images` to push the image references recorded in `.build`.
 
