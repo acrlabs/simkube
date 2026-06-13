@@ -52,9 +52,14 @@ make build
 
 For all subsequent builds of SimKube artifacts, run only `make build` from the root of this repository.
 
-## Docker images
+## Container images
 
-To build and push Docker images for all the artifacts, run `DOCKER_REGISTRY=path_to_your_registry:5000 make image`
+To build and push container images for all the artifacts using Docker, run
+`DOCKER_REGISTRY=path_to_your_registry:5000 make image`.  To use Podman instead, set `CONTAINER_ENGINE=podman`:
+
+```text
+CONTAINER_ENGINE=podman DOCKER_REGISTRY=path_to_your_registry:5000 make image
+```
 
 ## Running the artifacts:
 

@@ -8,18 +8,19 @@ include make/image.mk
 include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:1.93-bookworm
+CONTAINER_ENGINE ?= docker
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
 RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
 
 ifndef IN_CI
 # Make ctrl-C work in the middle of a build
-DOCKER_ARGS=-it --init
+CONTAINER_RUN_ARGS=-it --init
 endif
 
 .PHONY: main
 main:
-	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
+	$(CONTAINER_ENGINE) run $(CONTAINER_RUN_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
 		scripts/build-in-docker "$(BUILD_DIR)" "$(BUILD_MODE)" "$(ARTIFACTS)"
 
 .PHONY: skctl

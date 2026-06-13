@@ -58,12 +58,13 @@ ARTIFACTS="sk-ctrl sk-driver" make build
 By default, all the artifacts are built inside Docker containers.  All the intermediate compilation steps and the
 executables are saved in `.build/cargo`.
 
-### Building docker images
+### Building container images
 
 As you are developing, if you need to deploy your artifacts to a Kubernetes cluster, you will need to build a Docker
 image for them.  `make image` is a shorthand for this.  As before, if you just want to build images for a subset of
 artifacts, you can limit the scope with the `ARTIFACTS` environment variable.  You can also point the build to your
-docker registry by setting the `DOCKER_REGISTRY` environment variable; it defaults to `localhost:5000`.
+container registry by setting the `DOCKER_REGISTRY` environment variable; it defaults to `localhost:5000`.  Docker is
+used by default.  Set `CONTAINER_ENGINE=podman` to use Podman for the artifact build, image build, and image push.
 
 To accomplish automatic updates of the changed artifacts in Kubernetes (see below), during the image build phase, images
 are tagged with a SHA based on the contents of your Git repo, plus a UUID.  🔥Config is smart enough to update the
