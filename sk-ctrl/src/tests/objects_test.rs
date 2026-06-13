@@ -1,3 +1,4 @@
+use std::collections::BTreeMap;
 use std::env;
 
 use assertables::*;
@@ -24,6 +25,7 @@ async fn test_build_driver_job_with_extra_args(mut test_sim: Simulation) {
     let job = build_driver_job(&ctx, &test_sim, "secret", TEST_NAMESPACE).unwrap();
 
     let job_spec = job.spec.unwrap().template.spec.unwrap();
+    assert_eq!(job_spec.service_account_name.as_deref(), Some(TEST_SERVICE_ACCOUNT));
     let container = job_spec.containers.get(0).unwrap();
     let expected_args = vec![
         "--cert-path",
@@ -49,6 +51,29 @@ async fn test_build_driver_job_with_extra_args(mut test_sim: Simulation) {
     }];
     assert_iter_eq!(container.args.as_ref().unwrap(), expected_args);
     assert_iter_eq!(container.env_from.as_ref().unwrap(), expected_secrets);
+}
+
+#[rstest(tokio::test)]
+async fn test_build_driver_job_with_driver_pod_identity(mut test_sim: Simulation) {
+    test_sim.spec.driver.service_account = Some("sk-driver-sa".into());
+    test_sim.spec.driver.pod_labels = Some(BTreeMap::from([("azure.workload.identity/use".into(), "true".into())]));
+
+    let (_, client) = make_fake_apiserver();
+    let ctx = Arc::new(ReconcileContext::new(&test_sim, client, SkEventRecorder::mock()));
+    let job = build_driver_job(&ctx, &test_sim, "secret", TEST_NAMESPACE).unwrap();
+    let pod_template = job.spec.unwrap().template;
+
+    assert_eq!(pod_template.spec.unwrap().service_account_name.as_deref(), Some("sk-driver-sa"));
+    assert_eq!(
+        pod_template
+            .metadata
+            .unwrap()
+            .labels
+            .unwrap()
+            .get("azure.workload.identity/use")
+            .map(String::as_str),
+        Some("true")
+    );
 }
 
 #[rstest]

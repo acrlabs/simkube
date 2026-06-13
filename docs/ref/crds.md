@@ -49,6 +49,21 @@ Docker image to use for the driver pod
 Namespace to launch the driver job in
 ///
 
+/// details | `podLabels`: `object`
+Labels to add to the driver pod. For example, Azure Workload Identity can be enabled by setting
+`azure.workload.identity/use: "true"`.
+///
+
+/// details | `secrets`: `[]string`
+Secrets to expose to the driver container through `envFrom`. This remains the supported way to inject environment
+variables into the driver.
+///
+
+/// details | `serviceAccount`: `string`
+Kubernetes ServiceAccount to use for the driver pod. When omitted, the driver uses the controller pod's
+ServiceAccount.
+///
+
 /// details | \*`tracePath`: `string`
 Location of the trace file for the driver to run, prefixed by a scheme; the scheme can be one of `file://`,
 `s3://`, `azure://`, or `gs://` for local storage, AWS S3, Azure Blob Store, or Google Cloud Storage,

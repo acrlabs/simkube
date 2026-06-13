@@ -61,6 +61,11 @@ spec:
                     type: string
                   namespace:
                     type: string
+                  podLabels:
+                    additionalProperties:
+                      type: string
+                    nullable: true
+                    type: object
                   port:
                     format: int32
                     type: integer
@@ -69,6 +74,9 @@ spec:
                       type: string
                     nullable: true
                     type: array
+                  serviceAccount:
+                    nullable: true
+                    type: string
                   tracePath:
                     type: string
                   virtualNsPrefix:

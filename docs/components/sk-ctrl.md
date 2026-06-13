@@ -34,6 +34,16 @@ The Simulation Controller does the following on receipt of a new Simulation:
 10. Cleans up all "meta" resources
 11. Runs all postStop hooks
 
+### Configuring the Driver Pod
+
+The `spec.driver.serviceAccount` field sets the Kubernetes ServiceAccount for the generated driver pod. If it is not
+set, the driver uses the controller pod's ServiceAccount. The `spec.driver.podLabels` field adds labels to the generated
+driver pod. For example, Azure Workload Identity can be enabled with the label
+`azure.workload.identity/use: "true"`.
+
+Use the existing `spec.driver.secrets` field to inject environment variables into the driver container through
+`envFrom`.
+
 ## Simulation Custom Resource
 
 Simulations are controlled by a Simulation custom resource object, which specifies, among other things, how to configure

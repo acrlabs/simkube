@@ -3,6 +3,7 @@ use std::env;
 use anyhow::anyhow;
 use k8s_openapi::api::admissionregistration::v1 as admissionv1;
 use k8s_openapi::api::batch::v1 as batchv1;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use k8s_openapi::apimachinery::pkg::util::intstr::IntOrString;
 use object_store::ObjectStoreScheme;
 use reqwest::Url;
@@ -209,7 +210,13 @@ pub(crate) fn build_driver_job(
         },
         None => sim.spec.driver.trace_path.clone(),
     };
-    let service_account = Some(env::var(POD_SVC_ACCOUNT_ENV_VAR)?);
+    let service_account_name = Some(
+        sim.spec
+            .driver
+            .service_account
+            .clone()
+            .map_or_else(|| env::var(POD_SVC_ACCOUNT_ENV_VAR), Ok)?,
+    );
 
     let driver_secret_refs = sim.spec.driver.secrets.as_ref().map(|secrets_list| {
         secrets_list
@@ -226,6 +233,10 @@ pub(crate) fn build_driver_job(
         spec: Some(batchv1::JobSpec {
             backoff_limit: Some(0),
             template: corev1::PodTemplateSpec {
+                metadata: Some(metav1::ObjectMeta {
+                    labels: sim.spec.driver.pod_labels.clone(),
+                    ..Default::default()
+                }),
                 spec: Some(corev1::PodSpec {
                     containers: vec![corev1::Container {
                         name: "driver".into(),
@@ -258,10 +269,9 @@ pub(crate) fn build_driver_job(
                     security_context: Some(corev1::PodSecurityContext { fs_group: Some(2000), ..Default::default() }),
                     restart_policy: Some("Never".into()),
                     volumes: Some(volumes),
-                    service_account,
+                    service_account_name,
                     ..Default::default()
                 }),
-                ..Default::default()
             },
             parallelism: Some(1),
             completions: sim.spec.repetitions,

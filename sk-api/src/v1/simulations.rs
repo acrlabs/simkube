@@ -1,3 +1,5 @@
+use std::collections::BTreeMap;
+
 use clockabilly::{
     DateTime,
     Utc,
@@ -36,8 +38,10 @@ pub struct SimulationDriverConfig {
     pub args: Option<Vec<String>>,
     pub image: String,
     pub namespace: String,
+    pub pod_labels: Option<BTreeMap<String, String>>,
     pub port: i32,
     pub secrets: Option<Vec<String>>,
+    pub service_account: Option<String>,
     pub trace_path: String,
     #[serde(default = "default_ns_prefix")]
     pub virtual_ns_prefix: String,

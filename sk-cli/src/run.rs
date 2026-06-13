@@ -13,6 +13,16 @@ use sk_core::prelude::*;
 
 const DRIVER_IMAGE: &str = "quay.io/appliedcomputing/sk-driver";
 
+fn parse_key_value(value: &str) -> Result<(String, String), String> {
+    let (key, value) = value
+        .split_once('=')
+        .ok_or_else(|| "labels must use the form key=value".to_string())?;
+    if key.is_empty() {
+        return Err("label keys cannot be empty".into());
+    }
+    Ok((key.into(), value.into()))
+}
+
 #[derive(clap::Args, Debug, Serialize)]
 #[command(disable_help_flag = true, disable_version_flag = true)]
 pub struct Args {
@@ -87,6 +97,22 @@ pub struct Args {
         help_heading = "Driver"
     )]
     pub driver_namespace: String,
+
+    #[arg(
+        long,
+        long_help = "service account to use for the driver pod",
+        help_heading = "Driver"
+    )]
+    pub driver_service_account: Option<String>,
+
+    #[arg(
+        long,
+        long_help = "comma-separated labels to add to the driver pod",
+        value_delimiter = ',',
+        value_parser = parse_key_value,
+        help_heading = "Driver"
+    )]
+    pub driver_pod_labels: Option<Vec<(String, String)>>,
 
     #[arg(
         long,
@@ -261,8 +287,10 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
                 args: Some(driver_args),
                 image: args.driver_image.clone(),
                 namespace: args.driver_namespace.clone(),
+                pod_labels: args.driver_pod_labels.clone().map(|labels| labels.into_iter().collect()),
                 port: args.driver_port,
                 secrets: args.driver_secrets.clone(),
+                service_account: args.driver_service_account.clone(),
                 trace_path: args.trace_path.clone(),
                 virtual_ns_prefix: args.virtual_ns_prefix.clone(),
                 cert_manager_issuer: "selfsigned".into(),
