@@ -1,0 +1,126 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/push-images [options] [artifact ...]
+
+Push images recorded by `make image` using existing registry credentials.
+
+Options:
+  --build-dir DIR             Image metadata directory (default: .build)
+  --destination-prefix PREFIX
+                              Retag images under PREFIX before pushing
+  --dry-run                   Print the push plan without changing images
+  --engine ENGINE             Container engine (default: $CONTAINER_ENGINE or docker)
+  --require-digest            Fail if the engine does not report a remote digest
+  -h, --help                  Show this help
+EOF
+}
+
+build_dir=".build"
+destination_prefix=""
+dry_run=false
+require_digest=false
+engine="${CONTAINER_ENGINE:-docker}"
+artifacts=()
+
+while (($#)); do
+    case "$1" in
+        --build-dir)
+            build_dir="$2"
+            shift 2
+            ;;
+        --destination-prefix)
+            destination_prefix="${2%/}"
+            shift 2
+            ;;
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        --engine)
+            engine="$2"
+            shift 2
+            ;;
+        --require-digest)
+            require_digest=true
+            shift
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --*)
+            printf 'Unknown option: %s\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            artifacts+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if ((${#artifacts[@]} == 0)); then
+    artifact_file="$build_dir/image-artifacts"
+    if [[ ! -s "$artifact_file" ]]; then
+        printf 'Missing image artifact manifest: %s\n' "$artifact_file" >&2
+        exit 1
+    fi
+
+    while IFS= read -r artifact; do
+        [[ -n "$artifact" ]] && artifacts+=("$artifact")
+    done <"$artifact_file"
+fi
+
+for artifact in "${artifacts[@]}"; do
+    image_file="$build_dir/$artifact-image"
+    if [[ ! -s "$image_file" ]]; then
+        printf 'Missing image metadata file: %s\n' "$image_file" >&2
+        exit 1
+    fi
+
+    source_ref="$(<"$image_file")"
+    target_ref="$source_ref"
+
+    if [[ -n "$destination_prefix" ]]; then
+        tag="${source_ref##*:}"
+        if [[ "$tag" == "$source_ref" || "$tag" == */* ]]; then
+            printf 'Image reference must include a tag: %s\n' "$source_ref" >&2
+            exit 1
+        fi
+        target_ref="$destination_prefix/$artifact:$tag"
+    fi
+
+    if $dry_run; then
+        printf '%s\t%s\t\n' "$artifact" "$target_ref"
+        continue
+    fi
+
+    if [[ "$target_ref" != "$source_ref" ]]; then
+        "$engine" tag "$source_ref" "$target_ref"
+    fi
+
+    digest=""
+    if [[ "${engine##*/}" == podman ]]; then
+        digest_file="$(mktemp)"
+        trap 'rm -f "$digest_file"' EXIT
+        "$engine" push --digestfile "$digest_file" "$target_ref" >&2
+        digest="$(<"$digest_file")"
+        rm -f "$digest_file"
+        trap - EXIT
+    else
+        push_output="$("$engine" push "$target_ref" 2>&1 | tee /dev/stderr)"
+        digest="$(sed -n 's/^.*digest: \(sha256:[0-9a-f]*\).*$/\1/p' <<<"$push_output" | tail -1)"
+    fi
+
+    if $require_digest && [[ -z "$digest" ]]; then
+        printf 'Push completed without reporting a digest: %s\n' "$target_ref" >&2
+        exit 1
+    fi
+
+    printf '%s\t%s\t%s\n' "$artifact" "$target_ref" "$digest"
+done

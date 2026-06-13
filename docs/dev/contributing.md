@@ -64,7 +64,10 @@ As you are developing, if you need to deploy your artifacts to a Kubernetes clus
 image for them.  `make image` is a shorthand for this.  As before, if you just want to build images for a subset of
 artifacts, you can limit the scope with the `ARTIFACTS` environment variable.  You can also point the build to your
 container registry by setting the `DOCKER_REGISTRY` environment variable; it defaults to `localhost:5000`.  Docker is
-used by default.  Set `CONTAINER_ENGINE=podman` to use Podman for the artifact build, image build, and image push.
+used by default.  Set `CONTAINER_ENGINE=podman` to use Podman for the artifact and image builds.
+
+Image builds and registry pushes are separate operations.  After authenticating the selected container engine, use
+`scripts/push-images` to push the image references recorded in `.build`.
 
 To accomplish automatic updates of the changed artifacts in Kubernetes (see below), during the image build phase, images
 are tagged with a SHA based on the contents of your Git repo, plus a UUID.  🔥Config is smart enough to update the
@@ -86,10 +89,19 @@ All generated Kubernetes manifests live in `.build/manifests`.  All manifests ar
 `ARTIFACTS` environment variable has no impact on this stage).  However, only the artifacts that have changed since the
 last time you deployed will actually be updated in your cluster.
 
-### Doing everything at once
+### Building and deploying
 
-As a convenience, you can run `make` or `make all` to run all three steps.  The `ARTIFACTS` and `DOCKER_REGISTRY`
-environment variables will be respected for the steps where they make sense.
+As a convenience, `make` builds the artifacts and container images locally.  Deployment requires an explicit push so
+that authentication and other registry-specific behavior remain separate from the generic build:
+
+```text
+make
+scripts/push-images
+make run
+```
+
+The `ARTIFACTS`, `CONTAINER_ENGINE`, and `DOCKER_REGISTRY` environment variables are respected by the steps where they
+apply.
 
 ## Linting and running tests
 
