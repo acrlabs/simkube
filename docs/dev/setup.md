@@ -54,17 +54,24 @@ For all subsequent builds of SimKube artifacts, run only `make build` from the r
 
 ## Container images
 
-To build and push container images for all the artifacts using Docker, run
+To build container images for all the artifacts using Docker, run
 `DOCKER_REGISTRY=path_to_your_registry:5000 make image`.  To use Podman instead, set `CONTAINER_ENGINE=podman`:
 
 ```text
 CONTAINER_ENGINE=podman DOCKER_REGISTRY=path_to_your_registry:5000 make image
 ```
 
+Building does not push images.  After authenticating the selected container engine to the registry, push the images
+recorded in `.build` separately:
+
+```text
+CONTAINER_ENGINE=podman scripts/push-images
+```
+
 ## Running the artifacts:
 
-To run the artifacts using the images you built in the previous step, run `make run`.   You should now see the SimKube
-pods running in the `simkube` namespace on your Kubernetes cluster:
+To run the artifacts using the images you built and pushed in the previous step, run `make run`.  You should now see the
+SimKube pods running in the `simkube` namespace on your Kubernetes cluster:
 
 ```text
 > kubectl get pods -n simkube

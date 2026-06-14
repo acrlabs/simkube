@@ -7,6 +7,10 @@ include build/rust.mk
 include make/image.mk
 include build/k8s.mk
 
+# Pushing is intentionally separate from image construction, so the default
+# target must not deploy images that have not been pushed to their registry.
+_DEFAULT_BUILD_TARGETS = build image
+
 RUST_BUILD_IMAGE ?= rust:1.93-bookworm
 CONTAINER_ENGINE ?= docker
 COVERAGE_IGNORES+=sk-api/.* testutils/.*

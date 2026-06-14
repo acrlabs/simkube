@@ -1,0 +1,206 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat <<'EOF'
+Usage: scripts/oai/push-images [options] [artifact ...]
+
+Authenticate to OAI-managed registries and push images produced by `make image`.
+
+Options:
+  --acr-registry HOST         ACR login server, such as example.azurecr.io
+  --acr-repository PATH       ACR repository prefix (default: simkube)
+  --build-dir DIR             Image metadata directory (default: .build)
+  --destination TYPE          Push destination: acr or ecr (repeatable)
+  --dry-run                   Print the push plan without authentication or pushes
+  --ecr-registry HOST         ECR registry host
+  --ecr-repository PATH       ECR repository prefix (default: simkube)
+  --ecr-region REGION         AWS region containing the ECR registry
+  --engine ENGINE             Container engine (default: $CONTAINER_ENGINE or podman)
+  -h, --help                  Show this help
+EOF
+}
+
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+build_dir=".build"
+engine="${CONTAINER_ENGINE:-podman}"
+dry_run=false
+destinations=()
+artifacts=()
+acr_registry="${ACR_REGISTRY:-}"
+acr_repository="${ACR_REPOSITORY:-simkube}"
+ecr_registry="${ECR_REGISTRY:-}"
+ecr_repository="${ECR_REPOSITORY:-simkube}"
+ecr_region="${AWS_REGION:-${AWS_DEFAULT_REGION:-}}"
+
+while (($#)); do
+    case "$1" in
+        --acr-registry)
+            acr_registry="$2"
+            shift 2
+            ;;
+        --acr-repository)
+            acr_repository="${2#/}"
+            shift 2
+            ;;
+        --build-dir)
+            build_dir="$2"
+            shift 2
+            ;;
+        --destination)
+            destinations+=("$2")
+            shift 2
+            ;;
+        --dry-run)
+            dry_run=true
+            shift
+            ;;
+        --ecr-registry)
+            ecr_registry="$2"
+            shift 2
+            ;;
+        --ecr-repository)
+            ecr_repository="${2#/}"
+            shift 2
+            ;;
+        --ecr-region)
+            ecr_region="$2"
+            shift 2
+            ;;
+        --engine)
+            engine="$2"
+            shift 2
+            ;;
+        -h | --help)
+            usage
+            exit 0
+            ;;
+        --*)
+            printf 'Unknown option: %s\n' "$1" >&2
+            usage >&2
+            exit 2
+            ;;
+        *)
+            artifacts+=("$1")
+            shift
+            ;;
+    esac
+done
+
+if ((${#destinations[@]} == 0)); then
+    printf 'At least one --destination is required\n' >&2
+    exit 2
+fi
+
+for destination in "${destinations[@]}"; do
+    case "$destination" in
+        acr)
+            if [[ -z "$acr_registry" ]]; then
+                printf '%s\n' '--acr-registry is required for the ACR destination' >&2
+                exit 2
+            fi
+            ;;
+        ecr)
+            if [[ -z "$ecr_registry" || -z "$ecr_region" ]]; then
+                printf '%s\n' '--ecr-registry and --ecr-region are required for ECR' >&2
+                exit 2
+            fi
+            ;;
+        *)
+            printf 'Unsupported destination: %s\n' "$destination" >&2
+            exit 2
+            ;;
+    esac
+done
+
+tmp_dir="$(mktemp -d)"
+trap 'rm -rf "$tmp_dir"' EXIT
+push_results="$tmp_dir/pushed-images.tsv"
+touch "$push_results"
+
+if ! $dry_run; then
+    case "${engine##*/}" in
+        podman)
+            export REGISTRY_AUTH_FILE="$tmp_dir/auth.json"
+            ;;
+        docker)
+            export DOCKER_CONFIG="$tmp_dir/docker"
+            mkdir -p "$DOCKER_CONFIG"
+            ;;
+        *)
+            printf 'Unsupported container engine for OAI authentication: %s\n' "$engine" >&2
+            exit 2
+            ;;
+    esac
+fi
+
+push_destination() {
+    local destination="$1"
+    local registry repository token login_name push_output
+
+    case "$destination" in
+        acr)
+            registry="$acr_registry"
+            repository="$acr_repository"
+            login_name="${registry%%.*}"
+            if ! $dry_run; then
+                token="$(az acr login --name "$login_name" --expose-token --output tsv --query accessToken)"
+                printf '%s' "$token" |
+                    "$engine" login --username 00000000-0000-0000-0000-000000000000 \
+                        --password-stdin "$registry" >&2
+            fi
+            ;;
+        ecr)
+            registry="$ecr_registry"
+            repository="$ecr_repository"
+            if ! $dry_run; then
+                aws ecr get-login-password --region "$ecr_region" |
+                    "$engine" login --username AWS --password-stdin "$registry" >&2
+            fi
+            ;;
+    esac
+
+    push_args=(
+        --engine "$engine"
+        --build-dir "$build_dir"
+        --destination-prefix "$registry/$repository"
+        --require-digest
+    )
+    if $dry_run; then
+        push_args+=(--dry-run)
+    fi
+    if ((${#artifacts[@]} > 0)); then
+        push_args+=("${artifacts[@]}")
+    fi
+
+    push_output="$("$repo_root/scripts/push-images" "${push_args[@]}")"
+    while IFS=$'\t' read -r artifact reference digest; do
+        [[ -n "$artifact" ]] || continue
+        printf '%s\t%s\t%s\t%s\n' "$artifact" "$destination" "$reference" "$digest" >>"$push_results"
+    done <<<"$push_output"
+}
+
+for destination in "${destinations[@]}"; do
+    push_destination "$destination"
+done
+
+if $dry_run; then
+    cat "$push_results"
+    exit 0
+fi
+
+output_file="$build_dir/pushed-images.json"
+output_tmp="$tmp_dir/pushed-images.json"
+jq -Rn '
+    [inputs
+     | split("\t")
+     | {
+           artifact: .[0],
+           destination: .[1],
+           reference: .[2],
+           digest: .[3]
+       }]
+' <"$push_results" >"$output_tmp"
+mv "$output_tmp" "$output_file"
+printf 'Wrote push metadata to %s\n' "$output_file" >&2
