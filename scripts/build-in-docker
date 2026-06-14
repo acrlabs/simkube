@@ -5,13 +5,18 @@ set -euxo pipefail
 BUILD_DIR=$1
 BUILD_MODE=$2
 ARTIFACTS=$3
+TARGET_ARCH=$4
+TARGET_BUILD_DIR="${BUILD_DIR}/target-${TARGET_ARCH}"
 
 make build DISPATCH_MODE=local \
     CARGO_HOME="${BUILD_DIR}/cargo" \
     CARGO_PROFILE="docker-${BUILD_MODE}" \
+    CARGO_TARGET_DIR="${TARGET_BUILD_DIR}" \
+    BUILD_DIR="${TARGET_BUILD_DIR}" \
     ARTIFACTS="${ARTIFACTS}"
 
 for ARTIFACT in ${ARTIFACTS}; do
-    objcopy --only-keep-debug "${BUILD_DIR}/${ARTIFACT}" "${BUILD_DIR}/${ARTIFACT}.dbg"
-    objcopy --strip-debug "${BUILD_DIR}/${ARTIFACT}"
+    objcopy --only-keep-debug "${TARGET_BUILD_DIR}/${ARTIFACT}" "${TARGET_BUILD_DIR}/${ARTIFACT}.dbg"
+    objcopy --strip-debug "${TARGET_BUILD_DIR}/${ARTIFACT}"
+    cp "${TARGET_BUILD_DIR}/${ARTIFACT}" "${TARGET_BUILD_DIR}/${ARTIFACT}.dbg" "${BUILD_DIR}/."
 done

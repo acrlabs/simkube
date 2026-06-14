@@ -13,6 +13,8 @@ _DEFAULT_BUILD_TARGETS = build image
 
 RUST_BUILD_IMAGE ?= rust:1.93-bookworm
 CONTAINER_ENGINE ?= docker
+TARGET_PLATFORM ?= linux/amd64
+TARGET_ARCH = $(notdir $(TARGET_PLATFORM))
 COVERAGE_IGNORES+=sk-api/.* testutils/.*
 EXCLUDE_CRATES=sk-testutils
 RUST_LOG=warn,sk_api,sk_core,sk_store,sk_tracer,sk_ctrl,sk_driver,sk_cli,httpmock=debug
@@ -24,8 +26,9 @@ endif
 
 .PHONY: main
 main:
-	$(CONTAINER_ENGINE) run $(CONTAINER_RUN_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
-		scripts/build-in-docker "$(BUILD_DIR)" "$(BUILD_MODE)" "$(ARTIFACTS)"
+	$(CONTAINER_ENGINE) run $(CONTAINER_RUN_ARGS) --platform $(TARGET_PLATFORM) \
+		-u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
+		scripts/build-in-docker "$(BUILD_DIR)" "$(BUILD_MODE)" "$(ARTIFACTS)" "$(TARGET_ARCH)"
 
 .PHONY: skctl
 skctl:

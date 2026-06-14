@@ -19,7 +19,8 @@ _image::
 $(IMAGE_TARGETS):
 	PROJECT_NAME=$(subst images/$(BUILD_MODE)/Dockerfile.,,$@) && \
 		IMAGE_NAME=$(DOCKER_REGISTRY)/$$PROJECT_NAME:$(IMAGE_TAG) && \
-		$(CONTAINER_ENGINE) build $(BUILD_DIR) -f $@ -t $$IMAGE_NAME && \
+		$(CONTAINER_ENGINE) build --platform $(TARGET_PLATFORM) \
+			--build-arg TARGETARCH=$(TARGET_ARCH) -f $@ -t $$IMAGE_NAME $(BUILD_DIR) && \
 		printf "%s" "$$IMAGE_NAME" > $(BUILD_DIR)/$${PROJECT_NAME}-image
 
 .PHONY: image

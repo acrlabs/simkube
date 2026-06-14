@@ -61,6 +61,9 @@ To build container images for all the artifacts using Docker, run
 CONTAINER_ENGINE=podman DOCKER_REGISTRY=path_to_your_registry:5000 make image
 ```
 
+Container builds target `linux/amd64` by default, including builds run from ARM64 development machines.  This produces a
+single-platform image rather than a multi-architecture manifest.
+
 Building does not push images.  After authenticating the selected container engine to the registry, push the images
 recorded in `.build` separately:
 
