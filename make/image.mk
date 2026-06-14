@@ -1,4 +1,5 @@
 DOCKER_REGISTRY ?= localhost:5000
+CONTAINER_ENGINE ?= docker
 
 IMAGE_DEPS =
 IMAGE_TARGETS = $(addprefix images/$(BUILD_MODE)/Dockerfile.,$(ARTIFACTS))
@@ -16,8 +17,8 @@ _image::
 $(IMAGE_TARGETS):
 	PROJECT_NAME=$(subst images/$(BUILD_MODE)/Dockerfile.,,$@) && \
 		IMAGE_NAME=$(DOCKER_REGISTRY)/$$PROJECT_NAME:$(IMAGE_TAG) && \
-		docker build $(BUILD_DIR) -f $@ -t $$IMAGE_NAME && \
-		docker push $$IMAGE_NAME && \
+		$(CONTAINER_ENGINE) build $(BUILD_DIR) -f $@ -t $$IMAGE_NAME && \
+		$(CONTAINER_ENGINE) push $$IMAGE_NAME && \
 		printf "%s" "$$IMAGE_NAME" > $(BUILD_DIR)/$${PROJECT_NAME}-image
 
 .PHONY: image
