@@ -4,7 +4,7 @@ BUILD_TARGETS=main skctl
 
 include build/base.mk
 include build/rust.mk
-include build/image.mk
+include make/image.mk
 include build/k8s.mk
 
 RUST_BUILD_IMAGE ?= rust:1.93-bookworm
