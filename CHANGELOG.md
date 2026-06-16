@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.7.0 - 2026-06-16
+
+### 🚀 Features
+
+- Update KWOK stages to include configurable delays
+- Reschedule interrupted bare pods
+
 ## 2.6.1 - 2026-06-04
 
 ### 🐛 Bug Fixes
