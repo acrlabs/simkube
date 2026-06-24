@@ -2,10 +2,10 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::k8s::dyn_obj_type_str;
-use sk_core::prelude::*;
 use tracing::*;
 
+use crate::k8s::dyn_obj_type_str;
+use crate::prelude::*;
 
 #[derive(Clone, Copy, Debug)]
 pub enum TraceAction {
@@ -30,7 +30,7 @@ impl TraceEvent {
     }
 }
 
-pub(crate) fn append_event(event_list: &mut Vec<TraceEvent>, ts: i64, obj: &DynamicObject, action: TraceAction) {
+pub fn append_event(event_list: &mut Vec<TraceEvent>, ts: i64, obj: &DynamicObject, action: TraceAction) {
     info!("{:?} @ {ts}: {} {}", action, dyn_obj_type_str(obj), obj.namespaced_name(),);
 
     let obj = obj.clone();

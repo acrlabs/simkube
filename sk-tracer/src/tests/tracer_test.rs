@@ -1,11 +1,17 @@
+use std::sync::Arc;
+
 use object_store::ObjectStoreScheme;
+use sk_api::v1::ExportRequest;
 use sk_core::external_storage::{
     MockObjectStoreWrapper,
     SkObjectStore,
 };
 use sk_core::k8s::DynamicApiSet;
+use sk_core::prelude::*;
+use tokio::sync::Mutex;
 
 use super::*;
+use crate::store::TraceStore;
 
 #[fixture]
 fn store() -> Arc<Mutex<TraceStore>> {

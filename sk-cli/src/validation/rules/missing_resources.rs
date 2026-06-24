@@ -11,7 +11,6 @@ use json_patch_ext::prelude::*;
 use k8s_openapi::Resource;
 use sk_core::k8s::GVK;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::validation::validator::{
     Diagnostic,

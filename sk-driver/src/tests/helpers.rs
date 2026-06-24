@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use sk_store::TraceEvent;
+use sk_core::prelude::*;
 use tokio::sync::Mutex;
 
 use super::*;

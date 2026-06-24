@@ -11,7 +11,6 @@ use clap::{
     value_parser,
 };
 use sk_core::prelude::*;
-use sk_store::ExportedTrace;
 
 pub use self::validation_store::{
     Annotations,

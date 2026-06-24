@@ -2,7 +2,7 @@ use insta::assert_debug_snapshot;
 use ratatui::backend::TestBackend;
 use ratatui::prelude::*;
 use ratatui::widgets::ListState;
-use sk_store::ExportedTrace;
+use sk_core::prelude::*;
 
 use super::*;
 use crate::validation::ValidationStore;

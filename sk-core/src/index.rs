@@ -5,7 +5,8 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::k8s::{
+
+use crate::k8s::{
     GVK,
     format_gvk_name,
 };

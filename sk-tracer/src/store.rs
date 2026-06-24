@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
+use sk_core::index::TraceIndex;
 use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
@@ -16,15 +17,6 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 use tokio::sync::Mutex;
 use tracing::*;
-
-use crate::event::{
-    TraceAction,
-    TraceEvent,
-    append_event,
-};
-use crate::index::TraceIndex;
-use crate::pod_owners_map::PodOwnersMap;
-use crate::trace::ExportedTrace;
 
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
@@ -80,7 +72,7 @@ impl TraceStore {
         Ok(data)
     }
 
-    pub(super) async fn collect_events(
+    pub(crate) async fn collect_events(
         &self,
         start_ts: i64,
         end_ts: i64,
@@ -317,7 +309,6 @@ impl TraceStore {
         )
     }
 }
-
 
 fn object_matches_filter(obj: &DynamicObject, f: &ExportFilters) -> bool {
     obj.metadata

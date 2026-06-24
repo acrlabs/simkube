@@ -8,9 +8,11 @@ use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,
 };
+use sk_core::pod_owners_map::PodOwnersMap;
+use sk_core::prelude::*;
 
 use super::*;
-use crate::pod_owners_map::PodOwnersMap;
+use crate::store::TraceStore;
 
 #[fixture]
 fn tracer() -> TraceStore {

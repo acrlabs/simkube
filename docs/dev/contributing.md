@@ -22,7 +22,6 @@ The SimKube repo is organized as follows:
     /sk-core   - Rust code for shared/"core" functionality
     /sk-ctrl   - Rust code for the `sk-ctrl` Kubernetes controller
     /sk-driver - Rust code for the `sk-driver` Simulation runner
-    /sk-store  - Rust code for the tracer object store
     /sk-tracer - Rust code for the `sk-tracer` Kubernetes object
     /testutils - helper functions for tests
 ```

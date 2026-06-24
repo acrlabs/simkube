@@ -16,7 +16,6 @@ use sk_core::k8s::{
 use sk_core::prelude::*;
 use tokio::sync::mpsc;
 
-use crate::TraceAction;
 use crate::watchers::{
     EventHandler,
     ObjWatcher,

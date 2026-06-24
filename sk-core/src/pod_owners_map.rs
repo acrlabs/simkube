@@ -1,15 +1,15 @@
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 
-use sk_core::errors::*;
-use sk_core::k8s::{
+use tracing::*;
+
+use crate::errors::*;
+use crate::index::TraceIndex;
+use crate::k8s::{
     GVK,
     PodLifecycleData,
     format_gvk_name,
 };
-use tracing::*;
-
-use crate::TraceIndex;
 
 // The PodOwnersMap tracks lifecycle data for all pods that are owned by some object that we care
 // about (e.g., if we are tracking Deployments, the owners map will track the lifecycle data for
@@ -54,17 +54,17 @@ use crate::TraceIndex;
 pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
 #[derive(Clone, Default)]
-pub(crate) struct PodOwnersMap {
+pub struct PodOwnersMap {
     m: HashMap<(GVK, String), PodLifecyclesMap>,
     index: HashMap<String, ((GVK, String), u64, usize)>,
 }
 
 impl PodOwnersMap {
-    pub(crate) fn has_pod(&self, ns_name: &str) -> bool {
+    pub fn has_pod(&self, ns_name: &str) -> bool {
         self.index.contains_key(ns_name)
     }
 
-    pub(crate) fn get_lifecycle_for(&self, ns_name: &str) -> Vec<PodLifecycleData> {
+    pub fn get_lifecycle_for(&self, ns_name: &str) -> Vec<PodLifecycleData> {
         self.index.get(ns_name).map_or(vec![], |((gvk, owner_ns_name), hash, _len)| {
             self.m
                 .get(&(gvk.clone(), owner_ns_name.clone()))
@@ -72,7 +72,7 @@ impl PodOwnersMap {
         })
     }
 
-    pub(crate) fn store_new_pod_lifecycle(
+    pub fn store_new_pod_lifecycle(
         &mut self,
         pod_ns_name: &str,
         owner_gvk: &GVK,
@@ -98,7 +98,7 @@ impl PodOwnersMap {
             .insert(pod_ns_name.into(), ((owner_gvk.clone(), owner_ns_name.into()), hash, idx));
     }
 
-    pub(crate) fn update_pod_lifecycle(&mut self, pod_ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
+    pub fn update_pod_lifecycle(&mut self, pod_ns_name: &str, lifecycle_data: &PodLifecycleData) -> EmptyResult {
         match self.index.get(pod_ns_name) {
             None => bail!("pod {} not present in index", pod_ns_name),
             Some(((owner_gvk, owner_ns_name), hash, sequence_idx)) => {
@@ -128,12 +128,7 @@ impl PodOwnersMap {
 
     // Given an index of "owning objects", get a list of all the pods between a given start and end
     // time that belong to one of those owning objects.
-    pub(crate) fn filter(
-        &self,
-        start_ts: i64,
-        end_ts: i64,
-        index: &TraceIndex,
-    ) -> HashMap<(GVK, String), PodLifecyclesMap> {
+    pub fn filter(&self, start_ts: i64, end_ts: i64, index: &TraceIndex) -> HashMap<(GVK, String), PodLifecyclesMap> {
         self.m
             .iter()
             // The filtering is a little complicated here; if the owning object isn't in the index,
@@ -155,7 +150,7 @@ impl PodOwnersMap {
     }
 }
 
-pub(crate) fn filter_lifecycles_map(
+pub fn filter_lifecycles_map(
     start_ts: i64,
     end_ts: i64,
     lifecycles_map: &PodLifecyclesMap,
@@ -195,7 +190,7 @@ pub(crate) fn filter_lifecycles_map(
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl PodOwnersMap {
-    pub(crate) fn lifecycle_data_for<'a>(
+    pub fn lifecycle_data_for<'a>(
         &'a self,
         owner_gvk: &GVK,
         owner_ns_name: &str,

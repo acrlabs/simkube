@@ -28,7 +28,6 @@ use sk_core::{
     hooks,
     logging,
 };
-use sk_store::ExportedTrace;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 use tracing::*;

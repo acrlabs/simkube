@@ -19,10 +19,7 @@ use kube::core::{
 use rocket::serde::json::Json;
 use serde_json::json;
 use sk_core::k8s::PodLifecycleData;
-use sk_store::{
-    ExportedTrace,
-    PodLifecyclesMap,
-};
+use sk_core::prelude::*;
 use tracing_test::traced_test;
 
 use super::helpers::build_driver_context;

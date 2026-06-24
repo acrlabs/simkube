@@ -9,7 +9,6 @@ use tokio::sync::{
 use tokio::task::JoinSet;
 use tracing::*;
 
-use crate::event::TraceAction;
 use crate::store::TraceStore;
 use crate::watchers::{
     dyn_obj_watcher,

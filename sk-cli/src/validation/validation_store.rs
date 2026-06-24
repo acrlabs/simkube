@@ -8,7 +8,6 @@ use anyhow::anyhow;
 use assertables::assert_all;
 use serde::Serialize;
 use sk_core::prelude::*;
-use sk_store::ExportedTrace;
 
 use super::PrintFormat;
 use super::rules::*;

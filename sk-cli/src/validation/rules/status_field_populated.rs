@@ -1,5 +1,4 @@
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::validation::validator::{
     Diagnostic,

@@ -8,10 +8,7 @@ use std::sync::mpsc;
 
 use pest::Parser;
 use pest_derive::Parser;
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_core::prelude::*;
 
 use self::ast::{
     Command,

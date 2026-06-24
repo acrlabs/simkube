@@ -1,8 +1,5 @@
 use ratatui::widgets::ListState;
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_core::prelude::*;
 
 use super::*;
 
