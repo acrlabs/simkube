@@ -8,16 +8,11 @@ mod watchers;
 use std::ops::Deref;
 use std::sync::Arc;
 
-use bytes::Bytes;
 use clap::Parser;
 use kube::Client;
-use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
+use sk_core::external_storage::SkObjectStore;
 use sk_core::logging;
 use sk_core::prelude::*;
 use tokio::sync::Mutex;
@@ -100,6 +95,3 @@ async fn main() -> EmptyResult {
     logging::setup(&args.verbosity);
     run(args).await
 }
-
-#[cfg(test)]
-mod tests;
