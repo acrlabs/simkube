@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
+use sk_core::index::TraceIndex;
 use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
