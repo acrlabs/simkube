@@ -1,3 +1,4 @@
+#![cfg_attr(coverage, feature(coverage_attribute))]
 pub mod errors;
 pub mod export;
 pub mod manager;
