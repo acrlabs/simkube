@@ -148,22 +148,6 @@ impl PodOwnersMap {
             })
             .collect()
     }
-
-    pub fn lifecycle_data_for<'a>(
-        &'a self,
-        owner_gvk: &GVK,
-        owner_ns_name: &str,
-        pod_hash: u64,
-    ) -> Option<&'a Vec<PodLifecycleData>> {
-        self.m.get(&(owner_gvk.clone(), owner_ns_name.into()))?.get(&pod_hash)
-    }
-
-    pub fn new_from_parts(
-        m: HashMap<(GVK, String), PodLifecyclesMap>,
-        index: HashMap<String, ((GVK, String), u64, usize)>,
-    ) -> PodOwnersMap {
-        PodOwnersMap { m, index }
-    }
 }
 
 pub fn filter_lifecycles_map(
@@ -206,6 +190,22 @@ pub fn filter_lifecycles_map(
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl PodOwnersMap {
+    pub fn lifecycle_data_for<'a>(
+        &'a self,
+        owner_gvk: &GVK,
+        owner_ns_name: &str,
+        pod_hash: u64,
+    ) -> Option<&'a Vec<PodLifecycleData>> {
+        self.m.get(&(owner_gvk.clone(), owner_ns_name.into()))?.get(&pod_hash)
+    }
+
+    pub fn new_from_parts(
+        m: HashMap<(GVK, String), PodLifecyclesMap>,
+        index: HashMap<String, ((GVK, String), u64, usize)>,
+    ) -> PodOwnersMap {
+        PodOwnersMap { m, index }
+    }
+
     pub fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
         self.index.get(pod_ns_name)
     }
