@@ -143,23 +143,6 @@ mod tests;
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
-    pub(crate) fn new_from_parts(
-        handler: Box<dyn EventHandler<T> + Send>,
-        stream: ObjStream<T>,
-        clock: Box<dyn Clockable + Send>,
-        ready_tx: mpsc::Sender<bool>,
-    ) -> ObjWatcher<T> {
-        ObjWatcher {
-            handler,
-            stream,
-            clock,
-            is_ready: true,
-            ready_tx,
-            init_buffer: vec![],
-            index: HashSet::new(),
-        }
-    }
-
     pub(crate) async fn handle_next_event(&mut self) -> EmptyResult {
         let evt = self.stream.next().await.unwrap().unwrap();
         self.handle_event(&evt, self.clock.now_ts()).await

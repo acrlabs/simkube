@@ -96,21 +96,3 @@ impl EventHandler<DynamicObject> for DynObjHandler {
         Ok(())
     }
 }
-
-#[cfg(test)]
-use clockabilly::Clockable;
-
-#[cfg(test)]
-use super::ObjStream;
-
-#[cfg(test)]
-#[cfg_attr(coverage, coverage(off))]
-pub(crate) fn new_from_parts(
-    gvk: GVK,
-    dyn_obj_tx: Sender,
-    stream: ObjStream<DynamicObject>,
-    clock: Box<dyn Clockable + Send>,
-    ready_tx: mpsc::Sender<bool>,
-) -> ObjWatcher<DynamicObject> {
-    ObjWatcher::new_from_parts(Box::new(DynObjHandler { gvk, dyn_obj_tx }), stream, clock, ready_tx)
-}
