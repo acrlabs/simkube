@@ -1,3 +1,5 @@
+use std::fs;
+
 use anyhow::bail;
 use sk_api::v1::{
     ExportFilters,
@@ -64,12 +66,13 @@ pub struct Args {
 
 pub async fn cmd(args: &Args) -> EmptyResult {
     let filters = ExportFilters::new(args.excluded_namespaces.clone(), vec![]);
+    let transform = args.transform.as_ref().map(fs::read_to_string).transpose()?;
     let req = ExportRequest {
         start_ts: args.start_time,
         end_ts: args.end_time,
         export_path: args.output_path.clone(),
         filters: Box::new(filters),
-        transform: args.transform.clone(),
+        transform,
     };
     let endpoint = format!("{}/export", args.tracer_address);
 

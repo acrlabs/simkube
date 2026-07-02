@@ -77,6 +77,7 @@ async fn test_collect_events_filtered(mut tracer: TraceStore) {
                 ..Default::default()
             },
             false,
+            None,
         )
         .await
         .unwrap();
@@ -150,7 +151,7 @@ async fn test_collect_events_finished_pod(mut tracer: TraceStore) {
         &PodLifecycleData::Running(7),
     );
 
-    let (events, _) = tracer.collect_events(3, 10, &Default::default(), false).await.unwrap();
+    let (events, _) = tracer.collect_events(3, 10, &Default::default(), false, None).await.unwrap();
 
     // Always an empty event at the beginning
     assert_eq!(
@@ -190,7 +191,7 @@ async fn test_collect_events_owned_by_tracked_object(mut tracer: TraceStore, tes
 
     tracer.create_or_update_obj(&test_deployment, 4).unwrap();
     tracer.create_or_update_obj(&replicaset, 5).unwrap();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
 
     // Only have the deployment in the index
     assert_len_eq_x!(index, 1);
@@ -228,7 +229,7 @@ async fn test_collect_events(mut tracer: TraceStore) {
         deleted_objs: vec![test_deployment("obj1")],
     });
     tracer.events = all_events.clone().into();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true).await.unwrap();
+    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
 
     // The first object was created before the collection started so the timestamp changes
     all_events[0].ts = 1;
@@ -242,6 +243,29 @@ async fn test_collect_events(mut tracer: TraceStore) {
         ]
         .map(|s| s.to_string())
     );
+}
+
+#[rstest(tokio::test)]
+async fn test_collect_events_with_skel(mut tracer: TraceStore) {
+    let all_events: Vec<_> = [("obj1", 0), ("obj2", 1), ("obj3", 5), ("obj4", 10), ("obj5", 15)]
+        .iter()
+        .map(|(name, ts)| TraceEvent {
+            ts: *ts,
+            applied_objs: vec![test_deployment(name)],
+            deleted_objs: vec![],
+        })
+        .collect();
+    tracer.events = all_events.clone().into();
+
+    // test_deployment() sets name which maps to metadata.name so we can test a basic
+    // SKEL transformation by excluding events for a given metadata.name.
+    let skel_str = r#"delete(metadata.name == "obj2");"#;
+    let (events, index) = tracer
+        .collect_events(1, 10, &Default::default(), true, Some(skel_str))
+        .await
+        .unwrap();
+    assert_none!(events.iter().flat_map(|e| &e.applied_objs).find(|o| o.name_any() == "obj2"));
+    assert_none!(index.flattened_keys().iter().find(|k| k.contains("obj2")));
 }
 
 #[rstest(tokio::test)]
