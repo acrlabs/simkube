@@ -11,6 +11,7 @@ use sk_core::prelude::*;
 use tokio::sync::Mutex;
 
 use super::*;
+use crate::export::export_helper;
 use crate::store::TraceStore;
 
 #[fixture]

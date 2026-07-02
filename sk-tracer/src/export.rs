@@ -13,7 +13,13 @@ pub async fn export_helper(
     store: Arc<Mutex<TraceStore>>,
     object_store: &(dyn ObjectStoreWrapper + Sync),
 ) -> anyhow::Result<Vec<u8>> {
-    let trace_data = { store.lock().await.export(req.start_ts, req.end_ts, &req.filters).await? };
+    let trace_data = {
+        store
+            .lock()
+            .await
+            .export(req.start_ts, req.end_ts, &req.filters, req.transform.as_deref())
+            .await?
+    };
 
     match object_store.scheme() {
         // If we're writing to a cloud provider, we want to write from the location that the
