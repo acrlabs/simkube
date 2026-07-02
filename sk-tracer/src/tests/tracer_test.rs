@@ -11,6 +11,7 @@ use sk_core::prelude::*;
 use tokio::sync::Mutex;
 
 use super::*;
+use crate::export::export_helper;
 use crate::store::TraceStore;
 
 #[fixture]
@@ -27,6 +28,7 @@ async fn test_export_helper_cloud(store: Arc<Mutex<TraceStore>>) {
         end_ts: 1,
         export_path: "s3://foo/bar".into(),
         filters: Box::new(Default::default()),
+        transform: None,
     };
     let mut object_store = MockObjectStoreWrapper::new();
     object_store.expect_put().returning(|_| Ok(())).once();
@@ -45,6 +47,7 @@ async fn test_export_helper_local(store: Arc<Mutex<TraceStore>>) {
         end_ts: 1,
         export_path: export_path.into(),
         filters: Box::new(Default::default()),
+        transform: None,
     };
     let object_store = SkObjectStore::new(export_path).unwrap();
 

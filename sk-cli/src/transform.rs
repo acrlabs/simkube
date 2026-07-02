@@ -1,3 +1,4 @@
+use std::fs;
 use std::sync::mpsc;
 use std::time::Duration;
 
@@ -22,7 +23,7 @@ use sk_core::external_storage::{
     SkObjectStore,
 };
 use sk_core::prelude::*;
-use sk_skel::apply_skel_file;
+use sk_skel::apply_skel;
 use sk_skel::metric_names::*;
 
 const SPINNER_REFRESH_RATE: u64 = 50;
@@ -61,8 +62,8 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     let clock = UtcClock::new();
     let start_time = clock.now();
-    let skel_filename = args.skel_file.clone();
-    let transform_task = tokio::spawn(async move { apply_skel_file(&trace, &skel_filename, tx).await });
+    let skel_contents = fs::read_to_string(args.skel_file.clone())?;
+    let transform_task = tokio::spawn(async move { apply_skel(&trace, &skel_contents, tx).await });
     loop {
         // don't really care about errors on progress bar updates right now
         let _ = progress_bar.refresh();

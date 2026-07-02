@@ -3808,6 +3808,7 @@ dependencies = [
  "serde_yaml",
  "sk-api",
  "sk-core",
+ "sk-skel",
  "sk-testutils",
  "test-log",
  "tokio",

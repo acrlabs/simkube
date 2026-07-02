@@ -1,8 +1,12 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{
+    Arc,
+    mpsc,
+};
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
+use sk_core::event::append_event;
 use sk_core::index::TraceIndex;
 use sk_core::jsonutils;
 use sk_core::k8s::{
@@ -14,8 +18,10 @@ use sk_core::k8s::{
     build_pod_self_owner_reference,
     format_gvk_name,
 };
+use sk_core::pod_owners_map::PodOwnersMap;
 use sk_core::prelude::*;
-use sk_core::trace::index::TraceIndex;
+use sk_core::trace::ExportedTrace;
+use sk_skel::apply_skel;
 use tokio::sync::Mutex;
 use tracing::*;
 
@@ -47,7 +53,13 @@ impl TraceStore {
         }
     }
 
-    pub async fn export(&self, start_ts: i64, end_ts: i64, filter: &ExportFilters) -> anyhow::Result<Vec<u8>> {
+    pub async fn export(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        filter: &ExportFilters,
+        maybe_skel_file: Option<&str>,
+    ) -> anyhow::Result<Vec<u8>> {
         info!("Exporting objs between {start_ts} and {end_ts} with filters: {filter:?}");
 
         // First, we collect all the events in our trace that match our configured filters.  This
@@ -55,7 +67,7 @@ impl TraceStore {
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
         let (events, index) = self.collect_events(start_ts, end_ts, filter, true).await?;
-        let num_events = events.len();
+        // let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
@@ -66,11 +78,28 @@ impl TraceStore {
             index,
             pod_lifecycles,
             ..Default::default()
-        }
-        .to_bytes()?;
+        };
 
-        info!("Exported {} events", num_events);
-        Ok(data)
+        // transform the trace
+        let data_bytes = if let Some(skel_file) = maybe_skel_file {
+            println!("\nApplying all transformations from {}...", skel_file);
+
+            let (tx, _rx) = mpsc::channel();
+            let skel_filename = skel_file.to_string();
+            let transform_task = tokio::spawn(async move { apply_skel(&data, &skel_filename, tx).await });
+
+            let transformed_trace_data = match transform_task.await? {
+                Ok(data) => data.to_bytes()?,
+                Err(err) => {
+                    return Err(err);
+                },
+            };
+            return Ok(transformed_trace_data);
+        } else {
+            data.to_bytes()?
+        };
+
+        Ok(data_bytes)
     }
 
     pub(crate) async fn collect_events(

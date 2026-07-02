@@ -51,8 +51,8 @@ pub fn process_trace(
     Ok(new_events)
 }
 
-pub async fn apply_skel_file(
-    trace: &Trace,
+pub async fn apply_skel(
+    trace: &ExportedTrace,
     skel_file: &str,
     update_channel: mpsc::Sender<()>,
 ) -> anyhow::Result<Trace> {
