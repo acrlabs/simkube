@@ -15,10 +15,7 @@ use serde::{
 use thiserror::Error;
 use tracing::*;
 
-use crate::constants::{
-    CURRENT_TRACE_FORMAT_VERSION,
-    KNOWN_GVKS_METADATA,
-};
+use crate::constants::*;
 use crate::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
