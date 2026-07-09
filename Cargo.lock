@@ -3670,6 +3670,7 @@ dependencies = [
  "paste",
  "regex",
  "reqwest 0.13.2",
+ "rmp-serde",
  "rstest",
  "rstest-log",
  "serde",
@@ -3736,7 +3737,6 @@ dependencies = [
  "serde_json",
  "sk-api",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "test-log",
  "thiserror 2.0.18",
@@ -3761,38 +3761,8 @@ dependencies = [
  "rstest",
  "serde_json",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "thiserror 2.0.18",
-]
-
-[[package]]
-name = "sk-store"
-version = "2.7.0"
-dependencies = [
- "anyhow",
- "assertables",
- "async-trait",
- "clockabilly",
- "futures",
- "httpmock",
- "insta",
- "k8s-openapi",
- "kube",
- "mockall",
- "rmp-serde",
- "rstest",
- "rstest-log",
- "serde",
- "serde_json",
- "serde_yaml",
- "sk-api",
- "sk-core",
- "sk-testutils",
- "test-log",
- "thiserror 2.0.18",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -3809,7 +3779,6 @@ dependencies = [
  "serde_json",
  "sk-api",
  "sk-core",
- "sk-store",
 ]
 
 [[package]]
@@ -3817,16 +3786,25 @@ name = "sk-tracer"
 version = "2.7.0"
 dependencies = [
  "anyhow",
+ "assertables",
+ "async-trait",
  "bytes",
  "clap",
+ "clockabilly",
+ "futures",
+ "httpmock",
+ "insta",
+ "k8s-openapi",
  "kube",
+ "mockall",
  "object_store",
  "rocket",
  "rstest",
  "rstest-log",
+ "serde_json",
+ "serde_yaml",
  "sk-api",
  "sk-core",
- "sk-store",
  "sk-testutils",
  "test-log",
  "tokio",
@@ -3866,7 +3844,6 @@ dependencies = [
  "sk-api",
  "sk-core",
  "sk-skel",
- "sk-store",
  "sk-testutils",
  "test-log",
  "tokio",

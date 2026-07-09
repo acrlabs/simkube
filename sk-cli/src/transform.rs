@@ -24,7 +24,6 @@ use sk_core::external_storage::{
 use sk_core::prelude::*;
 use sk_skel::apply_skel_file;
 use sk_skel::metric_names::*;
-use sk_store::ExportedTrace;
 
 const SPINNER_REFRESH_RATE: u64 = 50;
 const SPINNER_DOTS: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
@@ -46,7 +45,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
 
     let object_store = SkObjectStore::new(&args.input)?;
     let trace_data = object_store.get().await?.to_vec();
-    let trace = ExportedTrace::import(trace_data, None)?;
+    let trace = Trace::import(trace_data, None)?;
 
     let progress_spinner = Spinner::new(SPINNER_DOTS, SPINNER_REFRESH_RATE as f32, 1.0);
     let mut progress_bar = tqdm!(

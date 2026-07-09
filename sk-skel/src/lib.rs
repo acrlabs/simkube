@@ -8,10 +8,7 @@ use std::sync::mpsc;
 
 use pest::Parser;
 use pest_derive::Parser;
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_core::prelude::*;
 
 use self::ast::{
     Command,
@@ -31,7 +28,7 @@ pub mod metric_names {
 struct SkelParser;
 
 pub fn process_trace(
-    trace: &ExportedTrace,
+    trace: &Trace,
     commands: &Vec<Command>,
     update_channel: Option<mpsc::Sender<()>>,
 ) -> anyhow::Result<Vec<TraceEvent>> {
@@ -55,10 +52,10 @@ pub fn process_trace(
 }
 
 pub async fn apply_skel_file(
-    trace: &ExportedTrace,
+    trace: &Trace,
     skel_file: &str,
     update_channel: mpsc::Sender<()>,
-) -> anyhow::Result<ExportedTrace> {
+) -> anyhow::Result<Trace> {
     let skel_str = fs::read_to_string(skel_file)?;
     let skel = SkelParser::parse(Rule::skel, &skel_str)?;
 
@@ -70,7 +67,7 @@ pub async fn apply_skel_file(
         .collect::<Result<Vec<_>, anyhow::Error>>()?;
 
     let new_events = process_trace(trace, &parsed_commands, Some(update_channel))?;
-    let new_trace = ExportedTrace {
+    let new_trace = Trace {
         version: trace.version,
         config: trace.config.clone(),
         events: new_events,

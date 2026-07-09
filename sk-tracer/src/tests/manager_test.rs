@@ -1,5 +1,6 @@
 use httpmock::Method::*;
 use serde_json::json;
+use sk_core::prelude::*;
 
 use super::*;
 

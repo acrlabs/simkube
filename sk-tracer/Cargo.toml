@@ -10,23 +10,31 @@ edition.workspace = true
 
 [dependencies]
 anyhow = { workspace = true }
+async-trait = { workspace = true }
 bytes = { workspace = true }
 clap = { workspace = true }
+clockabilly = { workspace = true }
+futures = { workspace = true }
+k8s-openapi = { workspace = true }
 kube = { workspace = true }
 object_store = { workspace = true }
 rocket = { workspace = true }
+serde_json = { workspace = true }
 sk-api = { workspace = true }
 sk-core = { workspace = true }
-sk-store = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
 url = { workspace = true }
 
 [dev-dependencies]
+assertables = { workspace = true }
+httpmock = { workspace = true }
+insta = { workspace = true }
+mockall = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
+serde_yaml = { workspace = true }
 sk-core = { workspace = true, features = ["mock"] }
-sk-store = { workspace = true }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
 

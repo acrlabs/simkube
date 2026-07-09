@@ -8,9 +8,11 @@ use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,
 };
+use sk_core::prelude::*;
+use sk_core::trace::pod_owners_map::PodOwnersMap;
 
 use super::*;
-use crate::pod_owners_map::PodOwnersMap;
+use crate::store::TraceStore;
 
 #[fixture]
 fn tracer() -> TraceStore {
@@ -321,21 +323,31 @@ async fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore
 
 fn mock_pod_owners_map(
     pod_ns_name: &str,
-    pod_spec_hash: u64,
+    pod_hash: u64,
     owner_ns_name: &str,
-    init_lifecycle_data: Vec<PodLifecycleData>,
-    pod_seq_idx: usize,
+    lifecycles: Vec<PodLifecycleData>,
+    target_lifecycle_idx: usize,
 ) -> PodOwnersMap {
-    PodOwnersMap::new_from_parts(
-        HashMap::from([(
-            (DEPLOYMENT_GVK.clone(), owner_ns_name.into()),
-            HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
-        )]),
-        HashMap::from([(
-            pod_ns_name.into(),
-            ((DEPLOYMENT_GVK.clone(), owner_ns_name.into()), pod_spec_hash, pod_seq_idx),
-        )]),
-    )
+    let mut owners = PodOwnersMap::default();
+
+    // Store every lifecycle under the same owner/hash so tests can model an owner with
+    // lifecycle entries.
+
+    // Only the lifecycle at `target_lifecycle_idx` is associated with `pod_ns_name`. The rest get
+    // unique placeholder pod names so they can exist in the map without colliding with the pod name
+    // being used in our test.
+
+    for (idx, lifecycle) in lifecycles.iter().enumerate() {
+        let pod_name = if idx == target_lifecycle_idx {
+            pod_ns_name.to_string()
+        } else {
+            format!("{pod_ns_name}-{idx}-UNUSED")
+        };
+
+        owners.store_new_pod_lifecycle(&pod_name, &DEPLOYMENT_GVK, owner_ns_name, pod_hash, lifecycle);
+    }
+
+    owners
 }
 
 #[rstest(tokio::test)]
@@ -360,12 +372,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
         .await
         .unwrap();
 
-    assert_some_eq_x!(
-        tracer
-            .pod_owners
-            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        &expected_lifecycle_data
-    );
+    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data);
 }
 
 #[rstest(tokio::test)]
@@ -378,12 +385,7 @@ async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: Tra
         .await
         .unwrap();
 
-    let unused_hash = 0;
-    assert_none!(
-        tracer
-            .pod_owners
-            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, unused_hash)
-    );
+    assert!(!tracer.pod_owners.has_pod(&owner_ns_name));
 }
 
 #[rstest(tokio::test)]
@@ -407,13 +409,11 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
         .await
         .unwrap();
 
-    let lifecycle_data = tracer
-        .pod_owners
-        .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH);
+    let lifecycle_data = tracer.pod_owners.get_lifecycle_for(&ns_name);
     if track_lifecycle {
-        assert_some_eq_x!(lifecycle_data, &vec![new_lifecycle_data.clone()]);
+        assert_eq!(lifecycle_data, vec![new_lifecycle_data.clone()]);
     } else {
-        assert_none!(lifecycle_data);
+        assert_is_empty!(lifecycle_data);
     }
 }
 
@@ -430,12 +430,13 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(mut tracer: TraceS
     tracer
         .index
         .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
-    tracer.pod_owners = PodOwnersMap::new_from_parts(
-        HashMap::from([(
-            (DEPLOYMENT_GVK.clone(), owner_ns_name.clone()),
-            HashMap::from([(EMPTY_POD_SPEC_HASH, init_lifecycle_data)]),
-        )]),
-        HashMap::from([("asdf".into(), ((DEPLOYMENT_GVK.clone(), owner_ns_name.clone()), 1234, 0))]),
+
+    tracer.pod_owners.store_new_pod_lifecycle(
+        "asdf",
+        &DEPLOYMENT_GVK,
+        &owner_ns_name,
+        EMPTY_POD_SPEC_HASH,
+        &PodLifecycleData::Running(5),
     );
 
     tracer
@@ -443,12 +444,7 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(mut tracer: TraceS
         .await
         .unwrap();
 
-    assert_some_eq_x!(
-        tracer
-            .pod_owners
-            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        &expected_lifecycle_data,
-    );
+    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data,);
 }
 
 #[rstest(tokio::test)]
@@ -470,12 +466,7 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
         .await
         .unwrap();
 
-    assert_some_eq_x!(
-        tracer
-            .pod_owners
-            .lifecycle_data_for(&DEPLOYMENT_GVK, &owner_ns_name, EMPTY_POD_SPEC_HASH),
-        &expected_lifecycle_data,
-    );
+    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data,);
 }
 
 // All we're really testing here is that using the pod as its own owner gets through this
@@ -502,10 +493,5 @@ async fn test_record_bare_pod_lifecycle(mut tracer: TraceStore, mut test_pod: co
         .await
         .unwrap();
 
-    assert_some_eq_x!(
-        tracer
-            .pod_owners
-            .lifecycle_data_for(&POD_GVK, &pod_ns_name, EMPTY_POD_SPEC_HASH),
-        &expected_lifecycle_data,
-    );
+    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data,);
 }

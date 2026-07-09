@@ -9,7 +9,7 @@ use serde_json::{
     Value,
     json,
 };
-use sk_store::TraceEvent;
+use sk_core::prelude::*;
 
 use super::*;
 use crate::ast::{

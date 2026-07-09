@@ -5,7 +5,6 @@ mod delete;
 mod export;
 mod pauseresume;
 mod run;
-mod snapshot;
 mod transform;
 mod validation;
 mod xray;
@@ -64,12 +63,6 @@ enum SkSubcommand {
     Run(run::Args),
 
     #[command(
-        about = "take a point-in-time snapshot of a cluster (does not require sk-tracer to be running)",
-        visible_alias = "snap"
-    )]
-    Snapshot(snapshot::Args),
-
-    #[command(
         about = "transform a trace file using SKEL (the SimKube Expression Language)",
         visible_alias = "trans"
     )]
@@ -124,7 +117,6 @@ async fn main() -> EmptyResult {
             let client = kube::Client::try_default().await?;
             run::cmd(args, client).await
         },
-        SkSubcommand::Snapshot(args) => snapshot::cmd(args).await,
         SkSubcommand::Transform(args) => {
             transform::cmd(args).await?;
             transform::output_stats(&metrics_recorder)

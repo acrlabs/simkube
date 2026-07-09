@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use sk_core::k8s::PodLifecycleData;
-
 use super::*;
-use crate::pod_owners_map::{
+use crate::constants::DEPLOYMENT_GVK;
+use crate::k8s::PodLifecycleData;
+use crate::trace::TraceIndex;
+use crate::trace::pod_owners_map::{
     PodLifecyclesMap,
     PodOwnersMap,
     filter_lifecycles_map,

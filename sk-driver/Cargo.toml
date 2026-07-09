@@ -20,7 +20,6 @@ rocket = { workspace = true }
 serde_json = { workspace = true }
 sk-api = { workspace = true }
 sk-core = { workspace = true }
-sk-store = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
 tracing = { workspace = true }
@@ -34,7 +33,6 @@ mockall = { workspace = true }
 rmp-serde = { workspace = true }
 rstest = { workspace = true }
 rstest-log = { workspace = true }
-sk-store = { workspace = true }
 sk-testutils = { workspace = true }
 test-log = { workspace = true }
 tracing-test = { workspace = true }

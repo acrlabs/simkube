@@ -1,3 +1,8 @@
+pub mod config;
+pub mod event;
+pub mod index;
+pub mod pod_owners_map;
+
 use std::collections::HashMap;
 
 use anyhow::bail;
@@ -7,23 +12,23 @@ use serde::{
     Deserialize,
     Serialize,
 };
-use sk_core::external_storage::{
-    ObjectStoreWrapper,
-    SkObjectStore,
-};
-use sk_core::k8s::{
-    GVK,
-    PodLifecycleData,
-};
-use sk_core::prelude::*;
-use sk_core::time::duration_to_ts_from;
 use thiserror::Error;
 use tracing::*;
 
-use crate::CURRENT_TRACE_FORMAT_VERSION;
-use crate::event::TraceEvent;
-use crate::index::TraceIndex;
-use crate::pod_owners_map::PodLifecyclesMap;
+use crate::constants::*;
+use crate::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
+};
+use crate::k8s::{
+    GVK,
+    PodLifecycleData,
+};
+use crate::time::duration_to_ts_from;
+use crate::trace::config::TracerConfig;
+use crate::trace::event::TraceEvent;
+use crate::trace::index::TraceIndex;
+use crate::trace::pod_owners_map::PodLifecyclesMap;
 
 #[derive(Debug, Error)]
 pub enum TraceError {
@@ -35,7 +40,7 @@ pub enum TraceError {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
-pub struct ExportedTrace {
+pub struct Trace {
     pub version: u16,
     pub config: TracerConfig,
     pub events: Vec<TraceEvent>,
@@ -43,9 +48,9 @@ pub struct ExportedTrace {
     pub pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
 }
 
-impl Default for ExportedTrace {
+impl Default for Trace {
     fn default() -> Self {
-        ExportedTrace {
+        Trace {
             version: CURRENT_TRACE_FORMAT_VERSION,
             config: TracerConfig::default(),
             events: vec![],
@@ -55,19 +60,19 @@ impl Default for ExportedTrace {
     }
 }
 
-impl ExportedTrace {
+impl Trace {
     pub async fn from_path(path: &str) -> anyhow::Result<Self> {
         let object_store = SkObjectStore::new(path)?;
         let trace_data = object_store.get().await?.to_vec();
-        ExportedTrace::import(trace_data, None)
+        Trace::import(trace_data, None)
     }
 
-    pub fn new_with_events(events: Vec<TraceEvent>) -> ExportedTrace {
-        ExportedTrace { events, ..Default::default() }
+    pub fn new_with_events(events: Vec<TraceEvent>) -> Trace {
+        Trace { events, ..Default::default() }
     }
 
-    pub fn import(data: Vec<u8>, maybe_duration: Option<&String>) -> anyhow::Result<ExportedTrace> {
-        let mut exported_trace = rmp_serde::from_slice::<ExportedTrace>(&data).map_err(TraceError::ParseFailed)?;
+    pub fn import(data: Vec<u8>, maybe_duration: Option<&String>) -> anyhow::Result<Trace> {
+        let mut exported_trace = rmp_serde::from_slice::<Trace>(&data).map_err(TraceError::ParseFailed)?;
         exported_trace.config = exported_trace.config.normalize()?;
 
         if exported_trace.version != CURRENT_TRACE_FORMAT_VERSION {
@@ -190,7 +195,6 @@ fn use_stable_hash_for_lifecycle(owner_gvk: &GVK) -> bool {
     !KNOWN_GVKS_METADATA.contains_key(owner_gvk)
 }
 
-
 #[derive(Clone)]
 pub struct TraceIterator<'a> {
     events: &'a Vec<TraceEvent>,
@@ -225,4 +229,7 @@ impl<'a> Iterator for TraceIterator<'a> {
 }
 
 #[cfg(test)]
-impl ExportedTrace {}
+impl Trace {}
+
+#[cfg(test)]
+pub mod tests;

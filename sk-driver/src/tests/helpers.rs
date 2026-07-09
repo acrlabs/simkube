@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use sk_store::TraceEvent;
+use sk_core::prelude::*;
 use tokio::sync::Mutex;
 
 use super::*;
@@ -30,7 +30,7 @@ pub fn build_trace_data(has_start_marker: bool, duration: Option<i64>) -> Vec<u8
     rmp_serde::to_vec_named(&exported_trace).unwrap()
 }
 
-pub fn build_driver_context(owners_cache: OwnersCache, trace: ExportedTrace, client: kube::Client) -> DriverContext {
+pub fn build_driver_context(owners_cache: OwnersCache, trace: Trace, client: kube::Client) -> DriverContext {
     DriverContext {
         name: TEST_DRIVER_NAME.into(),
         sim_name: TEST_SIM_NAME.into(),

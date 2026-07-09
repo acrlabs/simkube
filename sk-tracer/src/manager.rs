@@ -9,7 +9,6 @@ use tokio::sync::{
 use tokio::task::JoinSet;
 use tracing::*;
 
-use crate::event::TraceAction;
 use crate::store::TraceStore;
 use crate::watchers::{
     dyn_obj_watcher,
@@ -23,6 +22,7 @@ pub struct TraceManager {
     js: JoinSet<()>,
 }
 
+#[allow(dead_code)]
 impl TraceManager {
     pub async fn start(client: kube::Client, config: TracerConfig) -> anyhow::Result<Self> {
         let mut apiset = DynamicApiSet::new(client.clone());

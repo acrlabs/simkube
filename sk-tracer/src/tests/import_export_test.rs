@@ -146,7 +146,7 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
     .boxed()
 }
 
-fn objs_in_trace(trace: &ExportedTrace) -> HashSet<String> {
+fn objs_in_trace(trace: &Trace) -> HashSet<String> {
     let mut objs = HashSet::new();
     for evt in &trace.events {
         for obj in &evt.applied_objs {
@@ -206,6 +206,7 @@ mod itest {
 
         // First build up the stream of test data and run the watcher (this advances time to the "end")
         let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
+
         let w = dyn_obj_watcher::new_from_parts(
             DEPLOYMENT_GVK.clone(),
             dyn_obj_tx,
@@ -232,7 +233,7 @@ mod itest {
         match store.export(start_ts, end_ts, &filter).await {
             Ok(data) => {
                 // Confirm that the results match what we expect
-                let trace = ExportedTrace::import(data, duration.as_ref()).unwrap();
+                let trace = Trace::import(data, duration.as_ref()).unwrap();
                 let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
                 let expected_objs = store.objs_at(import_end_ts, &filter).await;
                 let actual_objs = objs_in_trace(&trace);

@@ -7,7 +7,6 @@ members = [
     "sk-ctrl",
     "sk-driver",
     "sk-skel",
-    "sk-store",
     "sk-tracer",
 
     "testutils",
@@ -25,8 +24,8 @@ rust-version = "1.93"
 [workspace.dependencies]
 sk-api = { version = "2.7.0", path = "sk-api" }
 sk-core = { version = "2.7.0", path = "sk-core" }
-sk-store = { version = "2.7.0", path = "sk-store" }
 sk-skel = { version = "2.7.0", path = "sk-skel" }
+sk-tracer = { version = "2.7.0", path = "sk-tracer" }
 anyhow = { version = "1.0.98", features = ["backtrace"] }
 assertables = "9.8.0"
 async-recursion = "1.1.1"

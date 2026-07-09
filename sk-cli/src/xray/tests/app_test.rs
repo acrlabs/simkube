@@ -1,8 +1,5 @@
 use ratatui::widgets::ListState;
-use sk_store::{
-    ExportedTrace,
-    TraceEvent,
-};
+use sk_core::prelude::*;
 
 use super::*;
 
@@ -21,7 +18,7 @@ fn test_app_update_quit() {
 #[case(Message::Select, Mode::EventSelected, Mode::ObjectSelected)]
 #[case(Message::Select, Mode::ObjectSelected, Mode::ObjectSelected)]
 fn test_app_update_selection(#[case] msg: Message, #[case] mode: Mode, #[case] new_mode: Mode) {
-    let trace = ExportedTrace::new_with_events(vec![TraceEvent {
+    let trace = Trace::new_with_events(vec![TraceEvent {
         ts: 0,
         applied_objs: vec![test_deployment("depl1")],
         ..Default::default()

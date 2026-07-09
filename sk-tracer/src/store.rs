@@ -14,17 +14,9 @@ use sk_core::k8s::{
     format_gvk_name,
 };
 use sk_core::prelude::*;
+use sk_core::trace::index::TraceIndex;
 use tokio::sync::Mutex;
 use tracing::*;
-
-use crate::event::{
-    TraceAction,
-    TraceEvent,
-    append_event,
-};
-use crate::index::TraceIndex;
-use crate::pod_owners_map::PodOwnersMap;
-use crate::trace::ExportedTrace;
 
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
@@ -67,7 +59,7 @@ impl TraceStore {
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
         let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
-        let data = ExportedTrace {
+        let data = Trace {
             config: self.config.clone(),
             events,
             index,
@@ -80,7 +72,7 @@ impl TraceStore {
         Ok(data)
     }
 
-    pub(super) async fn collect_events(
+    pub(crate) async fn collect_events(
         &self,
         start_ts: i64,
         end_ts: i64,
@@ -317,7 +309,6 @@ impl TraceStore {
         )
     }
 }
-
 
 fn object_matches_filter(obj: &DynamicObject, f: &ExportFilters) -> bool {
     obj.metadata

@@ -5,7 +5,6 @@ use metrics::counter;
 use regex::Regex;
 use serde_json::Value;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::ast::{
     Command,

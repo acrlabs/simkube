@@ -129,7 +129,7 @@ async fn test_cleanup_trace_error() {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let trace = ExportedTrace::default();
+    let trace = Trace::default();
     let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(0);
@@ -155,7 +155,7 @@ async fn test_cleanup_trace_timeout() {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let trace = ExportedTrace::default();
+    let trace = Trace::default();
     let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(DRIVER_CLEANUP_TIMEOUT_SECONDS + 10);
@@ -175,7 +175,7 @@ async fn test_cleanup_trace() {
     let roots_api: kube::Api<SimulationRoot> = kube::Api::all(client.clone());
     let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
-    let trace = ExportedTrace::default();
+    let trace = Trace::default();
     let ctx = build_driver_context(cache, trace, client);
 
     let clock = MockUtcClock::boxed(0);
@@ -203,7 +203,7 @@ mod itest {
         let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(has_start_marker, None);
-        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let trace = Trace::import(trace_data, None).unwrap();
         let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {
@@ -284,7 +284,7 @@ mod itest {
         let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(false, Some(10));
-        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let trace = Trace::import(trace_data, None).unwrap();
         let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {
@@ -354,7 +354,7 @@ mod itest {
         let cache = OwnersCache::new(DynamicApiSet::new(client.clone()));
 
         let trace_data = build_trace_data(false, Some(10));
-        let trace = ExportedTrace::import(trace_data, None).unwrap();
+        let trace = Trace::import(trace_data, None).unwrap();
         let ctx = build_driver_context(cache, trace, client);
 
         let root = SimulationRoot {

@@ -2,7 +2,7 @@ use insta::assert_debug_snapshot;
 use ratatui::backend::TestBackend;
 use ratatui::prelude::*;
 use ratatui::widgets::ListState;
-use sk_store::ExportedTrace;
+use sk_core::prelude::*;
 
 use super::*;
 use crate::validation::ValidationStore;
@@ -13,7 +13,7 @@ use crate::validation::tests::{
 use crate::xray::view::jump_list_state;
 
 #[fixture]
-fn test_app(mut test_validation_store: ValidationStore, trace: ExportedTrace) -> App {
+fn test_app(mut test_validation_store: ValidationStore, trace: Trace) -> App {
     let event_annotations = test_validation_store.validate_trace(&trace).unwrap();
     App {
         trace,

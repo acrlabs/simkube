@@ -15,21 +15,6 @@ Use the `skctl` CLI tool to collect a trace from your production cluster (where 
 > skctl export -o s3://your-simkube-bucket/path/to/trace
 ```
 
-Alternately, if you don't have `sk-tracer` running anywhere, you can generate a "point-in-time" snapshot of your
-production cluster with the following command:
-
-```text
-> skctl snapshot -c config.yml
-```
-
-The config file referenced should be in the same format as expected by `sk-tracer`.  Here's a basic one you can use:
-
-```yaml
-# config.yml
-trackedObjects:
-  apps/v1.Deployment: {}
-```
-
 ## Step 2: Create some virtual nodes
 
 SimKube is going to create a bunch of fake pods during the simulation run, and it will need someplace to schedule them.
