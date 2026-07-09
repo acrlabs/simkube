@@ -326,12 +326,23 @@ fn mock_pod_owners_map(
     pod_hash: u64,
     owner_ns_name: &str,
     lifecycles: Vec<PodLifecycleData>,
-    pod_seq_idx: usize,
+    target_lifecycle_idx: usize,
 ) -> PodOwnersMap {
     let mut owners = PodOwnersMap::default();
 
+    // Store every lifecycle under the same owner/hash so tests can model an owner with
+    // lifecycle entries.
+
+    // Only the lifecycle at `target_lifecycle_idx` is associated with `pod_ns_name`. The rest get
+    // unique placeholder pod names so they can exist in the map without colliding with the pod name
+    // being used in our test.
+
     for (idx, lifecycle) in lifecycles.iter().enumerate() {
-        let pod_name = if idx == pod_seq_idx { pod_ns_name.to_string() } else { format!("{pod_ns_name}-{idx}") };
+        let pod_name = if idx == target_lifecycle_idx {
+            pod_ns_name.to_string()
+        } else {
+            format!("{pod_ns_name}-{idx}-UNUSED")
+        };
 
         owners.store_new_pod_lifecycle(&pod_name, &DEPLOYMENT_GVK, owner_ns_name, pod_hash, lifecycle);
     }
