@@ -9,9 +9,9 @@ use sk_testutils::{
 
 use super::*;
 use crate::constants::DEPLOYMENT_GVK;
-use crate::event::TraceEvent;
 use crate::k8s::PodLifecycleData;
 use crate::trace::Trace;
+use crate::trace::event::TraceEvent;
 
 
 #[fixture]

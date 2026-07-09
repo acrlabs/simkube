@@ -1,3 +1,8 @@
+pub mod config;
+pub mod event;
+pub mod index;
+pub mod pod_owners_map;
+
 use std::collections::HashMap;
 
 use anyhow::bail;
@@ -10,23 +15,23 @@ use serde::{
 use thiserror::Error;
 use tracing::*;
 
-use crate::config::TracerConfig;
 use crate::constants::{
     CURRENT_TRACE_FORMAT_VERSION,
     KNOWN_GVKS_METADATA,
 };
-use crate::event::TraceEvent;
 use crate::external_storage::{
     ObjectStoreWrapper,
     SkObjectStore,
 };
-use crate::index::TraceIndex;
 use crate::k8s::{
     GVK,
     PodLifecycleData,
 };
-use crate::pod_owners_map::PodLifecyclesMap;
 use crate::time::duration_to_ts_from;
+use crate::trace::config::TracerConfig;
+use crate::trace::event::TraceEvent;
+use crate::trace::index::TraceIndex;
+use crate::trace::pod_owners_map::PodLifecyclesMap;
 
 #[derive(Debug, Error)]
 pub enum TraceError {

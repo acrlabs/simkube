@@ -4,12 +4,12 @@ use std::collections::hash_map::Entry;
 use tracing::*;
 
 use crate::errors::*;
-use crate::index::TraceIndex;
 use crate::k8s::{
     GVK,
     PodLifecycleData,
     format_gvk_name,
 };
+use crate::trace::index::TraceIndex;
 
 // The PodOwnersMap tracks lifecycle data for all pods that are owned by some object that we care
 // about (e.g., if we are tracking Deployments, the owners map will track the lifecycle data for

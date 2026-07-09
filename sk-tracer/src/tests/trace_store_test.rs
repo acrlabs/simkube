@@ -8,8 +8,8 @@ use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,
 };
-use sk_core::pod_owners_map::PodOwnersMap;
 use sk_core::prelude::*;
+use sk_core::trace::pod_owners_map::PodOwnersMap;
 
 use super::*;
 use crate::store::TraceStore;
