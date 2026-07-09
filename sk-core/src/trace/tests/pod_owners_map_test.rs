@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
-use sk_core::k8s::PodLifecycleData;
-
 use super::*;
+use crate::constants::DEPLOYMENT_GVK;
+use crate::k8s::PodLifecycleData;
 use crate::pod_owners_map::{
     PodLifecyclesMap,
     PodOwnersMap,
     filter_lifecycles_map,
 };
+use crate::trace::TraceIndex;
 
 const START_TS: i64 = 5;
 const END_TS: i64 = 10;

@@ -402,7 +402,7 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
     if track_lifecycle {
         assert_eq!(lifecycle_data, vec![new_lifecycle_data.clone()]);
     } else {
-        assert!(lifecycle_data.is_empty());
+        assert_is_empty!(lifecycle_data);
     }
 }
 

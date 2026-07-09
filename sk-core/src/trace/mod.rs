@@ -10,7 +10,11 @@ use serde::{
 use thiserror::Error;
 use tracing::*;
 
-use crate::constants::CURRENT_TRACE_FORMAT_VERSION;
+use crate::config::TracerConfig;
+use crate::constants::{
+    CURRENT_TRACE_FORMAT_VERSION,
+    KNOWN_GVKS_METADATA,
+};
 use crate::event::TraceEvent;
 use crate::external_storage::{
     ObjectStoreWrapper,
@@ -22,7 +26,6 @@ use crate::k8s::{
     PodLifecycleData,
 };
 use crate::pod_owners_map::PodLifecyclesMap;
-use crate::prelude::*;
 use crate::time::duration_to_ts_from;
 
 #[derive(Debug, Error)]
@@ -225,3 +228,6 @@ impl<'a> Iterator for TraceIterator<'a> {
 
 #[cfg(test)]
 impl ExportedTrace {}
+
+#[cfg(test)]
+pub mod tests;

@@ -1,11 +1,15 @@
+use kube::api::DynamicObject;
 use serde::{
     Deserialize,
     Serialize,
 };
 use tracing::*;
 
-use crate::k8s::dyn_obj_type_str;
-use crate::prelude::*;
+use crate::k8s::{
+    KubeResourceExt,
+    dyn_obj_type_str,
+};
+
 
 #[derive(Clone, Copy, Debug)]
 pub enum TraceAction {

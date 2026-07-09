@@ -1,3 +1,4 @@
+mod import_export_test;
 mod manager_test;
 mod trace_store_test;
 mod tracer_test;

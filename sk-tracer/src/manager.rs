@@ -22,6 +22,7 @@ pub struct TraceManager {
     js: JoinSet<()>,
 }
 
+#[allow(dead_code)]
 impl TraceManager {
     pub async fn start(client: kube::Client, config: TracerConfig) -> anyhow::Result<Self> {
         let mut apiset = DynamicApiSet::new(client.clone());
