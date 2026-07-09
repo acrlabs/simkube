@@ -24,7 +24,7 @@ pub struct ValidationStore {
 }
 
 impl ValidationStore {
-    pub fn validate_trace(&mut self, trace: &ExportedTrace) -> anyhow::Result<BTreeMap<usize, Annotations>> {
+    pub fn validate_trace(&mut self, trace: &Trace) -> anyhow::Result<BTreeMap<usize, Annotations>> {
         let mut annotations: BTreeMap<usize, Annotations> = BTreeMap::new();
 
         for (i, (event, _)) in trace.iter().enumerate() {

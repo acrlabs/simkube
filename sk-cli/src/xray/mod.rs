@@ -21,7 +21,7 @@ pub struct Args {
 }
 
 pub async fn cmd(args: &Args) -> EmptyResult {
-    let trace = ExportedTrace::from_path(&args.trace_path).await?;
+    let trace = Trace::from_path(&args.trace_path).await?;
     let event_annotations = VALIDATORS.lock().unwrap().validate_trace(&trace)?;
     let app = App::new(&args.trace_path, trace, event_annotations);
     let term = ratatui::init();

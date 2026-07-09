@@ -59,7 +59,7 @@ impl TraceStore {
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
         let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
-        let data = ExportedTrace {
+        let data = Trace {
             config: self.config.clone(),
             events,
             index,

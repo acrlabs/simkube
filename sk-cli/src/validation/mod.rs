@@ -74,7 +74,7 @@ pub struct PrintArgs {
 pub async fn cmd(subcommand: &ValidateSubcommand) -> EmptyResult {
     match subcommand {
         ValidateSubcommand::Check(args) => {
-            let trace = ExportedTrace::from_path(&args.trace_path).await?;
+            let trace = Trace::from_path(&args.trace_path).await?;
             let mut validators = VALIDATORS.lock().unwrap();
             let failed_checks = validators.validate_trace(&trace)?;
             write_summary(&mut std::io::stdout(), &args.trace_path, &validators, failed_checks, args.generate_skel)?;

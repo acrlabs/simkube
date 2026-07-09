@@ -73,7 +73,7 @@ pub struct DriverContext {
     virtual_ns_prefix: String,
     owners_cache: Arc<Mutex<OwnersCache>>,
     client: kube::Client,
-    trace: Arc<ExportedTrace>,
+    trace: Arc<Trace>,
     recorder: SkEventRecorder,
 }
 
@@ -90,7 +90,7 @@ async fn run(opts: Options) -> EmptyResult {
 
     let object_store = SkObjectStore::new(&opts.trace_path)?;
     let trace_data = object_store.get().await?.to_vec();
-    let trace = Arc::new(ExportedTrace::import(trace_data, sim.spec.duration.as_ref())?);
+    let trace = Arc::new(Trace::import(trace_data, sim.spec.duration.as_ref())?);
 
     let apiset = DynamicApiSet::new(client.clone());
     let owners_cache = Arc::new(Mutex::new(OwnersCache::new(apiset)));

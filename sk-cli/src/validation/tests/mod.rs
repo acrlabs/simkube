@@ -16,8 +16,8 @@ use super::*;
 const TEST_VALIDATOR_CODE: ValidatorCode = ValidatorCode(ValidatorType::Error, 9999);
 
 #[fixture]
-pub fn trace() -> ExportedTrace {
-    ExportedTrace::new_with_events(vec![
+pub fn trace() -> Trace {
+    Trace::new_with_events(vec![
         TraceEvent { ts: 0, ..Default::default() },
         TraceEvent {
             ts: 1,

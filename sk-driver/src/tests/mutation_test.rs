@@ -29,7 +29,7 @@ use super::*;
 fn ctx(
     test_pod: corev1::Pod,
     #[default(vec![])] pod_owners: Vec<metav1::OwnerReference>,
-    #[default(ExportedTrace::default())] trace: ExportedTrace,
+    #[default(Trace::default())] trace: Trace,
 ) -> DriverContext {
     let (_, client) = make_fake_apiserver();
     ctx_with_client(test_pod, client, pod_owners, trace)
@@ -39,7 +39,7 @@ fn ctx_with_client(
     test_pod: corev1::Pod,
     client: kube::Client,
     pod_owners: Vec<metav1::OwnerReference>,
-    trace: ExportedTrace,
+    trace: Trace,
 ) -> DriverContext {
     let mut owners = HashMap::new();
     owners.insert((corev1::Pod::gvk(), test_pod.namespaced_name()), pod_owners);
@@ -109,7 +109,7 @@ async fn test_handler_bad_response(
     mut test_pod: corev1::Pod,
     mut adm_rev: AdmissionReview<corev1::Pod>,
 ) {
-    let ctx = ctx(test_pod.clone(), vec![root_owner_ref.clone()], ExportedTrace::default());
+    let ctx = ctx(test_pod.clone(), vec![root_owner_ref.clone()], Trace::default());
     test_pod.owner_references_mut().push(root_owner_ref);
     test_pod.spec = None;
 
@@ -131,7 +131,7 @@ async fn test_handler_pod_not_owned_by_sim(
     adm_rev: AdmissionReview<corev1::Pod>,
 ) {
     let owner = metav1::OwnerReference { name: "foo".into(), ..Default::default() };
-    let ctx = ctx(test_pod.clone(), vec![owner.clone()], ExportedTrace::default());
+    let ctx = ctx(test_pod.clone(), vec![owner.clone()], Trace::default());
     test_pod.owner_references_mut().push(owner.clone());
     let resp = handler(
         rocket::State::from(&ctx),
@@ -151,7 +151,7 @@ async fn test_reschedule_interrupted_pod_no_action_two_owners(
 ) {
     let owners = vec![root_owner_ref, rs_owner_ref];
     test_pod.status.get_or_insert_default().phase = Some("Running".into());
-    let ctx = ctx(test_pod.clone(), owners.clone(), ExportedTrace::default());
+    let ctx = ctx(test_pod.clone(), owners.clone(), Trace::default());
     reschedule_interrupted_pod(&ctx, &owners, &test_pod).await.unwrap();
 }
 
@@ -162,7 +162,7 @@ async fn test_reschedule_interrupted_pod_no_action_not_running(
 ) {
     let owners = vec![root_owner_ref];
     test_pod.status.get_or_insert_default().phase = Some("Succeeded".into());
-    let ctx = ctx(test_pod.clone(), owners.clone(), ExportedTrace::default());
+    let ctx = ctx(test_pod.clone(), owners.clone(), Trace::default());
     reschedule_interrupted_pod(&ctx, &owners, &test_pod).await.unwrap();
 }
 
@@ -189,7 +189,7 @@ async fn test_reschedule_interrupted_pod(mut test_pod: corev1::Pod, #[case] last
     ]));
     test_pod.spec.get_or_insert_default().node_name = Some("1-2-3-4.internal".into());
     test_pod.status.get_or_insert_default().phase = Some("Running".into());
-    let ctx = ctx_with_client(test_pod.clone(), client, vec![], ExportedTrace::default());
+    let ctx = ctx_with_client(test_pod.clone(), client, vec![], Trace::default());
 
     let next_reschedule_index = last_reschedule_count.unwrap_or_default() + 1;
     expected_pod.metadata.name = Some(format!("{TEST_POD}-clone-{next_reschedule_index}"));
@@ -289,7 +289,7 @@ mod itest {
             test_pod.spec.get_or_insert_default().node_selector = Some(BTreeMap::from([("boo".into(), "far".into())]));
         }
         let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
-        let mut trace = ExportedTrace::default();
+        let mut trace = Trace::default();
         if running_and_has_node_selector {
             let pod_spec_hash = 18161541283955474812;
             trace.pod_lifecycles.insert(
@@ -356,7 +356,7 @@ mod itest {
         let rev = adm_rev(adm_req);
 
         let owners = vec![root_owner_ref];
-        let ctx = ctx_with_client(test_pod.clone(), client, owners.clone(), ExportedTrace::default());
+        let ctx = ctx_with_client(test_pod.clone(), client, owners.clone(), Trace::default());
         let resp = handler(
             rocket::State::from(&ctx),
             rocket::State::from(&test_sim),
@@ -388,7 +388,7 @@ mod itest {
         let rev = adm_rev(adm_req);
 
         let owners = vec![root_owner_ref];
-        let ctx = ctx_with_client(test_pod.clone(), client, owners.clone(), ExportedTrace::default());
+        let ctx = ctx_with_client(test_pod.clone(), client, owners.clone(), Trace::default());
         let resp = handler(
             rocket::State::from(&ctx),
             rocket::State::from(&test_sim),

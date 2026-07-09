@@ -51,5 +51,5 @@ pub mod prelude {
         PodLifecyclesMap,
         PodOwnersMap,
     };
-    pub use crate::trace::ExportedTrace;
+    pub use crate::trace::Trace;
 }

@@ -564,7 +564,7 @@ fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] e
     }],
 )]
 fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[case] expected: Vec<TraceEvent>) {
-    let trace = ExportedTrace::new_with_events(evts);
+    let trace = Trace::new_with_events(evts);
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
     let res = process_trace(&trace, &vec![cmd], None).unwrap();

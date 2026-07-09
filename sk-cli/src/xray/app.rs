@@ -36,7 +36,7 @@ pub(super) struct App {
     pub(super) mode: Mode,
 
     pub(super) path: String,
-    pub(super) trace: ExportedTrace,
+    pub(super) trace: Trace,
     pub(super) event_annotations: BTreeMap<usize, Annotations>,
 
     pub(super) event_list_state: ListState,
@@ -47,7 +47,7 @@ pub(super) struct App {
 }
 
 impl App {
-    pub(super) fn new(trace_path: &str, trace: ExportedTrace, event_annotations: BTreeMap<usize, Annotations>) -> App {
+    pub(super) fn new(trace_path: &str, trace: Trace, event_annotations: BTreeMap<usize, Annotations>) -> App {
         App {
             running: true,
             path: trace_path.into(),
