@@ -41,21 +41,6 @@ that isn't accepted or is parsed incorrectly, please [file an issue](https://git
 skctl run --help
 ```
 
-## skctl snapshot
-
-```bash exec="on" result="plain"
-skctl snapshot --help
-```
-
-Create a point-in-time snapshot of the configured objects that are currently running on a Kubernetes cluster.  Note
-that, unlike `skctl export`, the snapshot command _does not require `sk-tracer` to be running on the cluster!_  This
-means that you can pick an arbitrary starting point, create a trace file from there, and "let the simulation run to see
-what happens".  The snapshot command will try to read your local Kubernetes credentials from, e.g., `~/.kube/config`,
-and you will need read access to all namespaces on the cluster you're trying to snapshot.
-
-The config file format is the same as for [sk-tracer](sk-tracer.md); there is an example in the [examples
-folder](https://github.com/acrlabs/simkube/blob/main/config/tracer-config.yml)
-
 ## skctl validate
 
 ```bash exec="on" result="plain"
