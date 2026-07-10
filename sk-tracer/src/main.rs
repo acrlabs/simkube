@@ -58,6 +58,20 @@ async fn export(
     res.map_err(|e| e.into())
 }
 
+#[instrument(ret, err)]
+async fn run(args: Options) -> EmptyResult {
+    let config = TracerConfig::load(&args.config_file)?.normalize()?;
+    let client = Client::try_default().await.expect("failed to create kube client");
+    let manager = TraceManager::start(client, config).await?;
+    let store = manager.get_store();
+
+    let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
+    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
+
+    server.launch().await?;
+    Ok(())
+}
+
 async fn export_helper(
     req: &ExportRequest,
     store: Arc<Mutex<TraceStore>>,
@@ -84,20 +98,6 @@ async fn export_helper(
         // data and let the client do something with it.
         _ => Ok(trace_data),
     }
-}
-
-#[instrument(ret, err)]
-async fn run(args: Options) -> EmptyResult {
-    let config = TracerConfig::load(&args.config_file)?.normalize()?;
-    let client = Client::try_default().await.expect("failed to create kube client");
-    let manager = TraceManager::start(client, config).await?;
-    let store = manager.get_store();
-
-    let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
-
-    server.launch().await?;
-    Ok(())
 }
 
 #[tokio::main]
