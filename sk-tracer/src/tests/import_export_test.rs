@@ -8,16 +8,21 @@ use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::ResourceExt;
+use kube::api::DynamicObject;
 use kube::discovery::ApiResource;
 use kube::runtime::watcher::Event;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
+use sk_core::constants::*;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
+    KubeResourceExt,
     format_gvk_name,
 };
 use sk_core::macros::*;
+use sk_core::trace::Trace;
+use sk_core::trace::config::TracerConfig;
 use tokio::sync::{
     Mutex,
     mpsc,

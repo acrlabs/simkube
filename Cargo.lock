@@ -3794,10 +3794,7 @@ dependencies = [
  "futures",
  "httpmock",
  "insta",
-<<<<<<< HEAD
  "k8s-openapi",
-=======
->>>>>>> aa51043 (reorganize)
  "kube",
  "mockall",
  "object_store",
@@ -3849,7 +3846,6 @@ dependencies = [
  "sk-core",
  "sk-skel",
  "sk-testutils",
- "sk-tracer",
  "test-log",
  "tokio",
 ]
