@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use async_recursion::async_recursion;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::ListParams;
 use kube::discovery::{
     ApiCapabilities,
@@ -12,9 +13,10 @@ use kube::{
 };
 use tracing::*;
 
-use super::*;
 use crate::k8s::{
     DynamicApiSet,
+    GVK,
+    KubeResourceExt,
     format_gvk_name,
 };
 

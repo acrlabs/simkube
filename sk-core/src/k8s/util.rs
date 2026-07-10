@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 
+use k8s_openapi::api::core::v1 as corev1;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::ResourceExt;
 use kube::api::{
     DynamicObject,
@@ -10,9 +12,15 @@ use serde_json::{
     Value,
 };
 
-use super::*;
 use crate::constants::*;
 use crate::errors::*;
+use crate::k8s::{
+    DEPL_REVISION_LABEL_KEY,
+    GVK,
+    KubernetesError,
+    LAST_APPLIED_CONFIG_LABEL_KEY,
+};
+use crate::prelude::KubeResourceExt;
 
 const MAX_LABEL_LENGTH: usize = 63;
 
