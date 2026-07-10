@@ -3,8 +3,6 @@ use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
-use sk_core::event::append_event;
-use sk_core::index::TraceIndex;
 use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
@@ -15,9 +13,11 @@ use sk_core::k8s::{
     build_pod_self_owner_reference,
     format_gvk_name,
 };
-use sk_core::pod_owners_map::PodOwnersMap;
 use sk_core::prelude::*;
-use sk_core::trace::ExportedTrace;
+use sk_core::trace::Trace;
+use sk_core::trace::event::append_event;
+use sk_core::trace::index::TraceIndex;
+use sk_core::trace::pod_owners_map::PodOwnersMap;
 use sk_skel::{
     parse_skel_commands,
     process_event,

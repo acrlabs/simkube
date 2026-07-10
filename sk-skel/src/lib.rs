@@ -51,11 +51,7 @@ pub fn process_trace(
     Ok(new_events)
 }
 
-pub async fn apply_skel(
-    trace: &ExportedTrace,
-    skel_file: &str,
-    update_channel: mpsc::Sender<()>,
-) -> anyhow::Result<Trace> {
+pub async fn apply_skel(trace: &Trace, skel_file: &str, update_channel: mpsc::Sender<()>) -> anyhow::Result<Trace> {
     let skel_str = fs::read_to_string(skel_file)?;
     let parsed_commands = parse_skel_commands(&skel_str, trace.start_ts().unwrap_or_default())?;
     let new_events = process_trace(trace, &parsed_commands, Some(update_channel))?;

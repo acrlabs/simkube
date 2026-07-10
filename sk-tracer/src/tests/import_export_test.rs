@@ -8,24 +8,29 @@ use futures::stream;
 use futures::stream::StreamExt;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::ResourceExt;
+use kube::api::DynamicObject;
 use kube::discovery::ApiResource;
 use kube::runtime::watcher::Event;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
+use sk_core::constants::*;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
+    KubeResourceExt,
     format_gvk_name,
 };
 use sk_core::macros::*;
+use sk_core::trace::Trace;
+use sk_core::trace::config::TracerConfig;
 use tokio::sync::{
     Mutex,
     mpsc,
 };
 
 use super::*;
-use crate::TraceStore;
 use crate::manager::handle_messages;
+use crate::store::TraceStore;
 use crate::watchers::{
     ObjStream,
     dyn_obj_watcher,
@@ -230,12 +235,12 @@ mod itest {
 
         let (start_ts, end_ts) = (15, 46);
         let store = s.lock().await;
-        match store.export(start_ts, end_ts, &filter).await {
+        match store.export(start_ts, end_ts, &filter, None).await {
             Ok(data) => {
                 // Confirm that the results match what we expect
                 let trace = Trace::import(data, duration.as_ref()).unwrap();
                 let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-                let expected_objs = store.objs_at(import_end_ts, &filter).await;
+                let expected_objs = store.objs_at(import_end_ts, &filter, None).await;
                 let actual_objs = objs_in_trace(&trace);
 
                 println!("{actual_objs:?}");

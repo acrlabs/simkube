@@ -8,11 +8,16 @@ mod watchers;
 use std::ops::Deref;
 use std::sync::Arc;
 
+use bytes::Bytes;
 use clap::Parser;
 use kube::Client;
+use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
-use sk_core::external_storage::SkObjectStore;
+use sk_core::external_storage::{
+    ObjectStoreWrapper,
+    SkObjectStore,
+};
 use sk_core::logging;
 use sk_core::prelude::*;
 use tokio::sync::Mutex;
@@ -53,26 +58,18 @@ async fn export(
     res.map_err(|e| e.into())
 }
 
-#[instrument(ret, err)]
-async fn run(args: Options) -> EmptyResult {
-    let config = TracerConfig::load(&args.config_file)?.normalize()?;
-    let client = Client::try_default().await.expect("failed to create kube client");
-    let manager = TraceManager::start(client, config).await?;
-    let store = manager.get_store();
-
-    let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
-    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
-
-    server.launch().await?;
-    Ok(())
-}
-
 async fn export_helper(
     req: &ExportRequest,
     store: Arc<Mutex<TraceStore>>,
     object_store: &(dyn ObjectStoreWrapper + Sync),
 ) -> anyhow::Result<Vec<u8>> {
-    let trace_data = { store.lock().await.export(req.start_ts, req.end_ts, &req.filters).await? };
+    let trace_data = {
+        store
+            .lock()
+            .await
+            .export(req.start_ts, req.end_ts, &req.filters, req.transform.as_deref())
+            .await?
+    };
 
     match object_store.scheme() {
         // If we're writing to a cloud provider, we want to write from the location that the
@@ -89,9 +86,26 @@ async fn export_helper(
     }
 }
 
+#[instrument(ret, err)]
+async fn run(args: Options) -> EmptyResult {
+    let config = TracerConfig::load(&args.config_file)?.normalize()?;
+    let client = Client::try_default().await.expect("failed to create kube client");
+    let manager = TraceManager::start(client, config).await?;
+    let store = manager.get_store();
+
+    let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
+    let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
+
+    server.launch().await?;
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = Options::parse();
     logging::setup(&args.verbosity);
     run(args).await
 }
+
+#[cfg(test)]
+mod tests;
