@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
 use async_recursion::async_recursion;
-use kube::Resource;
 use kube::api::ListParams;
 use kube::discovery::{
     ApiCapabilities,
     Scope,
+};
+use kube::{
+    Resource,
+    ResourceExt,
 };
 use tracing::*;
 
@@ -14,7 +17,7 @@ use crate::k8s::{
     DynamicApiSet,
     format_gvk_name,
 };
-use crate::prelude::*;
+
 
 // TODO I really want a way to mock out the OwnersCache, because
 // any tests that depend on it implicitly now have to depend on tokio

@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 
-use kube::api::Resource;
+use kube::ResourceExt;
+use kube::api::{
+    DynamicObject,
+    Resource,
+};
 use serde_json::{
     Map,
     Value,

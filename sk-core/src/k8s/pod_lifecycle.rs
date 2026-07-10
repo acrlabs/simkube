@@ -8,7 +8,6 @@ use std::cmp::{
 use tracing::*;
 
 use super::*;
-use crate::prelude::*;
 
 // A PodLifecycleData object is how we track the length of time a pod was running in a cluster.  It
 // has three states, Empty, Running, and Finished.  For each state, we track the timestamps that

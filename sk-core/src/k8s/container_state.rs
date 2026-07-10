@@ -1,7 +1,6 @@
 use tracing::*;
 
 use super::*;
-use crate::prelude::*;
 
 // StartEndTimeable provides helper functions for computing the start and end times of a container
 // from its corresponding ContainerState object.  Note that as per the Kubernetes spec, it is an
