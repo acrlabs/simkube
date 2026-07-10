@@ -67,7 +67,6 @@ impl TraceStore {
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
         let (events, index) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
-        // let num_events = events.len();
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
