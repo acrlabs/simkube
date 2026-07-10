@@ -264,8 +264,18 @@ async fn test_collect_events_with_skel(mut tracer: TraceStore) {
         .collect_events(1, 10, &Default::default(), true, Some(skel_str))
         .await
         .unwrap();
-    assert_none!(events.iter().flat_map(|e| &e.applied_objs).find(|o| o.name_any() == "obj2"));
-    assert_none!(index.flattened_keys().iter().find(|k| k.contains("obj2")));
+
+    let keys = index.flattened_keys();
+    let names: Vec<String> = events
+        .iter()
+        .flat_map(|event| event.applied_objs.iter())
+        .map(|obj| obj.name_any())
+        .collect();
+
+    // confirm the deleted item is not in events or index
+    let obj2 = String::from("obj2");
+    assert_not_contains!(names, &obj2);
+    assert_not_contains!(keys, &obj2);
 }
 
 #[rstest(tokio::test)]
