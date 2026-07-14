@@ -2,7 +2,12 @@ use std::borrow::Cow;
 use std::fmt;
 use std::ops::Deref;
 
-use kube::api::GroupVersionKind;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::api::{
+    DynamicObject,
+    GroupVersionKind,
+    TypeMeta,
+};
 use serde::{
     Deserialize,
     Deserializer,
@@ -12,7 +17,6 @@ use serde::{
 };
 
 use crate::errors::*;
-use crate::prelude::*;
 
 // GVK is a "newtype" wrapper around the metav1::GroupVersionKind object that lets me provide
 // custom serialization methods.  We also add some handy helper/conversion functions.

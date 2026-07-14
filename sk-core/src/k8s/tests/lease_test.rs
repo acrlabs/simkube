@@ -6,6 +6,10 @@ use httpmock::Method::*;
 use k8s_openapi::api::coordination::v1 as coordinationv1;
 use kube::error::ErrorResponse;
 use serde_json::json;
+use sk_api::v1::{
+    Simulation,
+    SimulationRoot,
+};
 
 use super::*;
 

@@ -30,7 +30,7 @@ use sk_core::prelude::*;
 use tokio::time::sleep;
 use tracing::*;
 
-use super::*;
+use crate::DriverContext;
 use crate::util::{
     compute_step_size,
     wait_if_paused,

@@ -1,14 +1,24 @@
 use std::collections::BTreeMap;
 
-use kube::api::Resource;
+use k8s_openapi::api::core::v1 as corev1;
+use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
+use kube::ResourceExt;
+use kube::api::{
+    DynamicObject,
+    Resource,
+};
 use serde_json::{
     Map,
     Value,
 };
 
-use super::*;
 use crate::constants::*;
 use crate::errors::*;
+use crate::k8s::{
+    GVK,
+    KubeResourceExt,
+    KubernetesError,
+};
 
 const MAX_LABEL_LENGTH: usize = 63;
 

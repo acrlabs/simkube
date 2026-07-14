@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use super::*;
-use crate::constants::DEPLOYMENT_GVK;
+use crate::constants::*;
 use crate::k8s::PodLifecycleData;
 use crate::trace::TraceIndex;
 use crate::trace::pod_owners_map::{
