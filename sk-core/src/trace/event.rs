@@ -10,7 +10,6 @@ use crate::k8s::{
     dyn_obj_type_str,
 };
 
-
 #[derive(Clone, Copy, Debug)]
 pub enum TraceAction {
     ObjectApplied,
