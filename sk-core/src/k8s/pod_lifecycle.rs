@@ -5,10 +5,15 @@ use std::cmp::{
     min,
 };
 
+use k8s_openapi::api::core::v1 as corev1;
 use tracing::*;
 
-use super::*;
-use crate::prelude::*;
+use crate::k8s::{
+    KubeResourceExt,
+    PodExt,
+    PodLifecycleData,
+    StartEndTimeable,
+};
 
 // A PodLifecycleData object is how we track the length of time a pod was running in a cluster.  It
 // has three states, Empty, Running, and Finished.  For each state, we track the timestamps that

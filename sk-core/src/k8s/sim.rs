@@ -1,3 +1,4 @@
+use kube::ResourceExt;
 use sk_api::v1::{
     Simulation,
     SimulationMetricsConfig,
@@ -6,8 +7,8 @@ use sk_api::v1::{
     SimulationState,
 };
 
+use crate::constants::*;
 use crate::k8s::build_global_object_meta;
-use crate::prelude::*;
 
 pub fn metrics_ns(sim: &Simulation) -> String {
     match &sim.spec.metrics {

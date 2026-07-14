@@ -1,5 +1,10 @@
-use super::*;
-use crate::prelude::*;
+use anyhow::bail;
+use k8s_openapi::api::core::v1 as corev1;
+
+use crate::k8s::{
+    KubernetesError,
+    PodExt,
+};
 
 const KUBE_SVC_ACCOUNT_VOLUME_NAME_PREFIX: &str = "kube-api-access";
 

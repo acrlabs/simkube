@@ -9,7 +9,7 @@ use serde::{
 use thiserror::Error;
 use tracing::*;
 
-use crate::constants::KNOWN_GVKS_METADATA;
+use crate::constants::*;
 use crate::k8s::GVK;
 
 #[derive(Debug, Error)]

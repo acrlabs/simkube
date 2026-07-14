@@ -7,4 +7,5 @@ mod util_test;
 use sk_testutils::*;
 
 use super::*;
+use crate::constants::*;
 use crate::macros::*;

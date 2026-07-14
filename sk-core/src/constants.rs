@@ -14,6 +14,8 @@ use crate::k8s::{
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
 pub const APP_KUBERNETES_IO_NAME_KEY: &str = "app.kubernetes.io/name";
 pub const APP_KUBERNETES_IO_COMPONENT_KEY: &str = "app.kubernetes.io/component";
+pub const LAST_APPLIED_CONFIG_LABEL_KEY: &str = "kubectl.kubernetes.io/last-applied-configuration";
+pub const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revision";
 
 // Annotations that go on the Simulation CR itself
 // TODO (SK-277) maybe this just belongs in the CRD specification?

@@ -1,5 +1,6 @@
 use assertables::*;
 use clockabilly::Utc;
+use kube::api::DynamicObject;
 use serde_json::Value;
 
 use super::*;
