@@ -15,12 +15,10 @@ use serde_json::{
 use crate::constants::*;
 use crate::errors::*;
 use crate::k8s::{
-    DEPL_REVISION_LABEL_KEY,
     GVK,
+    KubeResourceExt,
     KubernetesError,
-    LAST_APPLIED_CONFIG_LABEL_KEY,
 };
-use crate::prelude::KubeResourceExt;
 
 const MAX_LABEL_LENGTH: usize = 63;
 

@@ -25,10 +25,6 @@ pub use util::*;
 use crate::errors::*;
 use crate::macros::partial_ord_eq_ref;
 
-
-const LAST_APPLIED_CONFIG_LABEL_KEY: &str = "kubectl.kubernetes.io/last-applied-configuration";
-const DEPL_REVISION_LABEL_KEY: &str = "deployment.kubernetes.io/revision";
-
 err_impl! {KubernetesError,
     #[error("field not found in struct: {0}")]
     FieldNotFound(String),
