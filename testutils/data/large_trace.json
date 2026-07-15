@@ -1,5 +1,5 @@
 {
-    "version": 2,
+    "version": 3,
     "config": {
         "trackedObjects": {
             "apps/v1.Deployment": {
@@ -27721,35 +27721,35 @@
             "deleted_objs": []
         }
     ],
-    "index": {
+    "tracked_objects": {
         "apps/v1.Deployment": {
-            "dsb/jaeger": 17146943970771433564,
-            "dsb/user-timeline-service": 15858556048943196710,
-            "dsb/social-graph-redis": 12158469555749306026,
-            "dsb/nginx-thrift": 8615945982318756151,
-            "dsb/compose-post-service": 10850747852008766550,
-            "dsb/post-storage-mongodb": 7778541974297070137,
-            "dsb/text-service": 9998312074885982535,
-            "dsb/post-storage-service": 14312611903795797094,
-            "dsb/user-timeline-redis": 10190065805547192910,
-            "dsb/url-shorten-memcached": 14288845909204435286,
-            "dsb/user-service": 15504870948845481110,
-            "dsb/media-frontend": 7313711842011631658,
-            "dsb/media-mongodb": 11819964129135742480,
-            "dsb/url-shorten-service": 11233060487132515767,
-            "dsb/home-timeline-service": 3881408507206153753,
-            "dsb/home-timeline-redis": 14686845312534273304,
-            "dsb/social-graph-service": 5457453258285373624,
-            "dsb/user-mongodb": 4102046683051864152,
-            "dsb/media-memcached": 5910380575206968127,
-            "dsb/social-graph-mongodb": 4456994570448124250,
-            "dsb/user-memcached": 16918237569911108211,
-            "dsb/post-storage-memcached": 12092145826100651574,
-            "dsb/unique-id-service": 15548754659508104991,
-            "dsb/user-mention-service": 10545933738618722057,
-            "dsb/user-timeline-mongodb": 12942061514904106755,
-            "dsb/media-service": 1936906990887670479,
-            "dsb/url-shorten-mongodb": 16304822808205355575
+            "dsb/jaeger": {},
+            "dsb/user-timeline-service": {},
+            "dsb/social-graph-redis": {},
+            "dsb/nginx-thrift": {},
+            "dsb/compose-post-service": {},
+            "dsb/post-storage-mongodb": {},
+            "dsb/text-service": {},
+            "dsb/post-storage-service": {},
+            "dsb/user-timeline-redis": {},
+            "dsb/url-shorten-memcached": {},
+            "dsb/user-service": {},
+            "dsb/media-frontend": {},
+            "dsb/media-mongodb": {},
+            "dsb/url-shorten-service": {},
+            "dsb/home-timeline-service": {},
+            "dsb/home-timeline-redis": {},
+            "dsb/social-graph-service": {},
+            "dsb/user-mongodb": {},
+            "dsb/media-memcached": {},
+            "dsb/social-graph-mongodb": {},
+            "dsb/user-memcached": {},
+            "dsb/post-storage-memcached": {},
+            "dsb/unique-id-service": {},
+            "dsb/user-mention-service": {},
+            "dsb/user-timeline-mongodb": {},
+            "dsb/media-service": {},
+            "dsb/url-shorten-mongodb": {}
         }
     },
     "pod_lifecycles": {}

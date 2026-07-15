@@ -1,6 +1,5 @@
 pub mod config;
 pub mod event;
-pub mod index;
 pub mod pod_owners_map;
 
 use std::collections::HashMap;
@@ -23,11 +22,11 @@ use crate::external_storage::{
 use crate::k8s::{
     GVK,
     PodLifecycleData,
+    PodOwner,
 };
 use crate::time::duration_to_ts_from;
 use crate::trace::config::TracerConfig;
 use crate::trace::event::TraceEvent;
-use crate::trace::index::TraceIndex;
 use crate::trace::pod_owners_map::PodLifecyclesMap;
 
 #[derive(Debug, Error)]
@@ -40,12 +39,15 @@ pub enum TraceError {
 }
 
 #[derive(Clone, Deserialize, Serialize)]
+pub struct ResourceMetadata {}
+
+#[derive(Deserialize, Serialize)]
 pub struct Trace {
     pub version: u16,
     pub config: TracerConfig,
     pub events: Vec<TraceEvent>,
-    pub index: TraceIndex,
-    pub pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
+    pub tracked_objects: HashMap<GVK, HashMap<String, ResourceMetadata>>,
+    pub pod_lifecycles: HashMap<PodOwner, PodLifecyclesMap>,
 }
 
 impl Default for Trace {
@@ -54,7 +56,7 @@ impl Default for Trace {
             version: CURRENT_TRACE_FORMAT_VERSION,
             config: TracerConfig::default(),
             events: vec![],
-            index: TraceIndex::default(),
+            tracked_objects: HashMap::default(),
             pod_lifecycles: HashMap::default(),
         }
     }
@@ -141,7 +143,9 @@ impl Trace {
     }
 
     pub fn has_obj(&self, gvk: &GVK, ns_name: &str) -> bool {
-        self.index.contains(gvk, ns_name)
+        self.tracked_objects
+            .get(gvk)
+            .is_some_and(|objects| objects.contains_key(ns_name))
     }
 
     pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {

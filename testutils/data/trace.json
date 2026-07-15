@@ -1,5 +1,5 @@
 {
-    "version": 2,
+    "version": 3,
     "config": {
         "trackedObjects": {
             "apps/v1.Deployment": {
@@ -107,9 +107,9 @@
             ]
         }
     ],
-    "index": {
+    "tracked_objects": {
         "apps/v1.Deployment": {
-            "default/nginx-deployment": 2842228259284014139
+            "default/nginx-deployment": {}
         }
     },
     "pod_lifecycles": {}
