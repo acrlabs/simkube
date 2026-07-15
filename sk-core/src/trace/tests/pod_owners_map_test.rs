@@ -1,9 +1,11 @@
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 
 use super::*;
 use crate::constants::*;
 use crate::k8s::PodLifecycleData;
-use crate::trace::TraceIndex;
 use crate::trace::pod_owners_map::{
     PodLifecyclesMap,
     PodOwnersMap,
@@ -57,9 +59,9 @@ fn test_store_new_pod_lifecycle(mut owners_map: PodOwnersMap) {
 
 #[rstest]
 fn test_filter_owners_map() {
-    let mut index = TraceIndex::new();
-    index.insert(DEPLOYMENT_GVK.clone(), "test/deployment1".into(), 9876);
-    index.insert(DEPLOYMENT_GVK.clone(), "test/deployment2".into(), 5432);
+    let mut owning_objects = HashSet::new();
+    owning_objects.insert((DEPLOYMENT_GVK.clone(), "test/deployment1".into()));
+    owning_objects.insert((DEPLOYMENT_GVK.clone(), "test/deployment2".into()));
     let owners_map = PodOwnersMap::new_from_parts(
         HashMap::from([
             (
@@ -78,7 +80,7 @@ fn test_filter_owners_map() {
         HashMap::new(),
     );
 
-    let res = owners_map.filter(START_TS, END_TS, &index);
+    let res = owners_map.filter(START_TS, END_TS, &owning_objects);
     assert_eq!(
         res,
         HashMap::from([(

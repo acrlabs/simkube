@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::sync::Arc;
 
 use kube::Resource;
@@ -10,14 +13,11 @@ use sk_core::k8s::{
     OwnersCache,
     PodExt,
     PodLifecycleData,
+    PodOwner,
     build_pod_self_owner_reference,
     format_gvk_name,
 };
 use sk_core::prelude::*;
-use sk_core::trace::Trace;
-use sk_core::trace::event::append_event;
-use sk_core::trace::index::TraceIndex;
-use sk_core::trace::pod_owners_map::PodOwnersMap;
 use sk_skel::{
     parse_skel_commands,
     process_event,
@@ -25,12 +25,14 @@ use sk_skel::{
 use tokio::sync::Mutex;
 use tracing::*;
 
+use crate::index::TraceIndex;
+
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: Vec<TraceEvent>,
     pub(crate) pod_owners: PodOwnersMap,
-    pub(crate) index: TraceIndex,
 
+    pub(crate) index: TraceIndex,
     owners_cache: Arc<Mutex<OwnersCache>>,
 }
 
@@ -47,8 +49,8 @@ impl TraceStore {
             config,
             events: vec![],
             pod_owners: PodOwnersMap::default(),
-            index: TraceIndex::default(),
 
+            index: TraceIndex::default(),
             owners_cache: Arc::new(Mutex::new(OwnersCache::new(apiset))),
         }
     }
@@ -66,15 +68,14 @@ impl TraceStore {
         // will return an index of objects that we collected, and we set the keep_deleted flag =
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
-        let (events, index) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
+        let (events, objects) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
-        let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
+        let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &objects);
         let data = Trace {
             config: self.config.clone(),
             events,
-            index,
             pod_lifecycles,
             ..Default::default()
         }
@@ -90,7 +91,7 @@ impl TraceStore {
         filter: &ExportFilters,
         keep_deleted: bool,
         maybe_skel_str: Option<&str>,
-    ) -> anyhow::Result<(Vec<TraceEvent>, TraceIndex)> {
+    ) -> anyhow::Result<(Vec<TraceEvent>, HashSet<PodOwner>)> {
         // TODO this is not a huge inefficiency but it is a little annoying to have
         // an empty event at the start_ts if there aren't any events that happened
         // before the start_ts
@@ -99,9 +100,9 @@ impl TraceStore {
         // flattened_objects is a list of everything that happened before start_ts but is
         // still present at start_ts -- i.e., it is our starting configuration.
         let mut flattened_objects = HashMap::new();
-        let mut index = TraceIndex::new();
         let parsed_commands =
             if let Some(skel_str) = maybe_skel_str { parse_skel_commands(skel_str, start_ts)? } else { vec![] };
+        let mut all_objects = HashSet::new();
 
         for evt in self.events.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
@@ -132,7 +133,7 @@ impl TraceStore {
                 let ns_name = obj.namespaced_name();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &all_objects).await?
                 {
                     debug!("applied obj {} filtered out", format_gvk_name(&gvk, &ns_name));
                     continue;
@@ -143,8 +144,7 @@ impl TraceStore {
                 } else {
                     filtered_applied_objs.push(obj.clone());
                 }
-                let hash = jsonutils::hash_option(obj.data.get("spec"));
-                index.insert(gvk, ns_name, hash);
+                all_objects.insert((gvk, ns_name));
             }
 
             for obj in &evt.deleted_objs {
@@ -152,7 +152,7 @@ impl TraceStore {
                 let ns_name = obj.namespaced_name();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &all_objects).await?
                 {
                     debug!("deleted obj {} filtered out", format_gvk_name(&gvk, &ns_name));
                     continue;
@@ -165,7 +165,7 @@ impl TraceStore {
                 }
 
                 if !keep_deleted {
-                    index.remove(gvk, &ns_name);
+                    all_objects.remove(&(gvk, ns_name));
                 }
             }
 
@@ -185,7 +185,7 @@ impl TraceStore {
         // events[0] is the empty event we inserted at the beginning, so we're guaranteed not to
         // overwrite anything here.
         events[0].applied_objs = flattened_objects.into_values().collect();
-        Ok((events, index))
+        Ok((events, all_objects))
     }
 
     pub(super) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
@@ -295,7 +295,7 @@ impl TraceStore {
         // We specifically DO NOT use self.index here, because the index at time t_n
         // probably has ~little relation to whatever the index looked like at the
         // time we're performing the export.
-        index: &TraceIndex,
+        owning_objects: &HashSet<PodOwner>,
     ) -> anyhow::Result<bool> {
         // If any of the owners of this object are exported, we don't want to also
         // export this object; in the simulation replay, it would result in duplicate
@@ -314,7 +314,7 @@ impl TraceStore {
             // sortof annoying and I don't want to bother right now.
             let owner_ns_name = format!("{}/{}", obj.namespace().unwrap(), owner.name);
             let owner_gvk = GVK::from_owner_ref(&owner)?;
-            if index.contains(&owner_gvk, &owner_ns_name) {
+            if owning_objects.contains(&(owner_gvk, owner_ns_name)) {
                 return Ok(true);
             }
         }
@@ -361,14 +361,19 @@ mod test {
     impl TraceStore {
         // This is really stupid to have async, it's a consequence of collect_events now
         // querying ownership information.... probably should fix this at some point
-        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters, maybe_skel_file: Option<&str>) -> Vec<String> {
+        pub async fn objs_at(
+            &self,
+            end_ts: i64,
+            filter: &ExportFilters,
+            maybe_skel_file: Option<&str>,
+        ) -> HashSet<PodOwner> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
-            let (_, index) = self
+            let (_, objects) = self
                 .collect_events(0, end_ts, filter, false, maybe_skel_file)
                 .await
                 .expect("testing code");
-            index.flattened_keys()
+            objects
         }
     }
 }

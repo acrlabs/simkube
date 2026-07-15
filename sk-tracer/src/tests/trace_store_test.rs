@@ -229,20 +229,15 @@ async fn test_collect_events(mut tracer: TraceStore) {
         deleted_objs: vec![test_deployment("obj1")],
     });
     tracer.events = all_events.clone().into();
-    let (events, index) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
+    let (events, all_objects) = tracer.collect_events(1, 10, &Default::default(), true, None).await.unwrap();
 
     // The first object was created before the collection started so the timestamp changes
     all_events[0].ts = 1;
     assert_eq!(events, all_events[0..4]);
-    assert_bag_eq!(
-        index.flattened_keys(),
-        [
-            format!("{}:{TEST_NAMESPACE}/obj1", &*DEPLOYMENT_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj2", &*DEPLOYMENT_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj3", &*DEPLOYMENT_GVK)
-        ]
-        .map(|s| s.to_string())
-    );
+    assert_len_eq_x!(&all_objects, 3);
+    for name in ["obj1", "obj2", "obj3"] {
+        assert_contains!(all_objects, &(DEPLOYMENT_GVK.clone(), format!("{TEST_NAMESPACE}/{name}")))
+    }
 }
 
 #[rstest(tokio::test)]
@@ -260,12 +255,11 @@ async fn test_collect_events_with_skel(mut tracer: TraceStore) {
     // test_deployment() sets name which maps to metadata.name so we can test a basic
     // SKEL transformation by excluding events for a given metadata.name.
     let skel_str = r#"delete(metadata.name == "obj2");"#;
-    let (events, index) = tracer
+    let (events, all_objects) = tracer
         .collect_events(1, 10, &Default::default(), true, Some(skel_str))
         .await
         .unwrap();
 
-    let keys = index.flattened_keys();
     let names: Vec<String> = events
         .iter()
         .flat_map(|event| event.applied_objs.iter())
@@ -275,7 +269,7 @@ async fn test_collect_events_with_skel(mut tracer: TraceStore) {
     // confirm the deleted item is not in events or index
     let obj2 = String::from("obj2");
     assert_not_contains!(names, &obj2);
-    assert_not_contains!(keys, &obj2);
+    assert_not_contains!(all_objects, &(DEPLOYMENT_GVK.clone(), obj2));
 }
 
 #[rstest(tokio::test)]

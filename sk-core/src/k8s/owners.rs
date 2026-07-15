@@ -21,6 +21,8 @@ use crate::k8s::{
 };
 
 
+pub type PodOwner = (GVK, String);
+
 // TODO I really want a way to mock out the OwnersCache, because
 // any tests that depend on it implicitly now have to depend on tokio
 // and also the fake_apiserver, which is cumbersome to deal with; unfortunately,
@@ -31,7 +33,7 @@ use crate::k8s::{
 // this we'll have to implement the mock ourselves.
 pub struct OwnersCache {
     apiset: DynamicApiSet,
-    owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
+    owners: HashMap<PodOwner, Vec<metav1::OwnerReference>>,
 }
 
 impl OwnersCache {
@@ -41,7 +43,7 @@ impl OwnersCache {
 
     pub fn new_from_parts(
         apiset: DynamicApiSet,
-        owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
+        owners: HashMap<PodOwner, Vec<metav1::OwnerReference>>,
     ) -> OwnersCache {
         OwnersCache { apiset, owners }
     }

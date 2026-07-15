@@ -1,5 +1,8 @@
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 
 use tracing::*;
 
@@ -7,9 +10,9 @@ use crate::errors::*;
 use crate::k8s::{
     GVK,
     PodLifecycleData,
+    PodOwner,
     format_gvk_name,
 };
-use crate::trace::index::TraceIndex;
 
 // The PodOwnersMap tracks lifecycle data for all pods that are owned by some object that we care
 // about (e.g., if we are tracking Deployments, the owners map will track the lifecycle data for
@@ -55,8 +58,8 @@ pub type PodLifecyclesMap = HashMap<u64, Vec<PodLifecycleData>>;
 
 #[derive(Clone, Default)]
 pub struct PodOwnersMap {
-    m: HashMap<(GVK, String), PodLifecyclesMap>,
-    index: HashMap<String, ((GVK, String), u64, usize)>,
+    m: HashMap<PodOwner, PodLifecyclesMap>,
+    index: HashMap<String, (PodOwner, u64, usize)>,
 }
 
 impl PodOwnersMap {
@@ -128,23 +131,25 @@ impl PodOwnersMap {
 
     // Given an index of "owning objects", get a list of all the pods between a given start and end
     // time that belong to one of those owning objects.
-    pub fn filter(&self, start_ts: i64, end_ts: i64, index: &TraceIndex) -> HashMap<(GVK, String), PodLifecyclesMap> {
+    pub fn filter(
+        &self,
+        start_ts: i64,
+        end_ts: i64,
+        owning_objects: &HashSet<PodOwner>,
+    ) -> HashMap<PodOwner, PodLifecyclesMap> {
         self.m
             .iter()
             // The filtering is a little complicated here; if the owning object isn't in the index,
             // we discard it.  Also, if none of the pods belonging to the owning object land
             // within the given time window, we want to discard it.  Otherwise, we want to filter
             // down the list of pods to the ones that fall between the given time window.
-            .filter_map(|((owner_gvk, owner_ns_name), lifecycles_map)| {
-                if !index.contains(owner_gvk, owner_ns_name) {
+            .filter_map(|(owner, lifecycles_map)| {
+                if !owning_objects.contains(owner) {
                     return None;
                 }
 
                 // Note the question mark here, doing a bunch of heavy lifting
-                Some((
-                    (owner_gvk.clone(), owner_ns_name.clone()),
-                    filter_lifecycles_map(start_ts, end_ts, lifecycles_map)?,
-                ))
+                Some((owner.clone(), filter_lifecycles_map(start_ts, end_ts, lifecycles_map)?))
             })
             .collect()
     }
@@ -200,13 +205,13 @@ impl PodOwnersMap {
     }
 
     pub fn new_from_parts(
-        m: HashMap<(GVK, String), PodLifecyclesMap>,
-        index: HashMap<String, ((GVK, String), u64, usize)>,
+        m: HashMap<PodOwner, PodLifecyclesMap>,
+        index: HashMap<String, (PodOwner, u64, usize)>,
     ) -> PodOwnersMap {
         PodOwnersMap { m, index }
     }
 
-    pub fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&((GVK, String), u64, usize)> {
+    pub fn pod_owner_meta(&self, pod_ns_name: &str) -> Option<&(PodOwner, u64, usize)> {
         self.index.get(pod_ns_name)
     }
 }

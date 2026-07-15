@@ -59,7 +59,7 @@ pub async fn apply_skel(trace: &Trace, skel_file: &str, update_channel: mpsc::Se
         version: trace.version,
         config: trace.config.clone(),
         events: new_events,
-        index: trace.index.clone(),
+        tracked_objects: trace.tracked_objects.clone(),
         pod_lifecycles: trace.pod_lifecycles.clone(),
     };
 

@@ -296,7 +296,11 @@ mod itest {
                 (DEPLOYMENT_GVK.clone(), owner_ns_name.clone()),
                 PodLifecyclesMap::from([(pod_spec_hash, vec![PodLifecycleData::Finished(0, 42)])]),
             );
-            trace.index.insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), 1234);
+            trace
+                .tracked_objects
+                .entry(DEPLOYMENT_GVK.clone())
+                .or_insert(HashMap::new())
+                .insert(owner_ns_name.clone(), ResourceMetadata {});
         }
 
         let owners = vec![root_owner_ref, depl_owner_ref];

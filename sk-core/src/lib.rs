@@ -35,7 +35,6 @@ pub mod prelude {
         KubeResourceExt,
         OpenApiResourceExt,
     };
-    pub use crate::trace::Trace;
     pub use crate::trace::config::{
         TracerConfig,
         TrackedObjectConfig,
@@ -48,5 +47,9 @@ pub mod prelude {
     pub use crate::trace::pod_owners_map::{
         PodLifecyclesMap,
         PodOwnersMap,
+    };
+    pub use crate::trace::{
+        ResourceMetadata,
+        Trace,
     };
 }

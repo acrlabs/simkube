@@ -11,7 +11,7 @@ use crate::k8s::{
 };
 
 // Trace Format Version
-pub const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
+pub const CURRENT_TRACE_FORMAT_VERSION: u16 = 3;
 
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";

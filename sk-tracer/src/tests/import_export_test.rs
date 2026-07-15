@@ -15,7 +15,7 @@ use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
     DynamicApiSet,
     GVK,
-    format_gvk_name,
+    PodOwner,
 };
 use sk_core::macros::*;
 use tokio::sync::{
@@ -146,14 +146,14 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
     .boxed()
 }
 
-fn objs_in_trace(trace: &Trace) -> HashSet<String> {
+fn objs_in_trace(trace: &Trace) -> HashSet<PodOwner> {
     let mut objs = HashSet::new();
     for evt in &trace.events {
         for obj in &evt.applied_objs {
-            objs.insert(format_gvk_name(&GVK::from_dynamic_obj(&obj).unwrap(), &obj.namespaced_name()));
+            objs.insert((GVK::from_dynamic_obj(&obj).unwrap(), obj.namespaced_name()));
         }
         for obj in &evt.deleted_objs {
-            objs.remove(&format_gvk_name(&GVK::from_dynamic_obj(&obj).unwrap(), &obj.namespaced_name()));
+            objs.remove(&(GVK::from_dynamic_obj(&obj).unwrap(), obj.namespaced_name()));
         }
     }
     objs
@@ -239,11 +239,11 @@ mod itest {
                 let actual_objs = objs_in_trace(&trace);
 
                 println!("{actual_objs:?}");
-                assert_bag_eq!(actual_objs, expected_objs);
+                assert_eq!(actual_objs, expected_objs);
                 for obj in actual_objs {
-                    assert_not_contains!(obj, "depl30"); // kube-system namespace
-                    assert_not_contains!(obj, "depl31"); // label-selector
-                    assert_not_contains!(obj, "repset"); // owned objects
+                    assert_not_contains!(obj.1, "depl30"); // kube-system namespace
+                    assert_not_contains!(obj.1, "depl31"); // label-selector
+                    assert_not_contains!(obj.1, "repset"); // owned objects
                 }
             },
             Err(e) => panic!("failed with error: {}", e),
