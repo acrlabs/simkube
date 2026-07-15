@@ -204,8 +204,9 @@ pub(crate) async fn run_trace_internal(
                 ns_api.create(&Default::default(), &vns).await?;
             }
 
-            let pod_spec_template_path = ctx.trace.config.pod_spec_template_paths(&gvk);
-            let vobj = build_virtual_obj(&ctx.sim_name, &root, &original_ns, &virtual_ns, obj, pod_spec_template_path)?;
+            let maybe_pod_spec_template_paths = ctx.trace.config.pod_spec_template_paths(&gvk);
+            let vobj =
+                build_virtual_obj(&ctx.sim_name, &root, &original_ns, &virtual_ns, obj, maybe_pod_spec_template_paths)?;
 
             info!("applying {} {}", dyn_obj_type_str(&vobj), vobj.namespaced_name());
             apiset
