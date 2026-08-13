@@ -9,9 +9,9 @@ use k8s_openapi::api::core::v1 as corev1;
 use tracing::*;
 
 use crate::k8s::{
-    KubeResourceExt,
     PodExt,
     PodLifecycleData,
+    SkResourceExt,
     StartEndTimeable,
 };
 

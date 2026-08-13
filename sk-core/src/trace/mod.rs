@@ -22,6 +22,7 @@ use crate::external_storage::{
 };
 use crate::k8s::{
     GVK,
+    KubeResourceId,
     PodLifecycleData,
 };
 use crate::time::duration_to_ts_from;
@@ -45,7 +46,7 @@ pub struct Trace {
     pub config: TracerConfig,
     pub events: Vec<TraceEvent>,
     pub index: TraceIndex,
-    pub pod_lifecycles: HashMap<(GVK, String), PodLifecyclesMap>,
+    pub pod_lifecycles: HashMap<KubeResourceId, PodLifecyclesMap>,
 }
 
 impl Default for Trace {
@@ -103,20 +104,14 @@ impl Trace {
         Ok(exported_trace)
     }
 
-    pub fn lookup_pod_lifecycle(
-        &self,
-        owner_gvk: &GVK,
-        owner_ns_name: &str,
-        pod_hash: u64,
-        seq: usize,
-    ) -> PodLifecycleData {
-        let should_check_hash = use_stable_hash_for_lifecycle(owner_gvk);
+    pub fn lookup_pod_lifecycle(&self, owner_id: &KubeResourceId, pod_hash: u64, seq: usize) -> PodLifecycleData {
+        let should_check_hash = use_stable_hash_for_lifecycle(&owner_id.gvk);
         if !should_check_hash {
             debug!("ignoring stable hash for object because it is a known GVK");
         }
         let maybe_lifecycle_data = self
             .pod_lifecycles
-            .get(&(owner_gvk.clone(), owner_ns_name.into()))
+            .get(owner_id)
             .and_then(|l| if should_check_hash { l.get(&pod_hash) } else { l.iter().next().map(|(_, v)| v) });
         match maybe_lifecycle_data {
             Some(data) => data[seq % data.len()].clone(),
@@ -140,8 +135,8 @@ impl Trace {
         self.events.get(idx)
     }
 
-    pub fn has_obj(&self, gvk: &GVK, ns_name: &str) -> bool {
-        self.index.contains(gvk, ns_name)
+    pub fn has_obj(&self, resource_id: &KubeResourceId) -> bool {
+        self.index.contains(resource_id)
     }
 
     pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {

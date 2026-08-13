@@ -32,8 +32,10 @@ pub mod prelude {
     pub use crate::errors::EmptyResult;
     pub use crate::events::SkEventRecorder;
     pub use crate::k8s::{
-        KubeResourceExt,
+        GVK,
+        KubeResourceId,
         OpenApiResourceExt,
+        SkResourceExt,
     };
     pub use crate::trace::Trace;
     pub use crate::trace::config::{

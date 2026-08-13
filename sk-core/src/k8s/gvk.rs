@@ -4,8 +4,10 @@ use std::ops::Deref;
 
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 use kube::api::{
+    ApiResource,
     DynamicObject,
     GroupVersionKind,
+    Resource,
     TypeMeta,
 };
 use serde::{
@@ -27,13 +29,23 @@ use crate::errors::*;
 #[derive(Clone, Debug, Hash, Eq, PartialEq)]
 pub struct GVK(GroupVersionKind);
 
+pub trait DynamicSelfTyped {
+    fn type_meta(&self) -> Option<&TypeMeta>;
+}
+
+impl DynamicSelfTyped for DynamicObject {
+    fn type_meta(&self) -> Option<&TypeMeta> {
+        self.types.as_ref()
+    }
+}
+
 impl GVK {
     pub fn new(group: &str, version: &str, kind: &str) -> GVK {
         GVK(GroupVersionKind::gvk(group, version, kind))
     }
 
-    pub fn from_dynamic_obj(obj: &DynamicObject) -> anyhow::Result<GVK> {
-        match &obj.types {
+    pub fn from_dynamic_obj<T: Resource<DynamicType = ApiResource> + DynamicSelfTyped>(obj: &T) -> anyhow::Result<GVK> {
+        match obj.type_meta() {
             Some(t) => Ok(GVK(t.try_into()?)),
             None => bail!("no type data present"),
         }

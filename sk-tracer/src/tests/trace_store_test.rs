@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 
 use assertables::*;
 use kube::discovery::ApiResource;
@@ -27,6 +30,8 @@ fn tracer() -> TraceStore {
             "metadata": {},
             "items": [
                 {
+                    "kind": "Deployment",
+                    "apiVersion": "apps/v1",
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
                         "name": TEST_DEPLOYMENT,
@@ -101,7 +106,7 @@ async fn test_collect_events_finished_pod(mut tracer: TraceStore) {
         // This pod gets filtered
         TraceEvent {
             ts: 1,
-            applied_objs: vec![pod1],
+            applied_objs: vec![pod1.clone()],
             deleted_objs: vec![],
         },
         // These three pods don't
@@ -124,32 +129,22 @@ async fn test_collect_events_finished_pod(mut tracer: TraceStore) {
 
     tracer.pod_owners.store_new_pod_lifecycle(
         &pod1_ns_name,
-        &*POD_GVK,
-        &pod1_ns_name,
+        &pod1.resource_id(),
         1234,
         &PodLifecycleData::Finished(1, 2),
     );
-    tracer.pod_owners.store_new_pod_lifecycle(
-        &pod2_ns_name,
-        &*POD_GVK,
-        &pod2_ns_name,
-        1234,
-        &PodLifecycleData::Running(1),
-    );
+    tracer
+        .pod_owners
+        .store_new_pod_lifecycle(&pod2_ns_name, &pod2.resource_id(), 1234, &PodLifecycleData::Running(1));
     tracer.pod_owners.store_new_pod_lifecycle(
         &pod3_ns_name,
-        &*POD_GVK,
-        &pod3_ns_name,
+        &pod3.resource_id(),
         1234,
         &PodLifecycleData::Finished(5, 6),
     );
-    tracer.pod_owners.store_new_pod_lifecycle(
-        &pod4_ns_name,
-        &*POD_GVK,
-        &pod4_ns_name,
-        1234,
-        &PodLifecycleData::Running(7),
-    );
+    tracer
+        .pod_owners
+        .store_new_pod_lifecycle(&pod4_ns_name, &pod4.resource_id(), 1234, &PodLifecycleData::Running(7));
 
     let (events, _) = tracer.collect_events(3, 10, &Default::default(), false, None).await.unwrap();
 
@@ -234,14 +229,13 @@ async fn test_collect_events(mut tracer: TraceStore) {
     // The first object was created before the collection started so the timestamp changes
     all_events[0].ts = 1;
     assert_eq!(events, all_events[0..4]);
-    assert_bag_eq!(
+    assert_eq!(
         index.flattened_keys(),
-        [
-            format!("{}:{TEST_NAMESPACE}/obj1", &*DEPLOYMENT_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj2", &*DEPLOYMENT_GVK),
-            format!("{}:{TEST_NAMESPACE}/obj3", &*DEPLOYMENT_GVK)
-        ]
-        .map(|s| s.to_string())
+        HashSet::from([
+            KubeResourceId::new(DEPLOYMENT_GVK.clone(), format!("{TEST_NAMESPACE}/obj1")),
+            KubeResourceId::new(DEPLOYMENT_GVK.clone(), format!("{TEST_NAMESPACE}/obj2")),
+            KubeResourceId::new(DEPLOYMENT_GVK.clone(), format!("{TEST_NAMESPACE}/obj3")),
+        ])
     );
 }
 
@@ -275,18 +269,17 @@ async fn test_collect_events_with_skel(mut tracer: TraceStore) {
     // confirm the deleted item is not in events or index
     let obj2 = String::from("obj2");
     assert_not_contains!(names, &obj2);
-    assert_not_contains!(keys, &obj2);
+    assert_not_contains!(keys, &KubeResourceId::new(DEPLOYMENT_GVK.clone(), obj2));
 }
 
 #[rstest(tokio::test)]
 async fn test_create_or_update_obj(
     mut tracer: TraceStore,
-    mut test_deployment: DynamicObject,
+    test_deployment: DynamicObject,
     owner_ref: metav1::OwnerReference,
 ) {
     tracer.config.tracked_objects.get_mut(&DEPLOYMENT_GVK).unwrap().skip_owned = true;
 
-    let ns_name = test_deployment.namespaced_name();
     let ts: i64 = 1234;
 
     // test idempotency, if we create the same obj twice nothing should change
@@ -294,11 +287,14 @@ async fn test_create_or_update_obj(
     tracer.create_or_update_obj(&test_deployment, 2445).unwrap();
 
     // add an ownerref and make sure this gets skipped
-    test_deployment.metadata.name = Some("foo".into());
-    test_deployment.owner_references_mut().push(owner_ref);
+    let mut skip_deployment = test_deployment.clone();
+    skip_deployment.metadata.name = Some("foo".into());
+    skip_deployment.owner_references_mut().push(owner_ref);
+
+    tracer.create_or_update_obj(&skip_deployment, 2445).unwrap();
 
     assert_len_eq_x!(&tracer.index, 1);
-    assert_eq!(tracer.index.get(&DEPLOYMENT_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
+    assert_eq!(tracer.index.get(&test_deployment.resource_id()).unwrap(), TEST_DEPL_HASH);
     assert_len_eq_x!(&tracer.events, 1);
     assert_len_eq_x!(&tracer.events[0].applied_objs, 1);
     assert_is_empty!(&tracer.events[0].deleted_objs);
@@ -318,7 +314,7 @@ async fn test_create_or_update_objs(mut tracer: TraceStore) {
     assert_eq!(tracer.index.len(), objs.len());
     for p in objs.iter() {
         let ns_name = p.namespaced_name();
-        assert_eq!(tracer.index.get(&DEPLOYMENT_GVK, &ns_name).unwrap(), TEST_DEPL_HASH);
+        assert_eq!(tracer.index.get(&KubeResourceId::new(DEPLOYMENT_GVK.clone(), ns_name)).unwrap(), TEST_DEPL_HASH);
     }
     assert_eq!(tracer.events.len(), 2);
 
@@ -331,10 +327,9 @@ async fn test_create_or_update_objs(mut tracer: TraceStore) {
 
 #[rstest(tokio::test)]
 async fn test_delete_obj(mut tracer: TraceStore, test_deployment: DynamicObject) {
-    let ns_name = test_deployment.namespaced_name();
     let ts: i64 = 1234;
 
-    tracer.index.insert(DEPLOYMENT_GVK.clone(), ns_name.clone(), TEST_DEPL_HASH);
+    tracer.index.insert(&test_deployment.resource_id(), TEST_DEPL_HASH);
 
     tracer.delete_obj(&test_deployment, ts).unwrap();
 
@@ -378,7 +373,12 @@ fn mock_pod_owners_map(
             format!("{pod_ns_name}-{idx}-UNUSED")
         };
 
-        owners.store_new_pod_lifecycle(&pod_name, &DEPLOYMENT_GVK, owner_ns_name, pod_hash, lifecycle);
+        owners.store_new_pod_lifecycle(
+            &pod_name,
+            &KubeResourceId::new(DEPLOYMENT_GVK.clone(), owner_ns_name.into()),
+            pod_hash,
+            lifecycle,
+        );
     }
 
     owners
@@ -437,7 +437,7 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
     tracer.config.tracked_objects.get_mut(&*DEPLOYMENT_GVK).unwrap().track_lifecycle = track_lifecycle;
     tracer
         .index
-        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+        .insert(&KubeResourceId::new(DEPLOYMENT_GVK.clone(), owner_ns_name), TEST_DEPL_HASH);
     tracer
         .record_pod_lifecycle(&ns_name, &Some(test_pod), &new_lifecycle_data.clone())
         .await
@@ -454,31 +454,26 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
 #[rstest(tokio::test)]
 async fn test_record_pod_lifecycle_with_new_pod_existing_hash(mut tracer: TraceStore, test_pod: corev1::Pod) {
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
-    let init_lifecycle_data = vec![PodLifecycleData::Running(5)];
-    let mut expected_lifecycle_data = init_lifecycle_data.clone();
-    expected_lifecycle_data.push(new_lifecycle_data.clone());
+    let init_lifecycle_data = PodLifecycleData::Running(5);
+    let expected_lifecycle_data = vec![init_lifecycle_data.clone(), new_lifecycle_data.clone()];
 
     let pod_ns_name = test_pod.namespaced_name();
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
 
-    tracer
-        .index
-        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+    let owner_id = KubeResourceId::new(DEPLOYMENT_GVK.clone(), owner_ns_name.clone());
 
-    tracer.pod_owners.store_new_pod_lifecycle(
-        "asdf",
-        &DEPLOYMENT_GVK,
-        &owner_ns_name,
-        EMPTY_POD_SPEC_HASH,
-        &PodLifecycleData::Running(5),
-    );
+    tracer.index.insert(&owner_id, TEST_DEPL_HASH);
+
+    tracer
+        .pod_owners
+        .store_new_pod_lifecycle("first-pod", &owner_id, EMPTY_POD_SPEC_HASH, &init_lifecycle_data);
 
     tracer
         .record_pod_lifecycle(&pod_ns_name, &Some(test_pod), &new_lifecycle_data)
         .await
         .unwrap();
 
-    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data,);
+    assert_eq!(tracer.pod_owners.get_lifecycle_for(&pod_ns_name), expected_lifecycle_data);
 }
 
 #[rstest(tokio::test)]
@@ -492,7 +487,7 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
 
     tracer
         .index
-        .insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), TEST_DEPL_HASH);
+        .insert(&KubeResourceId::new(DEPLOYMENT_GVK.clone(), owner_ns_name.clone()), TEST_DEPL_HASH);
     tracer.pod_owners = mock_pod_owners_map(&pod_ns_name, EMPTY_POD_SPEC_HASH, &owner_ns_name, init_lifecycle_data, 0);
 
     tracer
@@ -514,7 +509,7 @@ async fn test_record_bare_pod_lifecycle(mut tracer: TraceStore, mut test_pod: co
     let pod_ns_name = test_pod.namespaced_name();
 
     // Configure bare pod tracking
-    tracer.index.insert(POD_GVK.clone(), pod_ns_name.clone(), 1);
+    tracer.index.insert(&test_pod.resource_id(), 1);
     tracer.config = TracerConfig {
         tracked_objects: HashMap::from([(
             POD_GVK.clone(),

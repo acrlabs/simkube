@@ -12,11 +12,7 @@ use kube::discovery::ApiResource;
 use kube::runtime::watcher::Event;
 use serde_json::json;
 use sk_api::v1::ExportFilters;
-use sk_core::k8s::{
-    DynamicApiSet,
-    GVK,
-    format_gvk_name,
-};
+use sk_core::k8s::DynamicApiSet;
 use sk_core::macros::*;
 use tokio::sync::{
     Mutex,
@@ -146,14 +142,14 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
     .boxed()
 }
 
-fn objs_in_trace(trace: &Trace) -> HashSet<String> {
+fn objs_in_trace(trace: &Trace) -> HashSet<KubeResourceId> {
     let mut objs = HashSet::new();
     for evt in &trace.events {
         for obj in &evt.applied_objs {
-            objs.insert(format_gvk_name(&GVK::from_dynamic_obj(&obj).unwrap(), &obj.namespaced_name()));
+            objs.insert(obj.resource_id());
         }
         for obj in &evt.deleted_objs {
-            objs.remove(&format_gvk_name(&GVK::from_dynamic_obj(&obj).unwrap(), &obj.namespaced_name()));
+            objs.remove(&obj.resource_id());
         }
     }
     objs
@@ -187,6 +183,8 @@ mod itest {
                     "metadata": {},
                     "items": [
                         {
+                            "kind": "Deployment",
+                            "apiVersion": "apps/v1",
                             "metadata": {
                                 "namespace": TEST_NAMESPACE,
                                 "name": format!("depl{i}"),
@@ -239,11 +237,11 @@ mod itest {
                 let actual_objs = objs_in_trace(&trace);
 
                 println!("{actual_objs:?}");
-                assert_bag_eq!(actual_objs, expected_objs);
+                assert_eq!(actual_objs, expected_objs);
                 for obj in actual_objs {
-                    assert_not_contains!(obj, "depl30"); // kube-system namespace
-                    assert_not_contains!(obj, "depl31"); // label-selector
-                    assert_not_contains!(obj, "repset"); // owned objects
+                    assert_not_contains!(obj.ns_name, "depl30"); // kube-system namespace
+                    assert_not_contains!(obj.ns_name, "depl31"); // label-selector
+                    assert_not_contains!(obj.ns_name, "repset"); // owned objects
                 }
             },
             Err(e) => panic!("failed with error: {}", e),

@@ -42,7 +42,7 @@ fn ctx_with_client(
     trace: Trace,
 ) -> DriverContext {
     let mut owners = HashMap::new();
-    owners.insert((corev1::Pod::gvk(), test_pod.namespaced_name()), pod_owners);
+    owners.insert(test_pod.resource_id(), pod_owners);
     let cache = OwnersCache::new_from_parts(DynamicApiSet::new(client.clone()), owners);
     build_driver_context(cache, trace, client)
 }
@@ -289,14 +289,18 @@ mod itest {
             test_pod.spec.get_or_insert_default().node_selector = Some(BTreeMap::from([("boo".into(), "far".into())]));
         }
         let owner_ns_name = format!("{TEST_NAMESPACE}/{TEST_DEPLOYMENT}");
+        let owner_id = KubeResourceId {
+            gvk: DEPLOYMENT_GVK.clone(),
+            ns_name: owner_ns_name.clone(),
+        };
         let mut trace = Trace::default();
         if running_and_has_node_selector {
             let pod_spec_hash = 18161541283955474812;
             trace.pod_lifecycles.insert(
-                (DEPLOYMENT_GVK.clone(), owner_ns_name.clone()),
+                owner_id.clone(),
                 PodLifecyclesMap::from([(pod_spec_hash, vec![PodLifecycleData::Finished(0, 42)])]),
             );
-            trace.index.insert(DEPLOYMENT_GVK.clone(), owner_ns_name.clone(), 1234);
+            trace.index.insert(&owner_id, 1234);
         }
 
         let owners = vec![root_owner_ref, depl_owner_ref];

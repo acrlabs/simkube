@@ -6,12 +6,10 @@ use sk_api::v1::ExportFilters;
 use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
-    GVK,
     OwnersCache,
     PodExt,
     PodLifecycleData,
     build_pod_self_owner_reference,
-    format_gvk_name,
 };
 use sk_core::prelude::*;
 use sk_core::trace::Trace;
@@ -128,44 +126,42 @@ impl TraceStore {
             let mut filtered_deleted_objs = vec![];
 
             for obj in &evt.applied_objs {
-                let gvk = GVK::from_dynamic_obj(obj)?;
-                let ns_name = obj.namespaced_name();
+                let resource_id = obj.resource_id();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&resource_id, obj, &index).await?
                 {
-                    debug!("applied obj {} filtered out", format_gvk_name(&gvk, &ns_name));
+                    debug!("applied obj {resource_id} filtered out");
                     continue;
                 }
 
                 if evt.ts < start_ts && !self.obj_is_finished_pod(obj, start_ts)? {
-                    flattened_objects.insert(ns_name.clone(), obj.clone());
+                    flattened_objects.insert(resource_id.ns_name.clone(), obj.clone());
                 } else {
                     filtered_applied_objs.push(obj.clone());
                 }
                 let hash = jsonutils::hash_option(obj.data.get("spec"));
-                index.insert(gvk, ns_name, hash);
+                index.insert(&resource_id, hash);
             }
 
             for obj in &evt.deleted_objs {
-                let gvk = GVK::from_dynamic_obj(obj)?;
-                let ns_name = obj.namespaced_name();
+                let resource_id = obj.resource_id();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&gvk, &ns_name, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&resource_id, obj, &index).await?
                 {
-                    debug!("deleted obj {} filtered out", format_gvk_name(&gvk, &ns_name));
+                    debug!("deleted obj {resource_id} filtered out");
                     continue;
                 }
 
                 if evt.ts < start_ts {
-                    flattened_objects.remove(&ns_name);
+                    flattened_objects.remove(&resource_id.ns_name);
                 } else {
                     filtered_deleted_objs.push(obj.clone());
                 }
 
                 if !keep_deleted {
-                    index.remove(gvk, &ns_name);
+                    index.remove(&resource_id);
                 }
             }
 
@@ -189,32 +185,28 @@ impl TraceStore {
     }
 
     pub(super) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
-        let gvk = GVK::from_dynamic_obj(obj)?;
-        let ns_name = obj.namespaced_name();
-        if self.config.skip_owned_for(&gvk) && !obj.owner_references().is_empty() {
+        let resource_id = obj.resource_id();
+        if self.config.skip_owned_for(&resource_id.gvk) && !obj.owner_references().is_empty() {
             return Ok(());
         }
 
         let new_hash = jsonutils::hash_option(obj.data.get("spec"));
-        let old_hash = self.index.get(&gvk, &ns_name);
+        let old_hash = self.index.get(&resource_id);
 
         if Some(new_hash) != old_hash {
             append_event(&mut self.events, ts, obj, TraceAction::ObjectApplied);
         }
-        self.index.insert(gvk, ns_name, new_hash);
+        self.index.insert(&resource_id, new_hash);
         Ok(())
     }
 
     pub(super) fn delete_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
-        let gvk = GVK::from_dynamic_obj(obj)?;
-
         // We don't check for skip_owned here, in principle if the object made it past the
         // insertion check, it won't have magically received an ownerref in the interim.  And even
         // if it somehow magically did, I think maybe we still want to delete it?
-
-        let ns_name = obj.namespaced_name();
+        let resource_id = obj.resource_id();
         append_event(&mut self.events, ts, obj, TraceAction::ObjectDeleted);
-        self.index.remove(gvk, &ns_name);
+        self.index.remove(&resource_id);
         Ok(())
     }
 
@@ -248,19 +240,18 @@ impl TraceStore {
                 self.owners_cache
                     .lock()
                     .await
-                    .lookup_by_name_or_obj(&corev1::Pod::gvk(), ns_name, maybe_pod.as_ref())
+                    .lookup_by_name_or_obj(&pod.resource_id(), maybe_pod.as_ref())
                     .await
             };
 
             for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
-                let owner_ns_name = format!("{}/{}", pod.namespace().unwrap(), owner.name);
-                let owner_gvk = GVK::from_owner_ref(&owner)?;
-                if !self.index.contains(&owner_gvk, &owner_ns_name) {
+                let owner_id = KubeResourceId::from_owner_ref(&owner, pod.namespace().unwrap())?;
+                if !self.index.contains(&owner_id) {
                     continue;
                 }
 
-                if !self.config.track_lifecycle_for(&owner_gvk) {
+                if !self.config.track_lifecycle_for(&owner_id.gvk) {
                     continue;
                 }
 
@@ -277,11 +268,11 @@ impl TraceStore {
                 debug!("computing pod stable spec: {:?}", stable_spec);
                 let hash = jsonutils::hash(&serde_json::to_value(stable_spec)?);
                 self.pod_owners
-                    .store_new_pod_lifecycle(ns_name, &owner_gvk, &owner_ns_name, hash, lifecycle_data);
+                    .store_new_pod_lifecycle(ns_name, &owner_id, hash, lifecycle_data);
                 break;
             }
         } else {
-            warn!("no pod ownership data found for {}, cannot store lifecycle events", ns_name);
+            warn!("no pod ownership data found for {ns_name}, cannot store lifecycle events");
         }
 
         Ok(())
@@ -289,9 +280,8 @@ impl TraceStore {
 
     async fn is_owned_by_tracked_object(
         &self,
-        gvk: &GVK,
-        ns_name: &str,
-        obj: &(impl Resource + Sync),
+        resource_id: &KubeResourceId,
+        obj: &(impl Resource + SkResourceExt + Sync),
         // We specifically DO NOT use self.index here, because the index at time t_n
         // probably has ~little relation to whatever the index looked like at the
         // time we're performing the export.
@@ -304,7 +294,7 @@ impl TraceStore {
             .owners_cache
             .lock()
             .await
-            .lookup_by_name_or_obj(gvk, ns_name, Some(obj))
+            .lookup_by_name_or_obj(resource_id, Some(obj))
             .await;
 
         for owner in owners {
@@ -312,9 +302,8 @@ impl TraceStore {
             // principle, it's possible to get the cluster-scoped owners, since the owner
             // cache knows what they are, but passing that information back up to us is
             // sortof annoying and I don't want to bother right now.
-            let owner_ns_name = format!("{}/{}", obj.namespace().unwrap(), owner.name);
-            let owner_gvk = GVK::from_owner_ref(&owner)?;
-            if index.contains(&owner_gvk, &owner_ns_name) {
+            let owner_id = KubeResourceId::from_owner_ref(&owner, obj.namespace().unwrap())?;
+            if index.contains(&owner_id) {
                 return Ok(true);
             }
         }
@@ -356,18 +345,22 @@ fn object_matches_filter(obj: &DynamicObject, f: &ExportFilters) -> bool {
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
 mod test {
+    use std::collections::HashSet;
+
     use super::*;
 
     impl TraceStore {
         // This is really stupid to have async, it's a consequence of collect_events now
         // querying ownership information.... probably should fix this at some point
-        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters, maybe_skel_file: Option<&str>) -> Vec<String> {
+        pub async fn objs_at(
+            &self,
+            end_ts: i64,
+            filter: &ExportFilters,
+            maybe_skel_file: Option<&str>,
+        ) -> HashSet<KubeResourceId> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
-            let (_, index) = self
-                .collect_events(0, end_ts, filter, false, maybe_skel_file)
-                .await
-                .expect("testing code");
+            let (_, index) = self.collect_events(0, end_ts, filter, false, maybe_skel_file).await.unwrap();
             index.flattened_keys()
         }
     }

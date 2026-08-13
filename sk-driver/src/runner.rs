@@ -18,7 +18,6 @@ use serde_json::json;
 use sk_core::errors::*;
 use sk_core::k8s::{
     DynamicApiSet,
-    GVK,
     add_common_metadata,
     build_global_object_meta,
     build_simulation_root,
