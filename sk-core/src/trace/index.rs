@@ -1,4 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::mem::take;
 
 use serde::{
@@ -8,7 +11,7 @@ use serde::{
 
 use crate::k8s::{
     GVK,
-    format_gvk_name,
+    KubeResourceId,
 };
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
@@ -22,23 +25,32 @@ impl TraceIndex {
         TraceIndex::default()
     }
 
-    pub fn contains(&self, gvk: &GVK, ns_name: &str) -> bool {
-        self.index.get(gvk).is_some_and(|gvk_hash| gvk_hash.contains_key(ns_name))
+    pub fn contains(&self, resource_id: &KubeResourceId) -> bool {
+        self.index
+            .get(&resource_id.gvk)
+            .is_some_and(|gvk_hash| gvk_hash.contains_key(&resource_id.ns_name))
     }
 
-    pub fn flattened_keys(&self) -> Vec<String> {
+    pub fn flattened_keys(&self) -> HashSet<KubeResourceId> {
         self.index
             .iter()
-            .flat_map(|(gvk, gvk_hash)| gvk_hash.keys().map(move |ns_name| format_gvk_name(gvk, ns_name)))
+            .flat_map(|(gvk, gvk_hash)| {
+                gvk_hash
+                    .keys()
+                    .map(move |ns_name| KubeResourceId::new(gvk.clone(), ns_name.clone()))
+            })
             .collect()
     }
 
-    pub fn get(&self, gvk: &GVK, ns_name: &str) -> Option<u64> {
-        self.index.get(gvk)?.get(ns_name).cloned()
+    pub fn get(&self, resource_id: &KubeResourceId) -> Option<u64> {
+        self.index.get(&resource_id.gvk)?.get(&resource_id.ns_name).cloned()
     }
 
-    pub fn insert(&mut self, gvk: GVK, ns_name: String, hash: u64) {
-        self.index.entry(gvk).or_default().insert(ns_name, hash);
+    pub fn insert(&mut self, resource_id: &KubeResourceId, hash: u64) {
+        self.index
+            .entry(resource_id.gvk.clone())
+            .or_default()
+            .insert(resource_id.ns_name.clone(), hash);
     }
 
     pub fn is_empty(&self) -> bool {
@@ -49,9 +61,9 @@ impl TraceIndex {
         self.index.values().map(|gvk_hash| gvk_hash.len()).sum()
     }
 
-    pub fn remove(&mut self, gvk: GVK, ns_name: &str) {
-        self.index.entry(gvk).and_modify(|gvk_hash| {
-            gvk_hash.remove(ns_name);
+    pub fn remove(&mut self, resource_id: &KubeResourceId) {
+        self.index.entry(resource_id.gvk.clone()).and_modify(|gvk_hash| {
+            gvk_hash.remove(&resource_id.ns_name);
         });
     }
 

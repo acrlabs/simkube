@@ -8,7 +8,6 @@ use kube::runtime::watcher::watcher;
 use sk_core::errors::*;
 use sk_core::k8s::{
     DynamicApiSet,
-    GVK,
     build_deletable,
     dyn_obj_spec_mut,
     sanitize_obj,

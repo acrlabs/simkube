@@ -74,7 +74,7 @@ pub const ERROR_RETRY_DELAY_SECONDS: u64 = 30;
 pub const SVC_ACCOUNT_KIND: &str = "ServiceAccount";
 
 // Built-in GVKs
-pub static SVC_ACCOUNT_GVK: LazyLock<GVK> = LazyLock::new(|| GVK::new("", "v1", SVC_ACCOUNT_KIND));
+pub static SVC_ACCOUNT_GVK: LazyLock<GVK> = LazyLock::new(corev1::ServiceAccount::gvk);
 pub static CRONJOB_GVK: LazyLock<GVK> = LazyLock::new(batchv1::CronJob::gvk);
 pub static DAEMONSET_GVK: LazyLock<GVK> = LazyLock::new(appsv1::DaemonSet::gvk);
 pub static DEPLOYMENT_GVK: LazyLock<GVK> = LazyLock::new(appsv1::Deployment::gvk);

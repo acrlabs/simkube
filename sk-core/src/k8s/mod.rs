@@ -5,6 +5,7 @@ mod lease;
 mod owners;
 mod pod_ext;
 mod pod_lifecycle;
+mod resource;
 mod sim;
 mod util;
 
@@ -12,9 +13,9 @@ pub use apiset::*;
 pub use gvk::*;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
-use kube::api::TypeMeta;
 pub use lease::*;
 pub use owners::OwnersCache;
+pub use resource::*;
 use serde::{
     Deserialize,
     Serialize,
@@ -47,34 +48,11 @@ pub enum PodLifecycleData {
 }
 partial_ord_eq_ref!(PodLifecycleData);
 
-pub trait KubeResourceExt {
-    fn namespaced_name(&self) -> String;
-    fn matches(&self, sel: &metav1::LabelSelector) -> anyhow::Result<bool>;
-}
-
 pub trait PodExt {
     fn labels_contains_key(&self, key: &str) -> bool;
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec>;
     fn stable_spec(&self) -> anyhow::Result<corev1::PodSpec>;
     fn status(&self) -> anyhow::Result<&corev1::PodStatus>;
-}
-
-pub trait OpenApiResourceExt {
-    fn type_meta() -> TypeMeta;
-    fn gvk() -> GVK;
-}
-
-impl<T: k8s_openapi::Resource> OpenApiResourceExt for T {
-    fn gvk() -> GVK {
-        GVK::new(T::GROUP, T::VERSION, T::KIND)
-    }
-
-    fn type_meta() -> TypeMeta {
-        TypeMeta {
-            api_version: T::API_VERSION.into(),
-            kind: T::KIND.into(),
-        }
-    }
 }
 
 trait StartEndTimeable {

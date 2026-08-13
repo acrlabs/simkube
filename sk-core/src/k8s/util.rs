@@ -16,15 +16,15 @@ use crate::constants::*;
 use crate::errors::*;
 use crate::k8s::{
     GVK,
-    KubeResourceExt,
     KubernetesError,
+    SkResourceExt,
 };
 
 const MAX_LABEL_LENGTH: usize = 63;
 
 pub fn add_common_metadata<K>(sim_name: &str, owner: &K, meta: &mut metav1::ObjectMeta)
 where
-    K: Resource<DynamicType = ()>,
+    K: Resource<DynamicType = ()> + SkResourceExt,
 {
     let labels = &mut meta.labels.get_or_insert_default();
     labels.insert(SIMULATION_LABEL_KEY.into(), truncate_label(sim_name.into()));
@@ -118,10 +118,6 @@ pub fn dyn_obj_type_str(obj: &DynamicObject) -> String {
         .unwrap_or("<unknown type>".into())
 }
 
-pub fn format_gvk_name(gvk: &GVK, ns_name: &str) -> String {
-    format!("{gvk}:{ns_name}")
-}
-
 pub fn sanitize_obj<T: kube::Resource>(obj: &mut T) {
     // N.B. We do not sanitize owner references here, since we need them
     // to compute owner chains in the TraceStore
@@ -156,34 +152,6 @@ pub fn truncate_label(mut value: String) -> String {
     value
 }
 
-impl<T: Resource> KubeResourceExt for T {
-    fn namespaced_name(&self) -> String {
-        match self.namespace() {
-            Some(ns) => format!("{}/{}", ns, self.name_any()),
-            None => self.name_any().clone(),
-        }
-    }
-
-    fn matches(&self, sel: &metav1::LabelSelector) -> anyhow::Result<bool> {
-        if let Some(exprs) = &sel.match_expressions {
-            for expr in exprs {
-                if !label_expr_match(self.labels(), expr)? {
-                    return Ok(false);
-                }
-            }
-        }
-
-        if let Some(labels) = &sel.match_labels {
-            for (k, v) in labels {
-                if self.labels().get(k) != Some(v) {
-                    return Ok(false);
-                }
-            }
-        }
-        Ok(true)
-    }
-}
-
 fn build_object_meta_helper<K>(namespace: Option<String>, name: &str, sim_name: &str, owner: &K) -> metav1::ObjectMeta
 where
     K: Resource<DynamicType = ()>,
@@ -205,7 +173,7 @@ pub(super) const OPERATOR_NOT_IN: &str = "NotIn";
 pub(super) const OPERATOR_EXISTS: &str = "Exists";
 pub(super) const OPERATOR_DOES_NOT_EXIST: &str = "DoesNotExist";
 
-fn label_expr_match(
+pub(super) fn label_expr_match(
     obj_labels: &BTreeMap<String, String>,
     expr: &metav1::LabelSelectorRequirement,
 ) -> anyhow::Result<bool> {

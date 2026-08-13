@@ -22,7 +22,6 @@ use serde_json::{
 };
 use sk_core::jsonutils;
 use sk_core::k8s::{
-    GVK,
     PodExt,
     PodLifecycleData,
     build_pod_self_owner_reference,
@@ -91,7 +90,7 @@ pub async fn handler(
     // enclose in a block so we release the mutex when we're done
     let owners = {
         let mut owners_cache = ctx.owners_cache.lock().await;
-        owners_cache.compute_owners_for(&corev1::Pod::gvk(), pod).await
+        owners_cache.compute_owners_for(pod).await
     };
     if !owners.iter().any(|o| o.name == ctx.root_name) {
         debug!("pod not owned by simulation, no mutation performed");
@@ -285,13 +284,12 @@ fn add_lifecycle_fields(
             .iter()
             .chain(iter::once(&build_pod_self_owner_reference(self_owner_name)))
         {
-            let owner_gvk = GVK::from_owner_ref(owner)?;
-            let owner_ns_name = format!("{}/{}", orig_ns, owner.name);
-            if !ctx.trace.has_obj(&owner_gvk, &owner_ns_name) {
-                debug!("owner {owner_gvk}.{owner_ns_name} for {} not found in trace", pod.namespaced_name());
+            let owner_id = KubeResourceId::from_owner_ref(owner, orig_ns.clone())?;
+            if !ctx.trace.has_obj(&owner_id) {
+                debug!("owner {owner_id} for {} not found in trace", pod.namespaced_name());
                 continue;
             }
-            let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_gvk, &owner_ns_name, hash, seq);
+            let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_id, hash, seq);
             if let Some(patch) = to_completion_time_annotation(sim.speed(), &lifecycle, clock) {
                 info!("applying lifecycle labels and annotations");
                 patches.push(add_operation(

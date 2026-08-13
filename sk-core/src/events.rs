@@ -15,7 +15,7 @@ use mockall::automock;
 use sk_api::v1::Simulation;
 
 use crate::errors::EmptyResult;
-use crate::k8s::KubeResourceExt;
+use crate::k8s::SkResourceExt;
 
 #[cfg_attr(feature = "mock", automock)]
 #[async_trait]

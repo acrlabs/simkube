@@ -16,8 +16,8 @@ use tracing::*;
 use crate::k8s::{
     DynamicApiSet,
     GVK,
-    KubeResourceExt,
-    format_gvk_name,
+    KubeResourceId,
+    SkResourceExt,
 };
 
 
@@ -31,7 +31,7 @@ use crate::k8s::{
 // this we'll have to implement the mock ourselves.
 pub struct OwnersCache {
     apiset: DynamicApiSet,
-    owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
+    owners: HashMap<KubeResourceId, Vec<metav1::OwnerReference>>,
 }
 
 impl OwnersCache {
@@ -41,21 +41,22 @@ impl OwnersCache {
 
     pub fn new_from_parts(
         apiset: DynamicApiSet,
-        owners: HashMap<(GVK, String), Vec<metav1::OwnerReference>>,
+        owners: HashMap<KubeResourceId, Vec<metav1::OwnerReference>>,
     ) -> OwnersCache {
         OwnersCache { apiset, owners }
     }
 
     // Recursively look up all of the owning objects for a given Kubernetes object
     #[async_recursion]
-    pub async fn compute_owners_for(&mut self, gvk: &GVK, obj: &(impl Resource + Sync)) -> Vec<metav1::OwnerReference> {
-        let ns_name = obj.namespaced_name();
-        let gvk_name = format_gvk_name(gvk, &ns_name);
-        debug!("computing owner references for {gvk_name}");
+    pub async fn compute_owners_for(
+        &mut self,
+        obj: &(impl Resource + SkResourceExt + Sync),
+    ) -> Vec<metav1::OwnerReference> {
+        let resource_id = obj.resource_id();
 
-        let key = (gvk.clone(), ns_name.clone());
-        if let Some(owners) = self.owners.get(&key) {
-            debug!("found owners {owners:?} for {gvk_name} in cache");
+        debug!("computing owner references for {resource_id}");
+        if let Some(owners) = self.owners.get(&resource_id) {
+            debug!("found owners {owners:?} for {resource_id} in cache");
             return owners.clone();
         }
 
@@ -88,37 +89,40 @@ impl OwnersCache {
             };
 
             if items.len() != 1 {
-                error!("could not find single owner for {gvk_name}, found {items:?}; skipping ownerref");
+                error!("could not find single owner for {resource_id}, found {items:?}; skipping ownerref");
                 continue;
             }
 
             owners.push(rf.clone());
-            owners.extend(self.compute_owners_for(&owner_gvk, &items[0]).await);
+            owners.extend(self.compute_owners_for(&items[0]).await);
         }
 
-        debug!("computed owners {owners:?} for {gvk_name}");
-        self.owners.insert(key, owners.clone());
+        debug!("computed owners {owners:?} for {resource_id}");
+        self.owners.insert(resource_id, owners.clone());
         owners
     }
 
     pub async fn lookup_by_name_or_obj(
         &mut self,
-        gvk: &GVK,
-        ns_name: &str,
-        maybe_obj: Option<&(impl Resource + Sync)>,
+        resource_id: &KubeResourceId,
+        maybe_obj: Option<&(impl Resource + SkResourceExt + Sync)>,
     ) -> Vec<metav1::OwnerReference> {
-        match (self.owners.get(&(gvk.clone(), ns_name.into())), maybe_obj) {
+        match (self.owners.get(resource_id), maybe_obj) {
             (Some(o), _) => o.clone(),
-            (None, Some(obj)) => self.compute_owners_for(gvk, obj).await,
+            (None, Some(obj)) => self.compute_owners_for(obj).await,
             _ => {
-                error!("could not determine owner chain for {ns_name}");
+                error!("could not determine owner chain for {resource_id}");
                 vec![]
             },
         }
     }
 }
 
-fn build_owner_selector(owner_name: &str, obj: &(impl Resource + Sync), owner_cap: ApiCapabilities) -> ListParams {
+fn build_owner_selector(
+    owner_name: &str,
+    obj: &(impl Resource + SkResourceExt + Sync),
+    owner_cap: ApiCapabilities,
+) -> ListParams {
     let sel = match owner_cap.scope {
         Scope::Cluster => Some(format!("metadata.name={owner_name}")),
         Scope::Namespaced => {

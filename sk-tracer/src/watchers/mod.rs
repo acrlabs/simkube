@@ -1,4 +1,3 @@
-use sk_core::k8s::KubeResourceExt;
 pub mod dyn_obj_watcher;
 pub mod pod_watcher;
 
@@ -14,6 +13,7 @@ use futures::{
 };
 use kube::runtime::watcher::Event;
 use sk_core::errors::*;
+use sk_core::k8s::SkResourceExt;
 use tokio::sync::mpsc;
 use tracing::*;
 
@@ -38,7 +38,7 @@ pub struct ObjWatcher<T: Clone + Send + Sync + kube::ResourceExt> {
     index: HashSet<String>,
 }
 
-impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
+impl<T: Clone + Send + Sync + kube::ResourceExt + SkResourceExt> ObjWatcher<T> {
     fn new(
         handler: Box<dyn EventHandler<T> + Send>,
         stream: ObjStream<T>,
@@ -142,7 +142,7 @@ mod tests;
 
 #[cfg(test)]
 #[cfg_attr(coverage, coverage(off))]
-impl<T: Clone + Send + Sync + kube::ResourceExt> ObjWatcher<T> {
+impl<T: Clone + Send + Sync + kube::Resource + SkResourceExt> ObjWatcher<T> {
     pub(crate) fn new_from_parts(
         handler: Box<dyn EventHandler<T> + Send>,
         stream: ObjStream<T>,

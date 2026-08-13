@@ -6,7 +6,7 @@ use serde::{
 use tracing::*;
 
 use crate::k8s::{
-    KubeResourceExt,
+    SkResourceExt,
     dyn_obj_type_str,
 };
 

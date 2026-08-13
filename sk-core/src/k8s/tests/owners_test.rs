@@ -30,10 +30,10 @@ async fn test_compute_owners_for_cached(
     let expected_owners = vec![rs_owner_ref, depl_owner_ref];
 
     let (_, client) = make_fake_apiserver();
-    let owners = HashMap::from([((corev1::Pod::gvk(), test_pod.namespaced_name()), expected_owners.clone())]);
+    let owners = HashMap::from([(test_pod.resource_id(), expected_owners.clone())]);
     let mut cache = OwnersCache::new_from_parts(DynamicApiSet::new(client), owners);
 
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&test_pod).await;
     assert_iter_eq!(res, expected_owners);
 }
 
@@ -56,6 +56,8 @@ async fn test_compute_owners_for(
             "metadata": {},
             "items": [
                 {
+                    "kind": "ReplicaSet",
+                    "apiVersion": "apps/v1",
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
                         "name": TEST_REPLICASET,
@@ -72,6 +74,8 @@ async fn test_compute_owners_for(
             "metadata": {},
             "items": [
                 {
+                    "kind": "Deployment",
+                    "apiVersion": "apps/v1",
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
                         "name": TEST_DEPLOYMENT,
@@ -85,7 +89,7 @@ async fn test_compute_owners_for(
 
     // overwrite the defaults in test_pod
     test_pod.metadata.owner_references = Some(vec![rs_owner_ref.clone()]);
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&test_pod).await;
 
     assert_iter_eq!(res, vec![rs_owner_ref, depl_owner_ref]);
     fake_apiserver.assert();
@@ -105,7 +109,7 @@ async fn test_compute_owners_for_bad_ref(mut test_pod: corev1::Pod) {
     }]);
 
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_pod).await;
+    let res = cache.compute_owners_for(&test_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
@@ -116,7 +120,7 @@ async fn test_compute_owners_for_api_not_found(test_shell_pod: corev1::Pod) {
     let (mut fake_apiserver, client) = make_fake_apiserver();
     fake_apiserver.handle_not_found("/apis/tortoise/v1".into());
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
+    let res = cache.compute_owners_for(&test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
@@ -147,7 +151,7 @@ async fn test_compute_owners_for_list_fails(test_shell_pod: corev1::Pod) {
     fake_apiserver.handle_not_found("/apis/tortoise/v1/shells".into());
 
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
+    let res = cache.compute_owners_for(&test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
@@ -197,7 +201,7 @@ async fn test_compute_owners_for_too_many(test_shell_pod: corev1::Pod) {
     });
 
     let mut cache = OwnersCache::new(DynamicApiSet::new(client));
-    let res = cache.compute_owners_for(&corev1::Pod::gvk(), &test_shell_pod).await;
+    let res = cache.compute_owners_for(&test_shell_pod).await;
 
     assert_iter_eq!(res, vec![]);
     fake_apiserver.assert();
