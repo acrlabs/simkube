@@ -183,6 +183,8 @@ pub(crate) async fn reschedule_interrupted_pod(
         new_pod.spec.get_or_insert_default().node_name = None;
         new_pod.status = None;
 
+        // We do not use kannot_insert here, because if the annotation already exists we don't want
+        // to overwrite it
         new_pod
             .annotations_mut()
             .entry(ORIG_OWNER_ANNOTATION_KEY.into())

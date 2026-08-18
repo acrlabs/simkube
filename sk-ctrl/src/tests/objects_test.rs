@@ -1,6 +1,7 @@
 use std::env;
 
 use assertables::*;
+use sk_core::macros::*;
 use tracing_test::traced_test;
 
 use super::*;
@@ -60,9 +61,7 @@ fn test_build_local_trace_volume_not_local(mut test_sim: Simulation) {
 
 #[rstest]
 fn test_build_local_trace_volume_skip_volume_mount(mut test_sim: Simulation) {
-    test_sim
-        .annotations_mut()
-        .insert(SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY.into(), "true".into());
+    kannot_insert!(test_sim, SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY => "true");
     let res = build_local_trace_volume(&test_sim).unwrap();
     assert_none!(res);
 }
@@ -70,9 +69,7 @@ fn test_build_local_trace_volume_skip_volume_mount(mut test_sim: Simulation) {
 #[rstest]
 #[traced_test]
 fn test_build_local_trace_volume_skip_volume_mount_not_local(mut test_sim: Simulation) {
-    test_sim
-        .annotations_mut()
-        .insert(SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY.into(), "true".into());
+    kannot_insert!(test_sim, SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY => "true");
     test_sim.spec.driver.trace_path = "s3://foo/bar".into();
     let res = build_local_trace_volume(&test_sim).unwrap();
     assert_none!(res);

@@ -117,7 +117,7 @@ fn test_stream(clock: MockUtcClock) -> ObjStream<DynamicObject> {
                 },
                 (24, id) => {
                     let mut obj = d(31);
-                    obj.labels_mut().insert("foo".into(), "bar".into());
+                    klabel_insert!(obj, "foo" => "bar");
                     let new_ts = c.advance(1);
                     return Some((Ok(Event::Apply(obj)), (new_ts, id)));
                 },

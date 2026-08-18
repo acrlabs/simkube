@@ -19,6 +19,7 @@ use kube::core::{
 use rocket::serde::json::Json;
 use serde_json::json;
 use sk_core::k8s::PodLifecycleData;
+use sk_core::macros::*;
 use sk_core::prelude::*;
 use tracing_test::traced_test;
 
@@ -175,29 +176,33 @@ async fn test_reschedule_interrupted_pod(mut test_pod: corev1::Pod, #[case] last
     test_pod.metadata.owner_references = None;
     let mut expected_pod = test_pod.clone();
 
-    let mut annotations =
-        BTreeMap::from([("simkube.io/foo".into(), "bar".into()), ("some.kubernetes.io/thing".into(), "baz".into())]);
+    let mut annotations = kannot!(
+        "simkube.io/foo" => "bar",
+        "some.kubernetes.io/thing" => "baz",
+    );
     if let Some(i) = last_reschedule_count {
         test_pod.metadata.name = Some(format!("{TEST_POD}-clone-{i}"));
-        annotations.insert(ORIG_OWNER_ANNOTATION_KEY.into(), TEST_POD.into());
+        annotations
+            .as_mut()
+            .map(|a| a.insert(ORIG_OWNER_ANNOTATION_KEY.into(), TEST_POD.into()));
     }
     test_pod.metadata.uid = Some("asdf1234".into());
-    test_pod.metadata.annotations = Some(annotations);
-    test_pod.metadata.labels = Some(BTreeMap::from([
-        ("simkube.io/kwok-whatever".into(), "1234".into()),
-        ("some.kubernetes.io/stuff".into(), "baz".into()),
-    ]));
+    test_pod.metadata.annotations = annotations;
+    test_pod.metadata.labels = klabel!(
+        "simkube.io/kwok-whatever" => "1234",
+        "some.kubernetes.io/stuff" => "baz",
+    );
     test_pod.spec.get_or_insert_default().node_name = Some("1-2-3-4.internal".into());
     test_pod.status.get_or_insert_default().phase = Some("Running".into());
     let ctx = ctx_with_client(test_pod.clone(), client, vec![], Trace::default());
 
     let next_reschedule_index = last_reschedule_count.unwrap_or_default() + 1;
     expected_pod.metadata.name = Some(format!("{TEST_POD}-clone-{next_reschedule_index}"));
-    expected_pod.metadata.annotations = Some(BTreeMap::from([
-        ("some.kubernetes.io/thing".into(), "baz".into()),
-        (ORIG_OWNER_ANNOTATION_KEY.into(), TEST_POD.into()),
-    ]));
-    expected_pod.metadata.labels = Some(BTreeMap::from([("some.kubernetes.io/stuff".into(), "baz".into())]));
+    expected_pod.metadata.annotations = kannot!(
+        "some.kubernetes.io/thing" => "baz",
+        ORIG_OWNER_ANNOTATION_KEY => TEST_POD,
+    );
+    expected_pod.metadata.labels = klabel!("some.kubernetes.io/stuff" => "baz");
     expected_pod.status = None;
 
     fake_apiserver.handle(move |when, then| {
@@ -280,9 +285,7 @@ mod itest {
     ) {
         set_snapshot_suffix!("{running_and_has_node_selector}");
         test_sim.spec.speed = Some(2.0);
-        test_pod
-            .annotations_mut()
-            .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), TEST_NAMESPACE.into());
+        kannot_insert!(test_pod, ORIG_NAMESPACE_ANNOTATION_KEY => TEST_NAMESPACE);
 
         if running_and_has_node_selector {
             test_pod.status.get_or_insert_default().phase = Some("Running".into());

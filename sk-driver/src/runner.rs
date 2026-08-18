@@ -77,8 +77,7 @@ pub fn build_virtual_obj(
                 // For anything that has an empty pod_spec_template_path (afaik the only thing this
                 // would be is bare pods), we need to modify the DynamicObject's metadata field
                 // instead of setting a value on vobj.data, otherwise we get serialization issues.
-                vobj.annotations_mut()
-                    .insert(ORIG_NAMESPACE_ANNOTATION_KEY.into(), original_ns.into());
+                kannot_insert!(vobj, ORIG_NAMESPACE_ANNOTATION_KEY => original_ns);
             } else {
                 patch_ext(
                     &mut vobj.data,
