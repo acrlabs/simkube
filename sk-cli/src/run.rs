@@ -9,6 +9,7 @@ use sk_api::v1::{
     SimulationSpec,
 };
 use sk_core::hooks::merge_hooks;
+use sk_core::macros::*;
 use sk_core::prelude::*;
 
 const DRIVER_IMAGE: &str = "quay.io/appliedcomputing/sk-driver";
@@ -289,8 +290,7 @@ pub async fn cmd(args: &Args, client: kube::Client) -> EmptyResult {
         },
     );
     if args.skip_local_volume_mount {
-        sim.annotations_mut()
-            .insert(SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY.into(), "true".into());
+        kannot_insert!(sim, SKIP_LOCAL_VOLUME_MOUNT_ANNOTATION_KEY => "true");
     }
 
     let sim_api = kube::Api::<Simulation>::all(client.clone());

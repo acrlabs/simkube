@@ -1,6 +1,7 @@
 pub use std::collections::BTreeMap;
 
-// Generate labels for a k8s object, using klabel!("label1" = "value1", "label2" = "value2") syntax
+// Generate labels for a k8s object, using klabel!("label1" => "value1", "label2" => "value2")
+// syntax
 #[macro_export]
 macro_rules! klabel {
     ($($key:expr=>$val:expr),+$(,)?) => {
@@ -12,6 +13,20 @@ macro_rules! klabel {
 macro_rules! klabel_insert {
     ($obj:ident, $($key:tt=>$val:tt),+$(,)?) => {
         $($obj.labels_mut().insert($key.to_string(), $crate::k8s::truncate_label($val.to_string())));+
+    };
+}
+
+#[macro_export]
+macro_rules! kannot {
+    ($($key:expr=>$val:expr),+$(,)?) => {
+        Some(BTreeMap::from([$(($key.to_string(), $crate::k8s::truncate_label($val.to_string()))),+]))
+    };
+}
+
+#[macro_export]
+macro_rules! kannot_insert {
+    ($obj:ident, $($key:tt=>$val:tt),+$(,)?) => {
+        $($obj.annotations_mut().insert($key.to_string(), $crate::k8s::truncate_label($val.to_string())));+
     };
 }
 
@@ -47,6 +62,8 @@ macro_rules! partial_ord_eq_ref {
 
 pub(crate) use partial_ord_eq_ref;
 pub use {
+    kannot,
+    kannot_insert,
     klabel,
     klabel_insert,
 };
