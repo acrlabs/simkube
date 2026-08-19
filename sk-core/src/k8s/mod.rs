@@ -51,7 +51,6 @@ partial_ord_eq_ref!(PodLifecycleData);
 pub trait PodExt {
     fn labels_contains_key(&self, key: &str) -> bool;
     fn spec(&self) -> anyhow::Result<&corev1::PodSpec>;
-    fn stable_spec(&self) -> anyhow::Result<corev1::PodSpec>;
     fn status(&self) -> anyhow::Result<&corev1::PodStatus>;
 }
 

@@ -1,16 +1,18 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use assertables::*;
 use kube::api::DynamicObject;
-use sk_testutils::EMPTY_POD_SPEC_HASH;
 
 use super::*;
 use crate::k8s::{
     PodLifecycleData,
     SkResourceExt,
 };
-use crate::trace::Trace;
 use crate::trace::event::TraceEvent;
+use crate::trace::{
+    PodSimData,
+    Trace,
+};
 
 
 #[fixture]
@@ -20,15 +22,15 @@ fn test_trace() -> Trace {
 
 #[rstest]
 fn test_lookup_pod_lifecycle_no_owner(test_trace: Trace, test_deployment: DynamicObject) {
-    let res = test_trace.lookup_pod_lifecycle(&test_deployment.resource_id(), EMPTY_POD_SPEC_HASH, 0);
+    let res = test_trace.lookup_pod_lifecycle(&test_deployment.resource_id(), 42, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
 #[rstest]
-fn test_lookup_pod_lifecycle_no_hash(mut test_trace: Trace, test_deployment: DynamicObject) {
+fn test_lookup_pod_lifecycle_no_mtime(mut test_trace: Trace, test_deployment: DynamicObject) {
     let depl_id = test_deployment.resource_id();
-    test_trace.index.insert(&depl_id, 1234);
-    let res = test_trace.lookup_pod_lifecycle(&depl_id, EMPTY_POD_SPEC_HASH, 0);
+    test_trace.index.insert(depl_id.clone(), BTreeMap::new());
+    let res = test_trace.lookup_pod_lifecycle(&depl_id, 42, 0);
     assert_eq!(res, PodLifecycleData::Empty);
 }
 
@@ -37,11 +39,11 @@ fn test_lookup_pod_lifecycle(mut test_trace: Trace, test_deployment: DynamicObje
     let pod_lifecycle = PodLifecycleData::Finished(1, 2);
 
     let depl_id = test_deployment.resource_id();
-    test_trace.index.insert(&depl_id, 1234);
-    test_trace.pod_lifecycles =
-        HashMap::from([(depl_id.clone(), HashMap::from([(EMPTY_POD_SPEC_HASH, vec![pod_lifecycle.clone()])]))]);
+    test_trace
+        .index
+        .insert(depl_id.clone(), BTreeMap::from([(42, vec![PodSimData::new(pod_lifecycle.clone())])]));
 
-    let res = test_trace.lookup_pod_lifecycle(&depl_id, EMPTY_POD_SPEC_HASH, 0);
+    let res = test_trace.lookup_pod_lifecycle(&depl_id, 42, 0);
     assert_eq!(res, pod_lifecycle);
 }
 

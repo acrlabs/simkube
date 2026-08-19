@@ -20,10 +20,7 @@ use serde_json::{
     Value,
     json,
 };
-use sk_core::jsonutils;
 use sk_core::k8s::{
-    PodExt,
-    PodLifecycleData,
     build_pod_self_owner_reference,
     pod_is_running,
     sanitize_obj,
@@ -37,7 +34,7 @@ use crate::util::compute_step_size;
 static RESCHEDULE_COUNTER_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(.*)-clone-(\d+)$").unwrap());
 
 pub struct MutationData {
-    pod_counts: Mutex<HashMap<u64, usize>>,
+    pod_counts: Mutex<HashMap<i64, usize>>,
     clock: Box<dyn Clockable + Send + Sync>,
 }
 
@@ -49,9 +46,9 @@ impl MutationData {
         }
     }
 
-    pub fn count(&self, hash: u64) -> usize {
+    pub fn count(&self, owner_mtime: i64) -> usize {
         let mut pod_counts = self.pod_counts.lock().unwrap();
-        *pod_counts.entry(hash).and_modify(|e| *e += 1).or_default()
+        *pod_counts.entry(owner_mtime).and_modify(|e| *e += 1).or_default()
     }
 }
 
@@ -96,7 +93,6 @@ pub async fn handler(
         debug!("pod not owned by simulation, no mutation performed");
         return Json(into_pod_review(resp));
     }
-
     let filtered_owners = owners
         .into_iter()
         .filter(|o| !o.api_version.starts_with(SIMKUBE_IO_PREFIX))
@@ -111,7 +107,12 @@ pub async fn handler(
                 error!("could not reschedule pod; allowing old pod to be deleted: {err}");
             });
     } else if pod.metadata.deletion_timestamp.is_none() {
-        resp = mutate_pod(ctx, sim, &req.operation, &filtered_owners, pod, resp, mut_data)
+        let Some((owner_mtime, seq)) = lookup_pod_owner_sequence(pod, mut_data) else {
+            error!("pod owned by simulation, but no owner mtime or sequence data; blocking pod object");
+            return Json(into_pod_review(AdmissionResponse::from(&req).deny("no owner mtime")));
+        };
+
+        resp = mutate_pod(ctx, sim, &req.operation, &filtered_owners, owner_mtime, seq, pod, resp, mut_data)
             .await
             .unwrap_or_else(|err| {
                 // It's important to block the pod here if the mutation fails, otherwise all kinds
@@ -134,26 +135,29 @@ pub(crate) async fn mutate_pod(
     // this function should not change any read-only fields on UPDATE.
     op: &AdmissionOperation,
     owners: &[metav1::OwnerReference],
+    owner_mtime: i64,
+    seq: usize,
     pod: &corev1::Pod,
     resp: AdmissionResponse,
     mut_data: &MutationData,
 ) -> anyhow::Result<AdmissionResponse> {
-    let (hash, seq) = lookup_pod_hash_sequence(pod, mut_data)?;
-
     let mut patches = vec![];
     add_empty_labels_annotations(pod, &mut patches);
     if *op == AdmissionOperation::Create {
         info!("first time seeing pod, adding tracking annotations");
         patches
             .push(add_operation(format_ptr!("/metadata/labels/{}", escape(SIMULATION_LABEL_KEY)), json!(ctx.sim_name)));
+        patches.push(add_operation(
+            format_ptr!("/metadata/annotations/{}", escape(POD_SEQUENCE_NUMBER_KEY)),
+            json!(format!("{seq}")),
+        ));
         add_node_selector_tolerations(pod, &mut patches)?;
-        add_pod_hash_annotations(hash, seq, &mut patches);
         add_delay_annotations(sim, &mut patches);
     }
 
     if pod_is_running(pod) && !pod.labels_contains_key(KWOK_STAGE_COMPLETE_KEY) {
-        info!("adding lifecycle annotations for pod (hash={hash}, seq={seq})");
-        add_lifecycle_fields(ctx, sim, pod, owners, hash, seq, &mut patches, &*mut_data.clock)?;
+        info!("adding lifecycle annotations for pod (owner_mtime={owner_mtime}, seq={seq})");
+        add_lifecycle_fields(ctx, sim, pod, owners, owner_mtime, seq, &mut patches, &*mut_data.clock)?;
     }
 
     // We can't use json_patch_ext stuff here because the AdmissionResponse is a part of Kubernetes
@@ -233,17 +237,6 @@ pub(crate) fn add_node_selector_tolerations(pod: &corev1::Pod, patches: &mut Vec
     Ok(())
 }
 
-fn add_pod_hash_annotations(hash: u64, seq: usize, patches: &mut Vec<PatchOperation>) {
-    patches.push(add_operation(
-        format_ptr!("/metadata/annotations/{}", escape(POD_SPEC_STABLE_HASH_KEY)),
-        json!(format!("{hash}")),
-    ));
-    patches.push(add_operation(
-        format_ptr!("/metadata/annotations/{}", escape(POD_SEQUENCE_NUMBER_KEY)),
-        json!(format!("{seq}")),
-    ));
-}
-
 fn add_delay_annotations(sim: &Simulation, patches: &mut Vec<PatchOperation>) {
     patches.push(add_operation(
         format_ptr!("/metadata/annotations/{}", escape(KWOK_STAGE_CREATE_DELAY_KEY)),
@@ -269,7 +262,7 @@ fn add_lifecycle_fields(
     sim: &Simulation,
     pod: &corev1::Pod,
     filtered_owners: &[metav1::OwnerReference],
-    hash: u64,
+    owner_mtime: i64,
     seq: usize,
     patches: &mut Vec<PatchOperation>,
     clock: &(dyn Clockable + Send),
@@ -291,7 +284,7 @@ fn add_lifecycle_fields(
                 debug!("owner {owner_id} for {} not found in trace", pod.namespaced_name());
                 continue;
             }
-            let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_id, hash, seq);
+            let lifecycle = ctx.trace.lookup_pod_lifecycle(&owner_id, owner_mtime, seq);
             if let Some(patch) = to_completion_time_annotation(sim.speed(), &lifecycle, clock) {
                 info!("applying lifecycle labels and annotations");
                 patches.push(add_operation(
@@ -339,21 +332,17 @@ fn build_rescheduled_pod_name(orig_pod_name: &str) -> String {
         })
 }
 
-fn lookup_pod_hash_sequence(pod: &corev1::Pod, mut_data: &MutationData) -> anyhow::Result<(u64, usize)> {
-    let hash = match pod.annotations().get(POD_SPEC_STABLE_HASH_KEY) {
-        Some(hash_str) => hash_str.parse::<u64>()?,
-        None => {
-            let stable_spec = pod.stable_spec()?;
-            debug!("computing pod stable spec: {:?}", stable_spec);
-            jsonutils::hash(&serde_json::to_value(&stable_spec)?)
-        },
+fn lookup_pod_owner_sequence(pod: &corev1::Pod, mut_data: &MutationData) -> Option<(i64, usize)> {
+    let owner_mtime = match pod.annotations().get(POD_OWNER_MTIME_KEY) {
+        Some(hash_str) => hash_str.parse::<i64>().ok()?,
+        None => return None,
     };
     let seq = match pod.annotations().get(POD_SEQUENCE_NUMBER_KEY) {
-        Some(seq_str) => seq_str.parse::<usize>()?,
-        None => mut_data.count(hash),
+        Some(seq_str) => seq_str.parse::<usize>().ok()?,
+        None => mut_data.count(owner_mtime),
     };
 
-    Ok((hash, seq))
+    Some((owner_mtime, seq))
 }
 
 // Have to duplicate this fn because AdmissionResponse::into_review uses the dynamic API
@@ -369,7 +358,7 @@ fn into_pod_review(resp: AdmissionResponse) -> AdmissionReview<corev1::Pod> {
 #[cfg(test)]
 impl MutationData {
     pub(crate) fn new_from_parts(
-        pod_counts: Mutex<HashMap<u64, usize>>,
+        pod_counts: Mutex<HashMap<i64, usize>>,
         clock: Box<dyn Clockable + Send + Sync>,
     ) -> MutationData {
         MutationData { pod_counts, clock }

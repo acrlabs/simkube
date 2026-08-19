@@ -24,11 +24,10 @@ The structure of the trace file is a map with the following schema; of data; all
 
 ```text
 {
-    "version": 2,
+    "version": 3,
     "config": {...},
     "events": [...],
     "index": {...},
-    "pod_lifecycles": {...},
 }
 ```
 
@@ -36,7 +35,7 @@ The structure of the trace file is a map with the following schema; of data; all
 
 Modern versions of SimKube (v2+) require a "version" field specified in the trace file.  This tells SimKube how to parse
 the remainder of the file, and SimKube will panic if the field is not present.  The current trace file format version is
-`2`.
+`3`.
 
 ### Config
 
@@ -56,37 +55,42 @@ An entry in the timeseries array looks like this:
 
 ### Index
 
-The "index" (the third entry in the trace) stores the namespaced name of the object along with a hash of the object contents:
+The "index" (the third entry in the trace) stores an index of "owning" objects in the trace, together with metadata
+about the pods that belong to those objects.  The format is:
 
 ```text
 <GVK>: {
-    <object 1's  namespaced name>: <object manifest hash>
-    <object 2's  namespaced name>: <object manifest hash>
+    <object 1's namespaced name>: {
+        mtime1: [pod_sim_datas...]
+        mtime2: [pod_sim_datas...]
+    },
+    <object 2's namespaced name>: {
+        mtime3: [pod_sim_datas...]
+        mtime4: [pod_sim_datas...]
+    },
     ...
 }
 ...
 ```
 
-### Pod lifecycles
-
-The pod lifecycle data has the following format (the key to each entry is a 2-tuple of the pod owner's GVK as well as
-the pod owner's namespaced name):
+The `mtime` values are all the timestamps at which the owning object has been updated in the trace (they correspond
+exactly with the `ts` field in the event entry).  The array of `pod_sim_datas` is a list of pod metadata for pods that
+belong to the owning object within the specified time window (e.g., between `mtime1` and `mtime2`).  The `pod_sim_data`
+struct currently stores pod lifecycle information:
 
 ```text
 {
-    (<pod owner's GVK>, <pod owner's namespaced name): {
-        <pod hash>: [{start_ts: <unix timestamp>, end_ts: <unix timestamp>}, ...]
-        ...
-    },
+    lifecycle: {"Finished": [<pod start timestamp>, <pod end timestamp>]},
 }
 ```
 
 Because pods in the simulation will not have the same names as in the production trace, we can't use the pod name as a
-stable identifier to track lifecycles.  So instead, we index by the pod owner, and the hash of the pod object.  Because
-an owner can have pods with different characteristics (e.g., if a Deployment changes and creates a new ReplicaSet, or if
-there are multiple pod types specified in a VolcanoJob), we must track the lifecycles for these pods separately.  This
-is done by way of the hash of the PodSpec.
+stable identifier to track lifecycles.  So instead, we index by the pod owner, and the last modification time of owning
+resource.  This allows SimKube to track changes in pod behaviour across changes to the owning resource (a simple example
+is a CronJob that changes `sleep 60` to `sleep 120`).
 
-Note that the pod lifecycles field uses a few capabilities that are supported by msgpack, but not by JSON: namely, some
-msgpack libraries (notably, `python-msgpack`) will not parse the 2-tuple map key, and JSON does not support integer map
-keys for the pod hash.  These incompatibilities make round-tripping between msgpack and JSON difficult.
+> [!NOTE]
+> Previous versions of SimKube used a "stable" hash of the pod spec to tie running pods back to their owning resources;
+> however, this only works in extremely specialized circumstances, and has since been changed.  Note also that previous
+> versions of SimKube were purportedly able to disambiguate "different types" of pods that belong to the same owning
+> resource; this also never worked well, but we may make another attempt to support this in the future.

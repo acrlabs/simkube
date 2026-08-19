@@ -1,9 +1,7 @@
 pub mod config;
 pub mod event;
 pub mod index;
-pub mod pod_owners_map;
-
-use std::collections::HashMap;
+pub mod pod_sim_data;
 
 use anyhow::bail;
 use clockabilly::prelude::*;
@@ -21,32 +19,32 @@ use crate::external_storage::{
     SkObjectStore,
 };
 use crate::k8s::{
-    GVK,
     KubeResourceId,
     PodLifecycleData,
+    SkResourceExt,
 };
 use crate::time::duration_to_ts_from;
 use crate::trace::config::TracerConfig;
 use crate::trace::event::TraceEvent;
 use crate::trace::index::TraceIndex;
-use crate::trace::pod_owners_map::PodLifecyclesMap;
+pub use crate::trace::pod_sim_data::PodSimData;
 
 #[derive(Debug, Error)]
 pub enum TraceError {
     #[error(
-        "could not parse trace file\n\nIf this trace file is older than version 2, \
-        it is only parseable by SimKube <= 1.1.1.  Please see the release notes for details."
+        "could not parse trace file\n\nIf this trace file is older than version 3, \
+        it is only parseable by SimKube <= 2.7.0.  Please see the release notes for details."
     )]
     ParseFailed(#[from] rmp_serde::decode::Error),
 }
 
-#[derive(Clone, Deserialize, Serialize)]
+#[derive(Deserialize, Serialize)]
 pub struct Trace {
     pub version: u16,
     pub config: TracerConfig,
     pub events: Vec<TraceEvent>,
+    #[serde(with = "index")]
     pub index: TraceIndex,
-    pub pod_lifecycles: HashMap<KubeResourceId, PodLifecyclesMap>,
 }
 
 impl Default for Trace {
@@ -55,8 +53,7 @@ impl Default for Trace {
             version: CURRENT_TRACE_FORMAT_VERSION,
             config: TracerConfig::default(),
             events: vec![],
-            index: TraceIndex::default(),
-            pod_lifecycles: HashMap::default(),
+            index: TraceIndex::new(),
         }
     }
 }
@@ -104,19 +101,19 @@ impl Trace {
         Ok(exported_trace)
     }
 
-    pub fn lookup_pod_lifecycle(&self, owner_id: &KubeResourceId, pod_hash: u64, seq: usize) -> PodLifecycleData {
-        let should_check_hash = use_stable_hash_for_lifecycle(&owner_id.gvk);
-        if !should_check_hash {
-            debug!("ignoring stable hash for object because it is a known GVK");
-        }
-        let maybe_lifecycle_data = self
-            .pod_lifecycles
+    pub fn lookup_pod_lifecycle(&self, owner_id: &KubeResourceId, owner_mtime: i64, seq: usize) -> PodLifecycleData {
+        self.index
             .get(owner_id)
-            .and_then(|l| if should_check_hash { l.get(&pod_hash) } else { l.iter().next().map(|(_, v)| v) });
-        match maybe_lifecycle_data {
-            Some(data) => data[seq % data.len()].clone(),
-            _ => PodLifecycleData::Empty,
-        }
+            .and_then(|mtimes| mtimes.get(&owner_mtime))
+            .take_if(|psd| !psd.is_empty())
+            .map_or(PodLifecycleData::Empty, |psd| psd[seq % psd.len()].lifecycle.clone())
+    }
+
+    pub fn most_recent_mtime_for(&self, obj: &DynamicObject, ts: i64) -> Option<i64> {
+        let obj_id = obj.resource_id();
+        self.index
+            .get(&obj_id)
+            .and_then(|mtimes| mtimes.range(..=ts).next_back().map(|(mtime, _)| *mtime))
     }
 
     pub fn append_event(&mut self, event: TraceEvent) {
@@ -136,7 +133,7 @@ impl Trace {
     }
 
     pub fn has_obj(&self, resource_id: &KubeResourceId) -> bool {
-        self.index.contains(resource_id)
+        self.index.contains_key(resource_id)
     }
 
     pub fn get_object(&self, event_idx: usize, obj_idx: usize) -> Option<&DynamicObject> {
@@ -180,16 +177,6 @@ impl Trace {
     }
 }
 
-fn use_stable_hash_for_lifecycle(owner_gvk: &GVK) -> bool {
-    // Any of the standard Kubernetes resources only have one type of pod that they monitor, so we
-    // can safely ignore the stable hash data for these.  Any custom resource types may or may not
-    // have multiple pods per resource; for right now we default to requiring the use of the stable
-    // hash value for these resources, but this is maybe not the ideal solution in the long run.
-    //
-    // See also: SK-270, SK-271
-    !KNOWN_GVKS_METADATA.contains_key(owner_gvk)
-}
-
 #[derive(Clone)]
 pub struct TraceIterator<'a> {
     events: &'a Vec<TraceEvent>,
@@ -222,9 +209,6 @@ impl<'a> Iterator for TraceIterator<'a> {
         ret
     }
 }
-
-#[cfg(test)]
-impl Trace {}
 
 #[cfg(test)]
 pub mod tests;

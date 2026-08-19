@@ -56,8 +56,7 @@ async fn test_compute_owners_for(
             "metadata": {},
             "items": [
                 {
-                    "kind": "ReplicaSet",
-                    "apiVersion": "apps/v1",
+                    // Kubernetes doesn't fill in type info here
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
                         "name": TEST_REPLICASET,
@@ -74,8 +73,7 @@ async fn test_compute_owners_for(
             "metadata": {},
             "items": [
                 {
-                    "kind": "Deployment",
-                    "apiVersion": "apps/v1",
+                    // Kubernetes doesn't fill in type info here
                     "metadata": {
                         "namespace": TEST_NAMESPACE,
                         "name": TEST_DEPLOYMENT,

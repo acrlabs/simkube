@@ -5,7 +5,6 @@ pub mod errors;
 pub mod events;
 pub mod external_storage;
 pub mod hooks;
-pub mod jsonutils;
 pub mod k8s;
 pub mod logging;
 pub mod macros;
@@ -35,6 +34,8 @@ pub mod prelude {
         GVK,
         KubeResourceId,
         OpenApiResourceExt,
+        PodExt,
+        PodLifecycleData,
         SkResourceExt,
     };
     pub use crate::trace::Trace;
@@ -46,9 +47,5 @@ pub mod prelude {
         TraceAction,
         TraceEvent,
         append_event,
-    };
-    pub use crate::trace::pod_owners_map::{
-        PodLifecyclesMap,
-        PodOwnersMap,
     };
 }

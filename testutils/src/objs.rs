@@ -6,14 +6,19 @@ use sk_core::prelude::*;
 use crate::constants::*;
 
 // If the fixture objects below change, these hash values will need to be updated
-pub const TEST_DEPL_HASH: u64 = 3664028200602729212;
-pub const TEST_DS_HASH: u64 = 16161139027557399432;
+pub const TEST_DEPL_HASH: u64 = 15804285992618959938;
+pub const TEST_DEPL_NO_SPEC_HASH: u64 = 13646096770106105413;
 
 #[fixture]
 pub fn test_deployment(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject {
     DynamicObject::new(name, &ApiResource::from_gvk(&DEPLOYMENT_GVK))
         .within(TEST_NAMESPACE)
         .data(json!({"spec": {"replicas": 42}}))
+}
+
+#[fixture]
+pub fn test_deployment_no_spec(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject {
+    DynamicObject::new(name, &ApiResource::from_gvk(&DEPLOYMENT_GVK)).within(TEST_NAMESPACE)
 }
 
 #[fixture]

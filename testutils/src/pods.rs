@@ -66,7 +66,9 @@ pub fn test_dynamic_pod(#[default(TEST_POD.into())] name: String) -> DynamicObje
             name: Some(name),
             ..Default::default()
         },
-        data: json!({}),
+        data: json!({"spec": {
+            "containers": [],
+        }}),
     }
 }
 
