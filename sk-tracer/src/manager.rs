@@ -90,7 +90,7 @@ pub(crate) async fn handle_messages(
                 if let Err(err) = store.record_pod_lifecycle(
                     &request.ns_name,
                     &request.maybe_pod,
-                    &request.lifecycle_data,
+                    request.lifecycle_data.clone(),
                 ).await {
                     error!("could not send pod object update for ({}, {:?}, {:?}): {err}",
                         request.ns_name, request.maybe_pod.map(|p| p.namespaced_name()), request.lifecycle_data);

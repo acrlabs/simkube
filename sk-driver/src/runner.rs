@@ -61,6 +61,7 @@ pub fn build_virtual_obj(
     root: &SimulationRoot,
     original_ns: &str,
     virtual_ns: &str,
+    owner_mtime: i64,
     obj: &DynamicObject,
     maybe_pod_spec_template_paths: Option<&[String]>,
 ) -> anyhow::Result<DynamicObject> {
@@ -72,12 +73,15 @@ pub fn build_virtual_obj(
     patch_ext(&mut vobj.data, remove_operation(format_ptr!("/status")))?;
 
     if let Some(pod_spec_template_paths) = maybe_pod_spec_template_paths {
-        for pod_spec_template_path in pod_spec_template_paths {
+        for pod_spec_template_path in pod_spec_template_paths.iter() {
             if pod_spec_template_path.is_empty() {
                 // For anything that has an empty pod_spec_template_path (afaik the only thing this
                 // would be is bare pods), we need to modify the DynamicObject's metadata field
                 // instead of setting a value on vobj.data, otherwise we get serialization issues.
-                kannot_insert!(vobj, ORIG_NAMESPACE_ANNOTATION_KEY => original_ns);
+                kannot_insert!(vobj,
+                    ORIG_NAMESPACE_ANNOTATION_KEY => original_ns,
+                    POD_OWNER_MTIME_KEY => owner_mtime,
+                );
             } else {
                 patch_ext(
                     &mut vobj.data,
@@ -87,6 +91,13 @@ pub fn build_virtual_obj(
                             escape(ORIG_NAMESPACE_ANNOTATION_KEY)
                         ),
                         json!(original_ns),
+                    ),
+                )?;
+                patch_ext(
+                    &mut vobj.data,
+                    add_operation(
+                        format_ptr!("{pod_spec_template_path}/metadata/annotations/{}", escape(POD_OWNER_MTIME_KEY)),
+                        json!(format!("{owner_mtime}")),
                     ),
                 )?;
             }
@@ -203,8 +214,19 @@ pub(crate) async fn run_trace_internal(
             }
 
             let maybe_pod_spec_template_paths = ctx.trace.config.pod_spec_template_paths(&gvk);
-            let vobj =
-                build_virtual_obj(&ctx.sim_name, &root, &original_ns, &virtual_ns, obj, maybe_pod_spec_template_paths)?;
+            let Some(owner_mtime) = ctx.trace.most_recent_mtime_for(obj, evt.ts) else {
+                error!("no mtime found for {}, not applying resource", obj.resource_id());
+                continue;
+            };
+            let vobj = build_virtual_obj(
+                &ctx.sim_name,
+                &root,
+                &original_ns,
+                &virtual_ns,
+                owner_mtime,
+                obj,
+                maybe_pod_spec_template_paths,
+            )?;
 
             info!("applying {} {}", dyn_obj_type_str(&vobj), vobj.namespaced_name());
             apiset

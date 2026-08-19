@@ -1,21 +1,17 @@
-use std::collections::HashMap;
+use std::collections::{
+    HashMap,
+    HashSet,
+};
 use std::sync::Arc;
 
 use kube::Resource;
 use sk_api::v1::ExportFilters;
-use sk_core::jsonutils;
 use sk_core::k8s::{
     DynamicApiSet,
     OwnersCache,
-    PodExt,
-    PodLifecycleData,
     build_pod_self_owner_reference,
 };
 use sk_core::prelude::*;
-use sk_core::trace::Trace;
-use sk_core::trace::event::append_event;
-use sk_core::trace::index::TraceIndex;
-use sk_core::trace::pod_owners_map::PodOwnersMap;
 use sk_skel::{
     parse_skel_commands,
     process_event,
@@ -23,12 +19,13 @@ use sk_skel::{
 use tokio::sync::Mutex;
 use tracing::*;
 
+use crate::owners_index::OwnersIndex;
+use crate::util::hash_dynamic_object;
+
 pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: Vec<TraceEvent>,
-    pub(crate) pod_owners: PodOwnersMap,
-    pub(crate) index: TraceIndex,
-
+    pub(crate) owners_index: OwnersIndex,
     owners_cache: Arc<Mutex<OwnersCache>>,
 }
 
@@ -44,9 +41,7 @@ impl TraceStore {
         TraceStore {
             config,
             events: vec![],
-            pod_owners: PodOwnersMap::default(),
-            index: TraceIndex::default(),
-
+            owners_index: OwnersIndex::default(),
             owners_cache: Arc::new(Mutex::new(OwnersCache::new(apiset))),
         }
     }
@@ -64,16 +59,15 @@ impl TraceStore {
         // will return an index of objects that we collected, and we set the keep_deleted flag =
         // true so that in the second step, we keep pod data around even if the owning object was
         // deleted before the trace ends.
-        let (events, index) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
+        let (events, objects) = self.collect_events(start_ts, end_ts, filter, true, maybe_skel_file).await?;
 
         // Collect all pod lifecycle data that is a) between the start and end times, and b) is
         // owned by some object contained in the trace
-        let pod_lifecycles = self.pod_owners.filter(start_ts, end_ts, &index);
+        let index = self.owners_index.aggregate_pod_sim_data(start_ts, end_ts, &objects);
         let data = Trace {
             config: self.config.clone(),
             events,
             index,
-            pod_lifecycles,
             ..Default::default()
         }
         .to_bytes()?;
@@ -88,7 +82,7 @@ impl TraceStore {
         filter: &ExportFilters,
         keep_deleted: bool,
         maybe_skel_str: Option<&str>,
-    ) -> anyhow::Result<(Vec<TraceEvent>, TraceIndex)> {
+    ) -> anyhow::Result<(Vec<TraceEvent>, HashSet<KubeResourceId>)> {
         // TODO this is not a huge inefficiency but it is a little annoying to have
         // an empty event at the start_ts if there aren't any events that happened
         // before the start_ts
@@ -97,9 +91,9 @@ impl TraceStore {
         // flattened_objects is a list of everything that happened before start_ts but is
         // still present at start_ts -- i.e., it is our starting configuration.
         let mut flattened_objects = HashMap::new();
-        let mut index = TraceIndex::new();
         let parsed_commands =
             if let Some(skel_str) = maybe_skel_str { parse_skel_commands(skel_str, start_ts)? } else { vec![] };
+        let mut all_objects = HashSet::new();
 
         for evt in self.events.iter() {
             // trace should be end-exclusive, so we use >= here: anything that is at the
@@ -129,7 +123,7 @@ impl TraceStore {
                 let resource_id = obj.resource_id();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&resource_id, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&resource_id, obj, &all_objects).await?
                 {
                     debug!("applied obj {resource_id} filtered out");
                     continue;
@@ -140,15 +134,14 @@ impl TraceStore {
                 } else {
                     filtered_applied_objs.push(obj.clone());
                 }
-                let hash = jsonutils::hash_option(obj.data.get("spec"));
-                index.insert(&resource_id, hash);
+                all_objects.insert(resource_id);
             }
 
             for obj in &evt.deleted_objs {
                 let resource_id = obj.resource_id();
 
                 if object_matches_filter(obj, filter)
-                    || self.is_owned_by_tracked_object(&resource_id, obj, &index).await?
+                    || self.is_owned_by_tracked_object(&resource_id, obj, &all_objects).await?
                 {
                     debug!("deleted obj {resource_id} filtered out");
                     continue;
@@ -161,7 +154,7 @@ impl TraceStore {
                 }
 
                 if !keep_deleted {
-                    index.remove(&resource_id);
+                    all_objects.remove(&resource_id);
                 }
             }
 
@@ -181,7 +174,7 @@ impl TraceStore {
         // events[0] is the empty event we inserted at the beginning, so we're guaranteed not to
         // overwrite anything here.
         events[0].applied_objs = flattened_objects.into_values().collect();
-        Ok((events, index))
+        Ok((events, all_objects))
     }
 
     pub(super) fn create_or_update_obj(&mut self, obj: &DynamicObject, ts: i64) -> EmptyResult {
@@ -190,13 +183,13 @@ impl TraceStore {
             return Ok(());
         }
 
-        let new_hash = jsonutils::hash_option(obj.data.get("spec"));
-        let old_hash = self.index.get(&resource_id);
+        let new_hash = hash_dynamic_object(obj);
+        let old_hash = self.owners_index.get_hash(&resource_id);
 
         if Some(new_hash) != old_hash {
             append_event(&mut self.events, ts, obj, TraceAction::ObjectApplied);
+            self.owners_index.store_object(resource_id, new_hash, ts);
         }
-        self.index.insert(&resource_id, new_hash);
         Ok(())
     }
 
@@ -206,7 +199,7 @@ impl TraceStore {
         // if it somehow magically did, I think maybe we still want to delete it?
         let resource_id = obj.resource_id();
         append_event(&mut self.events, ts, obj, TraceAction::ObjectDeleted);
-        self.index.remove(&resource_id);
+        self.owners_index.remove_object(&resource_id);
         Ok(())
     }
 
@@ -217,15 +210,15 @@ impl TraceStore {
         &mut self,
         ns_name: &str,
         maybe_pod: &Option<corev1::Pod>,
-        lifecycle_data: &PodLifecycleData,
+        lifecycle_data: PodLifecycleData,
     ) -> EmptyResult {
         // If we've already stored data about this pod, we just update the existing entry
         // This assumes that the pod spec is immutable/can't change.  This is _largely_ true in
         // current Kubernetes, but it may not be true in the future with in-place resource updates
         // and so forth.  (We're specifically not including labels and annotations in the hash
         // because those _can_ change).
-        if self.pod_owners.has_pod(ns_name) {
-            self.pod_owners.update_pod_lifecycle(ns_name, lifecycle_data)?;
+        if self.owners_index.has_pod(ns_name) {
+            self.owners_index.update_pod_lifecycle(ns_name, lifecycle_data)?;
         } else if let Some(pod) = maybe_pod {
             // TODO (SK-254) we may still want to do this if the pod is owned but we are choosing
             // to not track the owner for whatever reason
@@ -247,7 +240,7 @@ impl TraceStore {
             for owner in owners {
                 // Pods are guaranteed to have namespaces, so the unwrap is fine
                 let owner_id = KubeResourceId::from_owner_ref(&owner, pod.namespace().unwrap())?;
-                if !self.index.contains(&owner_id) {
+                if !self.owners_index.contains(&owner_id) {
                     continue;
                 }
 
@@ -255,20 +248,7 @@ impl TraceStore {
                     continue;
                 }
 
-                // We compute a hash of the podspec, because some types of owning objects may have
-                // multiple different types of running pods, and we want to track the lifecycle
-                // data for these separately.  (For example, a volcanojob takes in a list of pod
-                // templates that each have their own replica counts)
-                //
-                // TODO - it's possible that hashing _everything_ may be too much.  Are there types
-                // of data that are unique to each pod that won't materially impact the behaviour?
-                // This does occur for example with coredns's volume mounts.  We may need to filter
-                // more things out from this and/or allow users to specify what is filtered out.
-                let stable_spec = pod.stable_spec()?;
-                debug!("computing pod stable spec: {:?}", stable_spec);
-                let hash = jsonutils::hash(&serde_json::to_value(stable_spec)?);
-                self.pod_owners
-                    .store_new_pod_lifecycle(ns_name, &owner_id, hash, lifecycle_data);
+                self.owners_index.store_new_pod_lifecycle(ns_name, &owner_id, lifecycle_data)?;
                 break;
             }
         } else {
@@ -285,7 +265,7 @@ impl TraceStore {
         // We specifically DO NOT use self.index here, because the index at time t_n
         // probably has ~little relation to whatever the index looked like at the
         // time we're performing the export.
-        index: &TraceIndex,
+        owning_objects: &HashSet<KubeResourceId>,
     ) -> anyhow::Result<bool> {
         // If any of the owners of this object are exported, we don't want to also
         // export this object; in the simulation replay, it would result in duplicate
@@ -303,7 +283,7 @@ impl TraceStore {
             // cache knows what they are, but passing that information back up to us is
             // sortof annoying and I don't want to bother right now.
             let owner_id = KubeResourceId::from_owner_ref(&owner, obj.namespace().unwrap())?;
-            if index.contains(&owner_id) {
+            if owning_objects.contains(&owner_id) {
                 return Ok(true);
             }
         }
@@ -313,7 +293,7 @@ impl TraceStore {
     fn obj_is_finished_pod(&self, obj: &DynamicObject, start_ts: i64) -> anyhow::Result<bool> {
         Ok(
             if GVK::from_dynamic_obj(obj)? == *POD_GVK
-                && let lifecycles = self.pod_owners.get_lifecycle_for(&obj.namespaced_name())
+                && let lifecycles = self.owners_index.get_pod_lifecycles(&obj.namespaced_name())
                 // if it's a bare pod, there "should" only be one recorded lifecycle
                 && let Some(PodLifecycleData::Finished(_, finish)) = lifecycles.first()
                 && *finish < start_ts
@@ -352,16 +332,11 @@ mod test {
     impl TraceStore {
         // This is really stupid to have async, it's a consequence of collect_events now
         // querying ownership information.... probably should fix this at some point
-        pub async fn objs_at(
-            &self,
-            end_ts: i64,
-            filter: &ExportFilters,
-            maybe_skel_file: Option<&str>,
-        ) -> HashSet<KubeResourceId> {
+        pub async fn objs_at(&self, end_ts: i64, filter: &ExportFilters) -> HashSet<KubeResourceId> {
             // To compute the list of tracked_objects at a particular timestamp, we _don't_ want to
             // keep the deleted objects around, so we set that parameter to `false`.
-            let (_, index) = self.collect_events(0, end_ts, filter, false, maybe_skel_file).await.unwrap();
-            index.flattened_keys()
+            let (_, objs) = self.collect_events(0, end_ts, filter, false, None).await.unwrap();
+            objs
         }
     }
 }

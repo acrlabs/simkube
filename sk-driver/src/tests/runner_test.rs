@@ -25,13 +25,14 @@ const TEST_NS_NAME: &str = "default";
 #[rstest]
 fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, test_two_pods_obj: DynamicObject) {
     let pod_spec_template_paths = Some(vec!["/spec/template1".into(), "/spec/template2".into()]);
-
     let virtual_ns = format!("virtual-{TEST_NAMESPACE}");
+
     let vobj = build_virtual_obj(
         TEST_SIM_NAME,
         &test_sim_root,
         TEST_NAMESPACE,
         &virtual_ns,
+        1234,
         &test_two_pods_obj,
         pod_spec_template_paths.as_deref(),
     )
@@ -46,6 +47,7 @@ fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, t
                     "metadata": {
                         "annotations": {
                             ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
+                            POD_OWNER_MTIME_KEY: "1234",
                         },
                     },
                     "spec": {
@@ -64,6 +66,7 @@ fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, t
                     "metadata": {
                         "annotations": {
                             ORIG_NAMESPACE_ANNOTATION_KEY: TEST_NAMESPACE,
+                            POD_OWNER_MTIME_KEY: "1234",
                         },
                     },
                     "spec": {
@@ -92,13 +95,14 @@ fn test_build_virtual_object_multiple_pod_specs(test_sim_root: SimulationRoot, t
 #[rstest]
 fn test_build_virtual_object_bare_pod(test_sim_root: SimulationRoot, test_dynamic_pod: DynamicObject) {
     let pod_spec_template_paths = Some(vec!["".into()]);
-
     let virtual_ns = format!("virtual-{TEST_NAMESPACE}");
+
     let vobj = build_virtual_obj(
         TEST_SIM_NAME,
         &test_sim_root,
         TEST_NAMESPACE,
         &virtual_ns,
+        1234,
         &test_dynamic_pod,
         pod_spec_template_paths.as_deref(),
     )
@@ -112,6 +116,7 @@ fn test_build_virtual_object_bare_pod(test_sim_root: SimulationRoot, test_dynami
             "spec": {
                 // Ensure that if there is no nodeSelector/tolerations defined,
                 // they get created anyways
+                "containers": [],
                 "nodeSelector": {"type": "virtual" },
                 "tolerations": [{
                     "key": VIRTUAL_NODE_TOLERATION_KEY,

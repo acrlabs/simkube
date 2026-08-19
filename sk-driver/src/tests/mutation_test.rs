@@ -21,6 +21,7 @@ use serde_json::json;
 use sk_core::k8s::PodLifecycleData;
 use sk_core::macros::*;
 use sk_core::prelude::*;
+use sk_core::trace::PodSimData;
 use tracing_test::traced_test;
 
 use super::helpers::build_driver_context;
@@ -285,7 +286,10 @@ mod itest {
     ) {
         set_snapshot_suffix!("{running_and_has_node_selector}");
         test_sim.spec.speed = Some(2.0);
-        kannot_insert!(test_pod, ORIG_NAMESPACE_ANNOTATION_KEY => TEST_NAMESPACE);
+        kannot_insert!(test_pod,
+            ORIG_NAMESPACE_ANNOTATION_KEY => TEST_NAMESPACE,
+            POD_OWNER_MTIME_KEY => 0,
+        );
 
         if running_and_has_node_selector {
             test_pod.status.get_or_insert_default().phase = Some("Running".into());
@@ -298,12 +302,9 @@ mod itest {
         };
         let mut trace = Trace::default();
         if running_and_has_node_selector {
-            let pod_spec_hash = 18161541283955474812;
-            trace.pod_lifecycles.insert(
-                owner_id.clone(),
-                PodLifecyclesMap::from([(pod_spec_hash, vec![PodLifecycleData::Finished(0, 42)])]),
-            );
-            trace.index.insert(&owner_id, 1234);
+            trace
+                .index
+                .insert(owner_id, BTreeMap::from([(0, vec![PodSimData::new(PodLifecycleData::Finished(0, 42))])]));
         }
 
         let owners = vec![root_owner_ref, depl_owner_ref];

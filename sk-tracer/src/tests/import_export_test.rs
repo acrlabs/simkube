@@ -183,8 +183,7 @@ mod itest {
                     "metadata": {},
                     "items": [
                         {
-                            "kind": "Deployment",
-                            "apiVersion": "apps/v1",
+                            // Kubernetes doesn't fill in type info here
                             "metadata": {
                                 "namespace": TEST_NAMESPACE,
                                 "name": format!("depl{i}"),
@@ -233,7 +232,7 @@ mod itest {
                 // Confirm that the results match what we expect
                 let trace = Trace::import(data, duration.as_ref()).unwrap();
                 let import_end_ts = duration.map(|_| start_ts + 10).unwrap_or(end_ts);
-                let expected_objs = store.objs_at(import_end_ts, &filter, None).await;
+                let expected_objs = store.objs_at(import_end_ts, &filter).await;
                 let actual_objs = objs_in_trace(&trace);
 
                 println!("{actual_objs:?}");

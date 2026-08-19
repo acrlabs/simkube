@@ -12,8 +12,8 @@ Object {
             "simkube.io/kwok-stage-ready-delay": String("0ms"),
             "simkube.io/kwok-stage-ready-delay-jitter": String("0ms"),
             "static.simkube.io/original-namespace": String("test-namespace"),
+            "static.simkube.io/pod-owner-mtime": String("0"),
             "static.simkube.io/pod-sequence-number": String("0"),
-            "static.simkube.io/pod-spec-stable-hash": String("17506812802394981455"),
         },
         "labels": Object {
             "foo": String("bar"),

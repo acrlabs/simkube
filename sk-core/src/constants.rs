@@ -11,7 +11,7 @@ use crate::k8s::{
 };
 
 // Trace Format Version
-pub const CURRENT_TRACE_FORMAT_VERSION: u16 = 2;
+pub const CURRENT_TRACE_FORMAT_VERSION: u16 = 3;
 
 // Well-known labels, annotations, and taints
 pub const KUBERNETES_IO_METADATA_NAME_KEY: &str = "kubernetes.io/metadata.name";
@@ -42,7 +42,7 @@ pub const KWOK_STAGE_READY_DELAY_JITTER_KEY: &str = "simkube.io/kwok-stage-ready
 // sanitization because bare pod rescheduling depends on them)
 pub const ORIG_NAMESPACE_ANNOTATION_KEY: &str = "static.simkube.io/original-namespace";
 pub const ORIG_OWNER_ANNOTATION_KEY: &str = "static.simkube.io/original-owner";
-pub const POD_SPEC_STABLE_HASH_KEY: &str = "static.simkube.io/pod-spec-stable-hash";
+pub const POD_OWNER_MTIME_KEY: &str = "static.simkube.io/pod-owner-mtime";
 pub const POD_SEQUENCE_NUMBER_KEY: &str = "static.simkube.io/pod-sequence-number";
 
 // Metrics

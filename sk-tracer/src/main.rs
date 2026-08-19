@@ -2,7 +2,9 @@
 
 mod errors;
 mod manager;
+mod owners_index;
 mod store;
+mod util;
 mod watchers;
 
 use std::ops::Deref;
