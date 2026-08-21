@@ -2,22 +2,18 @@
 name: simkube end-to-end test
 on:  # yamllint disable-line rule:truthy
   workflow_dispatch:
+    inputs:
+      trace_type:
+        required: true
+        default: cronjob
+        type: choice
+        options:
+          - bare-pods
+          - cronjob
+          - dsb-scaling
   push:
     branches:
       - main
-    paths-ignore:
-      - docs/**
-      - examples/**
-      - .cargo/**
-      - .config/**
-      - .github/**
-      - .markdownlint.yaml
-      - .markdownlintignore
-      - .pre-commit-config.yaml
-      - .rustfmt.toml
-      - .yamllint
-      - "*.md"
-      - deny.toml
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,17 +21,27 @@ concurrency:
 
 env:
   IN_CI: "true"
+  TRACE_TYPE: ${{ inputs.trace || 'cronjob' }}
 
 permissions: {}
 
 jobs:
+  gate:
+    runs-on: ubuntu-latest
+    environment: maintainer-approval
+    steps:
+      - name: Approved
+        run: echo "Approved by ${GITHUB_ACTOR}"
+
   launch-runner:
+    needs: gate
     runs-on: ubuntu-latest
     steps:
       - name: Setup SimKube GitHub Action runner
         uses: acrlabs/simkube-ci-action/actions/launch-runner@f597bcc52b7bd9ae050dcfa5f3c273e4c69f3a88
         with:
-          ami-id: ami-07fa6c7cae4b254bd  # TODO: make this dynamic / latest AMI
+          # When you change this, make sure the AMI is on the excluded list in moria so it doesn't get cleaned up
+          ami-id: ami-07f18d6d2097f593a  # TODO: make this dynamic / latest AMI
           instance-type: m6a.large
           aws-region: us-west-2
           subnet-id: subnet-0cd4625c825e73e61
@@ -52,14 +58,19 @@ jobs:
         with:
           submodules: recursive
           persist-credentials: false
+
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
+
       - name: Add .local/bin to PATH
         run: echo "/home/ubuntu/.local/bin" >> $GITHUB_PATH
+
       - name: Set up logging connector
-        run: ./scripts/install_victorialogs_connector
+        run: ./scripts/e2e-install-victorialogs-connector.sh
+
       - name: Build
         run: make build image run
+
       - name: Wait for cluster rollout
         shell: bash
         run: |
@@ -75,61 +86,29 @@ jobs:
 
       - name: Verify simkube images are from local registry
         shell: bash
-        run: |
-          set -euo pipefail
-
-          PODS=(
-            sk-ctrl
-            sk-tracer
-          )
-
-          for POD in "${PODS[@]}"; do
-            echo "Inspecting pod: $POD..."
-            POD_NAME=$(kubectl get pod \
-              --field-selector=status.phase=Running \
-              -l app.kubernetes.io/name="$POD" \
-              -n simkube \
-              -o jsonpath='{.items[0].metadata.name}')
-
-            IMAGE_ID=$(kubectl get pod "$POD_NAME" \
-              -n simkube \
-              -o jsonpath='{.status.containerStatuses[0].imageID}')
-
-            echo "Pod: $POD_NAME"
-            echo "Image ID: $IMAGE_ID"
-
-            if ! echo "$IMAGE_ID" | grep -q "localhost:5000"; then
-              echo "❌ Image NOT from local registry"
-              exit 1
-            fi
-
-            echo "✅ $POD image is from local registry"
-          done
+        run: ./scripts/e2e-local-registry-check.sh
 
       - name: Get driver image
-        id: get_driver_image
+        shell: bash
+        run: ./scripts/e2e-get-driver-image.sh
+
+      - name: Start pod monitor
         shell: bash
         run: |
-          set -euo pipefail
-
-          if [[ ! -f .build/sk-driver-image ]]; then
-            echo "❌ Missing .build/sk-driver-image"
-            exit 1
-          fi
-
-          IMAGE=$(cat .build/sk-driver-image)
-
-          if [[ "$IMAGE" != localhost:5000/* ]]; then
-            echo "❌ Driver image is not from local registry: $IMAGE"
-            exit 1
-          fi
-
-          echo "Driver image: $IMAGE"
-          echo "driver_image=$IMAGE" >> "$GITHUB_OUTPUT"
+          setsid nohup ./scripts/e2e-monitor.sh > /tmp/e2e-monitor.log 2>&1 < /dev/null &
+          echo $! >/tmp/e2e-monitor.pid
 
       - name: Run simulation
         uses: acrlabs/simkube-ci-action/actions/run-simulation@94f82b722827cc670d51b9aaa24d8bfacb802075
         with:
           simulation-name: test-cronjob-sim
-          trace-path: examples/traces/cronjob.sktrace
+          trace-path: examples/traces/${{ env.TRACE_TYPE }}.sktrace
           driver-image: ${{ steps.get_driver_image.outputs.driver_image }}
+
+      - name: Collect sim data
+        if: always()
+        shell: bash
+        run: |
+          monitor_pid=$(cat /tmp/e2e-monitor.pid)
+          kill -TERM -"$monitor_pid" 2>/dev/null || kill "$monitor_pid" 2>/dev/null || true
+          cat /tmp/e2e-monitor.log
