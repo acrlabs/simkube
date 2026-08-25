@@ -11,6 +11,9 @@ on:  # yamllint disable-line rule:truthy
           - bare-pods
           - cronjob
           - dsb-scaling
+      debug:
+        type: boolean
+        default: false
   push:
     branches:
       - main
@@ -38,17 +41,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Setup SimKube GitHub Action runner
-        uses: acrlabs/simkube-ci-action/actions/launch-runner@f597bcc52b7bd9ae050dcfa5f3c273e4c69f3a88
+        uses: acrlabs/simkube-ci-action/actions/launch-runner@19504e9b1d92287d09500505af3274b7be2cf74a
         with:
           # When you change this, make sure the AMI is on the excluded list in moria so it doesn't get cleaned up
           ami-id: ami-07f18d6d2097f593a  # TODO: make this dynamic / latest AMI
-          instance-type: m6a.large
-          aws-region: us-west-2
-          subnet-id: subnet-0cd4625c825e73e61
-          security-group-ids: sg-0fd593b495c5e0ffd
-          simkube-runner-pat: ${{ secrets.SIMKUBE_RUNNER_PAT }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-west-2
+          instance-type: m6a.large
+          instance-profile: simkube-runner
+          keep-alive: ${{ inputs.debug }}
+          security-group-ids: sg-0fd593b495c5e0ffd
+          simkube-runner-pat: ${{ secrets.SIMKUBE_RUNNER_PAT }}
+          subnet-id: subnet-0cd4625c825e73e61
 
   simkube-e2e-test:
     needs: launch-runner
@@ -68,8 +73,18 @@ jobs:
       - name: Set up logging connector
         run: ./scripts/e2e-install-victorialogs-connector.sh
 
-      - name: Build
-        run: make build image run
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        env:
+          AWS_REGION: us-west-2
+
+      - name: Fetch Docker images (or build them)
+        run: make fetch-images || make build image
+        env:
+          UPSTREAM_DOCKER_REGISTRY: 174155008850.dkr.ecr.us-west-2.amazonaws.com
+
+      - name: Run latest SimKube components
+        run: make run
 
       - name: Wait for cluster rollout
         shell: bash
