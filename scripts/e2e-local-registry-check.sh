@@ -7,9 +7,13 @@ PODS=(
 
 for POD in "${PODS[@]}"; do
     echo "Inspecting pod: $POD..."
+    POD_TEMPLATE_HASH=$(kubectl get rs -n simkube -l app.kubernetes.io/name="$POD" \
+        --sort-by=.metadata.creationTimestamp \
+        -o jsonpath='{.items[-1:].metadata.labels.pod-template-hash}')
+
     POD_NAME=$(kubectl get pod \
-        --field-selector=status.phase=Running \
-        -l app.kubernetes.io/name="$POD" \
+        --field-selector=status.phase=Running, \
+        -l app.kubernetes.io/name="$POD",pod-template-hash="$POD_TEMPLATE_HASH" \
         -n simkube \
         -o jsonpath='{.items[0].metadata.name}')
 

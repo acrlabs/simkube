@@ -48,8 +48,16 @@ jobs:
           persist-credentials: false
       - name: Setup Builder
         uses: ./.github/actions/setup-builder
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd  # v2.1.7
+        env:
+          AWS_REGION: us-west-2
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
       - name: Build
-        run: make build
+        run: make build image
+        env:
+          DOCKER_REGISTRY: 174155008850.dkr.ecr.us-west-2.amazonaws.com
       - name: Regenerate CRDs
         run: .build/skctl crd > k8s/raw/simkube.io_simulations.yml
       - name: Check CRDs are clean
