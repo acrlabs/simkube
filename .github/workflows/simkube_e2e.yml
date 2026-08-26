@@ -44,7 +44,7 @@ jobs:
         uses: acrlabs/simkube-ci-action/actions/launch-runner@19504e9b1d92287d09500505af3274b7be2cf74a
         with:
           # When you change this, make sure the AMI is on the excluded list in moria so it doesn't get cleaned up
-          ami-id: ami-07f18d6d2097f593a  # TODO: make this dynamic / latest AMI
+          ami-id: ami-09193e29cfa873937  # TODO: make this dynamic / latest AMI
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: us-west-2
