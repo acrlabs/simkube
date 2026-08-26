@@ -104,6 +104,7 @@ jobs:
         run: ./scripts/e2e-local-registry-check.sh
 
       - name: Get driver image
+        id: get_driver_image  # don't delete this ID, it's used in the run sim step below
         shell: bash
         run: ./scripts/e2e-get-driver-image.sh
 
