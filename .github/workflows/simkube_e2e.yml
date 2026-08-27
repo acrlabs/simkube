@@ -14,9 +14,6 @@ on:  # yamllint disable-line rule:truthy
       debug:
         type: boolean
         default: false
-  push:
-    branches:
-      - main
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -24,20 +21,12 @@ concurrency:
 
 env:
   IN_CI: "true"
-  TRACE_TYPE: ${{ inputs.trace || 'cronjob' }}
+  TRACE_TYPE: ${{ inputs.trace_type || 'cronjob' }}
 
 permissions: {}
 
 jobs:
-  gate:
-    runs-on: ubuntu-latest
-    environment: maintainer-approval
-    steps:
-      - name: Approved
-        run: echo "Approved by ${GITHUB_ACTOR}"
-
   launch-runner:
-    needs: gate
     runs-on: ubuntu-latest
     steps:
       - name: Setup SimKube GitHub Action runner
@@ -83,6 +72,12 @@ jobs:
         env:
           UPSTREAM_DOCKER_REGISTRY: 174155008850.dkr.ecr.us-west-2.amazonaws.com
 
+      - name: Build skctl
+        run: make skctl
+
+      - name: Set path for skctl
+        run: echo "$GITHUB_WORKSPACE/.build" >> $GITHUB_PATH
+
       - name: Run latest SimKube components
         run: make run
 
@@ -108,6 +103,7 @@ jobs:
         shell: bash
         run: ./scripts/e2e-get-driver-image.sh
 
+
       - name: Start pod monitor
         shell: bash
         run: |
@@ -115,7 +111,7 @@ jobs:
           echo $! >/tmp/e2e-monitor.pid
 
       - name: Run simulation
-        uses: acrlabs/simkube-ci-action/actions/run-simulation@94f82b722827cc670d51b9aaa24d8bfacb802075
+        uses: acrlabs/simkube-ci-action/actions/run-simulation@6a858ba69874c3b1f9c963d7f18d5aa98676cb48
         with:
           simulation-name: test-cronjob-sim
           trace-path: examples/traces/${{ env.TRACE_TYPE }}.sktrace
