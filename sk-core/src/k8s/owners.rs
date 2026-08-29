@@ -81,7 +81,14 @@ impl OwnersCache {
             };
             let sel = build_owner_selector(&rf.name, obj, cap);
             let items = match api.list(&sel).await {
-                Ok(objlist) => objlist.items,
+                Ok(mut objlist) => {
+                    // Just like in dyn_obj_watcher, we must assign the owner GVK here because
+                    // k8s doesn't give it to us when we use the dynamicobject api.
+                    objlist.items.iter_mut().for_each(|item| {
+                        item.types = Some(owner_gvk.into_type_meta());
+                    });
+                    objlist.items
+                },
                 Err(err) => {
                     error!("Could not list {owner_gvk}: {err}; skipping ownerref");
                     continue;
