@@ -22,6 +22,7 @@ fn test_trace_config() -> TracerConfig {
             ),
             (SVC_ACCOUNT_GVK.clone(), Default::default()),
         ]),
+        ..Default::default()
     }
 }
 
@@ -38,5 +39,6 @@ fn test_trace_config_two_pods() -> TracerConfig {
             ),
             (SVC_ACCOUNT_GVK.clone(), Default::default()),
         ]),
+        ..Default::default()
     }
 }

@@ -32,7 +32,7 @@ use tracing::*;
 // difference between a deleted object and a partially-filled object, you can check if hash is None
 // and mtimes is non-empty.  So far that hasn't actually come up though :fingers-crossed:
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Debug, Default, PartialEq)]
 pub(crate) struct OwnersIndexEntry {
     hash: Option<u64>,
     mtimes: Vec<i64>,
