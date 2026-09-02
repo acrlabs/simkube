@@ -19,6 +19,17 @@ pub enum ConfigError {
     MissingPath(GVK),
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct MetricsConfig {
+    pub scrape_interval_seconds: i64,
+}
+
+impl Default for MetricsConfig {
+    fn default() -> Self {
+        Self { scrape_interval_seconds: 15 }
+    }
+}
+
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TrackedObjectConfig {
@@ -29,12 +40,18 @@ pub struct TrackedObjectConfig {
 
     #[serde(default, skip_serializing_if = "<&bool>::not")]
     pub skip_owned: bool,
+
+    #[serde(default, skip_serializing_if = "<&bool>::not")]
+    pub track_utilization: bool,
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TracerConfig {
     pub tracked_objects: HashMap<GVK, TrackedObjectConfig>,
+
+    #[serde(default)]
+    pub metrics: MetricsConfig,
 }
 
 impl TracerConfig {
@@ -73,12 +90,16 @@ impl TracerConfig {
         self.tracked_objects.get(gvk)?.pod_spec_template_paths.as_deref()
     }
 
+    pub fn skip_owned_for(&self, gvk: &GVK) -> bool {
+        self.tracked_objects.get(gvk).is_some_and(|obj| obj.skip_owned)
+    }
+
     pub fn track_lifecycle_for(&self, gvk: &GVK) -> bool {
         self.tracked_objects.get(gvk).is_some_and(|obj| obj.track_lifecycle)
     }
 
-    pub fn skip_owned_for(&self, gvk: &GVK) -> bool {
-        self.tracked_objects.get(gvk).is_some_and(|obj| obj.skip_owned)
+    pub fn track_utilization_for(&self, gvk: &GVK) -> bool {
+        self.tracked_objects.get(gvk).is_some_and(|obj| obj.track_utilization)
     }
 }
 
@@ -105,7 +126,7 @@ mod tests {
             },
         );
 
-        TracerConfig { tracked_objects: map }
+        TracerConfig { tracked_objects: map, ..Default::default() }
     }
 
     #[rstest]

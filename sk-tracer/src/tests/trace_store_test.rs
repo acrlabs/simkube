@@ -46,6 +46,7 @@ fn tracer() -> TraceStore {
                 DEPLOYMENT_GVK.clone(),
                 TrackedObjectConfig { track_lifecycle: true, ..Default::default() },
             )]),
+            ..Default::default()
         },
         apiset,
     )
@@ -518,6 +519,7 @@ async fn test_record_bare_pod_lifecycle(mut tracer: TraceStore, mut test_pod: co
             POD_GVK.clone(),
             TrackedObjectConfig { track_lifecycle: true, ..Default::default() },
         )]),
+        ..Default::default()
     };
 
     tracer
