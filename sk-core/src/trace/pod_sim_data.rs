@@ -9,7 +9,9 @@ use crate::k8s::PodLifecycleData;
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, Serialize, PartialEq)]
 pub enum MetricType {
+    #[serde(rename = "cpu")]
     CPU,
+    #[serde(rename = "memory")]
     Memory,
 }
 
