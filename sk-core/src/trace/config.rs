@@ -21,7 +21,7 @@ pub enum ConfigError {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MetricsConfig {
-    pub scrape_interval_seconds: i64,
+    pub scrape_interval_seconds: u64,
 }
 
 impl Default for MetricsConfig {

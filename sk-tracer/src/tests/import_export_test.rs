@@ -23,7 +23,6 @@ use super::*;
 use crate::manager::handle_messages;
 use crate::store::TraceStore;
 use crate::watchers::{
-    ObjStream,
     dyn_obj_watcher,
     pod_watcher,
 };
@@ -200,6 +199,7 @@ mod itest {
         let s = Arc::new(Mutex::new(TraceStore::new(config.clone(), apiset)));
         let (dyn_obj_tx, dyn_obj_rx): (dyn_obj_watcher::Sender, dyn_obj_watcher::Receiver) = mpsc::unbounded_channel();
         let (_, pod_rx): (pod_watcher::Sender, pod_watcher::Receiver) = mpsc::unbounded_channel();
+        let (_, metrics_rx): (metrics::Sender, metrics::Receiver) = mpsc::unbounded_channel();
 
         // First build up the stream of test data and run the watcher (this advances time to the "end")
         let (ready_tx, _): (mpsc::Sender<bool>, mpsc::Receiver<bool>) = mpsc::channel(1);
@@ -214,7 +214,7 @@ mod itest {
         w.start().await;
 
         // Next "handle" all the messages that the watcher sent
-        handle_messages(dyn_obj_rx, pod_rx, s.clone()).await;
+        handle_messages(dyn_obj_rx, pod_rx, metrics_rx, s.clone()).await;
 
         // Next export the data with the chosen filters
         let filter = ExportFilters {

@@ -1,4 +1,4 @@
-ARTIFACTS=sk-ctrl sk-driver sk-tracer
+ARTIFACTS ?= sk-ctrl sk-driver sk-tracer
 DISPATCH_MODE=recurse
 BUILD_TARGETS=main skctl
 DOCKER_IMAGE_TAG_PATHSPECS=:!scripts

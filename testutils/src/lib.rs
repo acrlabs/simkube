@@ -1,5 +1,6 @@
 mod constants;
 mod fake;
+mod nodes;
 mod objs;
 mod pods;
 mod sim;
@@ -8,6 +9,7 @@ mod traces;
 
 pub use constants::*;
 pub use fake::*;
+pub use nodes::*;
 pub use objs::*;
 pub use pods::*;
 pub use rstest::fixture;
