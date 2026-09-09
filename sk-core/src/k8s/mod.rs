@@ -2,6 +2,7 @@ mod apiset;
 mod container_state;
 mod gvk;
 mod lease;
+mod node;
 mod owners;
 mod pod_ext;
 mod pod_lifecycle;
@@ -14,6 +15,7 @@ pub use gvk::*;
 use k8s_openapi::api::core::v1 as corev1;
 use k8s_openapi::apimachinery::pkg::apis::meta::v1 as metav1;
 pub use lease::*;
+pub use node::*;
 pub use owners::OwnersCache;
 pub use resource::*;
 use serde::{

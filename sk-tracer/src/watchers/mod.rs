@@ -3,21 +3,17 @@ pub mod pod_watcher;
 
 use std::collections::HashSet;
 use std::mem::take;
-use std::pin::Pin;
 
 use async_trait::async_trait;
 use clockabilly::prelude::*;
-use futures::{
-    Stream,
-    StreamExt,
-};
+use futures::StreamExt;
 use kube::runtime::watcher::Event;
 use sk_core::errors::*;
 use sk_core::k8s::SkResourceExt;
 use tokio::sync::mpsc;
 use tracing::*;
 
-pub(super) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
+use crate::ObjStream;
 
 #[cfg_attr(test, automock)]
 #[async_trait]
@@ -121,7 +117,6 @@ impl<T: Clone + Send + Sync + kube::ResourceExt + SkResourceExt> ObjWatcher<T> {
                 if !self.is_ready {
                     self.is_ready = true;
 
-                    // unlike golang, sending is non-blocking
                     // if nobody's listening on the other end it's "fine" so we ignore the error
                     if let Err(e) = self.ready_tx.send(true).await {
                         error!("failed to notify ready: {e}");

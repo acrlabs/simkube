@@ -5,6 +5,7 @@ use std::collections::{
 use std::sync::Arc;
 
 use kube::Resource;
+use prometheus_parse::Sample;
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
     DynamicApiSet,
@@ -255,6 +256,10 @@ impl TraceStore {
             warn!("no pod ownership data found for {ns_name}, cannot store lifecycle events");
         }
 
+        Ok(())
+    }
+
+    pub(super) async fn record_pod_metrics(&mut self, _samples: Vec<Sample>) -> EmptyResult {
         Ok(())
     }
 

@@ -42,6 +42,16 @@ trackedObjects:
             "metadata": {"resourceVersion": "1"},
         }));
     });
+    fake_apiserver.handle(|when, then| {
+        when.path("/api/v1/nodes").method(GET).query_param("limit", "500");
+        then.json_body(json!({
+            "kind": "List",
+            "apiVersion": "v1",
+            "items": [],
+            "metadata": {"resourceVersion": "1"},
+        }));
+    });
+
 
     // The fake apiserver is going to throw a bunch of errors because it's not
     // getting any responses back from the watch call, but for the purposes of
@@ -52,7 +62,7 @@ trackedObjects:
     // In the future if you _do_ want to test responses to the watch call, you
     // would filter on the watch=true query_param.
 
-    let mut manager = TraceManager::start(client, config).await.unwrap();
+    let mut manager = TraceManager::start(client, config, "fake-token".into()).await.unwrap();
     manager.wait_ready().await;
     manager.shutdown().await;
     fake_apiserver.assert();

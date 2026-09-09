@@ -193,7 +193,7 @@ async fn test_reschedule_interrupted_pod(mut test_pod: corev1::Pod, #[case] last
         "simkube.io/kwok-whatever" => "1234",
         "some.kubernetes.io/stuff" => "baz",
     );
-    test_pod.spec.get_or_insert_default().node_name = Some("1-2-3-4.internal".into());
+    test_pod.spec.get_or_insert_default().node_name = Some(TEST_NODE.into());
     test_pod.status.get_or_insert_default().phase = Some("Running".into());
     let ctx = ctx_with_client(test_pod.clone(), client, vec![], Trace::default());
 

@@ -36,7 +36,7 @@ mod itest {
                         types: new_types.clone(),
                         data: json!({
                             "spec": {
-                                "nodeName": "ip-1-2-3-4.internal",
+                                "nodeName": TEST_NODE,
                             }
                         }),
                     }

@@ -47,6 +47,8 @@ pub const POD_SEQUENCE_NUMBER_KEY: &str = "static.simkube.io/pod-sequence-number
 
 // Metrics
 pub const PROM2PARQUET_PREFIX_KEY: &str = "prom2parquet_prefix";
+pub const CONTAINER_CPU_USAGE_SECONDS_TOTAL: &str = "container_cpu_usage_seconds_total";
+pub const CONTAINER_MEMORY_WORKING_SET_BYTES: &str = "container_memory_working_set_bytes";
 
 // Certificates
 pub const DRIVER_CERT_NAME: &str = "sk-driver-cert";
@@ -59,6 +61,9 @@ pub const VIRTUAL_NODE_TOLERATION_KEY: &str = "kwok-provider";
 pub const CTRL_NS_ENV_VAR: &str = "CTRL_NAMESPACE";
 pub const DRIVER_NAME_ENV_VAR: &str = "DRIVER_NAME";
 pub const POD_SVC_ACCOUNT_ENV_VAR: &str = "POD_SVC_ACCOUNT";
+
+// Paths
+pub const KUBERNETES_SERVICE_ACCOUNT_TOKEN_PATH: &str = "/var/run/secrets/kubernetes.io/serviceaccount/token";
 
 // Defaults
 pub const DEFAULT_METRICS_NS: &str = "monitoring";

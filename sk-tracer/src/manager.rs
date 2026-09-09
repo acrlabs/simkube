@@ -9,6 +9,7 @@ use tokio::sync::{
 use tokio::task::JoinSet;
 use tracing::*;
 
+use crate::metrics;
 use crate::store::TraceStore;
 use crate::watchers::{
     dyn_obj_watcher,
@@ -22,15 +23,19 @@ pub struct TraceManager {
     js: JoinSet<()>,
 }
 
-#[allow(dead_code)]
 impl TraceManager {
-    pub async fn start(client: kube::Client, config: TracerConfig) -> anyhow::Result<Self> {
+    pub async fn start(
+        client: kube::Client,
+        config: TracerConfig,
+        service_account_token: String,
+    ) -> anyhow::Result<Self> {
         let mut apiset = DynamicApiSet::new(client.clone());
 
         let (ready_tx, ready_rx): (mpsc::Sender<bool>, mpsc::Receiver<bool>) =
             mpsc::channel(config.tracked_objects.len() + 1);
         let (dyn_obj_tx, dyn_obj_rx): (dyn_obj_watcher::Sender, dyn_obj_watcher::Receiver) = mpsc::unbounded_channel();
         let (pod_tx, pod_rx): (pod_watcher::Sender, pod_watcher::Receiver) = mpsc::unbounded_channel();
+        let (metrics_tx, metrics_rx): (metrics::Sender, metrics::Receiver) = mpsc::unbounded_channel();
 
         let mut js = JoinSet::new();
         for gvk in config.tracked_objects.keys() {
@@ -42,8 +47,12 @@ impl TraceManager {
         let pw = pod_watcher::new_with_stream(client.clone(), pod_tx, ready_tx.clone())?;
         js.spawn(pw.start());
 
+        let scraper =
+            metrics::Collector::new(client.clone(), &config, service_account_token, metrics_tx, ready_tx.clone())?;
+        js.spawn(scraper.start());
+
         let store = Arc::new(Mutex::new(TraceStore::new(config.clone(), apiset)));
-        js.spawn(handle_messages(dyn_obj_rx, pod_rx, store.clone()));
+        js.spawn(handle_messages(dyn_obj_rx, pod_rx, metrics_rx, store.clone()));
 
         Ok(TraceManager { config, store, ready_rx, js })
     }
@@ -52,12 +61,14 @@ impl TraceManager {
         self.store.clone()
     }
 
+    #[allow(dead_code)]
     pub async fn shutdown(&mut self) {
         self.js.shutdown().await;
     }
 
     pub async fn wait_ready(&mut self) {
-        for _ in 0..self.config.tracked_objects.len() + 1 {
+        // one ack for each dyn obj watcher, plus one for the pod watcher and one for the metrics scraper
+        for _ in 0..self.config.tracked_objects.len() + 2 {
             let _ = self.ready_rx.recv().await;
         }
     }
@@ -66,6 +77,7 @@ impl TraceManager {
 pub(crate) async fn handle_messages(
     mut dyn_obj_rx: dyn_obj_watcher::Receiver,
     mut pod_rx: pod_watcher::Receiver,
+    mut metrics_rx: metrics::Receiver,
     m_store: Arc<Mutex<TraceStore>>,
 ) -> () {
     loop {
@@ -94,6 +106,14 @@ pub(crate) async fn handle_messages(
                 ).await {
                     error!("could not send pod object update for ({}, {:?}, {:?}): {err}",
                         request.ns_name, request.maybe_pod.map(|p| p.namespaced_name()), request.lifecycle_data);
+                }
+            },
+            Some(samples) = metrics_rx.recv() => {
+                let mut store = m_store.lock().await;
+                if let Err(err) = store.record_pod_metrics(
+                    samples
+                ).await {
+                    error!("could not send metrics data: {err}");
                 }
             },
             else => break,

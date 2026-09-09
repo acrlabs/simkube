@@ -2,17 +2,21 @@
 
 mod errors;
 mod manager;
+mod metrics;
 mod owners_index;
 mod store;
 mod util;
 mod watchers;
 
+use std::fs;
 use std::ops::Deref;
+use std::pin::Pin;
 use std::sync::Arc;
 
 use bytes::Bytes;
 use clap::Parser;
-use kube::Client;
+use futures::Stream;
+use kube::runtime::watcher::Event;
 use object_store::ObjectStoreScheme;
 use rocket::serde::json::Json;
 use sk_api::v1::ExportRequest;
@@ -28,6 +32,8 @@ use tracing::*;
 use crate::errors::ExportResponseError;
 use crate::manager::TraceManager;
 use crate::store::TraceStore;
+
+pub(crate) type ObjStream<T> = Pin<Box<dyn Stream<Item = anyhow::Result<Event<T>>> + Send>>;
 
 #[derive(Parser, Debug)]
 struct Options {
@@ -63,10 +69,12 @@ async fn export(
 #[instrument(ret, err)]
 async fn run(args: Options) -> EmptyResult {
     let config = TracerConfig::load(&args.config_file)?.normalize()?;
-    let client = Client::try_default().await.expect("failed to create kube client");
-    let manager = TraceManager::start(client, config).await?;
-    let store = manager.get_store();
+    let client = kube::Client::try_default().await.expect("failed to create kube client");
+    let service_account_token = fs::read_to_string(KUBERNETES_SERVICE_ACCOUNT_TOKEN_PATH)?;
+    let mut manager = TraceManager::start(client, config, service_account_token).await?;
+    manager.wait_ready().await;
 
+    let store = manager.get_store();
     let rkt_config = rocket::Config { port: args.server_port, ..Default::default() };
     let server = rocket::custom(&rkt_config).mount("/", rocket::routes![export]).manage(store);
 
