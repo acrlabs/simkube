@@ -4138,6 +4138,7 @@ dependencies = [
  "mockall",
  "object_store",
  "prometheus-parse",
+ "rand 0.10.2",
  "reqwest 0.13.2",
  "rocket",
  "rstest",

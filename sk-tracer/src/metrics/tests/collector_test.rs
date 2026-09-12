@@ -19,7 +19,7 @@ fn metrics_collector() -> Collector {
         metrics_tx,
         node_scrapers: HashMap::new(),
         node_stream,
-        scrape_interval: Duration::from_secs(42),
+        scrape_interval_seconds: 42,
 
         service_account_token: "fake-service-account-token".into(),
 

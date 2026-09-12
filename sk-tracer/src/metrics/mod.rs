@@ -2,7 +2,6 @@ mod collector;
 mod scraper;
 
 use std::collections::HashMap;
-use std::time::Duration;
 
 use prometheus_parse::Sample;
 use sk_core::prelude::*;
@@ -22,7 +21,7 @@ pub(crate) struct Collector {
     metrics_tx: Sender,
     node_scrapers: HashMap<String, AbortOnDropHandle<EmptyResult>>,
     node_stream: ObjStream<corev1::Node>,
-    scrape_interval: Duration,
+    scrape_interval_seconds: u64,
 
     service_account_token: String,
 
@@ -35,7 +34,7 @@ pub(crate) struct MetricScraper<'a> {
     http_client: reqwest::Client,
     target_url: String,
     metric_names: &'a [&'a str],
-    scrape_interval: Duration,
+    scrape_interval_seconds: u64,
     token: String,
     metrics_tx: Sender,
 }
