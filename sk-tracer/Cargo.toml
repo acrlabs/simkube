@@ -19,6 +19,7 @@ k8s-openapi = { workspace = true }
 kube = { workspace = true }
 object_store = { workspace = true }
 prometheus-parse = { workspace = true }
+rand = { workspace = true }
 reqwest = { workspace = true }
 rocket = { workspace = true }
 serde_json = { workspace = true }

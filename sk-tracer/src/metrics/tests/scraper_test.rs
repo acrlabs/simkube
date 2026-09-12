@@ -35,14 +35,7 @@ async fn test_scrape() {
     let url = server.url(FAKE_METRICS_ENDPOINT);
 
     let http_client = reqwest::Client::new();
-    let scraper = MetricScraper::new(
-        http_client,
-        url,
-        &["http_requests_total"],
-        Duration::from_secs(2),
-        "fake-token".into(),
-        metrics_tx,
-    );
+    let scraper = MetricScraper::new(http_client, url, &["http_requests_total"], 42, "fake-token".into(), metrics_tx);
     scraper.scrape().await.unwrap();
     let metrics = metrics_rx.recv().await.unwrap();
     assert_eq!(metrics, expected_samples);

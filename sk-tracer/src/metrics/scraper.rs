@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use prometheus_parse::Scrape;
+use rand::random_range;
 use sk_core::prelude::*;
 use tokio::time::sleep;
 use tracing::*;
@@ -12,7 +13,7 @@ impl<'a> MetricScraper<'a> {
         http_client: reqwest::Client,
         target_url: String,
         metric_names: &'a [&'a str],
-        scrape_interval: Duration,
+        scrape_interval_seconds: u64,
         token: String,
         metrics_tx: Sender,
     ) -> Self {
@@ -20,7 +21,7 @@ impl<'a> MetricScraper<'a> {
             http_client,
             target_url,
             metric_names,
-            scrape_interval,
+            scrape_interval_seconds,
             token,
             metrics_tx,
         }
@@ -28,6 +29,11 @@ impl<'a> MetricScraper<'a> {
 
     pub(super) async fn start(&self) -> ! {
         info!("Starting metrics scraper loop for {}", self.target_url);
+
+        let scrape_interval = Duration::from_secs(self.scrape_interval_seconds);
+        let jitter_duration = Duration::from_secs(random_range(..self.scrape_interval_seconds));
+        sleep(jitter_duration).await;
+
         loop {
             match self.scrape().await {
                 Ok(()) => (),
@@ -36,7 +42,7 @@ impl<'a> MetricScraper<'a> {
                     error!("caused by: {:?}", e.source());
                 },
             }
-            sleep(self.scrape_interval).await;
+            sleep(scrape_interval).await;
         }
     }
 

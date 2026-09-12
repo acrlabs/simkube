@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::mem::take;
-use std::time::Duration;
 
 use futures::{
     StreamExt,
@@ -39,7 +38,7 @@ impl Collector {
             metrics_tx,
             node_scrapers: HashMap::new(),
             node_stream,
-            scrape_interval: Duration::from_secs(config.metrics.scrape_interval_seconds),
+            scrape_interval_seconds: config.metrics.scrape_interval_seconds,
 
             service_account_token,
 
@@ -141,7 +140,7 @@ impl Collector {
             self.http_client.clone(),
             target_url,
             UTILIZATION_METRICS,
-            self.scrape_interval,
+            self.scrape_interval_seconds,
             self.service_account_token.clone(),
             self.metrics_tx.clone(),
         );
