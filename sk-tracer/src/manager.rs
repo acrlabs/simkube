@@ -17,7 +17,6 @@ use crate::watchers::{
 };
 
 pub struct TraceManager {
-    config: TracerConfig,
     store: Arc<Mutex<TraceStore>>,
     ready_rx: mpsc::Receiver<bool>,
     js: JoinSet<()>,
@@ -47,14 +46,16 @@ impl TraceManager {
         let pw = pod_watcher::new_with_stream(client.clone(), pod_tx, ready_tx.clone())?;
         js.spawn(pw.start());
 
-        let scraper =
-            metrics::Collector::new(client.clone(), &config, service_account_token, metrics_tx, ready_tx.clone())?;
-        js.spawn(scraper.start());
+        if config.metrics.enabled {
+            let scraper =
+                metrics::Collector::new(client.clone(), &config, service_account_token, metrics_tx, ready_tx.clone())?;
+            js.spawn(scraper.start());
+        }
 
         let store = Arc::new(Mutex::new(TraceStore::new(config.clone(), apiset)));
         js.spawn(handle_messages(dyn_obj_rx, pod_rx, metrics_rx, store.clone()));
 
-        Ok(TraceManager { config, store, ready_rx, js })
+        Ok(TraceManager { store, ready_rx, js })
     }
 
     pub fn get_store(&self) -> Arc<Mutex<TraceStore>> {
@@ -67,8 +68,8 @@ impl TraceManager {
     }
 
     pub async fn wait_ready(&mut self) {
-        // one ack for each dyn obj watcher, plus one for the pod watcher and one for the metrics scraper
-        for _ in 0..self.config.tracked_objects.len() + 2 {
+        // Subtract one for the handle_messages task, which doesn't report ready
+        for _ in 0..self.js.len() - 1 {
             let _ = self.ready_rx.recv().await;
         }
     }

@@ -5,15 +5,20 @@ use sk_core::prelude::*;
 use super::*;
 
 #[rstest(tokio::test)]
-async fn test_manager_start_wait_ready() {
-    let config_yml = "
+#[case::metrics_disabled(false)]
+#[case::metrics_enabled(true)]
+async fn test_manager_start_wait_ready(#[case] metrics_enabled: bool) {
+    let config_yml = format!(
+        "
 ---
 trackedObjects:
   apps/v1.Deployment:
     podSpecTemplatePaths:
       - /foo/bar
+metrics:
+  enabled: {metrics_enabled}
 "
-    .to_string();
+    );
 
     let config: TracerConfig = serde_yaml::from_str(&config_yml).unwrap();
     let (mut fake_apiserver, client) = make_fake_apiserver();
@@ -42,15 +47,17 @@ trackedObjects:
             "metadata": {"resourceVersion": "1"},
         }));
     });
-    fake_apiserver.handle(|when, then| {
-        when.path("/api/v1/nodes").method(GET).query_param("limit", "500");
-        then.json_body(json!({
-            "kind": "List",
-            "apiVersion": "v1",
-            "items": [],
-            "metadata": {"resourceVersion": "1"},
-        }));
-    });
+    if metrics_enabled {
+        fake_apiserver.handle(|when, then| {
+            when.path("/api/v1/nodes").method(GET).query_param("limit", "500");
+            then.json_body(json!({
+                "kind": "List",
+                "apiVersion": "v1",
+                "items": [],
+                "metadata": {"resourceVersion": "1"},
+            }));
+        });
+    }
 
 
     // The fake apiserver is going to throw a bunch of errors because it's not

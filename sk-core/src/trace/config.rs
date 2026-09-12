@@ -21,13 +21,22 @@ pub enum ConfigError {
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct MetricsConfig {
+    pub enabled: bool,
+    #[serde(default = "default_scrape_interval_seconds")]
     pub scrape_interval_seconds: u64,
 }
 
 impl Default for MetricsConfig {
     fn default() -> Self {
-        Self { scrape_interval_seconds: 15 }
+        Self {
+            enabled: false,
+            scrape_interval_seconds: default_scrape_interval_seconds(),
+        }
     }
+}
+
+fn default_scrape_interval_seconds() -> u64 {
+    15
 }
 
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
