@@ -280,8 +280,6 @@ mod itest {
         mut test_sim: Simulation,
         mut test_pod: corev1::Pod,
         mut adm_req: AdmissionRequest<corev1::Pod>,
-        root_owner_ref: metav1::OwnerReference,
-        depl_owner_ref: metav1::OwnerReference,
         #[case] running_and_has_node_selector: bool,
     ) {
         set_snapshot_suffix!("{running_and_has_node_selector}");
@@ -307,10 +305,9 @@ mod itest {
                 .insert(owner_id, BTreeMap::from([(0, vec![PodSimData::new(PodLifecycleData::Finished(0, 42))])]));
         }
 
-        let owners = vec![root_owner_ref, depl_owner_ref];
         adm_req.object = Some(test_pod.clone());
         let rev = adm_rev(adm_req);
-        let ctx = ctx(test_pod.clone(), owners.clone(), trace);
+        let ctx = ctx(test_pod.clone(), test_pod.owner_references().into(), trace);
 
         let resp = handler(
             rocket::State::from(&ctx),
