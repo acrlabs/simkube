@@ -4,8 +4,12 @@ use std::collections::{
 };
 use std::sync::Arc;
 
+use anyhow::bail;
 use kube::Resource;
-use prometheus_parse::Sample;
+use prometheus_parse::{
+    Sample,
+    Value,
+};
 use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
     DynamicApiSet,
@@ -13,6 +17,10 @@ use sk_core::k8s::{
     build_pod_self_owner_reference,
 };
 use sk_core::prelude::*;
+use sk_core::trace::{
+    MetricType,
+    PodMetricsData,
+};
 use sk_skel::{
     parse_skel_commands,
     process_event,
@@ -27,6 +35,9 @@ pub struct TraceStore {
     pub(crate) config: TracerConfig,
     pub(crate) events: Vec<TraceEvent>,
     pub(crate) owners_index: OwnersIndex,
+
+    // This is behind an Arc<Mutex<...>> for interior mutability reasons, even though the parent
+    // TraceStore is _also_ behind an Arc<Mutex<...>>... Sigh.
     owners_cache: Arc<Mutex<OwnersCache>>,
 }
 
@@ -204,13 +215,36 @@ impl TraceStore {
         Ok(())
     }
 
+    pub(super) async fn store_pod_owners(&mut self, maybe_pod: &Option<corev1::Pod>) -> Vec<metav1::OwnerReference> {
+        let Some(pod) = maybe_pod else {
+            return vec![];
+        };
+
+        // TODO (SK-254) we may still want to do this if the pod is owned but we are choosing
+        // to not track the owner for whatever reason
+        if pod.owner_references().is_empty() {
+            // If we have a bare pod, then we make the pod its own owner, which is a
+            // little weird and not, like, technically correct, but will work fine for our
+            // purposes; the bare pods are tracked in the index, so this will pass all the
+            // checks below.
+            vec![build_pod_self_owner_reference(pod.name_any())]
+        } else {
+            // If it's not a bare pod, then we look up the owners in the cache.
+            self.owners_cache
+                .lock()
+                .await
+                .lookup_by_name_or_obj(&pod.resource_id(), Some(pod))
+                .await
+        }
+    }
+
     // We assume that we are given a valid/correct lifecycle event here, so we will just
     // blindly store whatever we are given.  It's up to the caller (the pod watcher in this
     // case) to ensure that the lifecycle data isn't incorrect.
     pub(super) async fn record_pod_lifecycle(
         &mut self,
-        ns_name: &str,
-        maybe_pod: &Option<corev1::Pod>,
+        pod_ns_name: &str,
+        owners: Vec<metav1::OwnerReference>,
         lifecycle_data: PodLifecycleData,
     ) -> EmptyResult {
         // If we've already stored data about this pod, we just update the existing entry
@@ -218,49 +252,90 @@ impl TraceStore {
         // current Kubernetes, but it may not be true in the future with in-place resource updates
         // and so forth.  (We're specifically not including labels and annotations in the hash
         // because those _can_ change).
-        if self.owners_index.has_pod(ns_name) {
-            self.owners_index.update_pod_lifecycle(ns_name, lifecycle_data)?;
-        } else if let Some(pod) = maybe_pod {
-            // TODO (SK-254) we may still want to do this if the pod is owned but we are choosing
-            // to not track the owner for whatever reason
-            let owners = if pod.owner_references().is_empty() {
-                // If we have a bare pod, then we make the pod its own owner, which is a
-                // little weird and not, like, technically correct, but will work fine for our
-                // purposes; the bare pods are tracked in the index, so this will pass all the
-                // checks below.
-                vec![build_pod_self_owner_reference(pod.name_any())]
-            } else {
-                // If it's not a bare pod, then we look up the owners in the cache.
-                self.owners_cache
-                    .lock()
-                    .await
-                    .lookup_by_name_or_obj(&pod.resource_id(), maybe_pod.as_ref())
-                    .await
-            };
+        if self.owners_index.has_pod(pod_ns_name) {
+            self.owners_index.update_pod_lifecycle(pod_ns_name, lifecycle_data)?;
+            return Ok(());
+        }
 
-            for owner in owners {
-                // Pods are guaranteed to have namespaces, so the unwrap is fine
-                let owner_id = KubeResourceId::from_owner_ref(&owner, pod.namespace().unwrap())?;
-                if !self.owners_index.contains(&owner_id) {
-                    continue;
-                }
+        // Pods are guaranteed to have namespaces, so the unwrap is fine
+        let (pod_namespace, _) = pod_ns_name.split_once("/").unwrap();
+        for owner in owners {
+            let owner_id = KubeResourceId::from_owner_ref(&owner, pod_namespace.into())?;
+            // We don't look up if the owners_index has the specific owner_id here, because it may
+            // not have gotten populated by a different async task yet.  If the owner_id doesn't
+            // exist in the index here, the `store_new_pod_lifecycle` call below will create it.
 
-                if !self.config.track_lifecycle_for(&owner_id.gvk) {
-                    continue;
-                }
-
-                self.owners_index.store_new_pod_lifecycle(ns_name, &owner_id, lifecycle_data)?;
-                break;
+            if !self.config.track_lifecycle_for(&owner_id.gvk) {
+                continue;
             }
-        } else {
-            warn!("no pod ownership data found for {ns_name}, cannot store lifecycle events");
+
+            self.owners_index
+                .store_new_pod_lifecycle(pod_ns_name, &owner_id, lifecycle_data)?;
+            break;
         }
 
         Ok(())
     }
 
-    pub(super) async fn record_pod_metrics(&mut self, _samples: Vec<Sample>) -> EmptyResult {
-        Ok(())
+    pub(super) async fn record_pod_utilization_metrics(&mut self, samples: Vec<Sample>) -> EmptyResult {
+        let mut metrics: HashMap<(KubeResourceId, String), PodMetricsData> = HashMap::new();
+        for sample in samples {
+            // If the metric doesn't have a pod name and namespace, we're not interested
+            let Some(pod_name) = sample.labels.get("pod") else {
+                continue;
+            };
+            let Some(pod_namespace) = sample.labels.get("namespace") else {
+                continue;
+            };
+            let container = sample.labels.get("container").unwrap_or_default();
+
+            let pod_ns_name = format!("{pod_namespace}/{pod_name}");
+            let pod_id = KubeResourceId::new(POD_GVK.clone(), pod_ns_name.clone());
+            let owners = {
+                // Drop the lock after this lookup
+                self.owners_cache
+                    .lock()
+                    .await
+                    .lookup_by_name_or_obj(&pod_id, None::<&corev1::Pod>) // typed none makes rustc happy
+                    .await
+            };
+
+            // If no pod owner is present in the owner's cache, we will not record a metric for this
+            // data point.  We do not have access to any ownership data _here_ because that's not
+            // included in the metric labels, and the only way to _get_ that access otherwise would
+            // be through an apiserver query to get the pods.  This could potentially lead to a lot
+            // of apiserver requests at tracer startup, which is doubly stupid because we're _also_
+            // establishing a pod watch as a separate task.
+            //
+            // So the implications here are "we might drop a few datapoints while either the tracer
+            // is starting up, or (possibly) when a pod first appears on a node", but at least in
+            // the short term that seems like a better outcome than hammering the k8s apiserver.
+            for owner in owners {
+                let owner_id = KubeResourceId::from_owner_ref(&owner, pod_namespace.into())?;
+                if !self.config.track_utilization_for(&owner_id.gvk) {
+                    continue;
+                }
+
+                let metric_type = match sample.metric.as_str() {
+                    CONTAINER_CPU_USAGE_SECONDS_TOTAL => MetricType::CPU,
+                    CONTAINER_MEMORY_WORKING_SET_BYTES => MetricType::Memory,
+                    m => bail!("invalid metric type {m}"),
+                };
+                let metric_value = match sample.value {
+                    Value::Counter(v) => v,
+                    Value::Gauge(v) => v,
+                    Value::Untyped(v) => v, // probably unnecessary but why not
+                    _ => bail!("unsupported metric type: {sample:?}"),
+                };
+
+                metrics
+                    .entry((owner_id, pod_ns_name))
+                    .or_default()
+                    .insert(container, metric_type, metric_value);
+                break;
+            }
+        }
+        self.owners_index.store_new_utilization_metrics(metrics)
     }
 
     async fn is_owned_by_tracked_object(

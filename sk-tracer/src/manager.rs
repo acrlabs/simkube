@@ -100,9 +100,15 @@ pub(crate) async fn handle_messages(
             },
             Some(request) = pod_rx.recv() => {
                 let mut store = m_store.lock().await;
+
+                // unconditionally compute the pod owners for this pod (if it exists); this
+                // populated the owners cache in the trace store, and makes them available for other
+                // tasks to use.  I don't love that it's coupled in this way but I haven't found a
+                // better solution yet.
+                let owners = store.store_pod_owners(&request.maybe_pod).await;
                 if let Err(err) = store.record_pod_lifecycle(
                     &request.ns_name,
-                    &request.maybe_pod,
+                    owners,
                     request.lifecycle_data.clone(),
                 ).await {
                     error!("could not send pod object update for ({}, {:?}, {:?}): {err}",
@@ -111,7 +117,7 @@ pub(crate) async fn handle_messages(
             },
             Some(samples) = metrics_rx.recv() => {
                 let mut store = m_store.lock().await;
-                if let Err(err) = store.record_pod_metrics(
+                if let Err(err) = store.record_pod_utilization_metrics(
                     samples
                 ).await {
                     error!("could not send metrics data: {err}");
