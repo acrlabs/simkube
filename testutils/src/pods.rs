@@ -42,13 +42,22 @@ pub fn depl_owner_ref() -> metav1::OwnerReference {
 }
 
 #[fixture]
-pub fn test_pod(#[default(TEST_POD.into())] name: String, depl_owner_ref: metav1::OwnerReference) -> corev1::Pod {
+pub fn pod_owners(
+    root_owner_ref: metav1::OwnerReference,
+    rs_owner_ref: metav1::OwnerReference,
+    depl_owner_ref: metav1::OwnerReference,
+) -> Vec<metav1::OwnerReference> {
+    vec![root_owner_ref, rs_owner_ref, depl_owner_ref]
+}
+
+#[fixture]
+pub fn test_pod(#[default(TEST_POD.into())] name: String, pod_owners: Vec<metav1::OwnerReference>) -> corev1::Pod {
     corev1::Pod {
         metadata: metav1::ObjectMeta {
             labels: klabel!("foo" => "bar"),
             namespace: Some(TEST_NAMESPACE.into()),
             name: Some(name),
-            owner_references: Some(vec![depl_owner_ref]),
+            owner_references: Some(pod_owners),
             ..Default::default()
         },
         spec: Some(corev1::PodSpec { ..Default::default() }),

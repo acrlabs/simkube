@@ -10,6 +10,7 @@ use sk_api::v1::ExportFilters;
 use sk_core::k8s::{
     DynamicApiSet,
     PodLifecycleData,
+    build_pod_self_owner_reference,
 };
 use sk_core::prelude::*;
 
@@ -347,7 +348,9 @@ async fn test_delete_obj(mut tracer: TraceStore, test_deployment: DynamicObject)
 #[rstest(tokio::test)]
 async fn test_record_pod_lifecycle_already_stored_no_data(mut tracer: TraceStore) {
     let ns_name = format!("{TEST_NAMESPACE}/{TEST_POD}");
-    let res = tracer.record_pod_lifecycle(&ns_name, &None, PodLifecycleData::Running(1)).await;
+    let res = tracer
+        .record_pod_lifecycle(&ns_name, vec![], PodLifecycleData::Running(1))
+        .await;
     assert_ok!(res);
     assert!(!tracer.owners_index.has_pod(&ns_name));
 }
@@ -403,7 +406,7 @@ async fn test_record_pod_lifecycle_already_stored_no_pod(mut tracer: TraceStore)
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
     tracer.owners_index = mock_owners_index_map(&pod_ns_name, &owner_ns_name, init_lifecycle_data, pod_seq_idx);
     tracer
-        .record_pod_lifecycle(&pod_ns_name, &None, new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, vec![], new_lifecycle_data)
         .await
         .unwrap();
 
@@ -416,7 +419,7 @@ async fn test_record_pod_lifecycle_with_new_pod_no_tracked_owner(mut tracer: Tra
     let owner_ns_name = format!("{}/{}", TEST_NAMESPACE, TEST_DEPLOYMENT);
     let new_lifecycle_data = PodLifecycleData::Finished(5, 45);
     tracer
-        .record_pod_lifecycle(&ns_name, &Some(test_pod), new_lifecycle_data.clone())
+        .record_pod_lifecycle(&ns_name, vec![], new_lifecycle_data.clone())
         .await
         .unwrap();
 
@@ -440,7 +443,7 @@ async fn test_record_pod_lifecycle_with_new_pod_hash(
         .owners_index
         .store_object(KubeResourceId::new(DEPLOYMENT_GVK.clone(), owner_ns_name), TEST_DEPL_HASH, 42);
     tracer
-        .record_pod_lifecycle(&ns_name, &Some(test_pod), new_lifecycle_data.clone())
+        .record_pod_lifecycle(&ns_name, test_pod.owner_references().into(), new_lifecycle_data.clone())
         .await
         .unwrap();
 
@@ -471,7 +474,7 @@ async fn test_record_pod_lifecycle_with_new_pod_existing_hash(mut tracer: TraceS
         .unwrap();
 
     tracer
-        .record_pod_lifecycle(&pod_ns_name, &Some(test_pod), new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, test_pod.owner_references().into(), new_lifecycle_data)
         .await
         .unwrap();
 
@@ -495,7 +498,7 @@ async fn test_record_pod_lifecycle_with_existing_pod(mut tracer: TraceStore, tes
     tracer.owners_index = mock_owners_index_map(&pod_ns_name, &owner_ns_name, init_lifecycle_data, 0);
 
     tracer
-        .record_pod_lifecycle(&pod_ns_name, &Some(test_pod), new_lifecycle_data)
+        .record_pod_lifecycle(&pod_ns_name, vec![], new_lifecycle_data)
         .await
         .unwrap();
 
@@ -523,7 +526,11 @@ async fn test_record_bare_pod_lifecycle(mut tracer: TraceStore, mut test_pod: co
     };
 
     tracer
-        .record_pod_lifecycle(&pod_ns_name, &Some(test_pod), new_lifecycle_data)
+        .record_pod_lifecycle(
+            &pod_ns_name,
+            vec![build_pod_self_owner_reference(test_pod.name_any())],
+            new_lifecycle_data,
+        )
         .await
         .unwrap();
 

@@ -23,6 +23,18 @@ Object {
         "namespace": String("test-namespace"),
         "ownerReferences": Array [
             Object {
+                "apiVersion": String("simkube.io/v1"),
+                "kind": String(""),
+                "name": String("sk-test-driver-12345-root"),
+                "uid": String(""),
+            },
+            Object {
+                "apiVersion": String("apps/v1"),
+                "kind": String("ReplicaSet"),
+                "name": String("the-replicaset"),
+                "uid": String("asdfasdf"),
+            },
+            Object {
                 "apiVersion": String("apps/v1"),
                 "kind": String("Deployment"),
                 "name": String("the-deployment"),

@@ -5,10 +5,13 @@ use std::collections::{
 
 use anyhow::*;
 use sk_core::prelude::*;
-use sk_core::trace::PodSimData;
 use sk_core::trace::index::{
     TraceIndex,
     TraceIndexEntry,
+};
+use sk_core::trace::{
+    PodMetricsData,
+    PodSimData,
 };
 use tracing::*;
 
@@ -46,10 +49,6 @@ pub(crate) struct OwnersIndex {
 }
 
 impl OwnersIndex {
-    pub fn contains(&self, owner_id: &KubeResourceId) -> bool {
-        self.m.contains_key(owner_id)
-    }
-
     pub fn get_hash(&self, owner_id: &KubeResourceId) -> Option<u64> {
         self.m.get(owner_id)?.hash
     }
@@ -113,15 +112,39 @@ impl OwnersIndex {
         Ok(())
     }
 
+    pub fn store_new_utilization_metrics(
+        &mut self,
+        metrics: HashMap<(KubeResourceId, String), PodMetricsData>,
+    ) -> EmptyResult {
+        for ((owner_id, pod_ns_name), metrics_data) in metrics {
+            let owner_entry = self.m.entry(owner_id.clone()).or_default();
+            let sequence_idx = match self.pod_index.get(&pod_ns_name) {
+                None => {
+                    let idx = owner_entry.pod_sim_data.len() - 1;
+                    self.pod_index.insert(pod_ns_name.clone(), (owner_id.clone(), idx));
+                    idx
+                },
+                Some((_, sequence_idx)) => *sequence_idx,
+            };
+
+            owner_entry
+                .pod_sim_data
+                .get_mut(sequence_idx)
+                .ok_or(anyhow!("no sequence index {sequence_idx} for pod {pod_ns_name}"))?
+                .merge_metrics(metrics_data);
+        }
+
+        Ok(())
+    }
+
     pub fn update_pod_lifecycle(&mut self, pod_ns_name: &str, lifecycle: PodLifecycleData) -> EmptyResult {
         match self.pod_index.get(pod_ns_name) {
             None => bail!("pod {pod_ns_name} not present in index"),
             Some((owner_id, sequence_idx)) => {
-                let owner_entry = self
+                let pod_entry = self
                     .m
                     .get_mut(owner_id)
-                    .ok_or(anyhow!("no owner entry for pod {pod_ns_name}"))?;
-                let pod_entry = owner_entry
+                    .ok_or(anyhow!("no owner entry for pod {pod_ns_name}"))?
                     .pod_sim_data
                     .get_mut(*sequence_idx)
                     .ok_or(anyhow!("no sequence index {sequence_idx} for pod {pod_ns_name}"))?;

@@ -23,8 +23,26 @@ pub struct PodMetricsData {
 }
 
 impl PodMetricsData {
+    pub fn insert(&mut self, container: &str, metric_type: MetricType, value: f64) {
+        self.containers
+            .entry(container.into())
+            .or_default()
+            .entry(metric_type)
+            .or_default()
+            .push(value);
+    }
+
     pub fn is_empty(&self) -> bool {
         self.containers.is_empty()
+    }
+
+    pub fn merge(&mut self, metrics_data: PodMetricsData) {
+        for (container, data) in metrics_data.containers {
+            let container_entry = self.containers.entry(container).or_default();
+            for (metric_type, mut values) in data {
+                container_entry.entry(metric_type).or_default().append(&mut values)
+            }
+        }
     }
 }
 
@@ -46,6 +64,10 @@ impl PodSimData {
             lifecycle: self.lifecycle.bound_start_ts(start_ts),
             metrics: Default::default(),
         }
+    }
+
+    pub fn merge_metrics(&mut self, metrics_data: PodMetricsData) {
+        self.metrics.merge(metrics_data);
     }
 
     pub fn overlaps(&self, start_ts: i64, end_ts: i64) -> bool {
