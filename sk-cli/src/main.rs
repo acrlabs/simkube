@@ -88,6 +88,8 @@ enum SkSubcommand {
 #[tokio::main]
 async fn main() -> EmptyResult {
     let args = SkCommandRoot::parse();
+    rustls::crypto::ring::default_provider().install_default().unwrap();
+
     logging::setup_for_cli(&args.verbosity);
     let metrics_recorder = BlackboxRecorder::default();
     metrics::set_global_recorder(metrics_recorder.clone())?;
