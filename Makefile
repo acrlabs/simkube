@@ -18,8 +18,13 @@ ifndef IN_CI
 DOCKER_ARGS=-it --init
 endif
 
+# https://how.wtf/check-if-a-program-exists-from-a-makefile.html
+tools := poetry node 
+$(tools):
+	@which $@ > /dev/null || { echo "Error '$@' Not installed or found in path"; exit 1; }
+
 .PHONY: main
-main:
+main: poetry node
 	docker run $(DOCKER_ARGS) -u `id -u`:`id -g` -w /build -v `pwd`:/build:rw $(RUST_BUILD_IMAGE) \
 		scripts/build-in-docker "$(BUILD_DIR)" "$(BUILD_MODE)" "$(ARTIFACTS)"
 
