@@ -54,14 +54,9 @@ fn test_obj() -> Value {
     })
 }
 
-#[fixture]
-fn ctx(test_obj: Value) -> MatchContext {
-    MatchContext::new(test_obj)
-}
-
-#[fixture]
-fn ctx_with_x(mut ctx: MatchContext) -> MatchContext {
-    ctx.insert(
+fn ctx_with_x<'a>(obj: &'a mut Value) -> MatchContext<'a> {
+    let mut ctx = MatchContext::new(obj);
+    ctx.entries.insert(
         "$x".into(),
         MatchContextEntry::new_from_parts(
             vec!["/spec/template/spec/containers/0".to_string(), "/spec/template/spec/containers/2".to_string()],
@@ -98,17 +93,17 @@ fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
 }
 
 #[rstest]
-fn test_process_modify_event_obj_multi_val(mut test_obj: Value, mut ctx: MatchContext) {
-    ctx.insert(
+fn test_process_modify_event_obj_multi_val(mut test_obj: Value) {
+    let mut ctx = MatchContext::new(&mut test_obj);
+    ctx.entries.insert(
         "$x".into(),
         MatchContextEntry::new_from_parts(vec!["/spec/foo".into(), "/spec/bar".into()], vec![/* don't care */]),
     );
 
     let res = process_modify_event_obj(
-        &mut test_obj,
+        &mut ctx,
         "/spec/template/spec/containers/0/name",
         &Rhs::Path(PointerBuf::parse("/$x").unwrap()),
-        &ctx,
     );
 
     let x = res.unwrap_err().downcast::<SkelError>().unwrap();
@@ -116,15 +111,11 @@ fn test_process_modify_event_obj_multi_val(mut test_obj: Value, mut ctx: MatchCo
 }
 
 #[rstest]
-fn test_process_modify_event_obj_add(mut test_obj: Value, ctx_with_x: MatchContext) {
+fn test_process_modify_event_obj_add(mut test_obj: Value) {
+    let mut ctx = ctx_with_x(&mut test_obj);
     let metrics_recorder = BlackboxRecorder::default();
     let res = metrics::with_local_recorder(&metrics_recorder, || {
-        process_modify_event_obj(
-            &mut test_obj,
-            "/spec/template/spec/containers/1/name",
-            &Rhs::Value(json!("foo")),
-            &ctx_with_x,
-        )
+        process_modify_event_obj(&mut ctx, "/spec/template/spec/containers/1/name", &Rhs::Value(json!("foo")))
     });
     assert_ok!(res);
     assert_eq!(
@@ -148,10 +139,11 @@ fn test_process_modify_event_obj_add(mut test_obj: Value, ctx_with_x: MatchConte
 }
 
 #[rstest]
-fn test_process_modify_event_obj_replace(mut test_obj: Value, ctx_with_x: MatchContext) {
+fn test_process_modify_event_obj_replace(mut test_obj: Value) {
+    let mut ctx = ctx_with_x(&mut test_obj);
     let metrics_recorder = BlackboxRecorder::default();
     let res = metrics::with_local_recorder(&metrics_recorder, || {
-        process_modify_event_obj(&mut test_obj, "/$x/name", &Rhs::Value(json!("foo")), &ctx_with_x)
+        process_modify_event_obj(&mut ctx, "/$x/name", &Rhs::Value(json!("foo")))
     });
     assert_ok!(res);
     assert_eq!(
@@ -175,10 +167,10 @@ fn test_process_modify_event_obj_replace(mut test_obj: Value, ctx_with_x: MatchC
 }
 
 #[rstest]
-fn test_process_remove_event_obj(mut test_obj: Value, ctx_with_x: MatchContext) {
+fn test_process_remove_event_obj(mut test_obj: Value) {
+    let mut ctx = ctx_with_x(&mut test_obj);
     let metrics_recorder = BlackboxRecorder::default();
-    let res =
-        metrics::with_local_recorder(&metrics_recorder, || process_remove_event_obj(&mut test_obj, "/$x", &ctx_with_x));
+    let res = metrics::with_local_recorder(&metrics_recorder, || process_remove_event_obj(&mut ctx, "/$x"));
     assert_ok!(res);
     assert_eq!(
         test_obj,
@@ -197,14 +189,16 @@ fn test_process_remove_event_obj(mut test_obj: Value, ctx_with_x: MatchContext) 
 }
 
 #[rstest]
-fn test_trace_matches_all(mut ctx: MatchContext) {
+fn test_trace_matches_all(mut test_obj: Value) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_ok_eq_x!(trace_matches(&TraceSelector::All, 1234, &mut ctx), true);
 }
 
 #[rstest]
 #[case(TestOperation::Eq, false)]
 #[case(TestOperation::Ne, true)]
-fn test_trace_matches_list(#[case] op: TestOperation, #[case] expected: bool, mut ctx: MatchContext) {
+fn test_trace_matches_list(#[case] op: TestOperation, #[case] expected: bool, mut test_obj: Value) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_ok_eq_x!(
         trace_matches(
             &TraceSelector::List(vec![
@@ -253,8 +247,9 @@ fn test_resource_conditional_matches(
     #[case] op: TestOperation,
     #[case] condition_value: &str,
     #[case] expected: bool,
-    mut ctx: MatchContext,
+    mut test_obj: Value,
 ) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_eq!(
         resource_conditional_matches(
             "/metadata/labels/foo",
@@ -266,19 +261,16 @@ fn test_resource_conditional_matches(
         .unwrap(),
         expected
     );
-    assert_is_empty!(ctx);
+    assert_is_empty!(ctx.entries);
 }
 
 #[rstest]
 #[case(TestOperation::Exists, true)]
 #[case(TestOperation::NotExists, false)]
-fn test_resource_conditional_matches_existence(
-    #[case] op: TestOperation,
-    #[case] expected: bool,
-    mut ctx: MatchContext,
-) {
+fn test_resource_conditional_matches_existence(#[case] op: TestOperation, #[case] expected: bool, mut test_obj: Value) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_eq!(resource_conditional_matches("/metadata/labels/foo", op, &None, &None, &mut ctx).unwrap(), expected);
-    assert_is_empty!(ctx);
+    assert_is_empty!(ctx.entries);
 }
 
 #[rstest]
@@ -303,8 +295,9 @@ fn test_resource_conditional_matches_variable(
     #[case] condition_value: &str,
     #[case] expected: bool,
     #[case] expected_ctx_entry: MatchContextEntry,
-    mut ctx: MatchContext,
+    mut test_obj: Value,
 ) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_eq!(
         resource_conditional_matches(
             "/$x/name",
@@ -320,9 +313,9 @@ fn test_resource_conditional_matches_variable(
         expected
     );
     if expected_ctx_entry.len() > 0 {
-        assert_eq!(ctx["$x"], expected_ctx_entry);
+        assert_eq!(ctx.entries["$x"], expected_ctx_entry);
     } else {
-        assert_is_empty!(ctx);
+        assert_is_empty!(ctx.entries);
     }
 }
 
@@ -332,8 +325,9 @@ fn test_resource_conditional_matches_variable(
 fn test_resource_conditional_matches_variable_existence(
     #[case] op: TestOperation,
     #[case] expected: bool,
-    mut ctx: MatchContext,
+    mut test_obj: Value,
 ) {
+    let mut ctx = MatchContext::new(&mut test_obj);
     assert_eq!(
         resource_conditional_matches(
             "/$x/name",
@@ -350,14 +344,14 @@ fn test_resource_conditional_matches_variable_existence(
     );
     if op == TestOperation::Exists {
         assert_eq!(
-            ctx["$x"],
+            ctx.entries["$x"],
             MatchContextEntry::new_from_parts(
                 vec!["/spec/template/spec/containers/0".to_string(), "/spec/template/spec/containers/2".to_string()],
                 vec![json!({"name": "container1"}), json!({"name": "container2"})],
             )
         )
     } else {
-        assert_is_empty!(ctx);
+        assert_is_empty!(ctx.entries);
     }
 }
 
@@ -370,9 +364,10 @@ fn test_resource_conditional_matches_other_variable(
     #[case] var_value: &str,
     #[case] op: TestOperation,
     #[case] expected: bool,
-    mut ctx: MatchContext,
+    mut test_obj: Value,
 ) {
-    ctx.insert(
+    let mut ctx = MatchContext::new(&mut test_obj);
+    ctx.entries.insert(
         "$x".into(),
         MatchContextEntry::new_from_parts(
             vec!["/foo/bar".into(), "/baz/buzz".into()],
@@ -408,18 +403,21 @@ fn test_variable_substition_none() {
 }
 
 #[rstest]
-fn test_reify_pointers_no_var(ctx: MatchContext) {
+fn test_reify_pointers_no_var(mut test_obj: Value) {
+    let ctx = MatchContext::new(&mut test_obj);
     let ptrs = reify_pointers("/foo/bar", &ctx);
     assert_ok_eq_x!(&ptrs, &[PointerBuf::parse("/foo/bar").unwrap()]);
 }
 
 #[rstest]
-fn test_reify_pointers(mut ctx: MatchContext) {
-    ctx.insert(
+fn test_reify_pointers(mut test_obj: Value) {
+    let mut ctx = MatchContext::new(&mut test_obj);
+    ctx.entries.insert(
         "$x".into(),
         MatchContextEntry::new_from_parts(vec!["/foo/bar".into(), "/baz/buzz".into()], vec![/* don't care */]),
     );
-    ctx.insert("$y".into(), MatchContextEntry::new_from_parts(vec!["/fizz/buzz".into()], vec![/* don't care */]));
+    ctx.entries
+        .insert("$y".into(), MatchContextEntry::new_from_parts(vec!["/fizz/buzz".into()], vec![/* don't care */]));
     let ptrs = reify_pointers("/$y", &ctx);
     assert_ok_eq_x!(&ptrs, &[PointerBuf::parse("/fizz/buzz").unwrap()]);
 }
@@ -428,7 +426,8 @@ fn test_reify_pointers(mut ctx: MatchContext) {
 #[case(Rhs::Value(json!(42)), vec![json!(42)])]
 #[case(Rhs::Path(PointerBuf::parse("/metadata/labels/foo").unwrap()), vec![json!("bar")])]
 #[case(Rhs::Path(PointerBuf::parse("/$x/name").unwrap()), vec![json!("container1"), json!("container2")])]
-fn test_rhs_to_values(#[case] rhs: Rhs, #[case] expected: Vec<Value>, ctx_with_x: MatchContext) {
-    let values = rhs_to_values(&rhs, &ctx_with_x).unwrap();
+fn test_rhs_to_values(#[case] rhs: Rhs, #[case] expected: Vec<Value>, mut test_obj: Value) {
+    let ctx = ctx_with_x(&mut test_obj);
+    let values = rhs_to_values(&rhs, &ctx).unwrap();
     assert_all!(values.iter().enumerate(), |(i, v): (usize, &&Value)| **v == expected[i]);
 }

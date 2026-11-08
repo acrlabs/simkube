@@ -43,21 +43,21 @@ pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Resul
 }
 
 fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
-    let mut ctx = MatchContext::new(obj.clone());
+    let mut ctx = MatchContext::new(obj);
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
     if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
         matched_counter.increment(1);
         match &cmd.action {
             CommandAction::Delete => *obj = Value::Null,
-            CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(obj, ptr_str, rhs, &ctx)?,
-            CommandAction::Remove(ptr_str) => process_remove_event_obj(obj, ptr_str, &ctx)?,
+            CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(&mut ctx, ptr_str, rhs)?,
+            CommandAction::Remove(ptr_str) => process_remove_event_obj(&mut ctx, ptr_str)?,
         }
     }
 
     Ok(())
 }
 
-pub(super) fn process_modify_event_obj(obj: &mut Value, ptr_str: &str, rhs: &Rhs, ctx: &MatchContext) -> EmptyResult {
+pub(super) fn process_modify_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_str: &str, rhs: &Rhs) -> EmptyResult {
     let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
     let values = rhs_to_values(rhs, ctx)?;
     if values.len() != 1 {
@@ -67,15 +67,17 @@ pub(super) fn process_modify_event_obj(obj: &mut Value, ptr_str: &str, rhs: &Rhs
             format!("{values:?}"),
         ));
     }
-    let val = values[0];
+
+    // It sorta feels like this clone shouldn't be necessary, but I can't make it go away...
+    let val = values[0].clone();
 
     let reified_ptrs = reify_pointers(ptr_str, ctx)?;
     for ptr in reified_ptrs.iter().cloned() {
         // This is slightly inefficient, since we resolve the pointer twice, but I don't
         // think it's a huge deal right now.
-        match ptr.resolve(obj) {
-            Ok(_) => patch_ext(obj, replace_operation(ptr, val.clone()))?,
-            Err(ResolveError::NotFound { .. }) => patch_ext(obj, add_operation(ptr, val.clone()))?,
+        match ptr.resolve(ctx.obj) {
+            Ok(_) => patch_ext(ctx.obj, replace_operation(ptr, val.clone()))?,
+            Err(ResolveError::NotFound { .. }) => patch_ext(ctx.obj, add_operation(ptr, val.clone()))?,
             Err(e) => bail!(e),
         };
     }
@@ -83,10 +85,10 @@ pub(super) fn process_modify_event_obj(obj: &mut Value, ptr_str: &str, rhs: &Rhs
     Ok(())
 }
 
-pub(super) fn process_remove_event_obj(obj: &mut Value, ptr_str: &str, ctx: &MatchContext) -> EmptyResult {
+pub(super) fn process_remove_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_str: &str) -> EmptyResult {
     let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
     let reified_ptrs = reify_pointers(ptr_str, ctx)?;
-    remove_all_pointers(obj, &reified_ptrs)?;
+    remove_all_pointers(ctx.obj, &reified_ptrs)?;
     modified_counter.increment(reified_ptrs.len() as u64);
     Ok(())
 }
@@ -215,7 +217,7 @@ pub(super) fn resource_conditional_matches(
     // not the middle array element, because the middle array element does not have a name field.
     // This feels like maybe a bit of a footgun but I also don't know an easy way to work around it
     // right now.
-    for (lhs_ptr, lhs) in matches(&lhs_selector, ctx.obj()).into_iter() {
+    for (lhs_ptr, lhs) in matches(&lhs_selector, ctx.obj).into_iter() {
         // This is extremely subtle: in the event that we're checking for non-existence,
         // we need to test that _all_ of the possible values don't match.  So we keep track of a
         // match_found variable that tracks if anything matches, and negate it if the operation is
@@ -235,7 +237,7 @@ pub(super) fn resource_conditional_matches(
                     .unwrap()
                     .as_str()
                     .to_string();
-                let var_value = matches(&PointerBuf::parse(&var_ptr)?, ctx.obj()).first().unwrap().1.clone();
+                let var_value = matches(&PointerBuf::parse(&var_ptr)?, ctx.obj).first().unwrap().1.clone();
                 ctx_entry.insert(var_ptr, var_value);
             }
         }
@@ -245,7 +247,7 @@ pub(super) fn resource_conditional_matches(
         Ok(!match_found)
     } else if match_found {
         if let Some(VarDef { name, pointer: _ }) = maybe_var {
-            ctx.insert(name.to_string(), ctx_entry);
+            ctx.entries.insert(name.to_string(), ctx_entry);
         }
         Ok(true)
     } else {
@@ -264,6 +266,7 @@ pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_p
 
 pub(super) fn reify_pointers(ptr_str: &str, ctx: &MatchContext) -> anyhow::Result<Vec<PointerBuf>> {
     let mut reified_ptrs: Vec<String> = ctx
+        .entries
         .iter()
         .flat_map(|(variable, entry)| {
             entry
@@ -290,14 +293,14 @@ where
                 let rhs_var_token = rhs_path.pop_front().unwrap(); // fucking "temporary value freed while still in use"
                 let rhs_var = rhs_var_token.decoded();
 
-                ctx[rhs_var.as_ref()] // The AST should have already confirmed that the variables are defined
+                ctx.entries[rhs_var.as_ref()] // The AST should have already confirmed that the variables are defined
                     .values()
                     .iter()
                     .filter_map(|v| rhs_path.resolve(v).ok()) // if the path doesn't resolve, filter it out
                     .clone()
                     .collect()
             } else {
-                vec![rhs_path.resolve(ctx.obj())?]
+                vec![rhs_path.resolve(ctx.obj)?]
             }
         },
     })
@@ -347,12 +350,11 @@ fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult 
 }
 
 fn trim_event_objects(objs: Value) -> Value {
-    Value::Array(
-        objs.as_array()
-            .unwrap() // it is an error to pass a non-array to this function
-            .iter()
-            .filter(|o| !o.is_null())
-            .cloned()
-            .collect(),
-    )
+    match objs {
+        Value::Array(mut arr) => {
+            arr.retain(|o| !o.is_null());
+            Value::Array(arr)
+        },
+        _ => unreachable!(), // it is an error to pass a non-array to this function
+    }
 }
