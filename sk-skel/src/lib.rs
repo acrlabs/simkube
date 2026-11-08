@@ -36,14 +36,17 @@ pub fn process_trace(
     update_channel: Option<mpsc::Sender<()>>,
 ) -> anyhow::Result<Vec<TraceEvent>> {
     let mut new_events = Vec::with_capacity(trace.events.len());
-    for (evt, _) in trace.iter() {
+    let trace_events_json = serde_json::to_value(&trace.events).unwrap();
+    for evt in trace_events_json.as_array().unwrap().iter() {
         let mut new_event = evt.clone();
         for cmd in commands {
             new_event = process_event(cmd, new_event)?;
         }
 
         // Only add the event if it actually does anything
-        if !new_event.applied_objs.is_empty() || !new_event.deleted_objs.is_empty() {
+        if !new_event.get("applied_objs").unwrap().as_array().unwrap().is_empty()
+            || !new_event.get("deleted_objs").unwrap().as_array().unwrap().is_empty()
+        {
             new_events.push(new_event);
         }
         if let Some(ref c) = update_channel {
@@ -51,7 +54,7 @@ pub fn process_trace(
         }
     }
 
-    Ok(new_events)
+    Ok(serde_json::from_value(serde_json::Value::Array(new_events)).unwrap())
 }
 
 pub async fn apply_skel_file(
