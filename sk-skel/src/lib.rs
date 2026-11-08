@@ -3,7 +3,11 @@ mod context;
 mod engine;
 mod errors;
 
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
 
 use pest::Parser;
 use pest_derive::Parser;
@@ -29,7 +33,7 @@ struct SkelParser;
 pub fn process_trace(
     trace: &Trace,
     commands: &Vec<Command>,
-    update_channel: Option<mpsc::Sender<()>>,
+    event_counter: Option<Arc<AtomicUsize>>,
 ) -> anyhow::Result<Vec<TraceEvent>> {
     let mut new_events = Vec::with_capacity(trace.events.len());
     for (evt, _) in trace.iter() {
@@ -42,17 +46,17 @@ pub fn process_trace(
         if !new_event.applied_objs.is_empty() || !new_event.deleted_objs.is_empty() {
             new_events.push(new_event);
         }
-        if let Some(ref c) = update_channel {
-            let _ = c.send(()); // if we can't send on the channel, nbd
+        if let Some(ref c) = event_counter {
+            c.fetch_add(1, Ordering::Relaxed);
         }
     }
 
     Ok(new_events)
 }
 
-pub async fn apply_skel(trace: &Trace, skel_str: &str, update_channel: mpsc::Sender<()>) -> anyhow::Result<Trace> {
+pub async fn apply_skel(trace: &Trace, skel_str: &str, event_counter: Arc<AtomicUsize>) -> anyhow::Result<Trace> {
     let parsed_commands = parse_skel_commands(skel_str, trace.start_ts().unwrap_or_default())?;
-    let new_events = process_trace(trace, &parsed_commands, Some(update_channel))?;
+    let new_events = process_trace(trace, &parsed_commands, Some(event_counter))?;
     let new_trace = Trace {
         version: trace.version,
         config: trace.config.clone(),
