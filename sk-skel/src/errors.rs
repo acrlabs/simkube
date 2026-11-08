@@ -5,6 +5,9 @@ pub enum SkelError {
     #[error("variable {0} is not present in selector {1} on left-hand side")]
     InvalidLHS(String, String),
 
+    #[error("malformed trace event: {0}")]
+    MalformedTraceEvent(String),
+
     #[error("{0}: values = {1}")]
     MultipleMatchingValues(String, String),
 

@@ -5,7 +5,6 @@ use metrics::counter;
 use regex::Regex;
 use serde_json::Value;
 use sk_core::prelude::*;
-use sk_store::TraceEvent;
 
 use crate::ast::{
     Command,
@@ -20,25 +19,40 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
-pub(super) fn process_event(cmd: &Command, mut evt: TraceEvent) -> anyhow::Result<TraceEvent> {
-    // Reinterpret the event as a JSON object so JSON pointers work for all fields
-    // This seems sortof inefficient, we'll have to see how it works in practice.
-    let mut applied_objs = serde_json::to_value(evt.applied_objs)?;
-    let mut deleted_objs = serde_json::to_value(evt.deleted_objs)?;
+pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Result<Value> {
+    let ts = evt
+        .get("ts")
+        .ok_or(SkelError::MalformedTraceEvent("no timestamp field".into()))?
+        .as_i64()
+        .ok_or(SkelError::MalformedTraceEvent("timestamp not i64".into()))?;
+    {
+        let applied_objs = evt
+            .get_mut("applied_objs")
+            .ok_or(SkelError::MalformedTraceEvent("no applied_objs field".into()))?
+            .as_array_mut()
+            .ok_or(SkelError::MalformedTraceEvent("applied_objs not an array".into()))?;
 
-    // Sadly chaining these together results in borrow-checker failures :(
-    // Unwraps will succeed because these are required fields in the struct
-    for obj in applied_objs.as_array_mut().unwrap().iter_mut() {
-        process_event_obj(cmd, obj, evt.ts)?
+        // Sadly chaining these together results in borrow-checker failures :(
+        // Unwraps will succeed because these are required fields in the struct
+        for obj in applied_objs.iter_mut() {
+            process_event_obj(cmd, obj, ts)?;
+        }
+        applied_objs.retain(|o| !o.is_null());
     }
-    for obj in deleted_objs.as_array_mut().unwrap().iter_mut() {
-        process_event_obj(cmd, obj, evt.ts)?
+    {
+        let deleted_objs = evt
+            .get_mut("deleted_objs")
+            .ok_or(SkelError::MalformedTraceEvent("no deleted_objs field".into()))?
+            .as_array_mut()
+            .ok_or(SkelError::MalformedTraceEvent("deleted_objs not an array".into()))?;
+        for obj in deleted_objs.iter_mut() {
+            process_event_obj(cmd, obj, ts)?;
+        }
+        deleted_objs.retain(|o| !o.is_null());
     }
 
     // trim_event_objects removes all the null entries for deleted elements; then, if there are no
     // objects left in either field we just prune the entire event
-    evt.applied_objs = serde_json::from_value(trim_event_objects(applied_objs))?;
-    evt.deleted_objs = serde_json::from_value(trim_event_objects(deleted_objs))?;
     Ok(evt)
 }
 
@@ -347,14 +361,4 @@ fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult 
     }
 
     Ok(())
-}
-
-fn trim_event_objects(objs: Value) -> Value {
-    match objs {
-        Value::Array(mut arr) => {
-            arr.retain(|o| !o.is_null());
-            Value::Array(arr)
-        },
-        _ => unreachable!(), // it is an error to pass a non-array to this function
-    }
 }
