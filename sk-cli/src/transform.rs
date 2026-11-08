@@ -1,4 +1,8 @@
-use std::sync::mpsc;
+use std::sync::Arc;
+use std::sync::atomic::{
+    AtomicUsize,
+    Ordering,
+};
 use std::time::Duration;
 
 use blackbox_metrics::{
@@ -58,23 +62,18 @@ pub async fn cmd(args: &Args) -> EmptyResult {
         spinner = progress_spinner
     );
 
-    let (tx, rx) = mpsc::channel();
+    let event_counter = Arc::new(AtomicUsize::new(0));
+    let task_event_counter = event_counter.clone();
 
     let clock = UtcClock::new();
     let start_time = clock.now();
     let skel_filename = args.skel_file.clone();
-    let transform_task = tokio::spawn(async move { apply_skel_file(&trace, &skel_filename, tx).await });
-    loop {
-        // don't really care about errors on progress bar updates right now
-        let _ = progress_bar.refresh();
+    let transform_task = tokio::spawn(async move { apply_skel_file(&trace, &skel_filename, task_event_counter).await });
+    while !transform_task.is_finished() {
         tokio::time::sleep(Duration::from_millis(SPINNER_REFRESH_RATE)).await;
-        match rx.try_recv() {
-            Ok(_) => {
-                let _ = progress_bar.update(1);
-            },
-            Err(mpsc::TryRecvError::Disconnected) => break,
-            _ => (),
-        }
+        let count = event_counter.load(Ordering::Relaxed);
+        // don't really care about errors on progress bar updates right now
+        let _ = progress_bar.update_to(count);
     }
     let end_time = clock.now();
 
