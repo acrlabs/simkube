@@ -23,7 +23,7 @@ use crate::ast::{
 };
 use crate::context::*;
 use crate::engine::{
-    process_event,
+    process_json_event,
     process_modify_event_obj,
     process_remove_event_obj,
     reify_pointers,
@@ -68,12 +68,13 @@ fn ctx_with_x<'a>(obj: &'a mut Value) -> MatchContext<'a> {
 
 #[rstest]
 fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
-    let mut evt = TraceEvent {
+    let mut evt = serde_json::to_value(TraceEvent {
         ts: 1234,
         applied_objs: vec![test_deployment],
         deleted_objs: vec![],
-    };
-    evt = process_event(
+    })
+    .unwrap();
+    evt = process_json_event(
         &Command {
             action: CommandAction::Delete,
             trace_selector: TraceSelector::All,
@@ -83,12 +84,12 @@ fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
     .unwrap();
 
     assert_eq!(
-        evt,
         TraceEvent {
             ts: 1234,
             applied_objs: vec![],
             deleted_objs: vec![]
-        }
+        },
+        serde_json::from_value(evt).unwrap(),
     );
 }
 
