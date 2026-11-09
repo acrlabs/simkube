@@ -3,6 +3,15 @@
 All notable changes to this project will be documented in this file.
 
 Breaking changes are annotated with the ⚠️ symbol.
+## 2.7.1 - 2026-11-09
+
+### 🐛 Bug Fixes
+
+- Assign GVK in owners cache lookups
+- Remove extra clones in SKEL processing
+- Use an atomic counter instead of a channel for transform
+- Convert trace events to JSON before SKEL processing
+
 ## 2.7.0 - 2026-06-16
 
 ### 🚀 Features
