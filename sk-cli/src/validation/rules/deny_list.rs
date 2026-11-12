@@ -1,4 +1,6 @@
 use json_patch_ext::PointerBuf;
+use k8s_openapi::Resource;
+use k8s_openapi::api::batch::v1::Job;
 use sk_core::prelude::*;
 
 use crate::validation::ValidatorType;
@@ -75,5 +77,45 @@ pub fn simkube_io_deny_validator() -> Validator {
                 "/simkube.io~1kwok-stage-create-delay-jitter",
             ]),
         )),
+    }
+}
+
+// There are more of these in core/constants but this should cover most of the high risk ones
+const JOB_UID_REMOVE_SKEL: &str = r#"
+# remove(kind == "Job", metadata.labels."batch.kubernetes.io/controller-uid");
+# remove(kind == "Job", metadata.labels."batch.kubernetes.io/job-name");
+# remove(kind == "Job", metadata.labels."controller-uid");
+# remove(kind == "Job", metadata.labels."job-name");
+# remove(kind == "Job", spec.selector);
+# remove(kind == "Job", spec.template.metadata.labels."batch.kubernetes.io/controller-uid");
+# remove(kind == "Job", spec.template.metadata.labels."batch.kubernetes.io/job-name");
+# remove(kind == "Job", spec.template.metadata.labels."controller-uid");
+# remove(kind == "Job", spec.template.metadata.labels."job-name");;
+"#;
+
+const JOB_UID_REMOVE_HELP: &str = r#"
+Certain Job related UID information will break the simulation as simkube does not ensure UID's are the same per simulation 
+"#;
+pub fn job_uid_remove_validator() -> Validator {
+    Validator {
+        type_: ValidatorType::Error,
+        name: "job_uid_info_present",
+        help: JOB_UID_REMOVE_HELP,
+        skel_suggestion: JOB_UID_REMOVE_SKEL,
+        diagnostic: Box::new(DenyList::new(RulePath::only_on_kinds(
+            vec![Job::KIND],
+            RulePath::multi(vec![
+                RulePath::scoped_by(
+                    RulePath::multi(vec![RulePath::templates(), RulePath::root()]).add(vec!["/metadata/labels"]),
+                )
+                .add(vec![
+                    "/batch.kubernetes.io~1controller-uid",
+                    "/batch.kubernetes.io~1job-name",
+                    "/controller-uid",
+                    "/job-name",
+                ]),
+                RulePath::root().add(vec!["/spec/selector"]),
+            ]),
+        ))),
     }
 }

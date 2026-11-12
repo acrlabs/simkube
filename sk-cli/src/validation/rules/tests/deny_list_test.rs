@@ -3,7 +3,7 @@ use serde_json::json;
 use sk_core::prelude::*;
 
 use super::*;
-use crate::validation::rules::deny_list::simkube_io_deny_validator;
+use crate::validation::rules::deny_list::{job_uid_remove_validator, simkube_io_deny_validator};
 
 #[fixture]
 fn depl_event(test_deployment: DynamicObject) -> TraceEvent {
@@ -73,9 +73,51 @@ fn test_simkube_names_deny(
         assert_bag_eq!(failed_indices, &[1]);
     }
 }
+#[fixture]
+fn job_depl_event(test_deployment: DynamicObject, test_job: DynamicObject) -> TraceEvent {
+    TraceEvent {
+        ts: 2,
+        // its probably slightly inefficent but test against two in case there are weird errors there
+        applied_objs: vec![test_deployment.clone(), test_job.clone()],
+        deleted_objs: vec![],
+    }
+}
 
 #[rstest]
-fn test_pass_on_no_simkube_annotation(depl_event: TraceEvent, test_trace_config: TracerConfig) {
+#[case::template_metadat_labels(|obj: &mut DynamicObject, deny_key: &str| {
+    obj.data["spec"]["template"]["metadata"]["labels"] = json!({deny_key: "foo"});
+})]
+#[case::metadata_labels(|obj: &mut DynamicObject, deny_key: &str| {
+    obj.metadata.labels = serde_json::from_value(json!({deny_key: "foo"})).unwrap();
+})]
+fn test_job_uid(
+    mut job_depl_event: TraceEvent,
+    test_trace_config: TracerConfig,
+    #[values(
+        "batch.kubernetes.io/controller-uid",
+        "batch.kubernetes.io/job-name",
+        "controller-uid",
+        "job-name"
+    )]
+    deny_key: &str,
+    #[case] mk_trace_event: fn(&mut DynamicObject, &str),
+) {
+    //logging of what goes wrong here would be great for debugging
+    let mut v = job_uid_remove_validator();
+    mk_trace_event(&mut job_depl_event.applied_objs[1], deny_key);
+    let failed_indices = v.check_next_event(&job_depl_event, &test_trace_config).unwrap();
+    assert_bag_eq!(failed_indices, &[1]);
+}
+#[rstest]
+fn test_job_uid_validator_scoped_to_job_only(mut job_depl_event: TraceEvent, test_trace_config: TracerConfig) {
+    let mut v = job_uid_remove_validator();
+    job_depl_event.applied_objs[0].data["spec"] = json!({"selector": "foo"});
+    job_depl_event.applied_objs[1].data["spec"] = json!({"selector": "foo"});
+    let failed_indices = v.check_next_event(&job_depl_event, &test_trace_config).unwrap();
+    assert_bag_eq!(failed_indices, &[1]);
+}
+#[rstest]
+fn test_pass_on_no_annotation(depl_event: TraceEvent, test_trace_config: TracerConfig) {
     let mut v = simkube_io_deny_validator();
     let failed_indices = v.check_next_event(&depl_event, &test_trace_config).unwrap();
     assert_bag_eq!(failed_indices, &[]);

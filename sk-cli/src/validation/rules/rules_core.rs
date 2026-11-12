@@ -16,6 +16,7 @@ type PathStr = &'static str;
 ///
 /// It would be nice if we could support things like Regex paths
 /// but then we'd need to pass in the entire event to search
+#[derive(std::fmt::Debug)]
 pub enum RuleScope {
     /// Root Scope is equivalent to bare paths
     /// Nothing is prepended
@@ -27,9 +28,16 @@ pub enum RuleScope {
     /// note here that scoped by will take the *target paths* of its rulepath
     /// so to search in /foo/bar for /baz you want ScopedBy(Root().add(/foo/bar)).add(baz)
     ScopedBy(Box<RulePath>),
+    /// gates a rule to apply only if the resource kind matches the list
+    /// if it does not this rule will always return an empty list of PointerBufs
+    /// this should nest correctly with ScopedBy
+    OnlyOnKinds(Vec<String>, Box<RulePath>),
     /// Searches relative to all RuleScopes in its contained RulePaths
     /// To get the paths stored by RulePath, use the RulePath level caller
     Multi(Vec<RulePath>),
+}
+fn join_ptrs(root: &str, target: &str) -> PointerBuf {
+    format_ptr!("{}/{}", root.trim_end_matches("/"), target.trim_start_matches("/"))
 }
 impl RuleScope {
     /// returns exactly the paths passed in with the scopes basepaths appened
@@ -41,12 +49,12 @@ impl RuleScope {
                 .pod_spec_template_paths(gvk)
                 .into_iter()
                 .flatten()
-                .flat_map(|scope| ptrs.iter().map(move |ptr| format_ptr!("{scope}{ptr}")))
+                .flat_map(|scope| ptrs.iter().map(move |ptr| join_ptrs(scope, ptr)))
                 .collect(),
             RuleScope::ScopedBy(rule_path) => rule_path
                 .get_scoped_paths(config, gvk)
                 .iter()
-                .flat_map(|scope| ptrs.iter().map(move |ptr| format_ptr!("{scope}{ptr}")))
+                .flat_map(|scope| ptrs.iter().map(move |ptr| join_ptrs(scope.as_str(), ptr)))
                 .collect(),
             // Note this is for the RuleScope::Multi type and not the item Multi type, as such we dont
             // carry forward the extra metadata associated with Items in MultiScope
@@ -54,12 +62,20 @@ impl RuleScope {
                 .iter()
                 .flat_map(|rule| rule.scope.apply_scope(ptrs, config, gvk))
                 .collect(),
+            RuleScope::OnlyOnKinds(valid_kinds, rule_paths) => {
+                if valid_kinds.contains(&gvk.kind) {
+                    rule_paths.scope.apply_scope(ptrs, config, gvk)
+                } else {
+                    Default::default()
+                }
+            },
         }
     }
 }
 
 /// A type representing a full rulepath to search split into target path and scope
 /// New target paths should be added with .add
+#[derive(std::fmt::Debug)]
 pub struct RulePath {
     /// A set of paths to search for
     target_paths: Vec<PathStr>,
@@ -100,8 +116,18 @@ impl RulePath {
             scope: RuleScope::Multi(rule_paths),
         }
     }
+    pub fn only_on_kinds(allowed_kinds: Vec<&str>, rule_path: RulePath) -> RulePath {
+        RulePath {
+            target_paths: Vec::new(),
+            // allow an extra clone because ergonomics matters more then perf here
+            scope: RuleScope::OnlyOnKinds(allowed_kinds.iter().map(|s| s.to_string()).collect(), Box::new(rule_path)),
+        }
+    }
     /// adds a target path to be searched for in the RulePaths scope
     pub fn add(mut self, targets: Vec<PathStr>) -> Self {
+        for p in &targets {
+            PointerBuf::parse(*p).unwrap();
+        }
         self.target_paths.append(&mut targets.clone());
         self
     }
@@ -115,6 +141,18 @@ impl RulePath {
                 // but it means we need to add them in here
                 .chain(self.scope.apply_scope(&self.target_paths, config, gvk))
                 .collect(),
+            RuleScope::OnlyOnKinds(kinds, rule_path) => {
+                if kinds.contains(&gvk.kind) {
+                    rule_path
+                        .get_scoped_paths(config, gvk)
+                        .into_iter()
+                        .chain(self.scope.apply_scope(&self.target_paths, config, gvk))
+                        .collect()
+                } else {
+                    // return empty vec if path doesnt match
+                    Vec::new()
+                }
+            },
             RuleScope::Templates | RuleScope::Root | RuleScope::ScopedBy(_) => {
                 self.scope.apply_scope(&self.target_paths, config, gvk)
             },

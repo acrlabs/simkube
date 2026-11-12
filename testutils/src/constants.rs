@@ -1,6 +1,7 @@
 pub const TEST_CTRL_NAMESPACE: &str = "ctrl-ns";
 pub const TEST_DAEMONSET: &str = "the-daemonset";
 pub const TEST_DEPLOYMENT: &str = "the-deployment";
+pub const TEST_JOB: &str = "the-job";
 pub const TEST_REPLICASET: &str = "the-replicaset";
 pub const TEST_DRIVER_NAME: &str = "sk-test-driver-12345";
 pub const TEST_DRIVER_ROOT_NAME: &str = "sk-test-driver-12345-root";

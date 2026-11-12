@@ -85,6 +85,7 @@ impl ValidationStore {
         store.register(missing_resources::secret_volume_validator());
         store.register(missing_resources::configmap_volume_validator());
         store.register(deny_list::simkube_io_deny_validator());
+        store.register(deny_list::job_uid_remove_validator());
 
         store
     }

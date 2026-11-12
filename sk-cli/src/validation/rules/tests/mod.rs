@@ -21,6 +21,13 @@ fn test_trace_config() -> TracerConfig {
                     ..Default::default()
                 },
             ),
+            (
+                JOB_GVK.clone(),
+                TrackedObjectConfig {
+                    pod_spec_template_paths: Some(vec!["/spec/template".into()]),
+                    ..Default::default()
+                },
+            ),
             (SVC_ACCOUNT_GVK.clone(), Default::default()),
         ]),
         ..Default::default()
