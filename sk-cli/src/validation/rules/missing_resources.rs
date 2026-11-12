@@ -7,10 +7,10 @@ use corev1::{
     Secret,
     ServiceAccount,
 };
-use json_patch_ext::prelude::*;
 use k8s_openapi::Resource;
 use sk_core::prelude::*;
 
+use crate::validation::rules::rules_core::RuleScope;
 use crate::validation::validator::{
     Diagnostic,
     Validator,
@@ -78,25 +78,20 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
         let mut indices = Vec::new();
         for (i, obj) in event.applied_objs.iter().enumerate() {
             let gvk = GVK::from_dynamic_obj(obj)?;
-            if let Some(pod_spec_template_paths) = config.pod_spec_template_paths(&gvk) {
-                for pod_spec_template_path in pod_spec_template_paths {
-                    let ptrs: Vec<_> = self
-                        .ptrs
-                        .iter()
-                        .map(|pstr| format_ptr!("{pod_spec_template_path}{pstr}"))
-                        .collect();
-                    let matched_values = ptrs.iter().flat_map(|ptr| matches(ptr, &obj.data));
+            let scoped_paths = RuleScope::PodTemplates.get_scoped_paths(&self.ptrs, config, &gvk);
+            // Note that this will *not* look at the objects metadata
+            let matched_values = scoped_paths.iter().flat_map(|p| json_patch_ext::prelude::matches(p, &obj.data));
 
-                    for (_, res) in matched_values {
-                        // if we're demanding a resource for a pod, we assume the resource is
-                        // namespaced (may be an invalid assumption in the future)
-                        let resource_ns = &obj.namespace().unwrap();
-                        let resource_name = res.as_str().unwrap();
+            for (_, matched) in matched_values {
+                let resource_name = matched.as_str().unwrap();
+                let namespaced_resource_name = if let Some(namespace) = obj.namespace() {
+                    &format!("{namespace}/{resource_name}")
+                } else {
+                    resource_name
+                };
 
-                        if !self.seen_resources.contains(&format!("{resource_ns}/{resource_name}")) {
-                            indices.push(i);
-                        }
-                    }
+                if !self.seen_resources.contains(namespaced_resource_name) {
+                    indices.push(i);
                 }
             }
         }

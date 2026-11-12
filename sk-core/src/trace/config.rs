@@ -42,6 +42,7 @@ fn default_scrape_interval_seconds() -> u64 {
 #[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct TrackedObjectConfig {
+    // A list of jsonptr paths where pod templates may be found
     pub pod_spec_template_paths: Option<Vec<String>>,
 
     #[serde(default, skip_serializing_if = "<&bool>::not")]
@@ -95,6 +96,7 @@ impl TracerConfig {
         Ok(serde_yaml::from_reader(File::open(filename)?)?)
     }
 
+    // returns all paths simkube will search for pod spec templates as a list of jsonptr strings
     pub fn pod_spec_template_paths(&self, gvk: &GVK) -> Option<&[String]> {
         self.tracked_objects.get(gvk)?.pod_spec_template_paths.as_deref()
     }
