@@ -1,3 +1,4 @@
+mod deny_list_test;
 mod missing_resources_test;
 mod status_field_populated_test;
 mod validate_all_test;
