@@ -8,7 +8,6 @@
 | E0003 | envvar_configmap_missing | A Pod needs a ConfigMap environment variable that is not present in the trace file.  The simulation will fail because pods cannot be created if the ConfigMap does not exist. |
 | E0004 | volume_secret_missing | A Pod needs a Secret volume that is not present in the trace file.  The simulation will fail because pods cannot be created if the Secret does not exist. |
 | E0005 | volume_configmap_missing | A Pod needs a ConfigMap volume that is not present in the trace file.  The simulation will fail because pods cannot be created if the ConfigMap does not exist. |
-| E0006 | internal_simkubeio_in_resource_meta |  Indicates that there is a simkube.io label/annotation in a trace event's metadata, these are created from information stored in the trace at simulation runtime and are used to manage the simulation, They should not be present in the trace events themselves |
-| E0007 | internal_simkubeio_in_pod_template |  Indicates that there is a simkube.io label/annotation in a trace event resources pod template metadata, these are created from information stored in the trace at simulation runtime and are used to manage the simulation, They should not be present in the trace events themselves |
+| E0006 | simkube_io_found |  Indicates that there is a simkube.io key in a trace event, simkubeio keys are implementation details that should not appear in trace files |
 
 This file is auto-generated; to rebuild, run `make validation_rules`.
