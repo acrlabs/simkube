@@ -1,8 +1,5 @@
 use std::collections::BTreeMap;
-use std::sync::{
-    LazyLock,
-    Mutex,
-};
+use std::sync::{LazyLock, Mutex};
 
 use anyhow::anyhow;
 use assertables::assert_all;
@@ -11,10 +8,7 @@ use sk_core::prelude::*;
 
 use super::PrintFormat;
 use super::rules::*;
-use super::validator::{
-    Validator,
-    ValidatorCode,
-};
+use super::validator::{Validator, ValidatorCode};
 
 pub type Annotations = BTreeMap<ValidatorCode, Vec<usize>>;
 
@@ -90,8 +84,7 @@ impl ValidationStore {
         store.register(missing_resources::configmap_envvar_validator());
         store.register(missing_resources::secret_volume_validator());
         store.register(missing_resources::configmap_volume_validator());
-        store.register(deny_list::simkube_io_resource_deny_validator());
-        store.register(deny_list::simkube_io_pod_template_deny_validator());
+        store.register(deny_list::simkube_io_deny_validator());
 
         store
     }

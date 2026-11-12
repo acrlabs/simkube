@@ -2,20 +2,12 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 use const_format::formatcp;
-use corev1::{
-    ConfigMap,
-    Secret,
-    ServiceAccount,
-};
+use corev1::{ConfigMap, Secret, ServiceAccount};
 use k8s_openapi::Resource;
 use sk_core::prelude::*;
 
 use crate::validation::rules::rules_core::RuleScope;
-use crate::validation::validator::{
-    Diagnostic,
-    Validator,
-    ValidatorType,
-};
+use crate::validation::validator::{Diagnostic, Validator, ValidatorType};
 
 // Defined as a macro so we can re-use it in format! macros
 macro_rules! resource_help {
@@ -78,7 +70,7 @@ impl<T: Resource> Diagnostic for MissingResource<T> {
         let mut indices = Vec::new();
         for (i, obj) in event.applied_objs.iter().enumerate() {
             let gvk = GVK::from_dynamic_obj(obj)?;
-            let scoped_paths = RuleScope::PodTemplates.get_scoped_paths(&self.ptrs, config, &gvk);
+            let scoped_paths = RuleScope::Templates.apply_scope(&self.ptrs, config, &gvk);
             // Note that this will *not* look at the objects metadata
             let matched_values = scoped_paths.iter().flat_map(|p| json_patch_ext::prelude::matches(p, &obj.data));
 
