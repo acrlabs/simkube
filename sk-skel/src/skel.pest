@@ -124,6 +124,9 @@ assignment = { resource_path  ~ "=" ~ (val | resource_path) }
 modify_args = _{ trace_selector_expr ~ "," ~ assignment | assignment }
 modify_cmd = { "modify" ~ "(" ~ modify_args ~ ")" }
 
+muddle_args = _{ trace_selector_expr }
+muddle_cmd = { "muddle" ~ "(" ~ modify_args ~ ")" }
+
 delete_args = _{ trace_selector_expr }
 delete_cmd = { "delete" ~ "(" ~ delete_args ~ ")" }
 

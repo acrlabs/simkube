@@ -53,6 +53,7 @@ pub(super) enum Conditional {
 }
 
 #[derive(Debug, Eq, PartialEq)]
+/// AST representation of select expresion
 pub(super) enum TraceSelector {
     All,
     List(Vec<Conditional>),
@@ -71,6 +72,7 @@ pub struct Command {
     pub(super) action: CommandAction,
 }
 
+/// Parses a command from the PEST AST into a concrete rust object
 pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
     let rule = cmd.as_rule();
     let args = cmd.into_inner();

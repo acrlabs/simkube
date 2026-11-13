@@ -75,6 +75,8 @@ pub fn process_trace(
     Ok(serde_json::from_value(serde_json::Value::Array(new_events))?)
 }
 
+/// SKEL Main function, parses a SKEL file/string  and applies it to a trace end to end returning
+/// progress updates through event_counter
 pub async fn apply_skel(trace: &Trace, skel_str: &str, event_counter: Arc<AtomicUsize>) -> anyhow::Result<Trace> {
     let parsed_commands = parse_skel_commands(skel_str, trace.start_ts().unwrap_or_default())?;
     let new_events = process_trace(trace, &parsed_commands, Some(event_counter))?;
@@ -88,6 +90,8 @@ pub async fn apply_skel(trace: &Trace, skel_str: &str, event_counter: Arc<Atomic
     Ok(new_trace)
 }
 
+/// Main Parsing function, handles parsing of a SKEL string/file, and returns all the commands
+/// contained within dispatches to individual handlers through [parse_command]
 pub fn parse_skel_commands(skel_str: &str, start_ts: i64) -> anyhow::Result<Vec<Command>> {
     let skel = SkelParser::parse(Rule::skel, skel_str)?;
     skel.filter_map(|cmd| match cmd.as_rule() {

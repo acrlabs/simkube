@@ -19,12 +19,18 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
+// Main entrypoint function for SKEL
+// evaluates the cmd against a given event
+// Note that an Event
 pub fn process_event(cmd: &Command, evt: TraceEvent) -> anyhow::Result<TraceEvent> {
     let json_event = serde_json::to_value(evt)?;
     let new_json_event = process_json_event(cmd, json_event)?;
     Ok(serde_json::from_value(new_json_event)?)
 }
 
+/// Takes an event in json form and mutates it according to the given SKEL Command
+/// returns the evt pointer passed in if there are no errors for convenience
+/// Essentially a flatmap over all objects in the trace event calling [process_object_record] on each
 pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Result<Value> {
     let ts = evt
         .get("ts")
@@ -57,12 +63,17 @@ pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Resul
     Ok(evt)
 }
 
+/// Since most SKEL commands are element wise on individual objects records within a trace event
+/// this takes one of those object records and applies the associated command to it
+/// to be clear this *does not* process a full trace event
+/// but instead the objects within each trace event
 fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
     let mut ctx = MatchContext::new(obj);
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
     if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
         matched_counter.increment(1);
         match &cmd.action {
+            // If the trace selector matches we can just null out the object no need to do anything
             CommandAction::Delete => *obj = Value::Null,
             CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(&mut ctx, ptr_str, rhs)?,
             CommandAction::Remove(ptr_str) => process_remove_event_obj(&mut ctx, ptr_str)?,
@@ -83,10 +94,11 @@ pub(super) fn process_modify_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_st
         ));
     }
 
-    // It sorta feels like this clone shouldn't be necessary, but I can't make it go away...
-    let val = values[0].clone();
-
     let reified_ptrs = reify_pointers(ptr_str, ctx)?;
+
+    // vals lifetime comes from ctx, which gets modified in the loop
+    // since val outlives the loop we must clone it to prevent accidental modification
+    let val = values[0].clone();
     for ptr in reified_ptrs.iter().cloned() {
         // This is slightly inefficient, since we resolve the pointer twice, but I don't
         // think it's a huge deal right now.
@@ -270,6 +282,9 @@ pub(super) fn resource_conditional_matches(
     }
 }
 
+/// Mostly a fancy search and replace
+/// for a given input string, replaces all of the occurences of variable_name, with variable_pointer
+/// Returns none if no substitutions take place
 pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> Option<String> {
     let mut replaced_ptr_str = input.to_string();
     replaced_ptr_str = replaced_ptr_str.replace(variable_name, variable_pointer);
@@ -279,6 +294,11 @@ pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_p
     (replaced_ptr_str != input).then_some(replaced_ptr_str)
 }
 
+/// Gets real pointers from context
+/// Takes an open path with unbound variables ie a path with variables
+/// and binds them returning a list of concrete paths
+/// Keep in mind that selector variables are arrays of path components
+/// so we return one path for each member of the list
 pub(super) fn reify_pointers(ptr_str: &str, ctx: &MatchContext) -> anyhow::Result<Vec<PointerBuf>> {
     let mut reified_ptrs: Vec<String> = ctx
         .entries
@@ -296,6 +316,9 @@ pub(super) fn reify_pointers(ptr_str: &str, ctx: &MatchContext) -> anyhow::Resul
     Ok(reified_ptrs.into_iter().map(PointerBuf::parse).collect::<Result<Vec<_>, _>>()?)
 }
 
+/// Evaluates/Reads the right hand side of an expression
+/// binding the abstract form to a concrete set of values,
+/// Which is the concrete representation of variables in our DSL
 pub(super) fn rhs_to_values<'a, 'b>(rhs: &'b Rhs, ctx: &'a MatchContext) -> anyhow::Result<Vec<&'b Value>>
 where
     'a: 'b,
@@ -321,6 +344,7 @@ where
     })
 }
 
+/// Evalutes a comparison between an evaluated left hand side and an unbound righthand side
 fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchContext) -> anyhow::Result<bool> {
     let rhs_value_candidates = match rhs {
         Some(rhs) => rhs_to_values(rhs, ctx)?,
@@ -338,6 +362,8 @@ fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchCont
     })
 }
 
+/// Takes a List of pointer paths and removes every target in object
+/// because of array indexing shifts this is harder then it seems
 fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult {
     let mut removed = 0;
     let mut parent_ptr = PointerBuf::new();
