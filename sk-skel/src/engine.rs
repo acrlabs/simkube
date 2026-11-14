@@ -22,7 +22,7 @@ use crate::metric_names::*;
 type ObjectRecord = Value;
 // Main entrypoint function for SKEL
 // evaluates the cmd against a given event
-pub fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Result<TraceEvent> {
+pub(super) fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Result<TraceEvent> {
     let ts = evt.ts;
     let mut deleted = serde_json::to_value(&evt.deleted_objs)?;
     let mut applied = serde_json::to_value(&evt.applied_objs)?;

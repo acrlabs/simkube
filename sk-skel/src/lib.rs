@@ -17,7 +17,7 @@ use crate::ast::{
     Command,
     parse_command,
 };
-pub use crate::engine::process_event;
+use crate::engine::process_event;
 
 pub mod metric_names {
     pub const EVENT_MATCHED_COUNTER: &str = "trace_events_matched";
@@ -58,9 +58,13 @@ pub fn process_trace(
 
 /// SKEL Main function, parses a SKEL file/string  and applies it to a trace end to end returning
 /// progress updates through event_counter
-pub async fn apply_skel(trace: &Trace, skel_str: &str, event_counter: Arc<AtomicUsize>) -> anyhow::Result<Trace> {
+pub async fn apply_skel(
+    trace: &Trace,
+    skel_str: &str,
+    event_counter: Option<Arc<AtomicUsize>>,
+) -> anyhow::Result<Trace> {
     let parsed_commands = parse_skel_commands(skel_str, trace.start_ts().unwrap_or_default())?;
-    let new_events = process_trace(trace, &parsed_commands, Some(event_counter))?;
+    let new_events = process_trace(trace, &parsed_commands, event_counter)?;
     let new_trace = Trace {
         version: trace.version,
         config: trace.config.clone(),
