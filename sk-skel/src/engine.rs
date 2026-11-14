@@ -19,64 +19,50 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
+type ObjectRecord = Value;
 // Main entrypoint function for SKEL
 // evaluates the cmd against a given event
-// Note that an Event
-pub fn process_event(cmd: &Command, evt: TraceEvent) -> anyhow::Result<TraceEvent> {
-    let json_event = serde_json::to_value(evt)?;
-    let new_json_event = process_json_event(cmd, json_event)?;
-    Ok(serde_json::from_value(new_json_event)?)
-}
-
-/// Takes an event in json form and mutates it according to the given SKEL Command
-/// returns the evt pointer passed in if there are no errors for convenience
-/// Essentially a flatmap over all objects in the trace event calling [process_object_record] on each
-pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Result<Value> {
-    let ts = evt
-        .get("ts")
-        .ok_or(SkelError::MalformedTraceEvent("no timestamp field".into()))?
-        .as_i64()
-        .ok_or(SkelError::MalformedTraceEvent("timestamp not i64".into()))?;
-
-    let applied_objs = evt
-        .get_mut("applied_objs")
-        .ok_or(SkelError::MalformedTraceEvent("no applied_objs field".into()))?
-        .as_array_mut()
-        .ok_or(SkelError::MalformedTraceEvent("applied_objs not an array".into()))?;
-    for obj in applied_objs.iter_mut() {
-        process_event_obj(cmd, obj, ts)?;
+pub fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Result<TraceEvent> {
+    let ts = evt.ts;
+    let mut deleted = serde_json::to_value(&evt.deleted_objs)?;
+    let mut applied = serde_json::to_value(&evt.applied_objs)?;
+    let applied_arr = applied.as_array_mut().expect("It was just an array so it should still be");
+    let deleted_arr = deleted.as_array_mut().expect("It was just an array so it should still be");
+    // since we operate object wise there is an argument for serdeing on the object level
+    // it should be perftested as thats the largest argument for/against it
+    for objects in [&mut *applied_arr, &mut *deleted_arr] {
+        for cmd in cmds {
+            for obj in objects.iter_mut() {
+                process_object_record(cmd, &mut *obj, ts)?;
+            }
+            objects.retain(|o| !o.is_null());
+        }
     }
-    applied_objs.retain(|o| !o.is_null());
+    let new_event = TraceEvent {
+        ts,
+        applied_objs: serde_json::from_value(applied)?,
+        deleted_objs: serde_json::from_value(deleted)?,
+    };
 
-    let deleted_objs = evt
-        .get_mut("deleted_objs")
-        .ok_or(SkelError::MalformedTraceEvent("no deleted_objs field".into()))?
-        .as_array_mut()
-        .ok_or(SkelError::MalformedTraceEvent("deleted_objs not an array".into()))?;
-    for obj in deleted_objs.iter_mut() {
-        process_event_obj(cmd, obj, ts)?;
-    }
-    deleted_objs.retain(|o| !o.is_null());
-
-    // trim_event_objects removes all the null entries for deleted elements; then, if there are no
-    // objects left in either field we just prune the entire event
-    Ok(evt)
+    Ok(new_event)
 }
 
 /// Since most SKEL commands are element wise on individual objects records within a trace event
 /// this takes one of those object records and applies the associated command to it
 /// to be clear this *does not* process a full trace event
 /// but instead the objects within each trace event
-fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
+fn process_object_record(cmd: &Command, obj: &mut ObjectRecord, evt_ts: i64) -> EmptyResult {
     let mut ctx = MatchContext::new(obj);
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
     if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
         matched_counter.increment(1);
         match &cmd.action {
+            CommandAction::Modify(target_path, asigned_value) => {
+                process_modify_event_obj(&mut ctx, target_path, asigned_value)?
+            },
+            CommandAction::Remove(target_path) => process_remove_event_obj(&mut ctx, target_path)?,
             // If the trace selector matches we can just null out the object no need to do anything
             CommandAction::Delete => *obj = Value::Null,
-            CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(&mut ctx, ptr_str, rhs)?,
-            CommandAction::Remove(ptr_str) => process_remove_event_obj(&mut ctx, ptr_str)?,
         }
     }
 
@@ -325,6 +311,7 @@ where
 {
     Ok(match rhs {
         Rhs::Value(v) => vec![v],
+
         Rhs::Path(p) => {
             let mut rhs_path = p.clone();
             if rhs_path.as_str().starts_with("/$") {

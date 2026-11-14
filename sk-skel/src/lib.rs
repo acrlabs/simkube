@@ -18,8 +18,6 @@ use crate::ast::{
     parse_command,
 };
 pub use crate::engine::process_event;
-use crate::engine::process_json_event;
-use crate::errors::SkelError;
 
 pub mod metric_names {
     pub const EVENT_MATCHED_COUNTER: &str = "trace_events_matched";
@@ -32,39 +30,22 @@ pub mod metric_names {
 #[grammar = "src/skel.pest"]
 struct SkelParser;
 
-fn is_empty(evt: &serde_json::Value) -> anyhow::Result<bool> {
-    Ok(evt
-        .get("applied_objs")
-        .ok_or(SkelError::MalformedTraceEvent("no applied_objs field".into()))?
-        .as_array()
-        .ok_or(SkelError::MalformedTraceEvent("applied_objs not an array".into()))?
-        .is_empty()
-        && evt
-            .get("deleted_objs")
-            .ok_or(SkelError::MalformedTraceEvent("no deleted_objs field".into()))?
-            .as_array()
-            .ok_or(SkelError::MalformedTraceEvent("deleted_objs not an array".into()))?
-            .is_empty())
-}
-
+// SKEL main execution function
+// takes a parsed set of skel commands and runs them against a trace
 pub fn process_trace(
     trace: &Trace,
-    commands: &Vec<Command>,
+    commands: &[Command],
     event_counter: Option<Arc<AtomicUsize>>,
 ) -> anyhow::Result<Vec<TraceEvent>> {
     let mut new_events = Vec::with_capacity(trace.events.len());
 
     // To resolve JSON pointers we need things as json::Value objects; it's more
     // efficient to serialize all of the events once than it is to do it in the loop
-    let trace_events_json = serde_json::to_value(&trace.events)?;
-    for evt in trace_events_json.as_array().unwrap().iter() {
-        let mut new_event = evt.clone();
-        for cmd in commands {
-            new_event = process_json_event(cmd, new_event)?;
-        }
+    for evt in trace.events.iter() {
+        let new_event = process_event(commands, evt)?;
 
         // Only add the event if it actually does anything
-        if !is_empty(&new_event)? {
+        if !new_event.is_empty() {
             new_events.push(new_event);
         }
         if let Some(ref c) = event_counter {
@@ -72,7 +53,7 @@ pub fn process_trace(
         }
     }
 
-    Ok(serde_json::from_value(serde_json::Value::Array(new_events))?)
+    Ok(new_events)
 }
 
 /// SKEL Main function, parses a SKEL file/string  and applies it to a trace end to end returning

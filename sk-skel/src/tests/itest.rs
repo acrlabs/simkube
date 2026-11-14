@@ -516,7 +516,7 @@ use super::*;
 fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
-    let res = process_event(&cmd, evt).unwrap();
+    let res = process_event(&[cmd], &evt).unwrap();
     assert_eq!(res, expected);
 }
 
@@ -738,6 +738,6 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
 fn test_modify_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
-    let res = process_event(&cmd, evt).unwrap();
+    let res = process_event(&[cmd], &evt).unwrap();
     assert_eq!(res, expected);
 }

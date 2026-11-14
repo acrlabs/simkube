@@ -14,6 +14,8 @@ use serde_json::Value;
 use crate::Rule;
 use crate::errors::SkelError;
 
+type TargetPath = String;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum TestOperation {
     Eq,
@@ -62,8 +64,8 @@ pub(super) enum TraceSelector {
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum CommandAction {
     Delete,
-    Modify(String, Rhs),
-    Remove(String),
+    Modify(TargetPath, Rhs),
+    Remove(TargetPath),
 }
 
 #[derive(Debug, Eq, PartialEq)]
