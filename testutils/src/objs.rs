@@ -15,6 +15,12 @@ pub fn test_deployment(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject 
         .within(TEST_NAMESPACE)
         .data(json!({"spec": {"replicas": 42}}))
 }
+#[fixture]
+pub fn test_job(#[default(TEST_JOB)] name: &str) -> DynamicObject {
+    DynamicObject::new(name, &ApiResource::from_gvk(&JOB_GVK))
+        .within(TEST_NAMESPACE)
+        .data(json!({"spec": {"parallelism": 42}}))
+}
 
 #[fixture]
 pub fn test_deployment_no_spec(#[default(TEST_DEPLOYMENT)] name: &str) -> DynamicObject {

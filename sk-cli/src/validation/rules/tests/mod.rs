@@ -1,3 +1,4 @@
+mod deny_list_test;
 mod missing_resources_test;
 mod status_field_populated_test;
 mod validate_all_test;
@@ -15,6 +16,13 @@ fn test_trace_config() -> TracerConfig {
         tracked_objects: HashMap::from([
             (
                 DEPLOYMENT_GVK.clone(),
+                TrackedObjectConfig {
+                    pod_spec_template_paths: Some(vec!["/spec/template".into()]),
+                    ..Default::default()
+                },
+            ),
+            (
+                JOB_GVK.clone(),
                 TrackedObjectConfig {
                     pod_spec_template_paths: Some(vec!["/spec/template".into()]),
                     ..Default::default()

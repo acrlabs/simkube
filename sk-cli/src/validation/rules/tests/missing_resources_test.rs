@@ -62,8 +62,8 @@ fn sa_event(test_service_account: DynamicObject) -> TraceEvent {
 #[case("serviceAccountName")]
 fn test_service_account_missing(test_deployment: DynamicObject, test_trace_config: TracerConfig, #[case] sa_key: &str) {
     let mut v = service_account_validator();
-    let mut evt = depl_event(test_deployment, sa_key);
-    let failed_indices = v.check_next_event(&mut evt, &test_trace_config).unwrap();
+    let evt = depl_event(test_deployment, sa_key);
+    let failed_indices = v.check_next_event(&evt, &test_trace_config).unwrap();
 
     assert_bag_eq!(failed_indices, &[0]);
 }
@@ -72,7 +72,7 @@ fn test_service_account_missing(test_deployment: DynamicObject, test_trace_confi
 fn test_service_account_missing_both_keys(mut depl_event: TraceEvent, test_trace_config: TracerConfig) {
     let mut v = service_account_validator();
     depl_event.applied_objs[0].data["spec"]["template"]["spec"]["serviceAccountName"] = "foobar".into();
-    let failed_indices = v.check_next_event(&mut depl_event, &test_trace_config).unwrap();
+    let failed_indices = v.check_next_event(&depl_event, &test_trace_config).unwrap();
 
     assert_bag_eq!(failed_indices, &[0, 0]);
 }
@@ -113,7 +113,7 @@ fn test_service_account_not_missing_same_evt(
     test_trace_config: TracerConfig,
 ) {
     let mut v = service_account_validator();
-    let mut depl_evt = TraceEvent {
+    let depl_evt = TraceEvent {
         ts: 1,
         applied_objs: vec![
             test_deployment.data(json!({"spec": {"template": {"spec": {"serviceAccountName": TEST_SERVICE_ACCOUNT}}}})),
@@ -121,7 +121,7 @@ fn test_service_account_not_missing_same_evt(
         ],
         deleted_objs: vec![],
     };
-    let failed_indices = v.check_next_event(&mut depl_evt, &test_trace_config).unwrap();
+    let failed_indices = v.check_next_event(&depl_evt, &test_trace_config).unwrap();
 
     assert_is_empty!(failed_indices);
 }

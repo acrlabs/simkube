@@ -15,9 +15,11 @@ pub enum ValidatorType {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+// Error Code for validator
 pub struct ValidatorCode(pub ValidatorType, pub usize);
 
 impl ValidatorCode {
+    // Helper to parse a validation code struct from "<typesignifier>\d+" string
     pub fn parse(s: &str) -> anyhow::Result<ValidatorCode> {
         if s.is_empty() {
             bail!("empty string");
@@ -58,6 +60,7 @@ impl Serialize for ValidatorCode {
     }
 }
 
+// this trait provides the interface to implement custom skel validation code
 pub trait Diagnostic {
     fn check_next_event(&mut self, event: &TraceEvent, config: &TracerConfig) -> anyhow::Result<Vec<usize>>;
 }
@@ -73,6 +76,7 @@ pub struct Validator {
 
     pub skel_suggestion: &'static str,
 
+    // struct implementing methods that implement the concrete checking for the validator
     #[serde(skip)]
     pub diagnostic: Box<dyn Diagnostic + Send + Sync>,
 }
