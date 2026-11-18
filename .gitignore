@@ -1,4 +1,6 @@
 .build
+.envrc
+.direnv
 .DS_Store
 .vendor
 generated-api
