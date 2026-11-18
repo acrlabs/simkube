@@ -1,4 +1,5 @@
 edition = "2024"
+unstable_features = true
 array_width = 100
 blank_lines_upper_bound = 2
 chain_width = 80
