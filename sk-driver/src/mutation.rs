@@ -333,9 +333,9 @@ fn build_rescheduled_pod_name(orig_pod_name: &str) -> String {
 }
 
 fn lookup_pod_owner_sequence(pod: &corev1::Pod, mut_data: &MutationData) -> Option<(i64, usize)> {
-    let owner_mtime = match pod.annotations().get(POD_OWNER_MTIME_KEY) {
-        Some(hash_str) => hash_str.parse::<i64>().ok()?,
-        None => return None,
+    let owner_mtime = {
+        let hash_str = pod.annotations().get(POD_OWNER_MTIME_KEY)?;
+        hash_str.parse::<i64>().ok()?
     };
     let seq = match pod.annotations().get(POD_SEQUENCE_NUMBER_KEY) {
         Some(seq_str) => seq_str.parse::<usize>().ok()?,

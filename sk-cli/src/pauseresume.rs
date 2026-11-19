@@ -21,7 +21,7 @@ pub async fn pause_cmd(args: &Args, client: kube::Client) -> EmptyResult {
         None => bail!("simulation not found: {}", args.name),
         Some(Simulation {
             spec: SimulationSpec { paused_time: Some(ts), .. }, ..
-        }) => bail!("simulation {} is already paused at {}", &args.name, ts),
+        }) => bail!("simulation {} is already paused at {}", args.name, ts),
         _ => (),
     }
 
@@ -46,7 +46,7 @@ pub async fn resume_cmd(args: &Args, client: kube::Client) -> EmptyResult {
     match maybe_sim {
         None => bail!("simulation not found: {}", args.name),
         Some(Simulation { spec: SimulationSpec { paused_time: None, .. }, .. }) => {
-            bail!("simulation {} is not paused", &args.name)
+            bail!("simulation {} is not paused", args.name)
         },
         _ => (),
     }

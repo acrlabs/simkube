@@ -65,6 +65,12 @@ impl MockServerBuilder {
     }
 }
 
+impl Default for MockServerBuilder {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub fn make_fake_apiserver() -> (MockServerBuilder, kube::Client) {
     let builder = MockServerBuilder::new();
     let config = kube::Config::new(builder.url());

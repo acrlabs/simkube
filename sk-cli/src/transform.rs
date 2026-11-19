@@ -56,7 +56,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let mut progress_bar = tqdm!(
         total = trace.len(),
         animation = Animation::Tqdm,
-        bar_format = format!("  {{spinner}} {{animation}} {{count}}/{{total}}"),
+        bar_format = "  {spinner} {animation} {count}/{total}".to_string(),
         colour = Colour::gradient(&["#5A56E0", "#EE6FF8"]),
         ncols = 80,
         spinner = progress_spinner
@@ -96,7 +96,7 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let output_path = args
         .output
         .clone()
-        .unwrap_or_else(|| format!("{}.{}", &args.input, transform_time_str));
+        .unwrap_or_else(|| format!("{}.{}", args.input, transform_time_str));
     let object_store = SkObjectStore::new(&output_path)?;
     object_store.put(Bytes::from(transformed_trace_data)).await?;
 
