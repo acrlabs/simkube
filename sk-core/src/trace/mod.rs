@@ -27,7 +27,11 @@ use crate::time::duration_to_ts_from;
 use crate::trace::config::TracerConfig;
 use crate::trace::event::TraceEvent;
 use crate::trace::index::TraceIndex;
-pub use crate::trace::pod_sim_data::PodSimData;
+pub use crate::trace::pod_sim_data::{
+    MetricType,
+    PodMetricsData,
+    PodSimData,
+};
 
 #[derive(Debug, Error)]
 pub enum TraceError {
