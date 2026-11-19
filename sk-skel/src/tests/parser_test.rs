@@ -36,6 +36,8 @@ use super::*;
       spec.template.spec.nodeSelector.\"simkube.dev/foo\" = \"baz\");"
 )]
 #[case("delete(@t >= 10m && spec.template.spec.nodeSelector.\"simkube.dev/foo\" == \"bar\");")]
+#[case("remove(@pts.nodeSelector);")]
+#[case("remove($x := @pts.containers[*] | $x.name == \"foo\", $x);")]
 fn test_skel_should_parse(#[case] command: &str) {
     assert_ok!(SkelParser::parse(Rule::skel, command));
 }
@@ -56,6 +58,11 @@ fn test_skel_should_parse(#[case] command: &str) {
         && $y := spec.template.spec.containers[*].volumeMounts[*] | $y.name == \"asdf\",
       $x.$y);"
 )]
+#[case("remove(asdf.@pts.nodeSelector);")]
+#[case("remove($x := foo.bar | exists($x.@pts);")]
+#[case("remove($x := foo.@pts);")]
+#[case("remove($x := foo.bar | exists($x), $x.@pts);")]
+#[case("remove($x := foo.bar | exists($x), @pts.$x);")]
 fn test_skel_should_not_parse(#[case] command: &str) {
     assert_err!(SkelParser::parse(Rule::skel, command));
 }

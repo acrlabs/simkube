@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 use serde_json::json;
 use sk_core::klabel;
 use sk_core::prelude::*;
+use sk_core::trace::config::TracerConfig;
 
 use super::*;
 
@@ -12,7 +13,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         }],
@@ -21,7 +22,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }],
@@ -33,7 +34,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         }],
@@ -42,7 +43,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }],
@@ -54,12 +55,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -71,12 +72,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -91,12 +92,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -108,12 +109,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -128,12 +129,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -145,12 +146,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/foo" => "bar"),
                 ..Default::default()
@@ -165,12 +166,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 namespace: Some("baz".into()),
                 ..Default::default()
@@ -182,12 +183,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 namespace: Some("baz".into()),
                 ..Default::default()
@@ -202,12 +203,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 namespace: Some("baz".into()),
                 ..Default::default()
@@ -219,12 +220,12 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({"status": {"foo": "bar"}}),
         },
         DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 namespace: Some("baz".into()),
                 ..Default::default()
@@ -239,7 +240,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -272,7 +273,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {"template": {"spec": {"containers": []}}},
@@ -287,7 +288,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -320,7 +321,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -345,7 +346,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -378,7 +379,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -405,7 +406,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("image" => "asdf"),
                 ..Default::default()
@@ -425,7 +426,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: Some(BTreeMap::new()),
                 ..Default::default()
@@ -450,7 +451,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -488,7 +489,7 @@ use super::*;
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -516,7 +517,7 @@ use super::*;
 fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
-    let res = process_event(&cmd, evt).unwrap();
+    let res = process_event(&cmd, evt, &TracerConfig::default()).unwrap();
     assert_eq!(res, expected);
 }
 
@@ -530,7 +531,7 @@ fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] e
     vec![TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }],
@@ -543,11 +544,11 @@ fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] e
     vec![TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{ name: Some("foo".into()), ..Default::default()},
             data: json!({}),
         }, DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{ name: Some("bar".into()), ..Default::default()},
             data: json!({}),
         }],
@@ -556,7 +557,7 @@ fn test_remove_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] e
     vec![TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{ name: Some("bar".into()), ..Default::default()},
             data: json!({}),
         }],
@@ -577,7 +578,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }],
@@ -586,7 +587,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({
                 "spec": {
@@ -608,7 +609,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
                 ..Default::default()
@@ -620,7 +621,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "baz", "other_key" => "something_else"),
                 ..Default::default()
@@ -636,11 +637,11 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }, DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "bar"),
                 ..Default::default()
@@ -652,11 +653,11 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: Default::default(),
             data: json!({}),
         }, DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "bar"),
                 ..Default::default()
@@ -683,7 +684,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
                 ..Default::default()
@@ -710,7 +711,7 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
     TraceEvent{
         ts: 1234,
         applied_objs: vec![DynamicObject{
-            types: None,
+            types: Some(DEPLOYMENT_GVK.into_type_meta()),
             metadata: metav1::ObjectMeta{
                 labels: klabel!("simkube.dev/key" => "bar", "other_key" => "something_else"),
                 ..Default::default()
@@ -738,6 +739,6 @@ fn test_delete_command(#[case] cmd_str: &str, #[case] evts: Vec<TraceEvent>, #[c
 fn test_modify_command(#[case] cmd_str: &str, #[case] evt: TraceEvent, #[case] expected: TraceEvent) {
     let mut skel = SkelParser::parse(Rule::skel, &cmd_str).unwrap();
     let cmd = parse_command(skel.next().unwrap(), 1234).unwrap();
-    let res = process_event(&cmd, evt).unwrap();
+    let res = process_event(&cmd, evt, &TracerConfig::default()).unwrap();
     assert_eq!(res, expected);
 }

@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use blackbox_metrics::{
     BlackboxRecorder,
     KeyExt,
@@ -10,6 +12,7 @@ use serde_json::{
     json,
 };
 use sk_core::prelude::*;
+use sk_core::trace::config::TracerConfig;
 
 use super::*;
 use crate::ast::{
@@ -35,6 +38,19 @@ use crate::engine::{
 };
 use crate::errors::SkelError;
 use crate::metric_names::*;
+
+fn test_config(pst_paths: Vec<String>) -> TracerConfig {
+    TracerConfig {
+        tracked_objects: HashMap::from([(
+            DEPLOYMENT_GVK.clone(),
+            TrackedObjectConfig {
+                pod_spec_template_paths: Some(pst_paths),
+                ..Default::default()
+            },
+        )]),
+        ..Default::default()
+    }
+}
 
 #[fixture]
 fn test_obj() -> Value {
@@ -79,6 +95,7 @@ fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
             trace_selector: TraceSelector::All,
         },
         evt,
+        &TracerConfig::default(),
     )
     .unwrap();
 
@@ -191,7 +208,10 @@ fn test_process_remove_event_obj(mut test_obj: Value) {
 #[rstest]
 fn test_trace_matches_all(mut test_obj: Value) {
     let mut ctx = MatchContext::new(&mut test_obj);
-    assert_ok_eq_x!(trace_matches(&TraceSelector::All, 1234, &mut ctx), true);
+    assert_ok_eq_x!(
+        trace_matches(&TraceSelector::All, &*DEPLOYMENT_GVK, 1234, &TracerConfig::default(), &mut ctx),
+        true
+    );
 }
 
 #[rstest]
@@ -210,10 +230,36 @@ fn test_trace_matches_list(#[case] op: TestOperation, #[case] expected: bool, mu
                     var: None
                 }
             ]),
+            &*DEPLOYMENT_GVK,
             1234,
+            &TracerConfig::default(),
             &mut ctx,
         ),
         expected
+    );
+}
+
+#[rstest]
+#[case(vec!["/spec/template/".into()], true)]
+#[case(vec!["/some/other/template/".into(), "/spec/template".into()], true)]
+#[case(vec!["/some/other/template/".into()], false)]
+fn test_trace_matches_pst(mut test_obj: Value, #[case] pst_paths: Vec<String>, #[case] expected: bool) {
+    let mut ctx = MatchContext::new(&mut test_obj);
+    let config = test_config(pst_paths);
+    assert_ok_eq_x!(
+        trace_matches(
+            &TraceSelector::List(vec![Conditional::Resource {
+                ptr: "/@pst/spec/containers/*/name".into(),
+                op: TestOperation::Eq,
+                rhs: Some(Rhs::Value(json!("container1"))),
+                var: None
+            }]),
+            &*DEPLOYMENT_GVK,
+            1234,
+            &config,
+            &mut ctx,
+        ),
+        expected,
     );
 }
 

@@ -109,7 +109,7 @@ impl TraceStore {
             let evt = if !parsed_commands.is_empty() {
                 let mut current = evt.clone();
                 for cmd in &parsed_commands {
-                    current = process_event(cmd, current)?;
+                    current = process_event(cmd, current, &self.config)?;
                 }
                 transformed_evt = current;
                 &transformed_evt

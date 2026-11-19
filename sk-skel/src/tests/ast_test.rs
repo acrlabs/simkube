@@ -190,6 +190,7 @@ fn test_parse_ts_conditional(#[case] cond_str: &str, #[case] expected: Condition
 #[case("metadata.labels.\"foo.bar/baz\"", "/metadata/labels/foo.bar~1baz")]
 #[case("meta-data.namespace", "/meta-data/namespace")]
 #[case("meta_data.namespace", "/meta_data/namespace")]
+#[case("@pts.nodeSelector", "/@pts/nodeSelector")]
 fn test_parse_resource_path(#[case] path_str: &str, #[case] expected: &str) {
     let path = SkelParser::parse(Rule::resource_path, path_str).unwrap().next().unwrap();
     assert_ok_eq_x!(&parse_resource_path(path, &HashSet::new()), expected);
