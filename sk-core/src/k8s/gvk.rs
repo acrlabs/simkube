@@ -17,6 +17,7 @@ use serde::{
     Serializer,
     de,
 };
+use serde_json::Value;
 
 use crate::errors::*;
 
@@ -42,6 +43,21 @@ impl DynamicSelfTyped for DynamicObject {
 impl GVK {
     pub fn new(group: &str, version: &str, kind: &str) -> GVK {
         GVK(GroupVersionKind::gvk(group, version, kind))
+    }
+
+    pub fn from_value(obj: &Value) -> anyhow::Result<GVK> {
+        let api_version = obj
+            .get("apiVersion")
+            .ok_or(anyhow!("missing apiVersion field"))?
+            .as_str()
+            .ok_or(anyhow!("apiVersion field not a string"))?;
+        let kind = obj
+            .get("kind")
+            .ok_or(anyhow!("missing kind field"))?
+            .as_str()
+            .ok_or(anyhow!("kind field not a string"))?;
+        let (group, version) = api_version.split_once("/").ok_or(anyhow!("malformed apiVersion field"))?;
+        Ok(GVK(GroupVersionKind::gvk(group, version, kind)))
     }
 
     pub fn from_dynamic_obj<T: Resource<DynamicType = ApiResource> + DynamicSelfTyped>(obj: &T) -> anyhow::Result<GVK> {

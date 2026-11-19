@@ -47,12 +47,17 @@ var = { "$" ~ (ASCII_ALPHA | "_") ~ (ASCII_ALPHANUMERIC | "_")* }
 // You can also include a variable in the path as follows:
 //
 //  - $x.spec.nodeSelector
+//
+// The pod spec template path special keyword `@pts` can be included at the start of a resource path:
+//
+//  - @pts.nodeSelector
 
 path_index = _{ "[" ~ (ASCII_DIGIT+ | "*") ~ "]" }
 quoted_path_part = !{ "\"" ~ label_chars+ ~ "\"" }
+pod_spec_template_path = _{ "@pts" }  // the @pts keywork just gets substituted into the pointer wholesale
 path_part = _{ free_label_chars+ | quoted_path_part }
 path_cons = _{ "." ~ path_part | path_index }
-resource_path = ${ (path_part | var) ~ path_cons* } // no whitespace allowed
+resource_path = ${ (path_part | var | pod_spec_template_path) ~ path_cons* } // no whitespace allowed
 
 // =================================== RESOURCE TESTS ====================================
 

@@ -1,3 +1,5 @@
+use std::cell::RefCell;
+
 use anyhow::bail;
 use json_patch_ext::Index;
 use json_patch_ext::prelude::*;
@@ -5,6 +7,7 @@ use metrics::counter;
 use regex::Regex;
 use serde_json::Value;
 use sk_core::prelude::*;
+use sk_core::trace::config::TracerConfig;
 
 use crate::ast::{
     Command,
@@ -19,13 +22,15 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
-pub fn process_event(cmd: &Command, evt: TraceEvent) -> anyhow::Result<TraceEvent> {
+const PST_KEYWORD: &str = "@pst";
+
+pub fn process_event(cmd: &Command, evt: TraceEvent, config: &TracerConfig) -> anyhow::Result<TraceEvent> {
     let json_event = serde_json::to_value(evt)?;
-    let new_json_event = process_json_event(cmd, json_event)?;
+    let new_json_event = process_json_event(cmd, json_event, config)?;
     Ok(serde_json::from_value(new_json_event)?)
 }
 
-pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Result<Value> {
+pub(super) fn process_json_event(cmd: &Command, mut evt: Value, config: &TracerConfig) -> anyhow::Result<Value> {
     let ts = evt
         .get("ts")
         .ok_or(SkelError::MalformedTraceEvent("no timestamp field".into()))?
@@ -38,7 +43,7 @@ pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Resul
         .as_array_mut()
         .ok_or(SkelError::MalformedTraceEvent("applied_objs not an array".into()))?;
     for obj in applied_objs.iter_mut() {
-        process_event_obj(cmd, obj, ts)?;
+        process_event_obj(cmd, obj, ts, config)?;
     }
     applied_objs.retain(|o| !o.is_null());
 
@@ -48,7 +53,7 @@ pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Resul
         .as_array_mut()
         .ok_or(SkelError::MalformedTraceEvent("deleted_objs not an array".into()))?;
     for obj in deleted_objs.iter_mut() {
-        process_event_obj(cmd, obj, ts)?;
+        process_event_obj(cmd, obj, ts, config)?;
     }
     deleted_objs.retain(|o| !o.is_null());
 
@@ -57,22 +62,27 @@ pub(super) fn process_json_event(cmd: &Command, mut evt: Value) -> anyhow::Resul
     Ok(evt)
 }
 
-fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64) -> EmptyResult {
-    let mut ctx = MatchContext::new(obj);
+fn process_event_obj(cmd: &Command, obj: &mut Value, evt_ts: i64, config: &TracerConfig) -> EmptyResult {
+    let obj_gvk = GVK::from_value(obj)?;
+    let ctx = RefCell::new(MatchContext::new(obj));
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
-    if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
+    if trace_matches(&cmd.trace_selector, &obj_gvk, evt_ts, config, &mut ctx.borrow_mut())? {
         matched_counter.increment(1);
         match &cmd.action {
             CommandAction::Delete => *obj = Value::Null,
-            CommandAction::Modify(ptr_str, rhs) => process_modify_event_obj(&mut ctx, ptr_str, rhs)?,
-            CommandAction::Remove(ptr_str) => process_remove_event_obj(&mut ctx, ptr_str)?,
+            CommandAction::Modify(ptr_str, rhs) => {
+                for p in expand_pod_spec_template(ptr_str, &obj_gvk, config) {
+                    process_modify_event_obj(&mut ctx.borrow_mut(), &p, rhs)?;
+                }
+            },
+            CommandAction::Remove(ptr_str) => process_remove_event_obj(&mut ctx.borrow_mut(), ptr_str)?,
         }
     }
 
     Ok(())
 }
 
-pub(super) fn process_modify_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_str: &str, rhs: &Rhs) -> EmptyResult {
+pub(super) fn process_modify_event_obj<'a>(ctx: &mut MatchContext<'a>, ptr_str: &str, rhs: &Rhs) -> EmptyResult {
     let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
     let values = rhs_to_values(rhs, ctx)?;
     if values.len() != 1 {
@@ -100,7 +110,7 @@ pub(super) fn process_modify_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_st
     Ok(())
 }
 
-pub(super) fn process_remove_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_str: &str) -> EmptyResult {
+pub(super) fn process_remove_event_obj<'a>(ctx: &mut MatchContext<'a>, ptr_str: &str) -> EmptyResult {
     let modified_counter = counter!(RESOURCE_MODIFIED_COUNTER);
     let reified_ptrs = reify_pointers(ptr_str, ctx)?;
     remove_all_pointers(ctx.obj, &reified_ptrs)?;
@@ -110,7 +120,9 @@ pub(super) fn process_remove_event_obj<'a>(ctx: &'a mut MatchContext<'a>, ptr_st
 
 pub(super) fn trace_matches(
     trace_selector: &TraceSelector,
+    obj_gvk: &GVK,
     evt_ts: i64,
+    config: &TracerConfig,
     ctx: &mut MatchContext,
 ) -> anyhow::Result<bool> {
     match trace_selector {
@@ -120,7 +132,12 @@ pub(super) fn trace_matches(
                 if !match cond {
                     Conditional::Time { op, ts } => time_conditional_matches(evt_ts, *op, *ts),
                     Conditional::Resource { ptr, op, rhs, var } => {
-                        resource_conditional_matches(ptr, *op, rhs, var, ctx)?
+                        // if any pod spec template field matches, we consider this a match
+                        let mut matches = false;
+                        for p in expand_pod_spec_template(ptr, obj_gvk, config) {
+                            matches |= resource_conditional_matches(&p, *op, rhs, var, ctx)?;
+                        }
+                        matches
                     },
                 } {
                     return Ok(false);
@@ -212,6 +229,7 @@ pub(super) fn resource_conditional_matches(
     maybe_var: &Option<VarDef>,
     ctx: &mut MatchContext, // output parameter
 ) -> anyhow::Result<bool> {
+    // N.B. At this point, we expect the @pst keyword to have already been expanded
     let lhs_selector = if let Some(var) = &maybe_var {
         // An undefined variable should have already been caught by the AST code, this unwrap is safe
         let replaced_selector_str = variable_substitution(lhs_selector_str, &var.name, &var.pointer).unwrap();
@@ -270,12 +288,22 @@ pub(super) fn resource_conditional_matches(
     }
 }
 
-pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> Option<String> {
-    let mut replaced_ptr_str = input.to_string();
-    replaced_ptr_str = replaced_ptr_str.replace(variable_name, variable_pointer);
+pub(super) fn expand_pod_spec_template(input: &str, gvk: &GVK, config: &TracerConfig) -> Vec<String> {
+    if !input.contains(PST_KEYWORD) {
+        return vec![input.into()];
+    }
 
+    config
+        .pod_spec_template_paths(gvk)
+        .unwrap_or_default()
+        .iter()
+        .map(|path| input.replace(PST_KEYWORD, path).replace("//", "/"))
+        .collect()
+}
+
+pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> Option<String> {
     // Vars might start or end with a slash, so remove any double-slashes
-    replaced_ptr_str = replaced_ptr_str.replace("//", "/");
+    let replaced_ptr_str = input.replace(variable_name, variable_pointer).replace("//", "/");
     (replaced_ptr_str != input).then_some(replaced_ptr_str)
 }
 

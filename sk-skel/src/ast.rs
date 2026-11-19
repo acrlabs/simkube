@@ -300,6 +300,9 @@ pub(super) fn parse_resource_path(path: Pair<Rule>, defined_vars: &HashSet<Strin
                 ptr.push_str(&path_str[pstart + 1..pend - 1].replace("/", "~1"));
                 i = pend;
             },
+            // Note that the pod_spec_template_path keyword `@pts` just gets substituted into
+            // the resulting pointer wholesale; it will be handled by the engine, so there is
+            // no case for it here.
             x => unreachable!("Rule::{x:?}"),
         }
     }

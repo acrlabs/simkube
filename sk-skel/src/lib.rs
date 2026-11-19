@@ -60,7 +60,7 @@ pub fn process_trace(
     for evt in trace_events_json.as_array().unwrap().iter() {
         let mut new_event = evt.clone();
         for cmd in commands {
-            new_event = process_json_event(cmd, new_event)?;
+            new_event = process_json_event(cmd, new_event, &trace.config)?;
         }
 
         // Only add the event if it actually does anything
