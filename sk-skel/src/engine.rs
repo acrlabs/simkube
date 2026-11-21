@@ -19,9 +19,10 @@ use crate::context::*;
 use crate::errors::SkelError;
 use crate::metric_names::*;
 
-type ObjectRecord = Value;
-// Main entrypoint function for SKEL
-// evaluates the cmd against a given event
+type TraceObject = Value;
+
+// apples the list of SKEL commands to a single trace event, serializes and deserializes the event
+// to do this
 pub(super) fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Result<TraceEvent> {
     let ts = evt.ts;
     let mut deleted = serde_json::to_value(&evt.deleted_objs)?;
@@ -29,7 +30,7 @@ pub(super) fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Resul
     let applied_arr = applied.as_array_mut().expect("It was just an array so it should still be");
     let deleted_arr = deleted.as_array_mut().expect("It was just an array so it should still be");
     // since we operate object wise there is an argument for serdeing on the object level
-    // it should be perftested as thats the largest argument for/against it
+    // it should be perf tested as that's the largest argument for/against it
     for objects in [&mut *applied_arr, &mut *deleted_arr] {
         for cmd in cmds {
             for obj in objects.iter_mut() {
@@ -51,7 +52,7 @@ pub(super) fn process_event(cmds: &[Command], evt: &TraceEvent) -> anyhow::Resul
 /// this takes one of those object records and applies the associated command to it
 /// to be clear this *does not* process a full trace event
 /// but instead the objects within each trace event
-fn process_object_record(cmd: &Command, obj: &mut ObjectRecord, evt_ts: i64) -> EmptyResult {
+fn process_object_record(cmd: &Command, obj: &mut TraceObject, evt_ts: i64) -> EmptyResult {
     let mut ctx = MatchContext::new(obj);
     let matched_counter = counter!(EVENT_MATCHED_COUNTER);
     if trace_matches(&cmd.trace_selector, evt_ts, &mut ctx)? {
@@ -146,7 +147,7 @@ pub(super) fn time_conditional_matches(evt_ts: i64, op: TestOperation, ts: i64) 
 // A resource conditional is a <resource_selector> <op> <val> tuple, but it gets complicated because
 // you can define a variable that is referenced both in the conditional, as well as later-on in the
 // action.  Each resource conditional only allows you to define a single variable, which is passed
-// in here as the `maybe_var` option.  If we don't have such a variable defined, the task is simple:
+// in here as the `maybe_var` option. If we don't have such a variable defined, the task is simple:
 // map the selector into the JSON Value(s) and check if the object at that/those location matches.
 //
 // The plurals above are important, because a resource selector can match multiple paths, e.g.,
@@ -231,8 +232,8 @@ pub(super) fn resource_conditional_matches(
     // This feels like maybe a bit of a footgun but I also don't know an easy way to work around it
     // right now.
     for (lhs_ptr, lhs) in matches(&lhs_selector, ctx.obj).into_iter() {
-        // This is extremely subtle: in the event that we're checking for non-existence,
-        // we need to test that _all_ of the possible values don't match.  So we keep track of a
+        // This is extremely subtle: in the event that we're checking for nonexistence,
+        // we need to test that _all_ the possible values don't match. So we keep track of a
         // match_found variable that tracks if anything matches, and negate it if the operation is
         // NotExists and we found something.
         //
@@ -267,10 +268,8 @@ pub(super) fn resource_conditional_matches(
         Ok(false)
     }
 }
-
-/// Mostly a fancy search and replace
-/// for a given input string, replaces all of the occurences of variable_name, with variable_pointer
-/// Returns none if no substitutions take place
+/// Replaces all occurrences of variable_name with variable_pointer in input.
+/// Returns None if no variable_name present in input
 pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_pointer: &str) -> Option<String> {
     let mut replaced_ptr_str = input.to_string();
     replaced_ptr_str = replaced_ptr_str.replace(variable_name, variable_pointer);
@@ -281,7 +280,7 @@ pub(super) fn variable_substitution(input: &str, variable_name: &str, variable_p
 }
 
 /// Gets real pointers from context
-/// Takes an open path with unbound variables ie a path with variables
+/// Takes an open path with unbound variables i.e. a path with variables
 /// and binds them returning a list of concrete paths
 /// Keep in mind that selector variables are arrays of path components
 /// so we return one path for each member of the list
@@ -302,7 +301,7 @@ pub(super) fn reify_pointers(ptr_str: &str, ctx: &MatchContext) -> anyhow::Resul
     Ok(reified_ptrs.into_iter().map(PointerBuf::parse).collect::<Result<Vec<_>, _>>()?)
 }
 
-/// Evaluates/Reads the right hand side of an expression
+/// Evaluates/Reads the right-hand side of an expression
 /// binding the abstract form to a concrete set of values,
 /// Which is the concrete representation of variables in our DSL
 pub(super) fn rhs_to_values<'a, 'b>(rhs: &'b Rhs, ctx: &'a MatchContext) -> anyhow::Result<Vec<&'b Value>>
@@ -331,7 +330,7 @@ where
     })
 }
 
-/// Evalutes a comparison between an evaluated left hand side and an unbound righthand side
+/// Infix boolean comparison between an evaluated left-hand-side and an unbound right-hand-side
 fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchContext) -> anyhow::Result<bool> {
     let rhs_value_candidates = match rhs {
         Some(rhs) => rhs_to_values(rhs, ctx)?,
@@ -350,14 +349,14 @@ fn lhs_op_rhs(lhs: &Value, op: TestOperation, rhs: &Option<Rhs>, ctx: &MatchCont
 }
 
 /// Takes a List of pointer paths and removes every target in object
-/// because of array indexing shifts this is harder then it seems
+/// because of array indexing shifts this is harder than it seems
 fn remove_all_pointers(obj: &mut Value, pointers: &[PointerBuf]) -> EmptyResult {
     let mut removed = 0;
     let mut parent_ptr = PointerBuf::new();
     for mut ptr in pointers.iter().cloned() {
         // When we remove an entry from the array, the length of the array (and any subsequent array
         // indices) all need to shift down by one; we keep track of the shift with the "removed"
-        // value.  However, if there are nested arrays, we need to reset the "removed" counter
+        // value. However, if there are nested arrays, we need to reset the "removed" counter
         // whenever we transition to a new "parent" element, which we track in the parent_ptr
         // variable.
         //

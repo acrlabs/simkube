@@ -30,7 +30,7 @@ pub mod metric_names {
 #[grammar = "src/skel.pest"]
 struct SkelParser;
 
-// SKEL main execution function
+// SKEL execution function
 // takes a parsed set of skel commands and runs them against a trace
 pub fn process_trace(
     trace: &Trace,
@@ -40,7 +40,7 @@ pub fn process_trace(
     let mut new_events = Vec::with_capacity(trace.events.len());
 
     // To resolve JSON pointers we need things as json::Value objects; it's more
-    // efficient to serialize all of the events once than it is to do it in the loop
+    // efficient to serialize all the events once than it is to do it in the loop
     for evt in trace.events.iter() {
         let new_event = process_event(commands, evt)?;
 
@@ -55,9 +55,8 @@ pub fn process_trace(
 
     Ok(new_events)
 }
-
-/// SKEL Main function, parses a SKEL file/string  and applies it to a trace end to end returning
-/// progress updates through event_counter
+/// Parses the contents of a SKEL file into the SKEL AST and applies the commands to a trace;
+/// progress is communicated through the event counter.
 pub async fn apply_skel(
     trace: &Trace,
     skel_str: &str,
@@ -75,7 +74,7 @@ pub async fn apply_skel(
     Ok(new_trace)
 }
 
-/// Main Parsing function, handles parsing of a SKEL string/file, and returns all the commands
+/// Handles parsing of a SKEL string/file, and returns all the commands
 /// contained within dispatches to individual handlers through [parse_command]
 pub fn parse_skel_commands(skel_str: &str, start_ts: i64) -> anyhow::Result<Vec<Command>> {
     let skel = SkelParser::parse(Rule::skel, skel_str)?;
