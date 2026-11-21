@@ -13,10 +13,7 @@ use sk_core::k8s::{
     build_pod_self_owner_reference,
 };
 use sk_core::prelude::*;
-use sk_skel::{
-    parse_skel_commands,
-    process_event,
-};
+use sk_skel::apply_skel;
 use tokio::sync::Mutex;
 use tracing::*;
 
@@ -92,31 +89,25 @@ impl TraceStore {
         // flattened_objects is a list of everything that happened before start_ts but is
         // still present at start_ts -- i.e., it is our starting configuration.
         let mut flattened_objects = HashMap::new();
-        let parsed_commands =
-            if let Some(skel_str) = maybe_skel_str { parse_skel_commands(skel_str, start_ts)? } else { vec![] };
         let mut all_objects = HashSet::new();
 
-        for evt in self.events.iter() {
-            // trace should be end-exclusive, so we use >= here: anything that is at the
-            // end_ts or greater gets discarded.  The event list is stored in
-            // monotonically-increasing order so we are safe to break here.
-            if evt.ts >= end_ts {
-                break;
-            }
-
-            // process event with skel commands
-            let transformed_evt;
-            let evt = if !parsed_commands.is_empty() {
-                let mut current = evt.clone();
-                for cmd in &parsed_commands {
-                    current = process_event(cmd, current)?;
-                }
-                transformed_evt = current;
-                &transformed_evt
-            } else {
-                evt
+        let processed_events = if let Some(skel_str) = maybe_skel_str {
+            // Fake trace to use apply_skel on, this keeps the interface unified
+            let dummy_trace = Trace {
+                config: self.config.clone(),
+                // trace should be end-exclusive, so we use >= here: anything that is at the
+                // end_ts or greater gets discarded.  The event list is stored in
+                // monotonically-increasing order so we are safe to break here.
+                // the filter is cargo culted from the previous implementation that ran its own apply
+                events: events.clone().into_iter().filter(|x| x.ts < end_ts).collect(),
+                ..Default::default()
             };
+            apply_skel(&dummy_trace, skel_str, None).await?.events
+        } else {
+            events.clone().into_iter().filter(|x| x.ts < end_ts).collect()
+        };
 
+        for evt in processed_events {
             let mut filtered_applied_objs = vec![];
             let mut filtered_deleted_objs = vec![];
 

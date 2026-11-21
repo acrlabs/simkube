@@ -68,7 +68,8 @@ pub async fn cmd(args: &Args) -> EmptyResult {
     let clock = UtcClock::new();
     let start_time = clock.now();
     let skel_contents = fs::read_to_string(args.skel_file.clone())?;
-    let transform_task = tokio::spawn(async move { apply_skel(&trace, &skel_contents, task_event_counter).await });
+    let transform_task =
+        tokio::spawn(async move { apply_skel(&trace, &skel_contents, Some(task_event_counter)).await });
     while !transform_task.is_finished() {
         tokio::time::sleep(Duration::from_millis(SPINNER_REFRESH_RATE)).await;
         let count = event_counter.load(Ordering::Relaxed);

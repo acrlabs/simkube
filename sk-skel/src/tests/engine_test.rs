@@ -74,11 +74,11 @@ fn test_process_event_deleted_obj(test_deployment: DynamicObject) {
         deleted_objs: vec![],
     };
     evt = process_event(
-        &Command {
+        &[Command {
             action: CommandAction::Delete,
             trace_selector: TraceSelector::All,
-        },
-        evt,
+        }],
+        &evt,
     )
     .unwrap();
 

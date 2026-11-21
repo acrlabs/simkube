@@ -14,6 +14,8 @@ use serde_json::Value;
 use crate::Rule;
 use crate::errors::SkelError;
 
+type TargetPath = String;
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum TestOperation {
     Eq,
@@ -51,7 +53,7 @@ pub(super) enum Conditional {
         var: Option<VarDef>,
     },
 }
-
+/// Parsed representation of conditionals that can match (select) trace objects
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum TraceSelector {
     All,
@@ -61,8 +63,8 @@ pub(super) enum TraceSelector {
 #[derive(Debug, Eq, PartialEq)]
 pub(super) enum CommandAction {
     Delete,
-    Modify(String, Rhs),
-    Remove(String),
+    Modify(TargetPath, Rhs),
+    Remove(TargetPath),
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -70,7 +72,7 @@ pub struct Command {
     pub(super) trace_selector: TraceSelector,
     pub(super) action: CommandAction,
 }
-
+/// Parses a command from the PEST grammar into the SKEL AST
 pub(super) fn parse_command(cmd: Pair<Rule>, trace_start_ts: i64) -> anyhow::Result<Command> {
     let rule = cmd.as_rule();
     let args = cmd.into_inner();
